@@ -14,6 +14,26 @@
             <ResourceDictionary Source="ManageResources.xaml" />
         </ResourceDictionary.MergedDictionaries>
 
+        <!--
+            期間で変わる欄の見出しの横の札（ユーザ判断 2026-11-18・open.md 104：どの期間を見ているか欄ごとに分かるように）。
+            全期間のままの欄には付けない。札の有る無しで、期間で変わる欄と見分ける
+        -->
+        <Style x:Key="PeriodPill" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource AccentSoft}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="6,1" />
+            <Setter Property="Margin" Value="10,0,0,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="ToolTip" Value="この欄は、選んだ期間で数えます。" />
+            <Setter Property="AutomationProperties.Name" Value="{Binding PeriodText, StringFormat={}{0}で数えています}" />
+        </Style>
+        <Style x:Key="PeriodPillText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+        </Style>
+
         <!-- 棒そのものを押せるようにする。行の見た目は中身に任せ、枠は出さない -->
         <Style x:Key="RowButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent" />
@@ -121,11 +141,49 @@
                                TextTrimming="CharacterEllipsis" />
                 </DockPanel>
 
-                <ComboBox HorizontalAlignment="Right" VerticalAlignment="Center" Width="150"
-                          AutomationProperties.Name="集計する期間"
-                      ItemsSource="{x:Static vm:StatsViewModel.Ranges}"
-                          SelectedItem="{Binding Range, Mode=TwoWay}"
-                          DisplayMemberPath="Label" />
+                <!--
+                    期間（ユーザ判断 2026-11-18・open.md 104）。「年を選ぶ」は右に年の欄、「開始と終了を選ぶ」は右に日の欄2つ（カレンダーは検索の日付の条件と同じ部品）
+                -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <ComboBox VerticalAlignment="Center" Width="150"
+                              AutomationProperties.Name="集計する期間" AutomationProperties.AutomationId="StatsRange"
+                              ItemsSource="{x:Static vm:StatsViewModel.Ranges}"
+                              SelectedItem="{Binding Range, Mode=TwoWay}"
+                              DisplayMemberPath="Label" />
+                    <ComboBox VerticalAlignment="Center" Width="90" Margin="6,0,0,0"
+                              AutomationProperties.Name="集計する年" AutomationProperties.AutomationId="StatsYear"
+                              ItemsSource="{Binding Years}" SelectedItem="{Binding SelectedYear, Mode=TwoWay}"
+                              ItemStringFormat="{}{0}年"
+                              Visibility="{Binding IsPickYear, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <StackPanel Orientation="Horizontal" Margin="6,0,0,0"
+                                Visibility="{Binding IsCustom, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                        <ToggleButton x:Name="StatsFromButton" Height="26" Padding="8,0" ToolTip="開始の日をカレンダーで選びます。"
+                                      AutomationProperties.AutomationId="StatsCustomFrom" AutomationProperties.Name="開始の日をカレンダーで選ぶ">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="M4,6 H20 V20 H4 Z M4,10 H20 M8,3.5 V7.5 M16,3.5 V7.5" Stroke="{DynamicResource TextMuted}"
+                                      StrokeThickness="1.6" Width="14" Height="14" Stretch="Uniform" Margin="0,0,6,0" />
+                                <TextBlock Text="{Binding CustomFromText}" Style="{StaticResource Mono}" FontSize="12" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </ToggleButton>
+                        <Popup IsOpen="{Binding IsChecked, ElementName=StatsFromButton}" StaysOpen="False" controls:CalendarMonth.FollowsSelection="True"
+                               PlacementTarget="{Binding ElementName=StatsFromButton}" Placement="Bottom">
+                            <Calendar SelectedDate="{Binding CustomFrom, Mode=TwoWay}" />
+                        </Popup>
+                        <TextBlock Text="〜" VerticalAlignment="Center" Margin="6,0" Style="{StaticResource Caption}" />
+                        <ToggleButton x:Name="StatsToButton" Height="26" Padding="8,0" ToolTip="終了の日をカレンダーで選びます。"
+                                      AutomationProperties.AutomationId="StatsCustomTo" AutomationProperties.Name="終了の日をカレンダーで選ぶ">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="M4,6 H20 V20 H4 Z M4,10 H20 M8,3.5 V7.5 M16,3.5 V7.5" Stroke="{DynamicResource TextMuted}"
+                                      StrokeThickness="1.6" Width="14" Height="14" Stretch="Uniform" Margin="0,0,6,0" />
+                                <TextBlock Text="{Binding CustomToText}" Style="{StaticResource Mono}" FontSize="12" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </ToggleButton>
+                        <Popup IsOpen="{Binding IsChecked, ElementName=StatsToButton}" StaysOpen="False" controls:CalendarMonth.FollowsSelection="True"
+                               PlacementTarget="{Binding ElementName=StatsToButton}" Placement="Bottom">
+                            <Calendar SelectedDate="{Binding CustomTo, Mode=TwoWay}" />
+                        </Popup>
+                    </StackPanel>
+                </StackPanel>
             </controls:SplitRowPanel>
         </Border>
 
@@ -153,6 +211,9 @@
                                 <TextBlock Text="{Binding OwnedText}" Style="{StaticResource Mono}"
                                            FontSize="27" FontWeight="Bold" Margin="0,5,0,0" />
                                 <TextBlock Text="{Binding OwnedSubText}" Style="{StaticResource Caption}" Margin="0,3,0,0" />
+                                <TextBlock Text="{Binding PeriodOwnedText}" Style="{StaticResource Mono}" FontSize="12" Margin="0,3,0,0"
+                                           Foreground="{DynamicResource Accent}" ToolTip="選んだ期間の値です。"
+                                           Visibility="{Binding ShowsPeriodTiles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             </StackPanel>
                         </Border>
                         <Border Style="{StaticResource Card}" Margin="0,0,14,0" Padding="18,15">
@@ -161,6 +222,9 @@
                                 <TextBlock Text="{Binding SpentText}" Style="{StaticResource Mono}"
                                            FontSize="27" FontWeight="Bold" Margin="0,5,0,0" />
                                 <TextBlock Text="{Binding SpentSubText}" Style="{StaticResource Caption}" Margin="0,3,0,0" />
+                                <TextBlock Text="{Binding PeriodSpentText}" Style="{StaticResource Mono}" FontSize="12" Margin="0,3,0,0"
+                                           Foreground="{DynamicResource Accent}" ToolTip="選んだ期間の値です。"
+                                           Visibility="{Binding ShowsPeriodTiles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             </StackPanel>
                         </Border>
                         <!--
@@ -175,6 +239,9 @@
                                 <TextBlock Text="{Binding GivenText}" Style="{StaticResource Mono}"
                                            FontSize="27" FontWeight="Bold" Margin="0,5,0,0" />
                                 <TextBlock Text="{Binding GivenSubText}" Style="{StaticResource Caption}" Margin="0,3,0,0" />
+                                <TextBlock Text="{Binding PeriodGivenText}" Style="{StaticResource Mono}" FontSize="12" Margin="0,3,0,0"
+                                           Foreground="{DynamicResource Accent}" ToolTip="選んだ期間の値です。"
+                                           Visibility="{Binding ShowsPeriodTiles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             </StackPanel>
                         </Border>
                         <Border Style="{StaticResource Card}" Margin="0,0,14,0" Padding="18,15">
@@ -190,9 +257,16 @@
                                 <TextBlock Text="ショップ数" Style="{StaticResource SectionLabel}" />
                                 <TextBlock Text="{Binding ShopCountText}" Style="{StaticResource Mono}"
                                            FontSize="27" FontWeight="Bold" Margin="0,5,0,0" />
+                                <TextBlock Text="{Binding PeriodShopCountText}" Style="{StaticResource Mono}" FontSize="12" Margin="0,3,0,0"
+                                           Foreground="{DynamicResource Accent}" ToolTip="選んだ期間の値です。"
+                                           Visibility="{Binding ShowsPeriodTiles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             </StackPanel>
                         </Border>
                     </UniformGrid>
+
+                    <!-- 日付の分からない商品は期間に入らない。期間で変わる欄の全部に効くので、グラフの下ではなくここで断る（open.md 104） -->
+                    <TextBlock Text="{Binding PeriodNote}" Style="{StaticResource Caption}" Margin="0,10,0,0" TextWrapping="Wrap"
+                               Visibility="{Binding HasPeriodNote, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                     <!-- 総額に入っていない分。数字の隣ではなく、独立した断り書きとして出す -->
                     <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
@@ -208,6 +282,7 @@
                             <Expander.Header>
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="支出の推移" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
+                                    <Border Style="{StaticResource PeriodPill}"><TextBlock Text="{Binding PeriodText}" Style="{StaticResource PeriodPillText}" /></Border>
                                     <TextBlock Text="入手日で数えます。ギフトは含みません。" Style="{StaticResource Caption}"
                                                Margin="10,0,0,0" VerticalAlignment="Center" />
                                 </StackPanel>
@@ -359,6 +434,7 @@
                                 <Expander.Header>
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="ショップ" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
+                                        <Border Style="{StaticResource PeriodPill}"><TextBlock Text="{Binding PeriodText}" Style="{StaticResource PeriodPillText}" /></Border>
                                         <TextBlock Text="上位10件" Style="{StaticResource Caption}"
                                                    Margin="10,0,0,0" VerticalAlignment="Center" />
                                     </StackPanel>
@@ -380,7 +456,7 @@
                                     </controls:ContentItemsControl>
                                     <Border Height="1" Background="{DynamicResource Divider}" Margin="0,10,0,10" />
                                     <Grid>
-                                        <TextBlock Text="また買っているか" Style="{StaticResource Caption}" />
+                                        <TextBlock Text="全期間でまた買っているか" Style="{StaticResource Caption}" />
                                         <TextBlock Text="{Binding RepeatText}" Style="{StaticResource Mono}" FontSize="12"
                                                    HorizontalAlignment="Right" />
                                     </Grid>
@@ -565,7 +641,10 @@
                         <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,8,0" Padding="20,18">
                             <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding Panels[prices], Mode=TwoWay}" AutomationProperties.Name="価格帯">
                                 <Expander.Header>
-                                    <TextBlock Text="価格帯" Style="{StaticResource PanelTitle}" />
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="価格帯" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
+                                        <Border Style="{StaticResource PeriodPill}"><TextBlock Text="{Binding PeriodText}" Style="{StaticResource PeriodPillText}" /></Border>
+                                    </StackPanel>
                                 </Expander.Header>
                                 <StackPanel>
                                     <controls:ContentItemsControl ItemsSource="{Binding PriceBuckets}" Margin="0,14,0,0"
@@ -655,7 +734,10 @@
                         <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,8,0" Padding="20,18">
                             <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding Panels[categories], Mode=TwoWay}" AutomationProperties.Name="カテゴリ">
                                 <Expander.Header>
-                                    <TextBlock Text="カテゴリ" Style="{StaticResource PanelTitle}" />
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="カテゴリ" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
+                                        <Border Style="{StaticResource PeriodPill}"><TextBlock Text="{Binding PeriodText}" Style="{StaticResource PeriodPillText}" /></Border>
+                                    </StackPanel>
                                 </Expander.Header>
                                 <StackPanel>
                                     <TextBlock Text="支出" Style="{StaticResource SectionLabel}" Margin="0,12,0,8" />
@@ -669,7 +751,10 @@
                         <Border Grid.Column="1" Style="{StaticResource Card}" Margin="8,0,0,0" Padding="20,18">
                             <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding Panels[userTags], Mode=TwoWay}" AutomationProperties.Name="ユーザータグ">
                                 <Expander.Header>
-                                    <TextBlock Text="ユーザータグ" Style="{StaticResource PanelTitle}" />
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="ユーザータグ" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
+                                        <Border Style="{StaticResource PeriodPill}"><TextBlock Text="{Binding PeriodText}" Style="{StaticResource PeriodPillText}" /></Border>
+                                    </StackPanel>
                                 </Expander.Header>
                                 <StackPanel>
                                     <TextBlock Text="{Binding UserTagSpendNote}" Style="{StaticResource Caption}"

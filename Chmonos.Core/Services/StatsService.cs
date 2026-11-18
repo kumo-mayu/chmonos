@@ -356,7 +356,14 @@ public sealed record StatsAvatarWearable
 public interface IStatsService
 {
     Task<StatsSnapshot> LoadAsync(bool useDetectedVariationTargets = true, CancellationToken cancellationToken = default);
+
+    /// <summary>集計の元（全商品・登録簿・未確定の数）。期間を替えるたびに読み直さないよう、画面が持って期間ごとに集計し直す（open.md 104）</summary>
+    Task<StatsSource> LoadSourceAsync(CancellationToken cancellationToken = default);
 }
+
+/// <summary>集計の元。<see cref="Dated"/> は期間で絞るための日付の控え（読み込みの時に1回だけ求める）</summary>
+public sealed record StatsSource(
+    IReadOnlyList<ItemRecord> Items, AvatarRegistry Registry, int UnresolvedCount, IReadOnlyList<StatsDatedItem> Dated);
 
 /// <summary>
 /// ライブラリ全体の集計。
@@ -389,6 +396,15 @@ public sealed class StatsService : IStatsService
         var unresolved = (await _store.Unresolved.LoadAsync(cancellationToken)).Count;
 
         return Build(loaded.Items, registry, unresolved, useDetectedVariationTargets);
+    }
+
+    public async Task<StatsSource> LoadSourceAsync(CancellationToken cancellationToken = default)
+    {
+        var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
+        var registry = _store.Avatars.Load();
+        var unresolved = (await _store.Unresolved.LoadAsync(cancellationToken)).Count;
+        cancellationToken.ThrowIfCancellationRequested();
+        return new StatsSource(loaded.Items, registry, unresolved, StatsPeriods.Date(loaded.Items));
     }
 
     /// <summary>実際の集計。ファイル読み込みから切り離してあるのでテストから直に呼べる。</summary>

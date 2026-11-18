@@ -23,7 +23,7 @@ public sealed class StatsShopOrderTests
         Local = new LocalBlock
         {
             LocalFiles = [new LocalFileRecord { Hash = "h" + id, Paths = [@"C:\none\" + id + ".zip"], SizeBytes = 1 }],
-            Purchases = [new Purchase { VariationId = 1, Price = price }],
+            Purchases = [new Purchase { VariationId = 1, Price = price, PurchasedAt = new DateOnly(2026, 11, 1) }],
         },
     };
 
@@ -36,7 +36,7 @@ public sealed class StatsShopOrderTests
         await app.AddItemAsync(Item("4", "liked", 100, 900));
         var main = await app.StartAsync();
 
-        var stats = new StatsViewModel(app.Services, main);
+        var stats = new StatsViewModel(app.Services, main, new DateOnly(2026, 11, 19));
         await UiThread.Until(() => !stats.IsLoading && stats.Shops.Count > 0, "統計の集計");
 
         Assert.True(stats.ShopOrderSpent);
@@ -55,7 +55,7 @@ public sealed class StatsShopOrderTests
         Assert.Equal("スキ 900", stats.Shops[0].ValueText);
         Assert.All(stats.Shops, row => Assert.True(row.CanOpen));
 
-        var reopened = new StatsViewModel(app.Services, main);
+        var reopened = new StatsViewModel(app.Services, main, new DateOnly(2026, 11, 19));
         await UiThread.Until(() => !reopened.IsLoading && reopened.Shops.Count > 0, "統計の集計");
         Assert.True(reopened.ShopOrderWish);
         Assert.Equal("liked", reopened.Shops[0].Label);

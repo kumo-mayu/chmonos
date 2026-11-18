@@ -464,6 +464,8 @@ internal static partial class Scenes
             var (main, root) = await OpenLibraryAsync(context);
             main.ShowStatsCommand.Execute(null);
             var stats = context.Screen<StatsViewModel>();
+            // 作り物の商品の日付は 2026-09-01 で決まっているので、今日に左右されないよう全期間で撮る（期間の既定は直近12ヶ月）
+            stats.Range = StatsViewModel.Ranges.Single(option => option.Kind == StatsRangeKind.All);
             await SceneContext.UntilAsync(() => stats.Shops.Count > 0 && stats.Categories.Count > 0, "統計の行が並ぶ");
             await context.SettleAsync();
             return new Shot(root);
