@@ -81,6 +81,7 @@ public sealed class ProbeHost : IItemCardHost
     {
         OpenBoothCommand = Logged("BOOTHで開く"),
         CopyLinkCommand = Logged("リンクをコピー"),
+        CopyIdCommand = Logged("IDをコピー"),
         OpenShopCommand = Logged("ショップを開く"),
         EditItemCommand = Logged("編集画面を開く"),
         CardAddToModificationCommand = Logged("改変に追加"),
