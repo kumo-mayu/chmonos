@@ -41,6 +41,28 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
     private UnityTools _tools = UnityTools.Unknown;
 
     private IReadOnlyList<ModificationRecord> _records = [];
+
+    /// <summary>
+    /// 記録を読み始めた順の番号（<see cref="_recordsReadStarted"/>）と、一覧に使っている読みの番号。
+    /// 窓が手前に戻った時の読み直しは Hub・VCC の一覧を待つので遅く、削除の確認の窓を閉じた時にも走る。
+    /// 削除の後の読み直しが先に終わり、削除の前に読み始めた遅い方が後から古い記録で上書きして、消した改変が左に残った（feedback 2026-11-18）。
+    /// 後から読み始めた物を勝たせる
+    /// </summary>
+    private int _recordsReadStarted;
+    private int _recordsReadApplied;
+
+    private bool TryApplyRecords(int ticket, IReadOnlyList<ModificationRecord> records)
+    {
+        if (ticket < _recordsReadApplied)
+        {
+            return false;
+        }
+
+        _recordsReadApplied = ticket;
+        _records = records;
+        return true;
+    }
+
     private IReadOnlyList<UnityProjectCandidate> _projects = [];
     private Dictionary<string, AvatarSummary> _avatars = new(StringComparer.Ordinal);
     private Dictionary<string, ItemRecord> _items = new(StringComparer.Ordinal);
@@ -495,6 +517,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
         _isLoading = true;
         OnPropertyChanged(nameof(EmptyText));
 
+        var ticket = ++_recordsReadStarted;
         var modifications = _services.Modifications.LoadAllAsync(token);
         var avatars = Task.Run(() => _services.Avatars.LoadAsync(token), token);
         var projects = Task.Run(() => _services.DiscoverUnityProjects(), token);
@@ -517,7 +540,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
             .GroupBy(summary => summary.Entry.ItemId, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
 
-        _records = modifications.Result.Modifications;
+        TryApplyRecords(ticket, modifications.Result.Modifications);
         _projects = await WithLinkedProjectsAsync(projects.Result);
 
         // 使ったものの行の絵の場所は、行を組む前に裏でまとめて引く（行を組むのは画面のスレッドで、検索の1文字ごとにも組み直す）
@@ -572,8 +595,13 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
 
     private async Task RefreshRecordsAsync()
     {
+        var ticket = ++_recordsReadStarted;
         var loaded = await _services.Modifications.LoadAllAsync();
-        _records = loaded.Modifications;
+        if (!TryApplyRecords(ticket, loaded.Modifications))
+        {
+            return;
+        }
+
         _projects = await WithLinkedProjectsAsync(_projects.Where(candidate => candidate.Source != UnityProjectSource.None).ToList());
         Rebuild();
     }
@@ -605,6 +633,7 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
         var token = _leaving.Token;
         try
         {
+            var ticket = ++_recordsReadStarted;
             var modifications = _services.Modifications.LoadAllAsync(token);
             var avatars = Task.Run(() => _services.Avatars.LoadAsync(token), token);
             var projects = Task.Run(() => _services.DiscoverUnityProjects(), token);
@@ -612,7 +641,8 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
             await Task.WhenAll(modifications, avatars, projects, tools);
             token.ThrowIfCancellationRequested();
 
-            _records = modifications.Result.Modifications;
+            // 遅れて終わった時は、記録だけ後の読みのままにする（アバター・プロジェクト・ツールは使う）
+            TryApplyRecords(ticket, modifications.Result.Modifications);
             _avatars = avatars.Result
                 .GroupBy(summary => summary.Entry.ItemId, StringComparer.Ordinal)
                 .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
