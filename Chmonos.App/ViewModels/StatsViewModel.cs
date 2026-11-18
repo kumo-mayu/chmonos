@@ -400,7 +400,9 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
     private async Task LoadCoreAsync()
     {
         var token = _leaving.Token;
-        var snapshot = await Task.Run(() => _services.Stats.LoadAsync(token), token);
+        // アバターの欄は検索と同じ設定で、持っていないバリエーションの分を外す（open.md 106）
+        var useDetected = _services.Settings.UseDetectedVariationTargets;
+        var snapshot = await Task.Run(() => _services.Stats.LoadAsync(useDetected, token), token);
 
         RunOnUiThread(() =>
         {

@@ -323,7 +323,7 @@ public sealed record StatsAvatarWearable
 
 public interface IStatsService
 {
-    Task<StatsSnapshot> LoadAsync(CancellationToken cancellationToken = default);
+    Task<StatsSnapshot> LoadAsync(bool useDetectedVariationTargets = true, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -347,21 +347,24 @@ public sealed class StatsService : IStatsService
         _store = store;
     }
 
-    public async Task<StatsSnapshot> LoadAsync(CancellationToken cancellationToken = default)
+    /// <param name="useDetectedVariationTargets">検索と同じ設定（<see cref="AppSettings.UseDetectedVariationTargets"/>）。アバターの欄で持っていないバリエーションの分を外すときに、検出した向き先も使うか</param>
+    /// <param name="cancellationToken">離れたら取り消す</param>
+    public async Task<StatsSnapshot> LoadAsync(bool useDetectedVariationTargets = true, CancellationToken cancellationToken = default)
     {
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
         var registry = _store.Avatars.Load();
         // 統計の画面は画面のスレッドから開く。上の await の続きもそこへ戻るので、未確定の記録（件数に比例して大きい）は裏で読む
         var unresolved = (await _store.Unresolved.LoadAsync(cancellationToken)).Count;
 
-        return Build(loaded.Items, registry, unresolved);
+        return Build(loaded.Items, registry, unresolved, useDetectedVariationTargets);
     }
 
     /// <summary>実際の集計。ファイル読み込みから切り離してあるのでテストから直に呼べる。</summary>
     public static StatsSnapshot Build(
         IReadOnlyList<ItemRecord> items,
         AvatarRegistry registry,
-        int unresolvedCount)
+        int unresolvedCount,
+        bool useDetectedVariationTargets = true)
     {
         var owned = items.Where(IsOwned).ToList();
 
@@ -456,7 +459,7 @@ public sealed class StatsService : IStatsService
 
             members.Add(item);
 
-            CountAvatars(item, compatibility, avatars, ref withoutAvatar);
+            CountAvatars(item, compatibility, useDetectedVariationTargets, avatars, ref withoutAvatar);
         }
 
         var avatarBars = BuildAvatarBars(owned, registry, avatars, withoutAvatar);
@@ -516,7 +519,7 @@ public sealed class StatsService : IStatsService
         };
 
         // 選んで出す項目は同じ走査結果から組み立てる
-        return StatsExtras.Enrich(snapshot, items, owned, registry);
+        return StatsExtras.Enrich(snapshot, items, owned, registry, useDetectedVariationTargets);
     }
 
     /// <summary>
@@ -575,10 +578,16 @@ public sealed class StatsService : IStatsService
     /// 同じアバターに複数の紐付けがあっても1件として数える（推定と手入力が重なることがある）。
     /// 素体に対応していれば、その素体を使っているアバターにも数える
     /// （素体向けの衣装は、その素体を使うアバターでも着られるため）。
+    ///
+    /// 持っていないバリエーションの分（<see cref="AvatarCompatibilityIndex.UnownedVariationAvatars"/>）は数えない（open.md 106・ユーザ指摘 2026-11-18）。
+    /// 検索の「持っているバリエーションの分だけ」・変換・商品ページと同じ式と設定にして、統計だけ別の数を出さないため。
+    /// 引いて1体も残らない商品は「対応アバター未設定」に入れない：対応は人が入れてあり、持っている分が無いだけなので、
+    /// 未設定に数えると「入れてください」と誤って促す
     /// </summary>
     private static void CountAvatars(
         ItemRecord item,
         AvatarCompatibilityIndex compatibility,
+        bool useDetectedVariationTargets,
         Dictionary<string, int> counts,
         ref int withoutAvatar)
     {
@@ -590,8 +599,10 @@ public sealed class StatsService : IStatsService
             return;
         }
 
+        var unowned = compatibility.UnownedVariationAvatars(item.Local, useDetectedVariationTargets);
+
         // 直接対応も素体経由も同じ1件として数える（見出しに「素体経由を含む」と断る）
-        foreach (var id in reached.Keys)
+        foreach (var id in reached.Keys.Where(id => !unowned.Contains(id)))
         {
             counts[id] = counts.TryGetValue(id, out var current) ? current + 1 : 1;
         }

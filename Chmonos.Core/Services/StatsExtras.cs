@@ -24,7 +24,8 @@ public static class StatsExtras
         StatsSnapshot snapshot,
         IReadOnlyList<ItemRecord> allItems,
         IReadOnlyList<ItemRecord> owned,
-        AvatarRegistry registry)
+        AvatarRegistry registry,
+        bool useDetectedVariationTargets = true)
     {
         var compatibility = AvatarCompatibilityIndex.Build(registry);
 
@@ -60,7 +61,7 @@ public static class StatsExtras
             AttributeDistributions = Distributions(owned),
             AttributeCorrelations = Correlations(owned),
             CorrelationMinimum = CorrelationMinimum,
-            Wearables = Wearables(owned, registry, compatibility),
+            Wearables = Wearables(owned, registry, compatibility, useDetectedVariationTargets),
             UnsortedOwnedCount = owned.Count(item => item.Local.UserTags.Count == 0),
             HiddenCount = allItems.Count(item => item.Local.IsHidden),
             EndOfSaleCount = owned.Count(item => item.Booth.IsEndOfSale),
@@ -447,11 +448,13 @@ public static class StatsExtras
     /// <summary>
     /// 所有アバターごとに、着られる所持商品の数。
     /// 素体経由は推定なので、直接対応と分けたまま返す。
+    /// 持っていないバリエーションの分は数えない（アバター別の所持数と同じ式と設定。open.md 106）
     /// </summary>
     private static List<StatsAvatarWearable> Wearables(
         IReadOnlyList<ItemRecord> owned,
         AvatarRegistry registry,
-        AvatarCompatibilityIndex compatibility)
+        AvatarCompatibilityIndex compatibility,
+        bool useDetectedVariationTargets)
     {
         var ownedIds = owned.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
 
@@ -470,8 +473,14 @@ public static class StatsExtras
 
         foreach (var item in owned)
         {
+            var unowned = compatibility.UnownedVariationAvatars(item.Local, useDetectedVariationTargets);
             foreach (var (avatarId, match) in compatibility.Resolve(item.Local))
             {
+                if (unowned.Contains(avatarId))
+                {
+                    continue;
+                }
+
                 var bucket = match == AvatarMatch.Direct ? direct : viaBase;
                 bucket[avatarId] = bucket.TryGetValue(avatarId, out var current) ? current + 1 : 1;
             }
