@@ -220,13 +220,13 @@ public sealed class ItemConversionEditor : ViewModelBase
                 rows.Add(EmptyRow(profile, EmptyReason(profile)));
             }
 
-            rows.AddRange(mine.Select(target => TargetRow(target, TargetName(target), ReasonOf(target), IconFactory(target))));
+            rows.AddRange(mine.Select(target => TargetRow(target, TargetName(target), ReasonOf(target), IconFactory(target), profile)));
         }
 
         // 中のファイルから見つからない（zip を外した・slug の分からない）つなぎ先も、外せるように出す
         rows.AddRange(targets
             .Where(target => !profiles.Any(profile => string.Equals(profile.Slug, target.Slug, StringComparison.OrdinalIgnoreCase)))
-            .Select(target => TargetRow(target, TargetName(target), string.Empty, IconFactory(target))));
+            .Select(target => TargetRow(target, TargetName(target), string.Empty, IconFactory(target), null)));
 
         foreach (var row in rows)
         {
@@ -336,15 +336,19 @@ public sealed class ItemConversionEditor : ViewModelBase
     {
         ProfileText = profile.Slug,
         DirectionText = DirectionText(profile.Forward, profile.Reverse),
+        FileDirection = DirectionCode(profile.Forward, profile.Reverse),
         ReasonText = reason,
         ChooseCommand = new RelayCommand(
             parameter => ChooseAsync(profile, parameter as string).Forget(),
             _ => !_isLocked()),
     };
 
-    private ConversionTargetRow TargetRow(ConversionTarget target, string name, string reason, Func<System.Windows.Media.ImageSource?>? iconFactory) => new()
+    /// <param name="fileProfile">中のファイルから読んだ同じ slug のプロファイル（既定の向き）。中のファイルから見つからない行は null。</param>
+    private ConversionTargetRow TargetRow(
+        ConversionTarget target, string name, string reason, Func<System.Windows.Media.ImageSource?>? iconFactory, ProfileSlug? fileProfile) => new()
     {
         ProfileText = target.Slug ?? string.Empty,
+        FileDirection = fileProfile is null ? string.Empty : DirectionCode(fileProfile.Forward, fileProfile.Reverse),
         DirectionText = DirectionText(target.Forward, target.Reverse),
         TargetText = name,
         ReasonText = reason,
@@ -358,13 +362,7 @@ public sealed class ItemConversionEditor : ViewModelBase
         RemoveCommand = new RelayCommand(
             () => ChangeAsync(ConversionEdits.Reject(target)).Forget(),
             () => !_isLocked()),
-        Direction = (target.Forward, target.Reverse) switch
-        {
-            (true, true) => "both",
-            (true, false) => "forward",
-            (false, true) => "reverse",
-            _ => string.Empty,
-        },
+        Direction = DirectionCode(target.Forward, target.Reverse),
 
         // 向きはふつう中のファイルの名前で決まるので、変える口は右クリックだけに置く（ユーザ判断 2026-11-09「普通は使わない」）
         SetDirectionCommand = new RelayCommand(
@@ -414,6 +412,15 @@ public sealed class ItemConversionEditor : ViewModelBase
             || string.Equals(AvatarNames.ShownName(entry), name, StringComparison.CurrentCultureIgnoreCase)
             || string.Equals(entry.BoothName, name, StringComparison.CurrentCultureIgnoreCase));
     }
+
+    /// <summary>右クリックの項目の引数と同じ字（"forward"・"reverse"・"both"）。向きが無ければ空。</summary>
+    private static string DirectionCode(bool forward, bool reverse) => (forward, reverse) switch
+    {
+        (true, true) => "both",
+        (true, false) => "forward",
+        (false, true) => "reverse",
+        _ => string.Empty,
+    };
 
     private static string DirectionText(bool forward, bool reverse) => (forward, reverse) switch
     {
@@ -503,6 +510,24 @@ public sealed class ConversionTargetRow
     public bool IsReverse => Direction == "reverse";
 
     public bool IsBoth => Direction == "both";
+
+    /// <summary>
+    /// 中のファイルの名前どおりの向き（既定。<c>conversion.md</c>「向き」）。中のファイルから見つからない行は空（既定が分からない）。
+    /// 人が向きを変えた印は持たない。ファイルの向きは毎回読み直せるので、今の向きと比べれば変えたかが分かる（データの形を増やさずに済む）
+    /// </summary>
+    public string FileDirection { get; init; } = string.Empty;
+
+    /// <summary>右クリックの項目の字。既定の向きに「（既定）」を添える（2026-11-18 のメモ：どれが既定か分からなかった）。</summary>
+    public string ForwardHeader => Header("順方向", "forward");
+
+    public string ReverseHeader => Header("逆方向", "reverse");
+
+    public string BothHeader => Header("両方向", "both");
+
+    /// <summary>今の向きが既定と違う（人が右クリックで変えた）。「既定に戻す」を出す。</summary>
+    public bool IsDirectionChanged => FileDirection.Length > 0 && Direction.Length > 0 && Direction != FileDirection;
+
+    private string Header(string text, string direction) => FileDirection == direction ? $"{text}（既定）" : text;
 
     /// <summary>向きの右クリックの項目（引数は "forward"・"reverse"・"both"）。つなぎ先の無い行は持たない（押せない）。</summary>
     public RelayCommand? SetDirectionCommand { get; init; }

@@ -179,6 +179,31 @@ public class ItemConversionSettingTests
     });
 
     [Fact]
+    public Task 右クリックの項目は既定の向きに印を付け_変えた時だけ既定に戻すを出す() => TestApp.Run(async app =>
+    {
+        var page = await OpenAsync(app, new ConversionSetting { Targets = [SuggestedBase] });
+        var before = page.Conversion.Rows.Single(row => row.ProfileText == "fakebase");
+
+        // fakebase は中のファイルの名前で逆方向
+        Assert.Equal(["順方向", "逆方向（既定）", "両方向"], [before.ForwardHeader, before.ReverseHeader, before.BothHeader]);
+        Assert.False(before.IsDirectionChanged);
+
+        before.SetDirectionCommand!.Execute("both");
+        await app.SettleAsync();
+        var changed = page.Conversion.Rows.Single(row => row.ProfileText == "fakebase");
+        Assert.True(changed.IsDirectionChanged);
+        Assert.Equal("逆方向（既定）", changed.ReverseHeader);
+
+        // 「既定に戻す」は既定の向き（FileDirection）を引数に同じ命令を押す
+        changed.SetDirectionCommand!.Execute(changed.FileDirection);
+        await app.SettleAsync();
+
+        var saved = Assert.Single((await SavedAsync(app))!.Targets);
+        Assert.True(!saved.Forward && saved.Reverse && saved.Confirmed);
+        Assert.False(page.Conversion.Rows.Single(row => row.ProfileText == "fakebase").IsDirectionChanged);
+    });
+
+    [Fact]
     public Task つなぎ先の無い行は_向きを変えられない() => TestApp.Run(async app =>
     {
         var page = await OpenAsync(app, conversion: null);
