@@ -73,18 +73,28 @@
                                        Background="Transparent" AutomationProperties.AutomationId="ItemConversionDirection">
                                 <TextBlock.ContextMenu>
                                     <ContextMenu>
-                                        <MenuItem Header="順方向" Command="{Binding SetDirectionCommand}" CommandParameter="forward"
+                                        <MenuItem Header="{Binding ForwardHeader}" Command="{Binding SetDirectionCommand}" CommandParameter="forward"
                                                   IsChecked="{Binding IsForward, Mode=OneWay}" IsEnabled="{Binding HasTarget}"
                                                   controls:MenuTips.Disabled="つなぎ先を選ぶと変えられます"
                                                   AutomationProperties.AutomationId="ItemConversionDirection.Forward" />
-                                        <MenuItem Header="逆方向" Command="{Binding SetDirectionCommand}" CommandParameter="reverse"
+                                        <MenuItem Header="{Binding ReverseHeader}" Command="{Binding SetDirectionCommand}" CommandParameter="reverse"
                                                   IsChecked="{Binding IsReverse, Mode=OneWay}" IsEnabled="{Binding HasTarget}"
                                                   controls:MenuTips.Disabled="つなぎ先を選ぶと変えられます"
                                                   AutomationProperties.AutomationId="ItemConversionDirection.Reverse" />
-                                        <MenuItem Header="両方向" Command="{Binding SetDirectionCommand}" CommandParameter="both"
+                                        <MenuItem Header="{Binding BothHeader}" Command="{Binding SetDirectionCommand}" CommandParameter="both"
                                                   IsChecked="{Binding IsBoth, Mode=OneWay}" IsEnabled="{Binding HasTarget}"
                                                   controls:MenuTips.Disabled="つなぎ先を選ぶと変えられます"
                                                   AutomationProperties.AutomationId="ItemConversionDirection.Both" />
+                                        <!--
+                                            人が変えた向きを消して、中のファイルの名前どおりに戻す口（2026-11-18 のメモ）。
+                                            既定と同じ時は押しても何も変わらないので出さない。人の指定を消す操作なので赤（V4）
+                                        -->
+                                        <Separator Visibility="{Binding IsDirectionChanged, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                        <MenuItem Header="既定に戻す" Command="{Binding SetDirectionCommand}" CommandParameter="{Binding FileDirection}"
+                                                  Style="{StaticResource DangerMenuItem}"
+                                                  ToolTip="中のファイルの名前どおりの向きに戻します。"
+                                                  Visibility="{Binding IsDirectionChanged, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                  AutomationProperties.AutomationId="ItemConversionDirection.Reset" />
                                     </ContextMenu>
                                 </TextBlock.ContextMenu>
                             </TextBlock>
@@ -106,7 +116,7 @@
                                         <Separator />
                                         <MenuItem Header="外す" Command="{Binding RemoveCommand}" Style="{StaticResource DangerMenuItem}"
                                                   AutomationProperties.AutomationId="ItemConversionMenu.Remove"
-                                                  ToolTip="次に自動で推すときも、このつなぎ先は使いません。" />
+                                                  ToolTip="次に自動で探すときも、このつなぎ先は使いません。" />
                                     </ContextMenu>
                                 </Border.ContextMenu>
                                 <StackPanel Orientation="Horizontal">
@@ -125,7 +135,7 @@
                                             Command="{Binding RemoveCommand}"
                                             AutomationProperties.AutomationId="ItemConversionRemove"
                                             AutomationProperties.Name="{Binding TargetText, StringFormat={}{0}を外す}"
-                                            ToolTip="外します。次に自動で推すときも使いません。" Style="{StaticResource RejectMarkButton}" />
+                                            ToolTip="外します。次に自動で探すときも使いません。" Style="{StaticResource RejectMarkButton}" />
                                 </StackPanel>
                             </Border>
                             <controls:SuggestBox Width="220"

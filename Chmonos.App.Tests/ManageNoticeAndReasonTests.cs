@@ -81,7 +81,7 @@ public class ManageNoticeAndReasonTests
         tags.Selected = tags.Tops.First(row => row.Name == "作り物の甲");
         var listBefore = tags.ListNotice.Text;
 
-        tags.NewSubText = "小の一";
+        tags.ItemFilter = "小の一";
         tags.AddSubCommand.Execute(null);
         await app.SettleAsync();
 
@@ -91,11 +91,11 @@ public class ManageNoticeAndReasonTests
         Assert.Equal(2, app.Store.UserTags.Load().Tops.First(top => top.Name == "作り物の甲").Subs.Count);
 
         // 打ち直すと消える
-        tags.NewSubText = "小の四";
+        tags.ItemFilter = "小の四";
         Assert.Equal(string.Empty, tags.AddSubNoticeText);
 
         tags.AddSubCommand.Execute(null);
-        await UiThread.Until(() => tags.NewSubText.Length == 0, "足せたら欄が空く");
+        await UiThread.Until(() => tags.ItemFilter.Length == 0, "足せたら欄が空く");
         Assert.Equal(3, app.Store.UserTags.Load().Tops.First(top => top.Name == "作り物の甲").Subs.Count);
         Assert.Equal(string.Empty, tags.AddSubNoticeText);
     });

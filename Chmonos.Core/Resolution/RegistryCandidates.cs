@@ -157,12 +157,12 @@ public static class RegistryCandidates
             }
         }
 
-        // 別名は「くうた対応」のような、まさにファイル名に現れる形
-        foreach (var alias in entry.Aliases)
+        // 別名は「くうた対応」のような、まさにファイル名に現れる形。人が消した呼び方では当てない
+        foreach (var alias in entry.Aliases.LiveTexts())
         {
-            if (Appears(fileName, alias.Text, shared))
+            if (Appears(fileName, alias, shared))
             {
-                return (alias.Text, 40);
+                return (alias, 40);
             }
         }
 
@@ -258,11 +258,11 @@ public static class RegistryCandidates
             yield return booth;
         }
 
-        foreach (var alias in entry.Aliases)
+        foreach (var alias in entry.Aliases.LiveTexts())
         {
-            if (alias.Text.Length >= MinTextLength)
+            if (alias.Length >= MinTextLength)
             {
-                yield return alias.Text;
+                yield return alias;
             }
         }
     }

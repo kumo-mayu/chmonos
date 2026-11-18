@@ -3,7 +3,7 @@ using Chmonos.App.ViewModels;
 
 namespace Chmonos.App.Views;
 
-/// <summary>「推した通りにまとめて決める」の窓。答えは <see cref="ConfirmConversionsDialogViewModel.Ask"/> で受ける。</summary>
+/// <summary>「まとめて確認済みにする」の窓。答えは <see cref="ConfirmConversionsDialogViewModel.Ask"/> で受ける。</summary>
 public partial class ConfirmConversionsDialog : Window
 {
     public ConfirmConversionsDialog(ConfirmConversionsDialogViewModel model)

@@ -56,22 +56,19 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
-        // 小分類を足す欄を開いた行：「すべて開く」が幅1280で切れていた（次の段へ送る）
-        new Scene("tag-manage-sub-add-open", "タグの管理：小分類を足す丸い＋を開いた所。「すべて開く」が切れず、入り切らなければ次の段へ送る", async context =>
+        // 小分類を足す口（探す欄と1本）：「すべて開く」が幅1280で切れていた（次の段へ送る）
+        new Scene("tag-manage-sub-add-open", "タグの管理：小分類を探す・足す欄の行。「すべて開く」が切れず、入り切らなければ次の段へ送る", async context =>
         {
             var root = await OpenTagManageAsync(context, cards: false);
-            var screen = context.Screen<TagManageViewModel>();
-            screen.IsAddingSub = true;
             await context.SettleAsync();
             return new Shot(root);
         }),
 
-        new Scene("attribute-manage-notices", "属性の管理：名前の近く・最初から並べるのボタンの下・一覧の見出しの近くの知らせを出した所（attribute-manage-list と見比べる）", async context =>
+        new Scene("attribute-manage-notices", "属性の管理：名前の近く（最初から並べるの結果も）・一覧の見出しの近くの知らせを出した所（attribute-manage-list と見比べる）", async context =>
         {
             var root = await OpenAttributeManageAsync(context, cards: false);
             var screen = context.Screen<AttributeManageViewModel>();
             screen.NameNotice.Show("「かわいさ」に変更し、6 件の商品を書き換えました。");
-            screen.DefaultNotice.Show("「かわいさ」を編集画面に最初から並べます。値は動かしたときだけ付きます。");
             screen.ListNotice.Show("削除し、3 件の商品から評価を外しました。");
             await context.SettleAsync();
             return new Shot(root);
@@ -129,12 +126,11 @@ internal static partial class Scenes
         }),
 
         // 小分類を足す欄はふつうの欄と「追加」（候補なし。メモ25 C）。同じ名前なら欄の下に「既にあります」
-        new Scene("tag-manage-sub-existing", "タグの管理：小分類を足す欄を開き、今ある小分類の名前で「追加」を押した所。欄の下に「既にあります」", async context =>
+        new Scene("tag-manage-sub-existing", "タグの管理：小分類を探す・足す欄に今ある小分類の名前を打ち「追加」を押した所。欄の下に「既にあります」", async context =>
         {
             var root = await OpenTagManageAsync(context, cards: false);
             var screen = context.Screen<TagManageViewModel>();
-            screen.IsAddingSub = true;
-            screen.NewSubText = "冬";
+            screen.ItemFilter = "冬";
             screen.AddSubCommand.Execute(null);
             await context.SettleAsync();
             return new Shot(root);

@@ -233,10 +233,10 @@ internal static partial class Scenes
             // バリエーションは対応アバターごとに作ってある（tour-dense.mjs）ので、バリエーションの数で選ぶ
             TourPick.MostAvatars => items.MaxBy(item => item.Booth.Variations.Count)!,
             TourPick.MostFiles => items.MaxBy(item => item.Local.LocalFiles.Count)!,
-            TourPick.LongestName => items.MaxBy(item => item.Booth.Name.Length)!,
+            TourPick.LongestName => items.MaxBy(item => item.Booth.Name?.Length ?? 0)!,
             _ => items.MaxBy(item => item.Booth.Description?.Length ?? 0)!,
         };
-        Console.WriteLine($"  商品：バリエーション {chosen.Booth.Variations.Count}・ファイル {chosen.Local.LocalFiles.Count}・名前 {chosen.Booth.Name.Length} 字・説明 {chosen.Booth.Description?.Length ?? 0} 字");
+        Console.WriteLine($"  商品：バリエーション {chosen.Booth.Variations.Count}・ファイル {chosen.Local.LocalFiles.Count}・名前 {chosen.Booth.Name?.Length ?? 0} 字・説明 {chosen.Booth.Description?.Length ?? 0} 字");
         return chosen.Id;
     }
 

@@ -93,7 +93,7 @@ public sealed class ItemConversionEditor : ViewModelBase
     /// <summary>つなぎ先の決まっていないプロファイルの数。</summary>
     public int UnsetCount => Rows.Count(row => !row.HasTarget);
 
-    /// <summary>今見せている確認待ちのつなぎ先（「推した通りに決める」が名指しする行。見せた物だけを確かめる）。</summary>
+    /// <summary>今見せている確認待ちのつなぎ先（「確認済みにして次へ」が名指しする行。見せた物だけを確かめる）。</summary>
     public IReadOnlyList<ConversionTarget> UnconfirmedTargets { get; private set; } = [];
 
     /// <summary>人が外したつなぎ先（畳んだ「外したつなぎ先」の一覧。行ごとに「戻す」）。</summary>
@@ -181,7 +181,7 @@ public sealed class ItemConversionEditor : ViewModelBase
                 && suggestions.TryGetValue(slug, out var suggestion)
                 && suggestion.Target is { } suggested
                 && ConversionTarget.SameRow(suggested, target)
-                    ? "推した理由：" + CluesText(suggestion.Clues, names)
+                    ? "見つけた理由：" + CluesText(suggestion.Clues, names)
                     : string.Empty;
 
         // つなぎ先の無い行の訳。推せる手掛かりがあっても、人が外した物なら外したと言う（見回りが推さないのはそのため）。
@@ -195,18 +195,18 @@ public sealed class ItemConversionEditor : ViewModelBase
 
             if (suggestion.Conflicting)
             {
-                return "推していません：読み取った情報が食い違います・" + CluesText(suggestion.Clues, names);
+                return "つなぎ先は見つかりませんでした：読み取った情報が食い違います・" + CluesText(suggestion.Clues, names);
             }
 
             if (suggestion.Target is not { } suggested)
             {
-                return "推していません：推す元になる情報がありません";
+                return "つなぎ先は見つかりませんでした：元になる情報がありません";
             }
 
             var rejected = (setting?.Targets ?? []).Any(target => target.Rejected && ConversionTarget.SameRow(target, suggested));
             return rejected
-                ? $"外したつなぎ先：{TargetName(suggested)}・推した理由：{CluesText(suggestion.Clues, names)}"
-                : $"推せるつなぎ先：{TargetName(suggested)}・理由：{CluesText(suggestion.Clues, names)}";
+                ? $"外したつなぎ先：{TargetName(suggested)}・見つけた理由：{CluesText(suggestion.Clues, names)}"
+                : $"見つけたつなぎ先：{TargetName(suggested)}・理由：{CluesText(suggestion.Clues, names)}";
         }
 
         // 人が外したつなぎ先は出さない（そのプロファイルは選ぶ欄に戻る）。行は保存に残り、見回りが同じ物を推すのを止める
@@ -220,13 +220,13 @@ public sealed class ItemConversionEditor : ViewModelBase
                 rows.Add(EmptyRow(profile, EmptyReason(profile)));
             }
 
-            rows.AddRange(mine.Select(target => TargetRow(target, TargetName(target), ReasonOf(target), IconFactory(target))));
+            rows.AddRange(mine.Select(target => TargetRow(target, TargetName(target), ReasonOf(target), IconFactory(target), profile)));
         }
 
         // 中のファイルから見つからない（zip を外した・slug の分からない）つなぎ先も、外せるように出す
         rows.AddRange(targets
             .Where(target => !profiles.Any(profile => string.Equals(profile.Slug, target.Slug, StringComparison.OrdinalIgnoreCase)))
-            .Select(target => TargetRow(target, TargetName(target), string.Empty, IconFactory(target))));
+            .Select(target => TargetRow(target, TargetName(target), string.Empty, IconFactory(target), null)));
 
         foreach (var row in rows)
         {
@@ -336,20 +336,24 @@ public sealed class ItemConversionEditor : ViewModelBase
     {
         ProfileText = profile.Slug,
         DirectionText = DirectionText(profile.Forward, profile.Reverse),
+        FileDirection = DirectionCode(profile.Forward, profile.Reverse),
         ReasonText = reason,
         ChooseCommand = new RelayCommand(
             parameter => ChooseAsync(profile, parameter as string).Forget(),
             _ => !_isLocked()),
     };
 
-    private ConversionTargetRow TargetRow(ConversionTarget target, string name, string reason, Func<System.Windows.Media.ImageSource?>? iconFactory) => new()
+    /// <param name="fileProfile">中のファイルから読んだ同じ slug のプロファイル（既定の向き）。中のファイルから見つからない行は null。</param>
+    private ConversionTargetRow TargetRow(
+        ConversionTarget target, string name, string reason, Func<System.Windows.Media.ImageSource?>? iconFactory, ProfileSlug? fileProfile) => new()
     {
         ProfileText = target.Slug ?? string.Empty,
+        FileDirection = fileProfile is null ? string.Empty : DirectionCode(fileProfile.Forward, fileProfile.Reverse),
         DirectionText = DirectionText(target.Forward, target.Reverse),
         TargetText = name,
         ReasonText = reason,
         IconFactory = iconFactory,
-        TooltipText = target.Confirmed ? name : $"{name}：推した値です。確認すると変換経由に使います。",
+        TooltipText = target.Confirmed ? name : $"{name}：自動で見つけたつなぎ先です。確認すると変換経由に使います。",
         HasTarget = true,
         IsUnconfirmed = !target.Confirmed,
         ConfirmCommand = new RelayCommand(
@@ -358,13 +362,7 @@ public sealed class ItemConversionEditor : ViewModelBase
         RemoveCommand = new RelayCommand(
             () => ChangeAsync(ConversionEdits.Reject(target)).Forget(),
             () => !_isLocked()),
-        Direction = (target.Forward, target.Reverse) switch
-        {
-            (true, true) => "both",
-            (true, false) => "forward",
-            (false, true) => "reverse",
-            _ => string.Empty,
-        },
+        Direction = DirectionCode(target.Forward, target.Reverse),
 
         // 向きはふつう中のファイルの名前で決まるので、変える口は右クリックだけに置く（ユーザ判断 2026-11-09「普通は使わない」）
         SetDirectionCommand = new RelayCommand(
@@ -415,6 +413,15 @@ public sealed class ItemConversionEditor : ViewModelBase
             || string.Equals(entry.BoothName, name, StringComparison.CurrentCultureIgnoreCase));
     }
 
+    /// <summary>右クリックの項目の引数と同じ字（"forward"・"reverse"・"both"）。向きが無ければ空。</summary>
+    private static string DirectionCode(bool forward, bool reverse) => (forward, reverse) switch
+    {
+        (true, true) => "both",
+        (true, false) => "forward",
+        (false, true) => "reverse",
+        _ => string.Empty,
+    };
+
     private static string DirectionText(bool forward, bool reverse) => (forward, reverse) switch
     {
         (true, true) => "両方向",
@@ -446,7 +453,7 @@ public sealed class ItemConversionEditor : ViewModelBase
         OnPropertyChanged(nameof(RejectedHeader));
         RaiseMode();
 
-        // 持ち主のボタン（推した通りに決めて次へ）が、確認待ちの有無で押せるかを変えるため
+        // 持ち主のボタン（確認済みにして次へ）が、確認待ちの有無で押せるかを変えるため
         RelayCommand.RaiseCanExecuteChanged();
     }
 }
@@ -503,6 +510,24 @@ public sealed class ConversionTargetRow
     public bool IsReverse => Direction == "reverse";
 
     public bool IsBoth => Direction == "both";
+
+    /// <summary>
+    /// 中のファイルの名前どおりの向き（既定。<c>conversion.md</c>「向き」）。中のファイルから見つからない行は空（既定が分からない）。
+    /// 人が向きを変えた印は持たない。ファイルの向きは毎回読み直せるので、今の向きと比べれば変えたかが分かる（データの形を増やさずに済む）
+    /// </summary>
+    public string FileDirection { get; init; } = string.Empty;
+
+    /// <summary>右クリックの項目の字。既定の向きに「（既定）」を添える（2026-11-18 のメモ：どれが既定か分からなかった）。</summary>
+    public string ForwardHeader => Header("順方向", "forward");
+
+    public string ReverseHeader => Header("逆方向", "reverse");
+
+    public string BothHeader => Header("両方向", "both");
+
+    /// <summary>今の向きが既定と違う（人が右クリックで変えた）。「既定に戻す」を出す。</summary>
+    public bool IsDirectionChanged => FileDirection.Length > 0 && Direction.Length > 0 && Direction != FileDirection;
+
+    private string Header(string text, string direction) => FileDirection == direction ? $"{text}（既定）" : text;
 
     /// <summary>向きの右クリックの項目（引数は "forward"・"reverse"・"both"）。つなぎ先の無い行は持たない（押せない）。</summary>
     public RelayCommand? SetDirectionCommand { get; init; }

@@ -284,7 +284,7 @@ public static class ConversionInference
 
             foreach (var group in groups)
             {
-                if (ConversionNames.Matches(slugKeys, ConversionNames.NameKeys([group.Name, .. group.Aliases.Select(alias => alias.Text)])))
+                if (ConversionNames.Matches(slugKeys, ConversionNames.NameKeys([group.Name, .. group.Aliases.LiveTexts()])))
                 {
                     clues.Add(new ConversionClue(ConversionClueKind.SlugIsBaseName, null, group.Name));
                 }
@@ -301,8 +301,9 @@ public static class ConversionInference
         return result;
     }
 
+    /// <summary>プロファイルの名前と照らす語。人が消した呼び方では照らさない（推したつなぎ先が消した語から生まれないように）。</summary>
     private static IEnumerable<string?> NamesOf(AvatarRegistryEntry entry)
-        => [entry.DisplayName, entry.BoothName, .. entry.Aliases.Select(alias => alias.Text)];
+        => [entry.DisplayName, entry.BoothName, .. entry.Aliases.LiveTexts()];
 
     /// <summary>
     /// 手掛かりが1つのつなぎ先にまとまるか。素体を指す手掛かりがあり、アバターを指す手掛かりがどれもその素体の仲間なら、素体用としてまとめる

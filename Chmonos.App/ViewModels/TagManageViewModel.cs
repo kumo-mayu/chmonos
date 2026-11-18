@@ -216,7 +216,7 @@ public sealed class TagSubFootLine(TagSubRow sub)
 /// 小分類の中に入っている商品1件（ユーザ指示 2026-09-18）。
 /// 改変の一覧と同じ形（絵・名前）で出し、押すと商品ページへ。
 /// </summary>
-public sealed class TagItemRow : ViewModelBase
+public sealed class TagItemRow : ViewModelBase, IHasItemCard
 {
     public required string ItemId { get; init; }
 
@@ -453,7 +453,7 @@ public sealed class TagManageViewModel : ManageViewModelBase<TagTopRow, OrphanTa
         Subs.CollectionChanged += (_, _) => RequestLines();
         RequestLines();
 
-        AddSubCommand = new RelayCommand(() => AddSubAsync(NewSubText).Forget(), () => Selected is not null);
+        AddSubCommand = new RelayCommand(() => AddSubAsync(ItemFilter).Forget(), () => Selected is not null);
         NestTopCommand = new RelayCommand(() => NestTopAsync().Forget());
         ToggleAllCommand = new RelayCommand(ToggleAll);
 
@@ -751,25 +751,9 @@ public sealed class TagManageViewModel : ManageViewModelBase<TagTopRow, OrphanTa
         }
     }
 
-    private bool _isAddingSub;
-    private string _newSubText = string.Empty;
-
-    /// <summary>
-    /// 小分類を足す欄の文字。大分類・属性を足す欄と同じふつうの欄にした（メモ25 C）：
-    /// 今ある小分類を候補に出すと、選んでも「既にあります」で断られるだけだった（今ある名前を並べても重複を誘うだけ）
-    /// </summary>
-    public string NewSubText
-    {
-        get => _newSubText;
-        set
-        {
-            if (SetField(ref _newSubText, value ?? string.Empty))
-            {
-                // 打ち直したら前の「既にあります」は古い
-                AddSubNotice.Clear();
-            }
-        }
-    }
+    // 小分類を足す口は、右の探す欄（ItemFilter）と1本にした（ユーザ指示 2026-11-18：左の大分類と同じ「検索欄＋追加」）。
+    // 前は丸い＋で伸びる専用の欄（NewSubText・IsAddingSub）で、手数が1つ多かった。
+    // 今ある小分類を候補に出さないのは変えない（メモ25 C。選んでも「既にあります」で断られるだけだった）
 
     /// <summary>
     /// 小分類を足す欄のすぐ下の1行（大分類の側の <see cref="ManageViewModelBase{TRow, TOrphan}.AddNoticeText"/> と同じ）。欄の側が1行分の場所を常に取ってあるので、出ても消えても下は動かない
@@ -783,19 +767,14 @@ public sealed class TagManageViewModel : ManageViewModelBase<TagTopRow, OrphanTa
 
     private void SayAddSub(string text, bool warning) => AddSubNotice.Set(text, warning);
 
-    /// <summary>小分類を足す欄を出しているか（普段は隠す。ユーザ指示 2026-09-18：入力欄が並ぶと読みづらい）。</summary>
-    public bool IsAddingSub
-    {
-        get => _isAddingSub;
-        set => SetField(ref _isAddingSub, value);
-    }
-
     /// <summary>
     /// この大分類の中を商品名で探す（ユーザ指示 2026-09-18。<see cref="ManageViewModelBase{TRow, TOrphan}.ItemFilter"/>）。
     /// 当たった商品を持つ小分類だけを開いて出す——どの小分類に入れたか分からない物を辿るため
     /// </summary>
     protected override void OnItemFilterChanged()
     {
+        // 打ち直したら前の「既にあります」は古い
+        AddSubNotice.Clear();
         RebuildSubs();
         OnPropertyChanged(nameof(ItemFilterResultText));
     }
@@ -1061,7 +1040,7 @@ public sealed class TagManageViewModel : ManageViewModelBase<TagTopRow, OrphanTa
         var parent = Selected.Name;
 
         // 足せたら欄を空ける（続けて足せるように）
-        NewSubText = string.Empty;
+        ItemFilter = string.Empty;
         await ReloadAsync();
         _main.RefreshMasters();
 

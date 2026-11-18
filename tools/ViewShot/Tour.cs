@@ -334,7 +334,7 @@ internal static class Tour
 
                             foreach (var run in runs.Where(run => run.Error is not null))
                             {
-                                html.Append(CultureInfo.InvariantCulture, $"<div class=\"bad\">失敗：{E(run.Error![..Math.Min(200, run.Error.Length)])}</div>");
+                                html.Append(CultureInfo.InvariantCulture, $"<div class=\"bad\">失敗：{E(run.Error![..Math.Min(200, run.Error!.Length)])}</div>");
                             }
 
                             foreach (var warning in runs.SelectMany(run => run.Warnings).Distinct().Take(2))

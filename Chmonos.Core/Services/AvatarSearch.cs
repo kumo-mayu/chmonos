@@ -27,9 +27,10 @@ public static class AvatarSearch
             hints.Add(new AvatarHint(booth.Trim(), $"正式名「{booth.Trim()}」"));
         }
 
-        foreach (var alias in entry.Aliases)
+        // 人が消した呼び方では当てない。当たると「消したのに候補に出る」と読まれる
+        foreach (var alias in entry.Aliases.LiveTexts())
         {
-            var text = alias.Text.Trim();
+            var text = alias.Trim();
             if (text.Length > 0 && seen.Add(text))
             {
                 hints.Add(new AvatarHint(text, $"呼び方「{text}」"));

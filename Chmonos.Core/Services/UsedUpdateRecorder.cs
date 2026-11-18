@@ -148,7 +148,8 @@ public sealed class UsedUpdateRecorder
             {
                 AddIf(names, entry.DisplayName);
                 AddIf(names, entry.BoothName);
-                names.AddRange(entry.Aliases.Select(alias => alias.Text));
+                // 人が消した呼び方は、その商品を指す語として扱わない（検出・検索と同じ）
+                names.AddRange(entry.Aliases.LiveTexts());
             }
 
             avatars[link.AvatarItemId] = names;
@@ -161,7 +162,7 @@ public sealed class UsedUpdateRecorder
             AddIf(names, link.BaseName);
             if (groups.TryGetValue(link.BaseName, out var group))
             {
-                names.AddRange(group.Aliases.Select(alias => alias.Text));
+                names.AddRange(group.Aliases.LiveTexts());
             }
 
             bases[link.BaseName] = names;

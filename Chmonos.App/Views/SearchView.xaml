@@ -715,7 +715,7 @@
                                             </TextBlock>
                                             <TextBlock Grid.Column="2" Text="{Binding CountText}" FontSize="10.5" Foreground="{Binding (TextElement.Foreground), ElementName=ChipFrame}"
                                                        Opacity="0.7" Margin="5,0,0,0" VerticalAlignment="Center" />
-                                            <!-- 形は呼ばれ方の履歴のチップに揃える（幅を決め打つと暗黙のButtonスタイルの枠が丸く出る） -->
+                                            <!-- 形は呼び方の履歴のチップに揃える（幅を決め打つと暗黙のButtonスタイルの枠が丸く出る） -->
                                             <Button Grid.Column="3" Content="×" ContentTemplate="{StaticResource CrossGlyph}" FontSize="11" Margin="6,0,0,0" Padding="2,0" Cursor="Hand"
                                                     Background="Transparent" BorderThickness="0" Foreground="{Binding (TextElement.Foreground), ElementName=ChipFrame}"
                                                     ToolTip="この値を外す"
@@ -1045,7 +1045,7 @@
                                         <CheckBox IsChecked="{Binding IncludeUnconfirmed, Mode=TwoWay}" Margin="0,4,0,0"
                                                   AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.IncludeUnconfirmed'}"
                                                   AutomationProperties.Name="確認待ちも含める"
-                                                  ToolTip="自動で推して、まだ確認していないつなぎ先も含めます。">
+                                                  ToolTip="自動で見つけた、まだ確認していないつなぎ先も含めます。">
                                             <TextBlock Text="確認待ちも含める" FontSize="12" Foreground="{DynamicResource Text}" />
                                         </CheckBox>
                                         <!-- 片方の欄だけ入れたときに効く（ユーザ判断 2026-11-09・既定は切）。効かない間は押せなくし、場所は残す -->

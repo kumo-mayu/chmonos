@@ -234,4 +234,76 @@ public class ManageSharedTests
         Assert.Equal("40 %", Assert.Single(attributes.Items).ValueText);
         Assert.IsType<ManageFoot>(attributes.Lines[^1]);
     });
+
+    // ---- 大きさのつまみで段を切り直す（open.md 159・160） ----
+
+    private static async Task<AttributeManageViewModel> OpenManyAttributesAsync(TestApp app, int count)
+    {
+        for (var i = 1; i <= count; i++)
+        {
+            var item = Make.Item($"20000{i:00}", $"作り物の衣装{i}");
+            await app.AddItemAsync(item with { Local = item.Local with { Attributes = new Dictionary<string, int> { ["作り物の質感"] = 40 } } });
+        }
+
+        await app.Store.Attributes.SaveAsync(OneAttribute());
+        var main = await app.StartAsync();
+        main.ShowAttributeManageCommand.Execute(null);
+        var attributes = Assert.IsType<AttributeManageViewModel>(main.CurrentViewModel);
+        await UiThread.Until(() => attributes.Rows.Count > 0, "属性の管理の読み込みが済む");
+        attributes.IsItemsExpanded = true;
+        return attributes;
+    }
+
+    [Fact]
+    public Task カードの大きさを変えると_開いている管理の画面は段を切り直す() => TestApp.Run(async app =>
+    {
+        var before = Chmonos.App.Services.CardMetrics.Width;
+        try
+        {
+            var attributes = await OpenManyAttributesAsync(app, 6);
+            attributes.ShowCardsCommand.Execute(null);
+            Chmonos.App.Services.CardMetrics.Apply(Chmonos.App.Services.CardMetrics.MaxWidth);
+            attributes.AttachSizeWatch();
+            attributes.SetItemsWidth(1000);
+            await UiThread.Until(() => attributes.Items.Count > 0 && attributes.Lines.OfType<ManageItemLine>().Sum(l => l.Items.Count) == attributes.Items.Count, "全部の商品が段に並ぶ");
+            var large = attributes.Lines.OfType<ManageItemLine>().Count();
+
+            // 画面を移らずにつまみだけ動かす（ユーザが再現した手順：大きく→小さく）
+            Chmonos.App.Services.CardMetrics.Apply(Chmonos.App.Services.CardMetrics.MinWidth);
+            Assert.True(attributes.Lines.OfType<ManageItemLine>().Count() < large, "小さくした分、1段の枚数が増えて段が減る");
+
+            attributes.DetachSizeWatch();
+        }
+        finally
+        {
+            Chmonos.App.Services.CardMetrics.Apply(before);
+        }
+    });
+
+    [Fact]
+    public Task リストの行の高さを変えると_開いている管理の画面は段を切り直す() => TestApp.Run(async app =>
+    {
+        var attributes = await OpenManyAttributesAsync(app, 8);
+
+        // 起動で ItemViewSize.Current が作り直されるので、開いた後に引く
+        var size = ItemViewSize.Current;
+        attributes.ShowListCommand.Execute(null);
+        size.ListRowHeight = ItemViewSize.MaxListRowHeight;
+        attributes.AttachSizeWatch();
+        attributes.SetItemsWidth(1000);
+        await UiThread.Until(() => attributes.Items.Count > 0 && attributes.Lines.OfType<ManageItemLine>().Sum(l => l.Items.Count) == attributes.Items.Count, "全部の商品が段に並ぶ");
+        var tall = attributes.Lines.OfType<ManageItemLine>().Count();
+
+        size.ListRowHeight = ItemViewSize.MinListRowHeight;
+        Assert.True(attributes.Lines.OfType<ManageItemLine>().Count() < tall, "絵が小さくなった分、1段の行が増えて段が減る");
+
+        attributes.DetachSizeWatch();
+    });
+
+    [Fact]
+    public void リストの行の幅は_絵の大きさの分だけ伸びる()
+    {
+        Assert.Equal(248, ManageItemLayout.ListSlotWidthFor(30));
+        Assert.True(ManageItemLayout.ListSlotWidthFor(104) > ManageItemLayout.ListSlotWidthFor(28));
+    }
 }
