@@ -519,15 +519,24 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
 
     private async Task ReloadAfterRightItemReplacedAsync()
     {
-        var rightItemId = RightItem.Page?.Item.Id;
+        var page = RightItem.Page;
+        var detail = Detail;
+        var key = Selected?.Key;
+        var rightItemId = page?.Item.Id;
         await LoadAsync();
-        if (!ReferenceEquals(_main.CurrentViewModel, this) || Detail is not FolderViewDetail || Selected is not { } row)
+
+        // 読み直しを待つ間に人が動かした物は上書きしない（Codex の点検 2026-11-19）。
+        // 左で別の物を選んだ・右に別の商品を重ねたなら何もしない。「← 一覧に戻る」で閉じたなら、一覧だけ出し直して重ね直さない
+        if (!ReferenceEquals(_main.CurrentViewModel, this) || !ReferenceEquals(Detail, detail) || Detail is not FolderViewDetail
+            || Selected is not { } row || row.Key != key
+            || (RightItem.Page is not null && !ReferenceEquals(RightItem.Page, page)))
         {
             return;
         }
 
+        var reopen = page is not null && ReferenceEquals(RightItem.Page, page);
         ShowDetail(row);
-        if (rightItemId is not null
+        if (reopen && rightItemId is not null
             && _main.Search.SnapshotItems().FirstOrDefault(item => item.Id == rightItemId) is { } rightItem)
         {
             RightItem.Open(rightItem);

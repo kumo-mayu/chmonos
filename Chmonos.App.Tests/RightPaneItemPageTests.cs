@@ -114,6 +114,22 @@ public class RightPaneItemPageTests
     });
 
     [Fact]
+    public Task 外した後の読み直しを待つ間に別の商品を重ねたら_読み直しの後も前の商品へ戻さない() => TestApp.Run(async app =>
+    {
+        var (_, folders, detail) = await OpenFolderAsync(app);
+        var cards = detail.ListItems.OfType<ItemCardViewModel>().ToList();
+        detail.OpenItem(cards[0]);
+
+        // 取り直し・ファイルを外した後と同じく、ページが差し替えを頼む。読み直しは裏で待つ
+        folders.RightItem.Page!.Replaced!(cards[0].Item);
+        folders.RightItem.BackCommand.Execute(null);
+        detail.OpenItem(cards[1]);
+        await app.SettleAsync();
+
+        Assert.Equal(cards[1].Item.Id, folders.RightItem.Page?.Item.Id);
+    });
+
+    [Fact]
     public Task 別の画面へ移って戻ると_同じフォルダの上に同じ商品を重ね直す() => TestApp.Run(async app =>
     {
         var (main, folders, detail) = await OpenFolderAsync(app);
