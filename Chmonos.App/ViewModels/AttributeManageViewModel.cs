@@ -243,6 +243,40 @@ public sealed class AttributeManageViewModel : ManageViewModelBase<AttributeMast
         set => ItemsFlowVertical = !value;
     }
 
+    private bool? _valuesAsPie;
+
+    /// <summary>
+    /// 商品ごとの値を、字（「85 %」）ではなく小さな円グラフで見せるか（ユーザ判断 2026-11-19・open.md 164）。
+    /// 並ぶ向きと同じく `ui-state.json`（`attributeValuesAsPie`）に覚える。行は使い回すので、作り直さず行ごとに切り替える
+    /// </summary>
+    public bool ValuesAsPie
+    {
+        get => _valuesAsPie ??= _services.UiState.AttributeValuesAsPie;
+        set
+        {
+            if (value == ValuesAsPie)
+            {
+                return;
+            }
+
+            _valuesAsPie = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ValuesAsText));
+            foreach (var row in _rowCache.Values)
+            {
+                row.ShowPie = value;
+            }
+
+            _main.SaveUiStateAsync(state => state with { AttributeValuesAsPie = value }).Forget();
+        }
+    }
+
+    public bool ValuesAsText
+    {
+        get => !ValuesAsPie;
+        set => ValuesAsPie = !value;
+    }
+
     /// <summary>この属性を持つ商品の中を探す（<see cref="ManageViewModelBase{TRow, TOrphan}.ItemFilter"/>）。</summary>
     protected override void OnItemFilterChanged()
     {
@@ -371,9 +405,11 @@ public sealed class AttributeManageViewModel : ManageViewModelBase<AttributeMast
         if (!_rowCache.TryGetValue(key, out var entry))
         {
             // 絵の引き方はタグの管理（改変の一覧）と同じ
-            entry = CreateItemRow(item, ThumbnailPathOf(item), $"{value} %");
+            entry = CreateItemRow(item, ThumbnailPathOf(item), $"{value} %", value);
             _rowCache[key] = entry;
         }
+
+        entry.ShowPie = ValuesAsPie;
 
         return entry;
     }

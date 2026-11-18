@@ -229,6 +229,50 @@ public sealed class TagItemRow : ViewModelBase, IHasItemCard
 
     public bool HasValue => ValueText is not null;
 
+    /// <summary>属性の値（0〜100）。円グラフで見せるときの元（open.md 164）。タグの管理では null</summary>
+    public int? Percent { get; init; }
+
+    /// <summary>円グラフの札の直径（px）。リストの字の札（高さ約16）とそろえ、行の高さを変えない</summary>
+    public const double PieSize = 14;
+
+    private System.Windows.Media.Geometry? _pie;
+    private bool _pieBuilt;
+
+    /// <summary>円グラフの塗り。見せるときに初めて作る（字で見ている間は要らない）</summary>
+    public System.Windows.Media.Geometry? PieGeometry
+    {
+        get
+        {
+            if (!_pieBuilt && Percent is { } percent)
+            {
+                _pie = Controls.PieShape.Geometry(percent, PieSize);
+                _pieBuilt = true;
+            }
+
+            return _pie;
+        }
+    }
+
+    private bool _showPie;
+
+    /// <summary>値を円グラフで見せるか（属性の管理の「数値｜グラフ」）。行は使い回すので、切り替えは行ごとに知らせる</summary>
+    public bool ShowPie
+    {
+        get => _showPie;
+        set
+        {
+            if (SetField(ref _showPie, value))
+            {
+                OnPropertyChanged(nameof(ShowsValueText));
+                OnPropertyChanged(nameof(ShowsPie));
+            }
+        }
+    }
+
+    public bool ShowsValueText => HasValue && !(ShowPie && Percent is not null);
+
+    public bool ShowsPie => ShowPie && Percent is not null;
+
     private string? _thumbnailPath;
 
     public string? ThumbnailPath

@@ -847,7 +847,7 @@ public abstract class ManageViewModelBase<TRow, TOrphan> : ViewModelBase, IPendi
     /// 中に出す商品1件。絵の引き方は改変の一覧と同じものを使う（場所は呼び手が引いておく）。
     /// <paramref name="valueText"/> は名前の右の札（属性の「85 %」）。タグでは出さない
     /// </summary>
-    protected TagItemRow CreateItemRow(ItemRecord item, string? thumbnailPath, string? valueText = null)
+    protected TagItemRow CreateItemRow(ItemRecord item, string? thumbnailPath, string? valueText = null, int? percent = null)
     {
         var entry = new TagItemRow
         {
@@ -855,6 +855,7 @@ public abstract class ManageViewModelBase<TRow, TOrphan> : ViewModelBase, IPendi
             Name = item.DisplayName,
             ShopName = item.Booth.Shop?.Name ?? string.Empty,
             ValueText = valueText,
+            Percent = percent,
             ThumbnailPath = thumbnailPath,
             Thumbnails = _main.Thumbnails,
             CardFactory = () => _main.Search.CardFor(item.Id),

@@ -370,24 +370,44 @@
                                 <StackPanel Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Center"
                                             IsEnabled="{Binding SelectedIsUsed}">
                                     <TextBlock Text="並び：" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                    <!-- 縦横はリストの行を並べるときだけ効く（カードは前から横固定）ので、カードの間は押せなくする（ユーザ指示 2026-11-18） -->
-                                    <StackPanel Orientation="Horizontal" ToolTipService.ShowOnDisabled="True" ToolTip="リストで見るときの並び方です。">
+                                    <!--
+                                        縦横はリストの行を並べるときだけ効く（カードは前から横固定）ので、カードの間は押せなくする（ユーザ指示 2026-11-18）。
+                                        押せない間は、押せない理由を吹き出しに出す（ユーザ判断 2026-11-19・open.md 164）。順は依頼の「縦｜横」
+                                    -->
+                                    <StackPanel Orientation="Horizontal" ToolTipService.ShowOnDisabled="True">
                                         <StackPanel.Style>
                                             <Style TargetType="StackPanel">
+                                                <Setter Property="ToolTip" Value="リストで見るときの並び方です。" />
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding IsCardMode}" Value="True">
                                                         <Setter Property="IsEnabled" Value="False" />
+                                                        <Setter Property="ToolTip" Value="カードは横に並びます。リストにすると選べます。" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
                                         </StackPanel.Style>
-                                    <RadioButton Content="横" GroupName="AttributeItemsFlow" Style="{StaticResource SegmentFirst}"
-                                                 IsChecked="{Binding ItemsFlowHorizontal, Mode=TwoWay}"
-                                                 ToolTip="左から右へ並べ、端まで来たら次の段へ。" />
-                                    <RadioButton Content="縦" GroupName="AttributeItemsFlow" Style="{StaticResource SegmentLast}"
+                                    <RadioButton Content="縦" GroupName="AttributeItemsFlow" Style="{StaticResource SegmentFirst}"
                                                  IsChecked="{Binding ItemsFlowVertical, Mode=TwoWay}"
+                                                 AutomationProperties.AutomationId="AttributeItemsFlowVertical"
                                                  ToolTip="上から下へ並べ、下まで来たら次の列へ。" />
+                                    <RadioButton Content="横" GroupName="AttributeItemsFlow" Style="{StaticResource SegmentLast}"
+                                                 IsChecked="{Binding ItemsFlowHorizontal, Mode=TwoWay}"
+                                                 AutomationProperties.AutomationId="AttributeItemsFlowHorizontal"
+                                                 ToolTip="左から右へ並べ、端まで来たら次の段へ。" />
                                     </StackPanel>
+                                </StackPanel>
+
+                                <!-- 値の見せ方（ユーザ判断 2026-11-19・open.md 164）：字（「85 %」）か小さな円グラフか。カードとリストの両方に効く -->
+                                <StackPanel Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Center"
+                                            IsEnabled="{Binding SelectedIsUsed}">
+                                    <RadioButton Content="数値" GroupName="AttributeValueShape" Style="{StaticResource SegmentFirst}"
+                                                 IsChecked="{Binding ValuesAsText, Mode=TwoWay}"
+                                                 AutomationProperties.AutomationId="AttributeValuesAsText"
+                                                 ToolTip="値を「85 %」のように数字で表示します。" />
+                                    <RadioButton Content="グラフ" GroupName="AttributeValueShape" Style="{StaticResource SegmentLast}"
+                                                 IsChecked="{Binding ValuesAsPie, Mode=TwoWay}"
+                                                 AutomationProperties.AutomationId="AttributeValuesAsPie"
+                                                 ToolTip="値を小さな円グラフで表示します。" />
                                 </StackPanel>
                             </StackPanel>
 
@@ -455,8 +475,15 @@
                                         <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,14,21,0"
                                                 Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
                                                 BorderThickness="1" CornerRadius="4" Padding="6,1"
-                                                Visibility="{Binding HasValue, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                Visibility="{Binding ShowsValueText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <TextBlock Text="{Binding ValueText}" Style="{StaticResource Mono}" FontSize="11" />
+                                        </Border>
+                                        <!-- 円グラフのときは字の札と同じ所に、地のある札に入れて置く（絵の上でも読めるように） -->
+                                        <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,14,21,0"
+                                                Background="{DynamicResource Surface}" BorderBrush="{DynamicResource AccentBorder}"
+                                                BorderThickness="1" CornerRadius="4" Padding="4,3"
+                                                Visibility="{Binding ShowsPie, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ValuePie}" Focusable="False" />
                                         </Border>
                                     </Grid>
                                 </DataTemplate>

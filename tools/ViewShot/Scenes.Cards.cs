@@ -86,6 +86,23 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
+        // 値を円グラフで見せる（open.md 164）。形の分かれ目の 0・100・半分の前後を並べる
+        new Scene("attribute-manage-pie-list", "属性の管理：値をグラフ（小さな円グラフ）で出したリスト。0・25・50・75・90・100 %", async context =>
+        {
+            var root = await OpenAttributeManageAsync(context, cards: false, PieValue);
+            context.Screen<AttributeManageViewModel>().ValuesAsPie = true;
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
+
+        new Scene("attribute-manage-pie-cards", "属性の管理：値をグラフで出したカード（縦｜横は押せない）", async context =>
+        {
+            var root = await OpenAttributeManageAsync(context, cards: true, PieValue);
+            context.Screen<AttributeManageViewModel>().ValuesAsPie = true;
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
+
         new Scene("tag-manage-cards", "タグの管理：大分類を選び、小分類をすべて開いて、中の商品をカードで並べた所", async context =>
         {
             var root = await OpenTagManageAsync(context, cards: true);
@@ -183,11 +200,13 @@ internal static partial class Scenes
     }
 
     /// <summary>8件のうち6件に属性「かわいさ」を付け（段が2つになる数）、属性の管理でその属性を選ぶ。</summary>
-    private static async Task<System.Windows.FrameworkElement> OpenAttributeManageAsync(SceneContext context, bool cards)
+    private static int PieValue(int index) => index switch { 0 => 0, 1 => 100, 2 => 25, 3 => 50, 4 => 75, _ => 90 };
+
+    private static async Task<System.Windows.FrameworkElement> OpenAttributeManageAsync(SceneContext context, bool cards, Func<int, int>? valueAt = null)
     {
         await SeedLibraryAsync(context, count: 8, change: (index, record) => index >= 6 ? record : record with
         {
-            Local = record.Local with { Attributes = new Dictionary<string, int> { ["かわいさ"] = 40 + (index * 10) } },
+            Local = record.Local with { Attributes = new Dictionary<string, int> { ["かわいさ"] = valueAt?.Invoke(index) ?? 40 + (index * 10) } },
         });
         await context.Seed.Attributes.SaveAsync(new AttributeMaster { Attributes = [new AttributeDefinition { Name = "かわいさ" }] });
         var main = await context.StartAsync();

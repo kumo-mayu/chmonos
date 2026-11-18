@@ -28,6 +28,25 @@ public sealed record StatsSpendBar
     public required long SpentYen { get; init; }
 
     public required int ItemCount { get; init; }
+
+    /// <summary>
+    /// 所持している商品の BOOTH のスキ数の合計（ショップの欄の「スキ数」。ユーザ判断 2026-11-19・open.md 107）。
+    /// ショップそのもののフォロー数ではない。数えるのは統計の対象（所持している商品）だけ
+    /// </summary>
+    public long WishCount { get; init; }
+}
+
+/// <summary>統計の「ショップ」の欄で並べる物（open.md 107）。</summary>
+public enum StatsShopOrder
+{
+    /// <summary>払った額（自分用）。</summary>
+    Spent,
+
+    /// <summary>所持している商品の数。</summary>
+    Count,
+
+    /// <summary>所持している商品のスキ数の合計。</summary>
+    Wish,
 }
 
 /// <summary>容量で並べる棒1本（カテゴリ）。</summary>
@@ -122,6 +141,21 @@ public sealed record StatsAttributeDistribution
 
     /// <summary>0-19 / 20-39 / 40-59 / 60-79 / 80-100 の5区切り。</summary>
     public required IReadOnlyList<int> Buckets { get; init; }
+
+    /// <summary>
+    /// 値ごとの件数（値の小さい順）。画面で分け方（幅）を変えるたびに読み直さずに束ね直すため（open.md 112・<see cref="StatsExtras.AttributeBars"/>）。
+    /// </summary>
+    public IReadOnlyList<(int Value, int Count)> ValueCounts { get; init; } = [];
+}
+
+/// <summary>属性の分布の棒1本。値の範囲（両端を含む）と件数。値ごとに1本のときは <see cref="From"/> と <see cref="To"/> が同じ。</summary>
+public sealed record StatsAttributeBar
+{
+    public required int From { get; init; }
+
+    public required int To { get; init; }
+
+    public required int Count { get; init; }
 }
 
 /// <summary>属性2軸の相関。</summary>
@@ -262,8 +296,6 @@ public sealed record StatsSnapshot
 
     public int ShopsBoughtMany { get; init; }
 
-    /// <summary>点数の多いショップ（支出順とは顔ぶれが変わる）。</summary>
-    public IReadOnlyList<StatsSpendBar> ShopsByCount { get; init; } = [];
 
     /// <summary>カテゴリ・userTagの点数構成。</summary>
     public IReadOnlyList<StatsCountBar> CategoryCounts { get; init; } = [];
@@ -323,8 +355,15 @@ public sealed record StatsAvatarWearable
 
 public interface IStatsService
 {
-    Task<StatsSnapshot> LoadAsync(CancellationToken cancellationToken = default);
+    Task<StatsSnapshot> LoadAsync(bool useDetectedVariationTargets = true, CancellationToken cancellationToken = default);
+
+    /// <summary>集計の元（全商品・登録簿・未確定の数）。期間を替えるたびに読み直さないよう、画面が持って期間ごとに集計し直す（open.md 104）</summary>
+    Task<StatsSource> LoadSourceAsync(CancellationToken cancellationToken = default);
 }
+
+/// <summary>集計の元。<see cref="Dated"/> は期間で絞るための日付の控え（読み込みの時に1回だけ求める）</summary>
+public sealed record StatsSource(
+    IReadOnlyList<ItemRecord> Items, AvatarRegistry Registry, int UnresolvedCount, IReadOnlyList<StatsDatedItem> Dated);
 
 /// <summary>
 /// ライブラリ全体の集計。
@@ -347,21 +386,33 @@ public sealed class StatsService : IStatsService
         _store = store;
     }
 
-    public async Task<StatsSnapshot> LoadAsync(CancellationToken cancellationToken = default)
+    /// <param name="useDetectedVariationTargets">検索と同じ設定（<see cref="AppSettings.UseDetectedVariationTargets"/>）。アバターの欄で持っていないバリエーションの分を外すときに、検出した向き先も使うか</param>
+    /// <param name="cancellationToken">離れたら取り消す</param>
+    public async Task<StatsSnapshot> LoadAsync(bool useDetectedVariationTargets = true, CancellationToken cancellationToken = default)
     {
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
         var registry = _store.Avatars.Load();
         // 統計の画面は画面のスレッドから開く。上の await の続きもそこへ戻るので、未確定の記録（件数に比例して大きい）は裏で読む
         var unresolved = (await _store.Unresolved.LoadAsync(cancellationToken)).Count;
 
-        return Build(loaded.Items, registry, unresolved);
+        return Build(loaded.Items, registry, unresolved, useDetectedVariationTargets);
+    }
+
+    public async Task<StatsSource> LoadSourceAsync(CancellationToken cancellationToken = default)
+    {
+        var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
+        var registry = _store.Avatars.Load();
+        var unresolved = (await _store.Unresolved.LoadAsync(cancellationToken)).Count;
+        cancellationToken.ThrowIfCancellationRequested();
+        return new StatsSource(loaded.Items, registry, unresolved, StatsPeriods.Date(loaded.Items));
     }
 
     /// <summary>実際の集計。ファイル読み込みから切り離してあるのでテストから直に呼べる。</summary>
     public static StatsSnapshot Build(
         IReadOnlyList<ItemRecord> items,
         AvatarRegistry registry,
-        int unresolvedCount)
+        int unresolvedCount,
+        bool useDetectedVariationTargets = true)
     {
         var owned = items.Where(IsOwned).ToList();
 
@@ -456,7 +507,7 @@ public sealed class StatsService : IStatsService
 
             members.Add(item);
 
-            CountAvatars(item, compatibility, avatars, ref withoutAvatar);
+            CountAvatars(item, compatibility, useDetectedVariationTargets, avatars, ref withoutAvatar);
         }
 
         var avatarBars = BuildAvatarBars(owned, registry, avatars, withoutAvatar);
@@ -483,17 +534,7 @@ public sealed class StatsService : IStatsService
             UndatedSpentYen = undatedSpent,
             UndatedCount = undated,
             FallbackDatedCount = fallbackDated,
-            Shops = shops
-                .OrderByDescending(pair => pair.Value.Spent)
-                .ThenByDescending(pair => pair.Value.Count)
-                .Select(pair => new StatsSpendBar
-                {
-                    Key = pair.Key,
-                    Label = pair.Value.Name,
-                    SpentYen = pair.Value.Spent,
-                    ItemCount = pair.Value.Count,
-                })
-                .ToList(),
+            Shops = StatsExtras.ShopBars(owned),
             Categories = categories
                 .Select(pair => (pair.Key, Bytes: LibrarySizes.OnDisk(pair.Value), pair.Value.Count))
                 .OrderByDescending(pair => pair.Bytes)
@@ -516,7 +557,7 @@ public sealed class StatsService : IStatsService
         };
 
         // 選んで出す項目は同じ走査結果から組み立てる
-        return StatsExtras.Enrich(snapshot, items, owned, registry);
+        return StatsExtras.Enrich(snapshot, items, owned, registry, useDetectedVariationTargets);
     }
 
     /// <summary>
@@ -575,10 +616,16 @@ public sealed class StatsService : IStatsService
     /// 同じアバターに複数の紐付けがあっても1件として数える（推定と手入力が重なることがある）。
     /// 素体に対応していれば、その素体を使っているアバターにも数える
     /// （素体向けの衣装は、その素体を使うアバターでも着られるため）。
+    ///
+    /// 持っていないバリエーションの分（<see cref="AvatarCompatibilityIndex.UnownedVariationAvatars"/>）は数えない（open.md 106・ユーザ指摘 2026-11-18）。
+    /// 検索の「持っているバリエーションの分だけ」・変換・商品ページと同じ式と設定にして、統計だけ別の数を出さないため。
+    /// 引いて1体も残らない商品は「対応アバター未設定」に入れない：対応は人が入れてあり、持っている分が無いだけなので、
+    /// 未設定に数えると「入れてください」と誤って促す
     /// </summary>
     private static void CountAvatars(
         ItemRecord item,
         AvatarCompatibilityIndex compatibility,
+        bool useDetectedVariationTargets,
         Dictionary<string, int> counts,
         ref int withoutAvatar)
     {
@@ -590,8 +637,10 @@ public sealed class StatsService : IStatsService
             return;
         }
 
+        var unowned = compatibility.UnownedVariationAvatars(item.Local, useDetectedVariationTargets);
+
         // 直接対応も素体経由も同じ1件として数える（見出しに「素体経由を含む」と断る）
-        foreach (var id in reached.Keys)
+        foreach (var id in reached.Keys.Where(id => !unowned.Contains(id)))
         {
             counts[id] = counts.TryGetValue(id, out var current) ? current + 1 : 1;
         }

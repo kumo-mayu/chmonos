@@ -102,13 +102,47 @@ public sealed class BacklogRowViewModel
     public required string Severity { get; init; }
 }
 
+/// <summary>
+/// 統計の欄を開いているか。画面は <c>Panels[shops]</c> のように欄の鍵で結ぶ（open.md 110）。
+/// 覚えるのは起動の間ずっと居る <see cref="Services.StatsPanels"/>。ここは画面との橋渡しだけ
+/// </summary>
+public sealed class StatsPanelsViewModel(Services.StatsPanels memory)
+{
+    public bool this[string key]
+    {
+        get => memory.IsOpen(key);
+        set => memory.SetOpen(key, value);
+    }
+}
+
+/// <summary>期間の選び方の種類（ユーザ判断 2026-11-18・open.md 104）。</summary>
+public enum StatsRangeKind
+{
+    LastMonths,
+    ThisMonth,
+    LastMonth,
+    ThisYear,
+    LastYear,
+
+    /// <summary>年を選ぶ（右に年の欄が出る）。</summary>
+    PickYear,
+
+    /// <summary>開始と終了の日をカレンダーで選ぶ。</summary>
+    Custom,
+
+    /// <summary>絞らない。日付の分からない商品も入る。</summary>
+    All,
+}
+
 /// <summary>集計期間の選び方。</summary>
 public sealed class StatsRangeOption
 {
     public required string Label { get; init; }
 
-    /// <summary>月別で見せるときの表示月数。年別なら null。</summary>
-    public int? Months { get; init; }
+    public required StatsRangeKind Kind { get; init; }
+
+    /// <summary>「直近 n ヶ月」の n。</summary>
+    public int Months { get; init; }
 }
 
 /// <summary>
@@ -133,22 +167,43 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
     private StatsRangeOption _range;
     private bool _isLoading = true;
 
-    public StatsViewModel(AppServiceContainer services, MainViewModel main)
+    /// <param name="today">「今月」「直近 n ヶ月」の基準の日。試験で日付を決めるときだけ渡す（既定は今日）</param>
+    public StatsViewModel(AppServiceContainer services, MainViewModel main, DateOnly? today = null)
     {
         _services = services;
         _main = main;
         _range = Ranges[0];
+        _today = today ?? DateOnly.FromDateTime(DateTime.Today);
+        _selectedYear = _today.Year;
+
+        // 「開始と終了を選ぶ」を選んだ時に、何も選ばないうちから読める期間にしておく（今月の初めから今日まで）
+        _customFrom = new DateTime(_today.Year, _today.Month, 1);
+        _customTo = _today.ToDateTime(TimeOnly.MinValue);
+        Panels = new StatsPanelsViewModel(services.StatsPanels);
 
         LoadAsync().Forget();
     }
 
+    /// <summary>欄を開いているか（次の起動まで覚える）。</summary>
+    public StatsPanelsViewModel Panels { get; }
+
     public void OnLeaving() => _leaving.Cancel();
 
+    /// <summary>
+    /// 期間の選び方（ユーザ判断 2026-11-18・open.md 104）。既定は前と同じ直近12ヶ月。
+    /// 「全期間」は前の「全期間・年別」：棒の並べ方は期間の長さで決めるので「年別」は付けない
+    /// </summary>
     public static IReadOnlyList<StatsRangeOption> Ranges { get; } =
     [
-        new StatsRangeOption { Label = "直近 12 ヶ月", Months = 12 },
-        new StatsRangeOption { Label = "直近 24 ヶ月", Months = 24 },
-        new StatsRangeOption { Label = "全期間・年別" },
+        new StatsRangeOption { Label = "直近 12 ヶ月", Kind = StatsRangeKind.LastMonths, Months = 12 },
+        new StatsRangeOption { Label = "直近 24 ヶ月", Kind = StatsRangeKind.LastMonths, Months = 24 },
+        new StatsRangeOption { Label = "今月", Kind = StatsRangeKind.ThisMonth },
+        new StatsRangeOption { Label = "先月", Kind = StatsRangeKind.LastMonth },
+        new StatsRangeOption { Label = "今年", Kind = StatsRangeKind.ThisYear },
+        new StatsRangeOption { Label = "去年", Kind = StatsRangeKind.LastYear },
+        new StatsRangeOption { Label = "年を選ぶ", Kind = StatsRangeKind.PickYear },
+        new StatsRangeOption { Label = "開始と終了を選ぶ", Kind = StatsRangeKind.Custom },
+        new StatsRangeOption { Label = "全期間", Kind = StatsRangeKind.All },
     ];
 
     public StatsRangeOption Range
@@ -158,8 +213,199 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         {
             if (SetField(ref _range, value))
             {
-                RebuildChart();
+                OnPropertyChanged(nameof(IsPickYear));
+                OnPropertyChanged(nameof(IsCustom));
+                RecomputePeriod();
             }
+        }
+    }
+
+    // ---- 期間（open.md 104） ----
+
+    private readonly DateOnly _today;
+    private StatsSource? _source;
+
+    /// <summary>選んだ期間の集計。全期間なら <see cref="_snapshot"/> と同じ物</summary>
+    private StatsSnapshot? _period;
+
+    private StatsNarrowed? _narrowed;
+    private DateOnly? _latestDate;
+    private int _periodVersion;
+
+    /// <summary>期間で変わる欄の元。期間の集計がまだなら全期間</summary>
+    private StatsSnapshot? Period => _period ?? _snapshot;
+
+    public bool IsAllTime => _range.Kind == StatsRangeKind.All;
+
+    public bool IsPickYear => _range.Kind == StatsRangeKind.PickYear;
+
+    public bool IsCustom => _range.Kind == StatsRangeKind.Custom;
+
+    /// <summary>「年を選ぶ」の候補。日付の分かる購入のある年と今年（新しい順）</summary>
+    public IReadOnlyList<int> Years { get; private set; } = [];
+
+    private int _selectedYear;
+
+    public int SelectedYear
+    {
+        get => _selectedYear;
+        set
+        {
+            if (SetField(ref _selectedYear, value) && IsPickYear)
+            {
+                RecomputePeriod();
+            }
+        }
+    }
+
+    private DateTime? _customFrom;
+    private DateTime? _customTo;
+
+    /// <summary>「開始と終了を選ぶ」の開始の日。空なら始まりを切らない</summary>
+    public DateTime? CustomFrom
+    {
+        get => _customFrom;
+        set
+        {
+            if (SetField(ref _customFrom, value))
+            {
+                OnPropertyChanged(nameof(CustomFromText));
+                if (IsCustom)
+                {
+                    RecomputePeriod();
+                }
+            }
+        }
+    }
+
+    /// <summary>「開始と終了を選ぶ」の終了の日。空なら終わりを切らない</summary>
+    public DateTime? CustomTo
+    {
+        get => _customTo;
+        set
+        {
+            if (SetField(ref _customTo, value))
+            {
+                OnPropertyChanged(nameof(CustomToText));
+                if (IsCustom)
+                {
+                    RecomputePeriod();
+                }
+            }
+        }
+    }
+
+    public string CustomFromText => _customFrom is { } from ? $"{from:yyyy/MM/dd}" : "開始の日";
+
+    public string CustomToText => _customTo is { } to ? $"{to:yyyy/MM/dd}" : "終了の日";
+
+    /// <summary>
+    /// 選んだ期間。全期間なら null（絞らない）。片方だけ選んだ「開始と終了」は、選んでいない端を開けておく
+    /// </summary>
+    public StatsDateRange? SelectedRange => _range.Kind switch
+    {
+        StatsRangeKind.LastMonths => StatsPeriods.LastMonths(_today, _range.Months, _latestDate),
+        StatsRangeKind.ThisMonth => StatsPeriods.ThisMonth(_today),
+        StatsRangeKind.LastMonth => StatsPeriods.LastMonth(_today),
+        StatsRangeKind.ThisYear => StatsPeriods.Year(_today.Year),
+        StatsRangeKind.LastYear => StatsPeriods.Year(_today.Year - 1),
+        StatsRangeKind.PickYear => StatsPeriods.Year(_selectedYear),
+        StatsRangeKind.Custom => StatsPeriods.Between(
+            _customFrom is { } from ? DateOnly.FromDateTime(from) : DateOnly.MinValue,
+            _customTo is { } to ? DateOnly.FromDateTime(to) : DateOnly.MaxValue),
+        _ => null,
+    };
+
+    /// <summary>期間で変わる欄の見出しの横に出す、その欄が見ている期間（ユーザ判断 2026-11-18：どの期間を見ているか分かるように）</summary>
+    public string PeriodText => SelectedRange is { } range ? StatsPeriods.Label(range) : "全期間";
+
+    /// <summary>
+    /// 期間に入らなかった、日付の分からない商品の数。期間で変わる欄の全部に効くので、グラフの下ではなく期間の欄のそばに出す
+    /// </summary>
+    public string PeriodNote => IsAllTime || _narrowed is not { UndatedOwnedCount: > 0 } narrowed
+        ? string.Empty
+        : $"日付の分からない {narrowed.UndatedOwnedCount:N0} 件は、期間で変わる欄に入っていません。";
+
+    public bool HasPeriodNote => PeriodNote.Length > 0;
+
+    // タイルの2行目：期間の値（ユーザ判断 2026-11-18：所持・支出・ショップ数は合計と期間の両方を常に出す）
+
+    public string PeriodOwnedText => $"{PeriodText} {Period?.OwnedCount ?? 0:N0}";
+
+    public string PeriodSpentText => $"{PeriodText} ¥{Period?.SpentYen ?? 0:N0}";
+
+    public string PeriodGivenText => $"{PeriodText} ¥{Period?.GivenSpentYen ?? 0:N0}";
+
+    public string PeriodShopCountText => $"{PeriodText} {Period?.ShopCount ?? 0:N0}";
+
+    public bool ShowsPeriodTiles => !IsAllTime;
+
+    /// <summary>
+    /// 期間を替えたら、期間で変わる欄だけを集計し直す。全商品は読み直さない（読み込みの時の控えを絞る）。
+    /// 集計は裏で走らせ、続けて替えたら古い結果は捨てる
+    /// </summary>
+    private void RecomputePeriod()
+    {
+        // 読み込みの途中で替えられたら、数だけ進めて終わる（読み込みが済んだ所で版の違いを見て集計し直す）
+        var version = ++_periodVersion;
+        if (_source is not { } source)
+        {
+            return;
+        }
+
+        var range = SelectedRange;
+        var useDetected = _services.Settings.UseDetectedVariationTargets;
+        var token = _leaving.Token;
+        Task.Run(() =>
+        {
+            if (range is not { } selected)
+            {
+                return ((StatsSnapshot?)null, (StatsNarrowed?)null);
+            }
+
+            var narrowed = StatsPeriods.Narrow(source.Dated, selected);
+            return (StatsPeriods.Build(narrowed, source.Registry, source.UnresolvedCount, useDetected), narrowed);
+        }, token).ContinueWith(task =>
+        {
+            if (task.IsCompletedSuccessfully)
+            {
+                RunOnUiThread(() =>
+                {
+                    if (token.IsCancellationRequested || version != _periodVersion)
+                    {
+                        return;
+                    }
+
+                    (_period, _narrowed) = task.Result;
+                    _period ??= _snapshot;
+                    RebuildPeriodPanels();
+                });
+            }
+        }, TaskScheduler.Default);
+    }
+
+    /// <summary>期間で変わる欄（open.md 104 の分け方）を組み直す</summary>
+    private void RebuildPeriodPanels()
+    {
+        RebuildChart();
+        RebuildShops();
+        if (Period is not null)
+        {
+            Fill(PriceBuckets, Period.PriceBuckets.Select(b => (b.Label, (long)b.Count, $"{b.Count} 件")));
+            Fill(CategorySpend, Period.CategorySpend.Select(b => (b.Label, b.SpentYen, $"¥{b.SpentYen:N0}")));
+            Fill(UserTagSpend, Period.UserTagSpend.Select(b => (b.Label, b.SpentYen, $"¥{b.SpentYen:N0}")));
+            Fill(CategoryCounts, Period.CategoryCounts.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
+            Fill(UserTagCounts, Period.UserTagCounts.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
+        }
+
+        foreach (var name in new[]
+        {
+            nameof(IsAllTime), nameof(PeriodText), nameof(PeriodNote), nameof(HasPeriodNote),
+            nameof(PeriodOwnedText), nameof(PeriodSpentText), nameof(PeriodGivenText), nameof(PeriodShopCountText),
+            nameof(ShowsPeriodTiles), nameof(UnpricedNote), nameof(HasUnpricedNote), nameof(GiftText), nameof(FreeText),
+        })
+        {
+            OnPropertyChanged(name);
         }
     }
 
@@ -204,7 +450,6 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
 
     public ObservableCollection<StatsRowViewModel> UserTagCounts { get; } = [];
 
-    public ObservableCollection<StatsRowViewModel> ShopsByCount { get; } = [];
 
     public ObservableCollection<StatsRowViewModel> HeavyItems { get; } = [];
 
@@ -286,9 +531,11 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
     public int TileColumns => HasGiven ? 5 : 4;
 
     /// <summary>金額に入っていない分。総額を額面どおり受け取られないように必ず出す。</summary>
-    public string UnpricedNote => _snapshot is null || _snapshot.UnpricedItemCount == 0
+    public string UnpricedNote => Period is not { UnpricedItemCount: > 0 } period
         ? string.Empty
-        : $"払った額の記録が無い商品が {_snapshot.UnpricedItemCount:N0} 件あります。その分は総額に入っていません。";
+        : IsAllTime
+            ? $"払った額の記録が無い商品が {period.UnpricedItemCount:N0} 件あります。その分は総額に入っていません。"
+            : $"この期間に、払った額の記録が無い商品が {period.UnpricedItemCount:N0} 件あります。その分は期間の支出に入っていません。";
 
     public bool HasUnpricedNote => UnpricedNote.Length > 0;
 
@@ -349,19 +596,20 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
     {
         get
         {
-            if (_snapshot is null)
+            if (_snapshot is null || Period is not { } period)
             {
                 return string.Empty;
             }
 
             var parts = new List<string>();
 
-            if (_snapshot.FallbackDatedCount > 0)
+            if (period.FallbackDatedCount > 0)
             {
-                parts.Add($"{_snapshot.FallbackDatedCount:N0} 件は入手日が未入力で、ファイルの日付で代えています");
+                parts.Add($"{period.FallbackDatedCount:N0} 件は入手日が未入力で、ファイルの日付で代えています");
             }
 
-            if (_snapshot.UndatedCount > 0)
+            // 期間を選んでいる間は、日付の分からない商品は期間の欄のそば（PeriodNote）で断る。グラフだけの話ではないので
+            if (IsAllTime && _snapshot.UndatedCount > 0)
             {
                 parts.Add($"日付の分からない {_snapshot.UndatedCount:N0} 件（¥{_snapshot.UndatedSpentYen:N0}）は含めていません");
             }
@@ -400,7 +648,30 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
     private async Task LoadCoreAsync()
     {
         var token = _leaving.Token;
-        var snapshot = await Task.Run(() => _services.Stats.LoadAsync(token), token);
+        // アバターの欄は検索と同じ設定で、持っていないバリエーションの分を外す（open.md 106）
+        var useDetected = _services.Settings.UseDetectedVariationTargets;
+        // 全商品は1回だけ読み、期間を替えるたびには読み直さない（open.md 104）。期間の集計も読み込みと同じ裏で済ませる
+        var range = SelectedRange;
+        var option = _range;
+        var version = _periodVersion;
+        var (source, snapshot, period, narrowed, latest) = await Task.Run(async () =>
+        {
+            var source = await _services.Stats.LoadSourceAsync(token);
+            var snapshot = StatsService.Build(source.Items, source.Registry, source.UnresolvedCount, useDetected);
+            var latest = source.Dated.SelectMany(item => item.Purchases.Select(row => row.Date).Append(item.ItemDate)).Max();
+
+            // 直近 n ヶ月の右端は先の日付の購入まで伸ばすので、最後の日付が分かってから期間を決め直す
+            var selected = range is null ? null : (StatsDateRange?)(option.Kind == StatsRangeKind.LastMonths
+                ? StatsPeriods.LastMonths(_today, option.Months, latest)
+                : range);
+            if (selected is not { } chosen)
+            {
+                return (source, snapshot, snapshot, (StatsNarrowed?)null, latest);
+            }
+
+            var narrowed = StatsPeriods.Narrow(source.Dated, chosen);
+            return (source, snapshot, StatsPeriods.Build(narrowed, source.Registry, source.UnresolvedCount, useDetected), narrowed, latest);
+        }, token);
 
         RunOnUiThread(() =>
         {
@@ -409,11 +680,24 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
                 return;
             }
 
+            _source = source;
             _snapshot = snapshot;
+            _period = period;
+            _narrowed = narrowed;
+            _latestDate = latest;
+            Years = snapshot.Years.Select(year => int.Parse(year.Key, System.Globalization.CultureInfo.InvariantCulture))
+                .Append(_today.Year).Distinct().OrderByDescending(year => year).ToList();
+            OnPropertyChanged(nameof(Years));
             IsLoading = false;
 
-            RebuildChart();
             RebuildPanels();
+            RebuildPeriodPanels();
+
+            // 読み込みの間に期間を替えられていたら、今の期間で集計し直す（読み込みは始めた時の期間で数えている）
+            if (version != _periodVersion)
+            {
+                RecomputePeriod();
+            }
 
             foreach (var name in new[]
             {
@@ -438,15 +722,13 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
     {
         Chart.Clear();
 
-        if (_snapshot is null)
+        if (_snapshot is null || Period is not { } period0)
         {
             return;
         }
 
         // 日付の分かる購入が1件も無ければ、0円の目盛りだけ並べても読む物が無いので、今までどおりグラフごと出さない
-        var source = _range.Months is { } months
-            ? _snapshot.Months.Count == 0 ? [] : LastMonths(_snapshot.Months, months)
-            : _snapshot.Years.Select(year => (Period: year, Year: string.Empty, Full: $"{year.Label}年")).ToList();
+        var source = _snapshot.Months.Count == 0 ? [] : ChartBars(period0, ChartRange(_snapshot, SelectedRange, _today));
 
         var peak = source.Count == 0 ? 0 : source.Max(bar => bar.Period.SpentYen);
         var scale = RoundUpAxis(peak);
@@ -481,36 +763,61 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
     }
 
     /// <summary>
-    /// 今月までの <paramref name="count"/> ヶ月を、買っていない月も0円として並べる。
+    /// グラフに並べる範囲。選んだ期間のうち開いた端（全期間・片方だけ選んだ「開始と終了」）は、
+    /// 最初に買った月と、今月（先の日付の購入があればその月）で閉じる。開いたままだと西暦1年から棒を並べてしまう
+    /// </summary>
+    internal static StatsDateRange ChartRange(StatsSnapshot all, StatsDateRange? selected, DateOnly today)
+    {
+        var first = ParseMonth(all.Months[0].Key);
+        var lastMonth = ParseMonth(all.Months[^1].Key);
+        var thisMonth = new DateOnly(today.Year, today.Month, 1);
+        var end = (lastMonth > thisMonth ? lastMonth : thisMonth).AddMonths(1).AddDays(-1);
+
+        var from = selected?.From ?? DateOnly.MinValue;
+        var to = selected?.To ?? DateOnly.MaxValue;
+        return new StatsDateRange(from == DateOnly.MinValue ? first : from, to == DateOnly.MaxValue ? end : to);
+    }
+
+    private static DateOnly ParseMonth(string key)
+        => new(int.Parse(key[..4], System.Globalization.CultureInfo.InvariantCulture), int.Parse(key[5..], System.Globalization.CultureInfo.InvariantCulture), 1);
+
+    /// <summary>
+    /// 期間の月（24ヶ月まで）か年を、買っていない月・年も0円として並べる（並べ方は期間の長さで決める・open.md 104）。
     ///
-    /// 集計は「最初に買った月から最後に買った月まで」しか持たないので、そこから末尾を切るだけだと、
+    /// 集計は「最初に買った月から最後に買った月まで」しか持たないので、そこから切るだけだと、
     /// 12ヶ月を選んでいても買った月が1つなら棒が1本だけ浮き、どの時期なのかも読めなかった（点検 2026-09-23）。
-    /// 選んだ期間の目盛りは常に全部出し、今月を右端に置く（入手日が先の日付になっている分は、その月まで伸ばす）。
+    /// 期間の目盛りは常に全部出す。棒の値は期間で絞った集計から取るので、年の途中で切った期間でも外の月は混ざらない。
     ///
     /// 軸の月は「09」だけでは年が分からないので、左端と1月の下に年を添える。全部に年を付けると、
     /// 24ヶ月のとき狭い窓で目盛りの文字が重なる
     /// </summary>
-    private static List<(StatsPeriod Period, string Year, string Full)> LastMonths(IReadOnlyList<StatsPeriod> months, int count)
+    internal static List<(StatsPeriod Period, string Year, string Full)> ChartBars(StatsSnapshot period, StatsDateRange range)
     {
-        var byKey = months.ToDictionary(month => month.Key, StringComparer.Ordinal);
-        var today = DateTime.Today;
-        var end = new DateTime(today.Year, today.Month, 1);
-        if (months.Count > 0
-            && DateTime.TryParseExact(months[^1].Key, "yyyy-MM", null, System.Globalization.DateTimeStyles.None, out var last)
-            && last > end)
+        var result = new List<(StatsPeriod, string, string)>();
+        if (StatsPeriods.ByMonth(range))
         {
-            end = last;
+            var byKey = period.Months.ToDictionary(month => month.Key, StringComparer.Ordinal);
+            for (var cursor = new DateOnly(range.From.Year, range.From.Month, 1); cursor <= range.To; cursor = cursor.AddMonths(1))
+            {
+                var key = $"{cursor.Year:D4}-{cursor.Month:D2}";
+                var bar = byKey.TryGetValue(key, out var found)
+                    ? found
+                    : new StatsPeriod { Key = key, Label = $"{cursor.Month:D2}", SpentYen = 0, ItemCount = 0 };
+                var year = result.Count == 0 || cursor.Month == 1 ? $"{cursor.Year}" : string.Empty;
+                result.Add((bar, year, $"{cursor.Year}年{cursor.Month}月"));
+            }
+
+            return result;
         }
 
-        var result = new List<(StatsPeriod, string, string)>(count);
-        for (var cursor = end.AddMonths(1 - count); cursor <= end; cursor = cursor.AddMonths(1))
+        var byYear = period.Years.ToDictionary(year => year.Key, StringComparer.Ordinal);
+        for (var year = range.From.Year; year <= range.To.Year; year++)
         {
-            var key = $"{cursor.Year:D4}-{cursor.Month:D2}";
-            var period = byKey.TryGetValue(key, out var found)
+            var key = $"{year:D4}";
+            var bar = byYear.TryGetValue(key, out var found)
                 ? found
-                : new StatsPeriod { Key = key, Label = $"{cursor.Month:D2}", SpentYen = 0, ItemCount = 0 };
-            var year = result.Count == 0 || cursor.Month == 1 ? $"{cursor.Year}" : string.Empty;
-            result.Add((period, year, $"{cursor.Year}年{cursor.Month}月"));
+                : new StatsPeriod { Key = key, Label = key, SpentYen = 0, ItemCount = 0 };
+            result.Add((bar, string.Empty, $"{year}年"));
         }
 
         return result;
@@ -536,21 +843,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
             });
         }
 
-        Shops.Clear();
-        var shopMax = _snapshot.Shops.Count == 0 ? 0 : _snapshot.Shops.Max(bar => bar.SpentYen);
-        foreach (var bar in _snapshot.Shops.Take(8))
-        {
-            var subdomain = bar.Key;
-            Shops.Add(new StatsRowViewModel
-            {
-                Label = bar.Label,
-                ValueText = $"¥{bar.SpentYen:N0}",
-                SubText = $"{bar.ItemCount} 件",
-                Ratio = shopMax == 0 ? 0 : bar.SpentYen / (double)shopMax,
-                OpenCommand = new RelayCommand(() => _main.ShowShopAsync(subdomain).Forget()),
-                Tooltip = "このショップの画面を開きます。",
-            });
-        }
+        RebuildShops();
 
         Categories.Clear();
         var categoryMax = _snapshot.Categories.Count == 0 ? 0 : _snapshot.Categories.Max(bar => bar.Bytes);
@@ -583,13 +876,12 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
             return;
         }
 
-        Fill(PriceBuckets, _snapshot.PriceBuckets.Select(b => (b.Label, (long)b.Count, $"{b.Count} 件")));
+        Fill(PriceBuckets, Period!.PriceBuckets.Select(b => (b.Label, (long)b.Count, $"{b.Count} 件")));
         Fill(WishBuckets, _snapshot.WishBuckets.Select(b => (b.Label, (long)b.Count, $"{b.Count} 件")));
-        Fill(CategorySpend, _snapshot.CategorySpend.Select(b => (b.Label, b.SpentYen, $"¥{b.SpentYen:N0}")));
-        Fill(UserTagSpend, _snapshot.UserTagSpend.Select(b => (b.Label, b.SpentYen, $"¥{b.SpentYen:N0}")));
-        Fill(CategoryCounts, _snapshot.CategoryCounts.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
-        Fill(UserTagCounts, _snapshot.UserTagCounts.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
-        Fill(ShopsByCount, _snapshot.ShopsByCount.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
+        Fill(CategorySpend, Period!.CategorySpend.Select(b => (b.Label, b.SpentYen, $"¥{b.SpentYen:N0}")));
+        Fill(UserTagSpend, Period!.UserTagSpend.Select(b => (b.Label, b.SpentYen, $"¥{b.SpentYen:N0}")));
+        Fill(CategoryCounts, Period!.CategoryCounts.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
+        Fill(UserTagCounts, Period!.UserTagCounts.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
         Fill(HeavyItems, _snapshot.HeavyItems.Select(b => (b.Name, b.Bytes, Core.Models.DisplayText.Size(b.Bytes))));
 
         // 素体経由は推定なので、直接対応と分けたまま出す
@@ -611,20 +903,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
             });
         }
 
-        AttributeDistributions.Clear();
-        foreach (var distribution in _snapshot.AttributeDistributions)
-        {
-            var peak = distribution.Buckets.Count == 0 ? 0 : distribution.Buckets.Max();
-            AttributeDistributions.Add(new AttributeDistributionRowViewModel
-            {
-                Name = distribution.Name,
-                SummaryText = $"{distribution.Rated} 件を評価済み・平均 {distribution.Average:0.#}%",
-                Counts = distribution.Buckets,
-                BarHeights = distribution.Buckets
-                    .Select(count => peak == 0 ? 0 : count / (double)peak * AttributeDistributionRowViewModel.ChartHeight)
-                    .ToList(),
-            });
-        }
+        RebuildAttributeDistributions();
 
         Fill(AttributeCorrelations, _snapshot.AttributeCorrelations.Select(c =>
             ($"{c.A} × {c.B}", (long)Math.Abs(Math.Round(c.R * 100)), $"{c.R:+0.00;-0.00;0.00}（{c.Count} 件）")));
@@ -673,6 +952,141 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         }
     }
 
+    /// <summary>
+    /// ショップの欄に出す上位の数。前は支出順8・商品数順10の2つの欄で、1つにまとめたので多い方にそろえた（open.md 107）。
+    /// 全部は出さない：ショップの数だけ縦に伸び、全部を見るならナビの「ショップ」がある
+    /// </summary>
+    public const int ShopRows = 10;
+
+    public bool ShopOrderSpent
+    {
+        get => _services.StatsPanels.ShopOrder == StatsShopOrder.Spent;
+        set => SetShopOrder(value, StatsShopOrder.Spent);
+    }
+
+    public bool ShopOrderCount
+    {
+        get => _services.StatsPanels.ShopOrder == StatsShopOrder.Count;
+        set => SetShopOrder(value, StatsShopOrder.Count);
+    }
+
+    public bool ShopOrderWish
+    {
+        get => _services.StatsPanels.ShopOrder == StatsShopOrder.Wish;
+        set => SetShopOrder(value, StatsShopOrder.Wish);
+    }
+
+    private void SetShopOrder(bool chosen, StatsShopOrder order)
+    {
+        if (!chosen || _services.StatsPanels.ShopOrder == order)
+        {
+            return;
+        }
+
+        _services.StatsPanels.ShopOrder = order;
+        RebuildShops();
+        OnPropertyChanged(nameof(ShopOrderSpent));
+        OnPropertyChanged(nameof(ShopOrderCount));
+        OnPropertyChanged(nameof(ShopOrderWish));
+    }
+
+    /// <summary>
+    /// ショップの欄（open.md 107）。選んだ物の順に上位 <see cref="ShopRows"/> 件。右端は選んだ値、その後ろにほかの1つを小さく添える。
+    /// 行はどれもショップの画面へ
+    /// </summary>
+    private void RebuildShops()
+    {
+        Shops.Clear();
+        if (Period is null)
+        {
+            return;
+        }
+
+        var order = _services.StatsPanels.ShopOrder;
+        long ValueOf(StatsSpendBar bar) => order switch
+        {
+            StatsShopOrder.Count => bar.ItemCount,
+            StatsShopOrder.Wish => bar.WishCount,
+            _ => bar.SpentYen,
+        };
+
+        var rows = StatsExtras.SortShops(Period!.Shops, order).Take(ShopRows).ToList();
+        var max = rows.Count == 0 ? 0 : rows.Max(ValueOf);
+        foreach (var bar in rows)
+        {
+            var subdomain = bar.Key;
+            Shops.Add(new StatsRowViewModel
+            {
+                Label = bar.Label,
+                ValueText = order switch
+                {
+                    StatsShopOrder.Count => $"{bar.ItemCount:N0} 件",
+                    StatsShopOrder.Wish => $"スキ {bar.WishCount:N0}",
+                    _ => $"¥{bar.SpentYen:N0}",
+                },
+                SubText = order == StatsShopOrder.Spent ? $"{bar.ItemCount} 件" : $"¥{bar.SpentYen:N0}",
+                Ratio = max == 0 ? 0 : ValueOf(bar) / (double)max,
+                OpenCommand = new RelayCommand(() => _main.ShowShopAsync(subdomain).Forget()),
+                Tooltip = "このショップの画面を開きます。",
+            });
+        }
+    }
+
+    /// <summary>
+    /// 属性の分布の区切りの幅（5・10・20。open.md 112）。全部の属性に同じ幅を当てる。
+    /// アプリを閉じるまで覚える（統計は開くたびに作り直すので、起動の間ずっと居る <see cref="Services.StatsPanels"/> に持つ）
+    /// </summary>
+    private int AttributeBarWidthCore
+    {
+        get => _services.StatsPanels.AttributeBarWidth;
+        set => _services.StatsPanels.AttributeBarWidth = value;
+    }
+
+    public bool AttributeWidth5
+    {
+        get => AttributeBarWidthCore == 5;
+        set => SetAttributeBarWidth(value, 5);
+    }
+
+    public bool AttributeWidth10
+    {
+        get => AttributeBarWidthCore == 10;
+        set => SetAttributeBarWidth(value, 10);
+    }
+
+    public bool AttributeWidth20
+    {
+        get => AttributeBarWidthCore == 20;
+        set => SetAttributeBarWidth(value, 20);
+    }
+
+    public int AttributeBarWidth => AttributeBarWidthCore;
+
+    private void SetAttributeBarWidth(bool chosen, int width)
+    {
+        // 選ばれた側だけを見る（つながったボタンは外れた側にも false が来る）
+        if (!chosen || AttributeBarWidthCore == width)
+        {
+            return;
+        }
+
+        AttributeBarWidthCore = width;
+        RebuildAttributeDistributions();
+        OnPropertyChanged(nameof(AttributeWidth5));
+        OnPropertyChanged(nameof(AttributeWidth10));
+        OnPropertyChanged(nameof(AttributeWidth20));
+        OnPropertyChanged(nameof(AttributeBarWidth));
+    }
+
+    private void RebuildAttributeDistributions()
+    {
+        AttributeDistributions.Clear();
+        foreach (var distribution in _snapshot?.AttributeDistributions ?? [])
+        {
+            AttributeDistributions.Add(new AttributeDistributionRowViewModel(distribution, AttributeBarWidthCore));
+        }
+    }
+
     public bool HasPriceChanges => PriceChanges.Count > 0;
 
     public bool HasAttributeDistributions => AttributeDistributions.Count > 0;
@@ -686,15 +1100,15 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         ? string.Empty
         : $"両方を評価した商品が {_snapshot.CorrelationMinimum} 件以上ある組だけを表示します。";
 
-    public string GiftText => _snapshot is null
+    public string GiftText => Period is not { } period
         ? string.Empty
-        : $"{_snapshot.GiftedItemCount} 件・定価で ¥{_snapshot.GiftedValueYen:N0}";
+        : $"{period.GiftedItemCount} 件・定価で ¥{period.GiftedValueYen:N0}";
 
-    public string FreeText => _snapshot is null
+    public string FreeText => Period is not { } period
         ? string.Empty
-        : $"{_snapshot.FreeItemCount} 件" + (_snapshot.OwnedCount == 0
+        : $"{period.FreeItemCount} 件" + (period.OwnedCount == 0
             ? string.Empty
-            : $"・所持の {_snapshot.FreeItemCount * 100.0 / _snapshot.OwnedCount:0.#}%");
+            : $"・所持の {period.FreeItemCount * 100.0 / period.OwnedCount:0.#}%");
 
     public string RepeatText => _snapshot is null
         ? string.Empty
@@ -829,18 +1243,51 @@ public sealed class PriceChangeRowViewModel
     public RelayCommand? OpenCommand { get; init; }
 }
 
-/// <summary>属性1軸の分布1行。0-19 / 20-39 / … の5区切り。</summary>
+/// <summary>属性の分布の棒1本。</summary>
+public sealed class AttributeBarViewModel
+{
+    /// <summary>描画領域（<see cref="AttributeDistributionRowViewModel.ChartHeight"/>）に対する実寸。</summary>
+    public required double Height { get; init; }
+
+    /// <summary>棒の下に出す値。値ごとに1本のときだけ入れる（区切りのときは下の「0」「100」で読む）。</summary>
+    public string ValueLabel { get; init; } = string.Empty;
+
+    public required string Tooltip { get; init; }
+}
+
+/// <summary>属性1軸の分布1行。分け方（幅）は統計の画面で選ぶ（open.md 112）。</summary>
 public sealed class AttributeDistributionRowViewModel
 {
-    public required string Name { get; init; }
+    public AttributeDistributionRowViewModel(StatsAttributeDistribution distribution, int width)
+    {
+        Name = distribution.Name;
+        SummaryText = $"{distribution.Rated} 件を評価済み・平均 {distribution.Average:0.#}%";
 
-    public required string SummaryText { get; init; }
+        var bars = StatsExtras.AttributeBars(distribution, width);
+        IsByValue = bars.All(bar => bar.From == bar.To);
+        var peak = bars.Count == 0 ? 0 : bars.Max(bar => bar.Count);
+        Bars = bars
+            .Select(bar => new AttributeBarViewModel
+            {
+                Height = peak == 0 ? 0 : bar.Count / (double)peak * ChartHeight,
+                ValueLabel = IsByValue ? $"{bar.From}" : string.Empty,
+                Tooltip = bar.From == bar.To ? $"{bar.From}%：{bar.Count} 件" : $"{bar.From}〜{bar.To}%：{bar.Count} 件",
+            })
+            .ToList();
+        Counts = bars.Select(bar => bar.Count).ToList();
+    }
 
-    /// <summary>区切りごとの高さ（描画領域に対する実寸）。</summary>
-    public required IReadOnlyList<double> BarHeights { get; init; }
+    public string Name { get; }
 
-    public required IReadOnlyList<int> Counts { get; init; }
+    public string SummaryText { get; }
 
-    /// <summary>グラフの高さ。区切りが5つなので低めで足りる。</summary>
+    public IReadOnlyList<AttributeBarViewModel> Bars { get; }
+
+    public IReadOnlyList<int> Counts { get; }
+
+    /// <summary>付いた値ごとに1本か。下の「0」「100」の字は区切りのときだけ出す（値ごとのときは棒の下に値が出る）。</summary>
+    public bool IsByValue { get; }
+
+    /// <summary>グラフの高さ。属性ごとの小さな札に並べるので低めで足りる。</summary>
     public const double ChartHeight = 56;
 }

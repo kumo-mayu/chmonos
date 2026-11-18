@@ -24,7 +24,8 @@ public static class StatsExtras
         StatsSnapshot snapshot,
         IReadOnlyList<ItemRecord> allItems,
         IReadOnlyList<ItemRecord> owned,
-        AvatarRegistry registry)
+        AvatarRegistry registry,
+        bool useDetectedVariationTargets = true)
     {
         var compatibility = AvatarCompatibilityIndex.Build(registry);
 
@@ -56,11 +57,10 @@ public static class StatsExtras
                 .ToList(),
             ShopsBoughtOnce = ShopCounts(owned).Count(pair => pair.Value == 1),
             ShopsBoughtMany = ShopCounts(owned).Count(pair => pair.Value > 1),
-            ShopsByCount = ShopsByCount(owned),
             AttributeDistributions = Distributions(owned),
             AttributeCorrelations = Correlations(owned),
             CorrelationMinimum = CorrelationMinimum,
-            Wearables = Wearables(owned, registry, compatibility),
+            Wearables = Wearables(owned, registry, compatibility, useDetectedVariationTargets),
             UnsortedOwnedCount = owned.Count(item => item.Local.UserTags.Count == 0),
             HiddenCount = allItems.Count(item => item.Local.IsHidden),
             EndOfSaleCount = owned.Count(item => item.Booth.IsEndOfSale),
@@ -173,8 +173,12 @@ public static class StatsExtras
         return counts;
     }
 
-    private static List<StatsSpendBar> ShopsByCount(IReadOnlyList<ItemRecord> owned)
-        => owned
+    /// <summary>
+    /// ショップごとの支出・商品数・スキ数の合計（支出の多い順）。統計の「ショップ」の欄の元（open.md 107）。
+    /// 並べ替えは <see cref="SortShops"/>。名前は最初に見た商品のショップ名（無ければサブドメイン）
+    /// </summary>
+    public static List<StatsSpendBar> ShopBars(IEnumerable<ItemRecord> owned)
+        => SortShops(owned
             .Where(item => item.ShopSubdomain is not null)
             .GroupBy(item => item.ShopSubdomain!, StringComparer.OrdinalIgnoreCase)
             .Select(group => new StatsSpendBar
@@ -183,11 +187,25 @@ public static class StatsExtras
                 Label = group.First().ShopName ?? group.Key,
                 SpentYen = group.Sum(item => SpentOf(item)),
                 ItemCount = group.Count(),
-            })
-            .OrderByDescending(bar => bar.ItemCount)
-            .ThenByDescending(bar => bar.SpentYen)
-            .Take(10)
+                WishCount = group.Sum(item => (long)item.Booth.WishListsCount),
+            }), StatsShopOrder.Spent)
             .ToList();
+
+    /// <summary>
+    /// ショップの欄の並べ替え（金額・商品数・スキ数。open.md 107）。
+    /// 同じ値なら、ほかの2つの順（金額→商品数→スキ数）、それも同じなら名前の順にする：開くたびに並びが揺れないように
+    /// </summary>
+    public static IEnumerable<StatsSpendBar> SortShops(IEnumerable<StatsSpendBar> shops, StatsShopOrder order)
+    {
+        var sorted = order switch
+        {
+            StatsShopOrder.Count => shops.OrderByDescending(bar => bar.ItemCount).ThenByDescending(bar => bar.SpentYen).ThenByDescending(bar => bar.WishCount),
+            StatsShopOrder.Wish => shops.OrderByDescending(bar => bar.WishCount).ThenByDescending(bar => bar.SpentYen).ThenByDescending(bar => bar.ItemCount),
+            _ => shops.OrderByDescending(bar => bar.SpentYen).ThenByDescending(bar => bar.ItemCount).ThenByDescending(bar => bar.WishCount),
+        };
+
+        return sorted.ThenBy(bar => bar.Label, StringComparer.CurrentCulture).ThenBy(bar => bar.Key, StringComparer.Ordinal);
+    }
 
     private static List<StatsSpendBar> SpendBy(IReadOnlyList<ItemRecord> owned, Func<ItemRecord, string> key)
         => owned
@@ -374,10 +392,53 @@ public static class StatsExtras
                 Rated = values.Count,
                 Average = values.Average(),
                 Buckets = buckets,
+                ValueCounts = values
+                    .GroupBy(value => value)
+                    .OrderBy(group => group.Key)
+                    .Select(group => (group.Key, group.Count()))
+                    .ToList(),
             });
         }
 
         return result.OrderByDescending(entry => entry.Rated).ToList();
+    }
+
+    /// <summary>属性の分布で選べる幅（open.md 112・ユーザ判断 2026-11-19）。20 は前の決め打ちの5区切り。</summary>
+    public static IReadOnlyList<int> AttributeBarWidths { get; } = [5, 10, 20];
+
+    /// <summary>
+    /// 属性1つの分布を、幅 <paramref name="width"/> ごとの棒にする（0〜100。100 は最後の棒に入れる）。
+    ///
+    /// 付いた値の種類が区切りの数以下なら、値ごとに1本にする（ユーザ判断 2026-11-19）。
+    /// 0・25・50… のように飛び飛びに付ける人では、束ねると別の値が1本に混ざり（25 と 30 が同じ棒）、
+    /// 値ごとに出しても棒の数は区切りより増えないので、束ねる理由が無い
+    /// </summary>
+    public static IReadOnlyList<StatsAttributeBar> AttributeBars(StatsAttributeDistribution distribution, int width)
+    {
+        width = Math.Clamp(width, 1, 100);
+        var bins = (100 + width - 1) / width;
+
+        if (distribution.ValueCounts.Count <= bins)
+        {
+            return distribution.ValueCounts
+                .Select(entry => new StatsAttributeBar { From = entry.Value, To = entry.Value, Count = entry.Count })
+                .ToList();
+        }
+
+        var counts = new int[bins];
+        foreach (var (value, count) in distribution.ValueCounts)
+        {
+            counts[Math.Clamp(value / width, 0, bins - 1)] += count;
+        }
+
+        return counts
+            .Select((count, index) => new StatsAttributeBar
+            {
+                From = index * width,
+                To = index == bins - 1 ? 100 : (index + 1) * width - 1,
+                Count = count,
+            })
+            .ToList();
     }
 
     /// <summary>
@@ -447,11 +508,13 @@ public static class StatsExtras
     /// <summary>
     /// 所有アバターごとに、着られる所持商品の数。
     /// 素体経由は推定なので、直接対応と分けたまま返す。
+    /// 持っていないバリエーションの分は数えない（アバター別の所持数と同じ式と設定。open.md 106）
     /// </summary>
     private static List<StatsAvatarWearable> Wearables(
         IReadOnlyList<ItemRecord> owned,
         AvatarRegistry registry,
-        AvatarCompatibilityIndex compatibility)
+        AvatarCompatibilityIndex compatibility,
+        bool useDetectedVariationTargets)
     {
         var ownedIds = owned.Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
 
@@ -470,8 +533,14 @@ public static class StatsExtras
 
         foreach (var item in owned)
         {
+            var unowned = compatibility.UnownedVariationAvatars(item.Local, useDetectedVariationTargets);
             foreach (var (avatarId, match) in compatibility.Resolve(item.Local))
             {
+                if (unowned.Contains(avatarId))
+                {
+                    continue;
+                }
+
                 var bucket = match == AvatarMatch.Direct ? direct : viaBase;
                 bucket[avatarId] = bucket.TryGetValue(avatarId, out var current) ? current + 1 : 1;
             }
