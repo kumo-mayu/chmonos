@@ -1201,7 +1201,7 @@
                             <!-- 使い方の章へ（ユーザ判断 2026-11-18）。先は配った版の印のマニュアル（UpdateCheck.ManualPage）。押して開け、なぞって選べる -->
                             <StackPanel Orientation="Horizontal" Margin="0,-6,0,12">
                                 <TextBlock Style="{StaticResource Caption}" VerticalAlignment="Center" Text="使い方は" />
-                                <controls:SelectableLink Style="{StaticResource SelectableBody}" FontSize="11" Foreground="{DynamicResource Accent}"
+                                <controls:SelectableLink Style="{StaticResource SelectableBody}" Cursor="Hand" FontSize="11" Foreground="{DynamicResource Accent}"
                                                          controls:SelectableText.FitWidth="True" controls:SelectableText.PlainText="True"
                                                          controls:SelectableText.Text="マニュアルの「API」の章" Margin="0,0,0,0"
                                                          Command="{Binding OpenApiManualCommand}"
@@ -1496,12 +1496,12 @@
 
                             <!-- GitHub のリポジトリとマニュアルへ（ユーザ判断 2026-11-18）。先は ManualPage（配った版の印のマニュアル） -->
                             <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                                <controls:SelectableLink Style="{StaticResource SelectableBody}" FontSize="12" Foreground="{DynamicResource Accent}" Margin="-2,0,0,0"
+                                <controls:SelectableLink Style="{StaticResource SelectableBody}" Cursor="Hand" FontSize="12" Foreground="{DynamicResource Accent}" Margin="-2,0,0,0"
                                                          controls:SelectableText.FitWidth="True" controls:SelectableText.PlainText="True"
                                                          controls:SelectableText.Text="GitHub" Command="{Binding OpenRepositoryCommand}"
                                                          ToolTip="ブラウザで GitHub のページを開きます"
                                                          AutomationProperties.AutomationId="Settings.GitHubLink" AutomationProperties.Name="GitHub のページを開く" />
-                                <controls:SelectableLink Style="{StaticResource SelectableBody}" FontSize="12" Foreground="{DynamicResource Accent}" Margin="14,0,0,0"
+                                <controls:SelectableLink Style="{StaticResource SelectableBody}" Cursor="Hand" FontSize="12" Foreground="{DynamicResource Accent}" Margin="14,0,0,0"
                                                          controls:SelectableText.FitWidth="True" controls:SelectableText.PlainText="True"
                                                          controls:SelectableText.Text="マニュアル" Command="{Binding OpenManualCommand}"
                                                          ToolTip="ブラウザで、今のバージョンのマニュアルを開きます"
@@ -1513,7 +1513,7 @@
                                        Text="打った語の別の表記でも探します。toriなら「鳥」、sharkなら「サメ」が見つかります。検索欄の右の「オプション」で「別表記でも検索」を入れると働きます。通信はしません。" />
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,10,0,0"
                                        Text="辞書：JMdict・KANJIDIC2（Electronic Dictionary Research and Development Group）／CC BY-SA 4.0" />
-                            <controls:SelectableLink Style="{StaticResource SelectableBody}" FontSize="11" Foreground="{DynamicResource Accent}" Margin="-2,2,0,0"
+                            <controls:SelectableLink Style="{StaticResource SelectableBody}" Cursor="Hand" FontSize="11" Foreground="{DynamicResource Accent}" Margin="-2,2,0,0"
                                                      controls:SelectableText.FitWidth="True" controls:SelectableText.PlainText="True"
                                                      HorizontalAlignment="Left" controls:SelectableText.Text="https://www.edrdg.org/edrdg/licence.html"
                                                      Command="{Binding OpenDictionaryLicenseCommand}"
