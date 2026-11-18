@@ -213,7 +213,7 @@
                               CommandParameter="{Binding}"
                               ToolTip="使ったものとメモが同じ、新しい改変を作ります。" />
                     <Separator />
-                    <MenuItem Header="削除…" AutomationProperties.AutomationId="ModificationRowMenu.Delete"
+                    <MenuItem Header="削除…" AutomationProperties.AutomationId="ModificationRowMenu.Delete" Style="{StaticResource DangerMenuItem}"
                               Command="{Binding PlacementTarget.Tag.DeleteModificationCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                               CommandParameter="{Binding}" />
                 </ContextMenu>
