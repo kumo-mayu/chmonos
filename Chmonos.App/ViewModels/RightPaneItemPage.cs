@@ -50,6 +50,9 @@ public sealed class RightPaneItemPage : ViewModelBase
     /// <summary>開いた・閉じた（持ち主が右の幅の求めを知らせ直す）。</summary>
     public event Action? Changed;
 
+    /// <summary>重ねたページの商品が取り直し・ファイルを外すなどで書き替わった（持ち主が一覧を読み直す）。</summary>
+    public event Action? ItemReplaced;
+
     /// <summary>右の頭の「← 一覧に戻る」。</summary>
     public RelayCommand BackCommand => _back ??= new RelayCommand(() => Close());
 
@@ -76,6 +79,9 @@ public sealed class RightPaneItemPage : ViewModelBase
             {
                 Open(updated);
             }
+
+            // 取り直し・ファイルを外すと、持ち主の左の木や右の一覧も形が変わる（消した商品のカードが残っていた）
+            ItemReplaced?.Invoke();
         };
         Page = page;
     }

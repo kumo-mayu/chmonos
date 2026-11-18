@@ -416,6 +416,11 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
         RightItem = new RightPaneItemPage(main, this, item => new ItemViewModel(item, _services, _main, _thumbnails) { IsEmbedded = true });
         RightItem.Changed += () => OnPropertyChanged(nameof(DetailWidthWanted));
 
+        // 重ねたページでファイルを外すと、木の形と右の一覧が変わる（消した商品のカードが残っていた）。
+        // 木の読み直し（Rebuild）は見ていた所を保つため右を作り直さないので、ここでは読み直した後に右の一覧も出し直し、
+        // 重ねていた商品が残っていれば重ね直す
+        RightItem.ItemReplaced += () => ReloadAfterRightItemReplacedAsync().Forget();
+
         ToggleCommand = new RelayCommand(parameter => Toggle(parameter as FolderViewRow));
         ShowOtherCommand = new RelayCommand(parameter => ShowOther(parameter as FolderViewRow));
         RevealExtractedCommand = new RelayCommand(parameter => ExplorerReveal.RevealAsync((parameter as FolderViewRow)?.Entry?.ExtractedFolder).Forget());
@@ -511,6 +516,23 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
 
     /// <summary>右の一覧のカード・行から商品を開く（右クリックの「商品ページを開く」も）。左の木の選びは変えない。</summary>
     internal void OpenItemInRightPane(ItemRecord item) => RightItem.Open(item);
+
+    private async Task ReloadAfterRightItemReplacedAsync()
+    {
+        var rightItemId = RightItem.Page?.Item.Id;
+        await LoadAsync();
+        if (!ReferenceEquals(_main.CurrentViewModel, this) || Detail is not FolderViewDetail || Selected is not { } row)
+        {
+            return;
+        }
+
+        ShowDetail(row);
+        if (rightItemId is not null
+            && _main.Search.SnapshotItems().FirstOrDefault(item => item.Id == rightItemId) is { } rightItem)
+        {
+            RightItem.Open(rightItem);
+        }
+    }
 
     void IItemImagesListener.NoteItemImagesSaved(string itemId)
     {

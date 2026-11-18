@@ -93,6 +93,27 @@ public class RightPaneItemPageTests
     });
 
     [Fact]
+    public Task 重ねたページでファイルを外して商品が消えたら_右の一覧も読み直して消えたカードを残さない() => TestApp.Run(async app =>
+    {
+        var (main, folders, detail) = await OpenFolderAsync(app);
+        var card = detail.ListItems.OfType<ItemCardViewModel>().First();
+        detail.OpenItem(card);
+        var page = folders.RightItem.Page!;
+
+        // 商品ページの「ファイルを外す」が済んだ後と同じ形：最後のファイルを外して商品を消し、ページは持ち主へ差し替えを頼む
+        var hash = card.Item.Local.OwnedFiles.Single().Hash;
+        await app.Services.Commands.ExecuteAsync(new UiCommand.DetachFile(card.Item.Id, hash, DeleteItemWhenEmpty: true));
+        Assert.Null(await app.Store.Items.LoadAsync(card.Item.Id));
+        await main.ReloadLibraryAsync();
+        page.Replaced!(null);
+
+        await UiThread.Until(
+            () => folders.Detail is FolderViewDetail now && now.ListItems.OfType<ItemCardViewModel>().All(other => other.Item.Id != card.Item.Id),
+            "右の一覧から消えた商品のカードが無くなる");
+        Assert.False(folders.RightItem.IsOpen);
+    });
+
+    [Fact]
     public Task 別の画面へ移って戻ると_同じフォルダの上に同じ商品を重ね直す() => TestApp.Run(async app =>
     {
         var (main, folders, detail) = await OpenFolderAsync(app);
