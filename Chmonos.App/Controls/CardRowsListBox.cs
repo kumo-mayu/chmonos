@@ -108,8 +108,14 @@ public sealed class CardRowsListBox : ListBox
             // 使い回す仮想化（Recycling）では、板の子の並びは画面の順と限らず、使い終わって次を待っている行も混ざる。
             // 今の行の番号を持つ物だけを、番号の順に並べる（待っている行は番号が -1）
             var rows = new List<(int Index, DependencyObject Row)>(host.Children.Count);
-            foreach (UIElement row in host.Children)
+            foreach (UIElement? row in host.Children)
             {
+                // 板が子を片付ける途中は、片付け済みの子が null で残る（ArrowGroup.Members と同じ）
+                if (row is null)
+                {
+                    continue;
+                }
+
                 var index = owner.ItemContainerGenerator.IndexFromContainer(row);
                 if (index >= 0)
                 {

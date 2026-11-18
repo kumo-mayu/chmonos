@@ -885,8 +885,9 @@
             <DataTrigger Binding="{Binding IsSelected}" Value="True">
                 <Setter Property="Background" Value="{DynamicResource AccentSoft}" />
             </DataTrigger>
+            <!-- フォルダの行は商品のメニューではなく、フォルダの右クリック（open.md 92 行。フォルダの画面だけに並ぶので、その画面の資源から引く） -->
             <DataTrigger Binding="{Binding IsFolder}" Value="True">
-                <Setter Property="ContextMenu" Value="{x:Null}" />
+                <Setter Property="ContextMenu" Value="{DynamicResource FolderMenu}" />
             </DataTrigger>
             <!--
                 見えている所から遠い行は、列を作らず線だけの型にする（ショップの中：一覧を外のスクロールに置き、仮想化が効かない。ViewportHold）。

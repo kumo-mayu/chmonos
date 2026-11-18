@@ -14,7 +14,7 @@ public sealed class FolderBrowserRow
 
 /// <summary>
 /// 子フォルダのカード。商品のカードと同じ大きさにする（ユーザ指示 2026-09-14「もしかしたら変わるかもしれないが、まずは商品カードサイズで」）。
-/// 押すと木の中でそのフォルダへ移る。
+/// 押すと木の中でそのフォルダへ移る。右クリックはフォルダの操作（open.md 92 行）。
 /// </summary>
 public sealed class FolderBrowserFolderCard
 {
@@ -119,6 +119,9 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImages
     /// <summary>フォルダビュー。上の操作（検索で絞る・エクスプローラ・取り込み元・監視・未確定）はそちらが持つ。</summary>
     public FolderViewModel Owner { get; }
 
+    /// <summary>フォルダの右クリック（子フォルダのカード・リストのフォルダの行）が命令を引く入口。木の行と同じ名前（<see cref="FolderViewModel.FolderMenu"/>）。</summary>
+    public FolderViewModel FolderMenu => Owner;
+
     public required string Path { get; init; }
 
     public required string Title { get; init; }
@@ -195,6 +198,11 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImages
     }
 
     public bool HasQuery => Query.Length > 0;
+
+    /// <summary>欄の × で打った文字を消す（open.md 89 行）。</summary>
+    public RelayCommand ClearQueryCommand => _clearQuery ??= new RelayCommand(() => Query = string.Empty);
+
+    private RelayCommand? _clearQuery;
 
     public ObservableCollection<FolderBrowserRow> Rows { get; } = [];
 

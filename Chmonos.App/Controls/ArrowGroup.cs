@@ -772,10 +772,17 @@ public static class ArrowGroup
                 return result;
             }
 
-            // 見える分だけ作る一覧では、板の子の並びは行の順と限らず、使い回しを待つ部品も混ざる。行の番号で並べ、番号の無い物を除く
+            // 見える分だけ作る一覧では、板の子の並びは行の順と限らず、使い回しを待つ部品も混ざる。行の番号で並べ、番号の無い物を除く。
+            // 一覧の中身を差し替えて板が子を片付ける途中は、片付け済みの子が null で残る。フォーカスのあった行が外れると
+            // ListBoxItem が一覧へフォーカスを移し、ここがその最中に呼ばれる（フォルダの画面で右の欄のフォルダの絵を押すと例外になった）
             var containers = new List<(int Index, UIElement Container)>();
-            foreach (UIElement child in host.Children)
+            foreach (UIElement? child in host.Children)
             {
+                if (child is null)
+                {
+                    continue;
+                }
+
                 var index = list.ItemContainerGenerator.IndexFromContainer(child);
                 if (index >= 0)
                 {

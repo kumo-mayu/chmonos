@@ -134,7 +134,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | ショップ一覧：空・2店・更新あり・更新ありだけ | `empty-shops`（900）・`shops-cards`（900）・`shops-cards-updated`・`shops-cards-updated-only` |
 | ショップの中：一番上・半分・流れ去った後・一番下（カード・リスト） | `shop-header`（900）・`shop-scroll-*`・`shop-list-*` |
 | ショップの中：メモ無し・長いメモ・切り替え・フォーカス | `shop-compact-memo-none`・`shop-compact-memo-long`・`shop-switch-keeps`・`shop-focus-reveal` |
-| フォルダ：空・木（ファイル名・商品名）・選んだ・知らせ | `empty-folder`（900）・`folder-tree-filenames`・`folder-tree-itemnames`・`folder-cards`（900）・`folder-notice-off`・`folder-notice-on` |
+| フォルダ：空・木（ファイル名・商品名）・選んだ・知らせ | `empty-folder`（900）・`folder-tree-filenames`・`folder-tree-itemnames`・`folder-cards`（900）・`folder-notice-off`・`folder-notice-on`・`folder-tree-badges`（ファイルの行の右端の札。900） |
 
 ## アバター（09-avatars）・改変（10-modifications）
 
@@ -166,7 +166,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | 小分類（列・1列・足す欄） | `tag-manage-cards-subs-columns`・`tag-manage-list-subs-column`・`tag-manage-sub-add-open`・`tag-manage-sub-existing` |
 | 打った（新しい名前・今ある名前・理由・商品の語） | `tag-manage-typed-*`・`tag-manage-match-reason`・`attribute-manage-typed-*`・`attribute-manage-search-items` |
 | 手動の並べ替え・知らせ | `tag-manage-manual`・`tag-manage-notices`・`attribute-manage-notices` |
-| 行の右クリック（中身を外して描いた） | `tag-manage-row-menu`・`attribute-manage-row-menu` |
+| 行の右クリック（中身を外して描いた） | `tag-manage-row-menu`・`attribute-manage-row-menu`・`folder-menu`（フォルダの木の行・子フォルダのカード・リストの行。項目と命令を調べる） |
 | 窓：名前を変える（入力前・統合）・小分類の移動（選ぶ前・後）・属性の統合（ぶつかる・ぶつからない） | `catalog-dialog-rename-tag(-merge)`・`catalog-dialog-move-sub(-none)`・`catalog-dialog-merge-attribute(-plain)` |
 
 ## 通知（13-inbox）・統計（14-stats）・設定（15-settings）
