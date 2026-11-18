@@ -725,6 +725,13 @@ public sealed partial class MainViewModel : ViewModelBase
                 ReloadLibraryAsync().Forget();
             }
 
+            // カードの大きさ・行の高さは画面ごとに覚える（ユーザ指示 2026-11-18）。新しい画面が組まれる前に当て、
+            // 前の画面の大きさで1回組んでから組み直す無駄とちらつきを避ける
+            if (!ReferenceEquals(_currentViewModel, value))
+            {
+                ItemViewSize.Current.UseScreen(value);
+            }
+
             if (SetField(ref _currentViewModel, value))
             {
                 // 画面を移るのは手が止まる所。前の画面が作ったものをここで返させる（#71）。

@@ -143,7 +143,7 @@ flowchart LR
 | 「表示順」のボタン（今の項目名） | 押す／Enter・Space・↓ | 項目のメニューが開き、今の項目に止まる。「属性 ▸」は → で子。選ぶと並べ替え、次の起動へ引き継ぐ（UiCommand.ChangeUiState で searchSort を保存） | いつも。選べない項目は押せず吹き出し | SearchSortField・SV:2076・SearchView.Sort.cs |
 | 向きの2つ（「新しい順」「古い順」など。文言は項目で変わる） | 押す | 昇降を替える（同上で保存） | いつも | SearchSortDescending／SearchSortAscending・SV:2100付近 |
 | カード／リストの切替（吹き出し「絵の大きなカードで並べます」／「1行ずつ並べます。列の幅は見出しの境目をドラッグで変えられます」） | 押す | 一覧の形を替える。画面ごとに覚える（ui-state の itemListScreens） | いつも | ItemViewMode.Cards／ItemViewMode.List・SV:2120付近 |
-| 右下の大きさのスライダー（「カードの大きさ」／「行の高さ」） | ドラッグ | カードの大きさ・リストの行の高さを替える（全画面で1つの値） | いつも（形で名前が替わる） | ItemCardSize／ItemListRowHeight・SV:2154・ICR:800 |
+| 右下の大きさのスライダー（「カードの大きさ」／「行の高さ」） | ドラッグ | カードの大きさ・リストの行の高さを替える（画面ごとに覚える。設定で全画面で1つにもできる） | いつも（形で名前が替わる） | ItemCardSize／ItemListRowHeight・SV:2154・ICR:800 |
 | 「取り込み中に n 件増えました。押すと一覧に反映します。」 | 押す | 取り込みで増えた商品を一覧に入れる | 取り込み中に増えた分がある時 | SearchApplyPending・SV:2168 |
 
 ### 絞り込みの欄

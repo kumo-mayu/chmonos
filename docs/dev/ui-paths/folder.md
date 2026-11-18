@@ -124,7 +124,7 @@ FV＝`Chmonos.App/Views/FolderView.xaml`、FB＝`Chmonos.App/Views/FolderBrowser
 | 右クリックのメニュー（BOOTHで開く・リンクをコピー・商品ページを開く・ショップを開く・編集画面を開く・選ぶ・お気に入り・改変に追加…・更新通知を開く・既読にする・開く ▸・Unity ▸・非表示にする） | 右クリック | 押す | 検索画面と同じ | カード・リストの行・木の商品のファイルの行 | CardMenu.*・ICR:16-130・VM:1606-1627 |
 | （目的なし）右クリックの「選ぶ」を木の行で押す | 右クリック | 押す | 木の行は選ぶ対象でないので、何が起きるか分からない [推測] | 木の商品のファイルの行 | CardMenu.Select |
 | 選択の帯（すべて選択・選択を解除・お気に入りに追加・改変に追加…・全てUnityへ送る…・まとめて編集する ほか） | 帯 | 押す | 検索画面と同じ | 1件以上選んだ時・Unity へ送っている時 | FB:197・ICR ItemSelectionBar |
-| 大きさのスライダー | 右下 | ドラッグ | カードの大きさ・行の高さ（全画面で1つ） | いつも | ItemCardSize／ItemListRowHeight・FB:194 |
+| 大きさのスライダー | 右下 | ドラッグ | カードの大きさ・行の高さ（画面ごと。設定で全画面で1つにもできる） | いつも | ItemCardSize／ItemListRowHeight・FB:194 |
 | Esc | どこでも | キー | 右の一覧（か右の未確定）の選択を外す | 選んでいる時 | VM:1633-1652 |
 | Alt+← | どこでも | キー | 前の画面へ。この画面に戻ると前に選んでいた行を選び直す | — | MainViewModel.History.cs:359 |
 | Ctrl+A・Ctrl+Shift+A・Ctrl+Shift+I | 右の一覧 | キー | 全選択・全解除・反転 | — | docs/spec/ui-keyboard.md:18 |
