@@ -914,6 +914,100 @@ public sealed class PendingOperationTests : IDisposable
         Assert.Equal(4, (await _store.Items.LoadAsync("9900121"))!.Local.Attributes["質感"]);
     }
 
+    /// <summary>
+    /// 通知の「今すぐ続ける」は、押した行の記録だけを続ける（open 145）。ほかの記録は次の起動まで触らない——
+    /// 押した人は1件の行を見て押しており、知らない操作まで書き換わると何が起きたか読めない。
+    /// </summary>
+    [Fact]
+    public async Task 今すぐ続けるは指した記録だけを続ける()
+    {
+        await _store.Attributes.SaveAsync(new AttributeMaster
+        {
+            Attributes = [new AttributeDefinition { Name = "質" }, new AttributeDefinition { Name = "色" }],
+        });
+        await _store.Items.SaveAsync(Item("9900121", new LocalBlock
+        {
+            Attributes = new Dictionary<string, int> { ["質"] = 4, ["色"] = 2 },
+        }));
+        var firstStarted = await StartedAsync(new PendingOperation { Kind = PendingOperationKind.RenameAttribute, OldName = "質", NewName = "質感" });
+        var secondStarted = await StartedAsync(new PendingOperation { Kind = PendingOperationKind.RenameAttribute, OldName = "色", NewName = "色感" });
+        await _store.Attributes.SaveAsync(new AttributeMaster
+        {
+            Attributes = [new AttributeDefinition { Name = "質感" }, new AttributeDefinition { Name = "色感" }],
+        });
+        var first = await LeaveRecordAsync(firstStarted);
+        var second = await LeaveRecordAsync(secondStarted);
+
+        Assert.Equal(1, await Runner().ResumeAsync(first.Id));
+
+        Assert.Equal(second.Id, Assert.Single(Records()).Id);
+        var attributes = (await _store.Items.LoadAsync("9900121"))!.Local.Attributes;
+        Assert.Equal(4, attributes["質感"]);
+        Assert.Equal(2, attributes["色"]);
+    }
+
+    /// <summary>押した行の記録がもう無ければ（裏の続きで済んだ・手で消した）、押しても何も起きない行を残さず片付ける。</summary>
+    [Fact]
+    public async Task 今すぐ続けるで記録が無ければ知らせを解消済みにする()
+    {
+        await _notifications.AddAsync(new NotificationRecord
+        {
+            Id = PendingOperationRunner.NotificationPrefix + "gone",
+            Kind = NotificationKind.UnfinishedOperation,
+            Title = "作り物",
+            Detail = PendingOperationRunner.FailedDetail,
+            CreatedAt = DateTimeOffset.Now,
+        });
+
+        Assert.Equal(0, await Runner().ResumeAsync("gone"));
+
+        Assert.True(Assert.Single(_store.Notifications.Load()).IsResolved);
+    }
+
+    /// <summary>
+    /// 内容が変わって当てずにやめた知らせは、もう一度操作する窓に入れる値を持つ（記録はその時に消すため・open 145）。
+    /// 続けられずに記録を残した知らせには持たせない（そちらは「今すぐ続ける」）。
+    /// </summary>
+    [Fact]
+    public async Task 当てずにやめた知らせはもう一度操作する値を持つ()
+    {
+        await _store.Items.SaveAsync(Item(FromId, new LocalBlock { Memo = "元のメモ" }));
+        await _store.Items.SaveAsync(Item(ToId, new LocalBlock()));
+        await CrashAfterWritingTargetAsync();
+        await _store.Items.ChangeLocalAsync(ToId, local => local with { Memo = "後で書いたメモ" }, [LocalField.Memo]);
+
+        await Runner().ResumeAsync();
+
+        var retry = Assert.Single(_store.Notifications.Load()).Retry;
+        Assert.NotNull(retry);
+        Assert.Equal(PendingOperationKind.ChangeItemId, retry.Kind);
+        Assert.Equal(FromId, retry.FromId);
+        Assert.Equal(ToId, retry.ToId);
+
+        // 書き出した JSON に、使わない欄（名前の変更の欄）を書かない
+        var json = await System.IO.File.ReadAllTextAsync(_store.Paths.NotificationsFile);
+        Assert.Contains("\"retry\"", json);
+        Assert.DoesNotContain("\"oldName\"", json);
+    }
+
+    [Fact]
+    public async Task 続けられずに残した知らせはもう一度操作する値を持たない()
+    {
+        await _store.Attributes.SaveAsync(new AttributeMaster { Attributes = [new AttributeDefinition { Name = "質" }] });
+        await _store.Items.SaveAsync(Item("9900121", new LocalBlock { Attributes = new Dictionary<string, int> { ["質"] = 4 } }));
+        var operation = await StartedAsync(new PendingOperation { Kind = PendingOperationKind.RenameAttribute, OldName = "質", NewName = "質感" });
+        await _store.Attributes.SaveAsync(new AttributeMaster { Attributes = [new AttributeDefinition { Name = "質感" }] });
+        await LeaveRecordAsync(operation);
+
+        _attributes.Fail = true;
+        await Runner().ResumeAsync();
+
+        var notice = Assert.Single(_store.Notifications.Load());
+        Assert.Equal(PendingOperationRunner.FailedDetail, notice.Detail);
+        Assert.Null(notice.Retry);
+        Assert.DoesNotContain("\"retry\"", await System.IO.File.ReadAllTextAsync(_store.Paths.NotificationsFile));
+    }
+
     /// <summary>操作の途中で例外が出たら記録は残る（次の起動で続ける）。</summary>
     [Fact]
     public async Task 操作の途中で落ちたら記録が残る()

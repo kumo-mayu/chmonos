@@ -778,8 +778,46 @@ public sealed class InboxViewModel : ViewModelBase
         NotificationKind.ArchiveFoundForFolder => "zipで登録し直す",
         NotificationKind.ItemBackOnBooth or NotificationKind.OrphanVariationLink
             or NotificationKind.VariationBackOnBooth => "商品情報を取り直す",
+        NotificationKind.UnfinishedOperation => UnfinishedAction(record) switch
+        {
+            UnfinishedFix.Resume => "今すぐ続ける",
+            UnfinishedFix.Retry => "もう一度操作する",
+            _ => string.Empty,
+        },
         _ => string.Empty,
     };
+
+    /// <summary>途中で止まった操作の行で出す直し方（open 145）。</summary>
+    internal enum UnfinishedFix
+    {
+        None,
+
+        /// <summary>記録が残っていて、続きを今済ませられる（「次に起動したときに、もう一度続けます」の行）。</summary>
+        Resume,
+
+        /// <summary>内容が変わって当てずにやめた。前の値を入れてその操作の窓を開く（自動では当てない）。</summary>
+        Retry,
+    }
+
+    /// <summary>
+    /// 途中で止まった操作の行のボタン（ユーザ判断 2026-11-19・open 145）。「保存先に書き込めませんでした」の行は、
+    /// 操作は済んでいて次の起動で確かめるだけなので出さない。値を持たない古い知らせにも「もう一度操作する」は出さない
+    /// （題の文から名前を読み戻すと、名前に区切りの文字が入ったときに違う物を入れてしまう）
+    /// </summary>
+    internal static UnfinishedFix UnfinishedAction(NotificationRecord record)
+    {
+        if (record.Kind != NotificationKind.UnfinishedOperation || record.IsResolved)
+        {
+            return UnfinishedFix.None;
+        }
+
+        if (record.Retry is not null)
+        {
+            return UnfinishedFix.Retry;
+        }
+
+        return record.Detail == Core.Services.PendingOperationRunner.FailedDetail ? UnfinishedFix.Resume : UnfinishedFix.None;
+    }
 
     internal static string ActionTip(NotificationRecord record, IReadOnlySet<string> restorable) => record.Kind switch
     {
@@ -796,6 +834,12 @@ public sealed class InboxViewModel : ViewModelBase
             or NotificationKind.VariationBackOnBooth =>
             "BOOTHから商品情報を取り直します。"
             + "\n商品のファイルはダウンロードしません。",
+        NotificationKind.UnfinishedOperation => UnfinishedAction(record) switch
+        {
+            UnfinishedFix.Resume => "止まった所から、この操作の続きを今行います。",
+            UnfinishedFix.Retry => "前と同じ内容を入れて、操作の画面を開きます。",
+            _ => string.Empty,
+        },
         _ => string.Empty,
     };
 
@@ -895,6 +939,144 @@ public sealed class InboxViewModel : ViewModelBase
         }
     }
 
+    /// <summary>途中で止まった操作の行のボタン（open 145）。</summary>
+    private async Task FixUnfinishedAsync(NotificationRow row)
+    {
+        switch (UnfinishedAction(row.Record))
+        {
+            case UnfinishedFix.Resume:
+                await ResumeUnfinishedAsync(row);
+                return;
+
+            case UnfinishedFix.Retry:
+                await RetryUnfinishedAsync(row, row.Record.Retry!);
+                return;
+        }
+    }
+
+    /// <summary>
+    /// 押した行の記録だけ、続きを今行う。続きは BOOTH へ問い合わせず、何件もの商品を書き換えることがあるので、
+    /// 待つ間の2度押しで同じ記録を2本走らせない（続きの側も、この起動で走っている記録は飛ばす）
+    /// </summary>
+    private async Task ResumeUnfinishedAsync(NotificationRow row)
+    {
+        if (_isRefreshing)
+        {
+            return;
+        }
+
+        var operationId = row.Record.Id[Core.Services.PendingOperationRunner.NotificationPrefix.Length..];
+        _isRefreshing = true;
+        row.ActionNotice.Show("続きを行っています…");
+        try
+        {
+            var result = await _services.Commands.ExecuteAsync(new UiCommand.ResumePendingOperations(operationId));
+            if (result is CommandResult.Failed failed)
+            {
+                row.ActionNotice.Warn(failed.Message);
+            }
+            else
+            {
+                var after = (await Task.Run(_services.Notifications.Load))
+                    .FirstOrDefault(record => record.Id == row.Record.Id);
+                var text = ResumeOutcomeText(result is CommandResult.Counted { Count: 0 }, after);
+                if (text is null)
+                {
+                    row.ActionNotice.Warn("続けられませんでした。次に起動したときに、もう一度続けます。");
+                }
+                else
+                {
+                    row.ActionNotice.Clear();
+                    ListNotice.Show(text);
+                }
+
+                // 続きは何件もの商品のタグ・属性・IDを書き換える。検索の写しを1件ずつ差し替えず、読み直す
+                _main.ReloadLibraryAsync().Forget();
+            }
+
+            await ReloadAsync();
+        }
+        catch (Exception exception)
+        {
+            Core.Diagnostics.AppLog.Error("通知からの止まった操作の続き", exception);
+            row.ActionNotice.Warn($"続けられませんでした。{Core.Services.FailureText.Cause(exception)}");
+        }
+        finally
+        {
+            _isRefreshing = false;
+        }
+    }
+
+    /// <summary>「今すぐ続ける」の後に一覧の見出しの近くへ出す文。続けられずに行が残ったら null（行の近くに出す）。</summary>
+    internal static string? ResumeOutcomeText(bool nothingLeft, NotificationRecord? after)
+    {
+        if (nothingLeft)
+        {
+            return "続きはもう済んでいました。";
+        }
+
+        return after switch
+        {
+            null or { IsResolved: true } => "止まっていた操作の続きを済ませました。",
+            { Retry: not null } => "止まった後に内容が変わっていたので、続きは行いませんでした。",
+            _ => null,
+        };
+    }
+
+    /// <summary>
+    /// 前と同じ値を入れて、その操作の窓を開く（ユーザ判断 2026-11-19：自動では当てない）。窓は今の中身で最初から行うので、
+    /// 統合の確かめや移す内容の下見もふつうに押したときと同じに出る。相手がもう無ければ窓を開かずに言う
+    /// </summary>
+    private async Task RetryUnfinishedAsync(NotificationRow row, OperationRetry retry)
+    {
+        switch (retry.Kind)
+        {
+            case PendingOperationKind.ChangeItemId when retry.FromId is { } fromId:
+            {
+                var item = await _services.Store.Items.LoadAsync(fromId);
+                if (item is null)
+                {
+                    row.ActionNotice.Warn("元の商品がもう無いので、操作し直せません。");
+                    return;
+                }
+
+                _main.ShowItem(item);
+                if (_main.CurrentViewModel is ItemViewModel page)
+                {
+                    await page.ChangeIdAsync(prefillToId: retry.ToId);
+                }
+
+                return;
+            }
+
+            case PendingOperationKind.RenameUserTag when retry.Top is { } top && retry.NewName is { } newName:
+            {
+                _main.ShowTagManage();
+                if (_main.CurrentViewModel is TagManageViewModel tags
+                    && !(retry.Sub is { } sub
+                        ? await tags.RetryRenameSubAsync(top, sub, newName)
+                        : await tags.RetryRenameAsync(top, newName)))
+                {
+                    tags.ListNotice.Warn($"「{retry.Sub ?? top}」がもう無いので、名前を変更し直せません。");
+                }
+
+                return;
+            }
+
+            case PendingOperationKind.RenameAttribute when retry.OldName is { } oldName && retry.NewName is { } newName:
+            {
+                _main.ShowAttributeManage();
+                if (_main.CurrentViewModel is AttributeManageViewModel attributes
+                    && !await attributes.RetryRenameAsync(oldName, newName))
+                {
+                    attributes.ListNotice.Warn($"「{oldName}」がもう無いので、名前を変更し直せません。");
+                }
+
+                return;
+            }
+        }
+    }
+
     private async Task ActAsync(NotificationRow row)
     {
         switch (row.Record.Kind)
@@ -905,6 +1087,10 @@ public sealed class InboxViewModel : ViewModelBase
 
             case NotificationKind.OrphanTag:
                 _main.ShowTagManage();
+                return;
+
+            case NotificationKind.UnfinishedOperation:
+                await FixUnfinishedAsync(row);
                 return;
 
             case NotificationKind.ArchiveFoundForFolder:

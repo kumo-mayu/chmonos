@@ -733,9 +733,14 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// 何が移って何が移らないかは、下見の画面で全部出してから押させる。
     /// </summary>
     /// <param name="search">開いてすぐ自動検索を始めるか（商品ページの「同じ商品をBOOTHで探す」）。</param>
-    private async Task ChangeIdAsync(bool search = false)
+    /// <param name="prefillToId">窓の欄に先に入れておく移す先のID（通知の「もう一度操作する」・open 145）。下見はまだ取らない。</param>
+    internal async Task ChangeIdAsync(bool search = false, string? prefillToId = null)
     {
         var model = new ChangeItemIdDialogViewModel(_services, Item.Id, Item.DisplayName, ReplacementClues.From(Item));
+        if (prefillToId is not null)
+        {
+            model.IdInput = prefillToId;
+        }
 
         // 窓を出す前に始める。窓は開いている間ずっと結果を待つので、進み具合はそのまま窓に出る
         if (search)

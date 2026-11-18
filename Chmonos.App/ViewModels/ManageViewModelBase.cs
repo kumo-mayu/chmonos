@@ -763,7 +763,26 @@ public abstract class ManageViewModelBase<TRow, TOrphan> : ViewModelBase, IPendi
     }
 
     /// <summary>名前を変える窓を出してから実行する。既にある名前を選ぶと統合になる。</summary>
-    private async Task AskRenameAsync()
+    /// <summary>
+    /// 通知の「もう一度操作する」（open 145）：途中で止まって内容が変わっていた名前の変更を、前の値を入れた窓で開き直す。
+    /// 押すまで何も書かない（自動では当てない）。統合の確かめもふつうに押したときと同じ道を通る。その名前がもう無ければ偽
+    /// </summary>
+    internal async Task<bool> RetryRenameAsync(string name, string newName)
+    {
+        await ReloadAsync();
+        var row = AllRows.FirstOrDefault(entry => string.Equals(entry.Name, name, StringComparison.Ordinal));
+        if (row is null)
+        {
+            return false;
+        }
+
+        Selected = row;
+        await AskRenameAsync(newName);
+        return true;
+    }
+
+    /// <param name="prefill">窓の欄に先に入れておく名前（通知の「もう一度操作する」）。</param>
+    private async Task AskRenameAsync(string? prefill = null)
     {
         if (Selected is null)
         {
@@ -772,7 +791,12 @@ public abstract class ManageViewModelBase<TRow, TOrphan> : ViewModelBase, IPendi
 
         var others = AllRows.Where(row => row.Name != Selected.Name).Select(row => row.Name).ToList();
         var model = new RenameTagDialogViewModel(KindName, Selected.Name, Selected.ItemCount, others);
-        if (new Views.RenameTagDialog(model).ShowDialog() != true)
+        if (prefill is not null)
+        {
+            model.Input = prefill;
+        }
+
+        if (!RenameDialogAsk.Ask(model))
         {
             return;
         }

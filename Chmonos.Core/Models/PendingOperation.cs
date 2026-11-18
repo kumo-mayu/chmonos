@@ -102,3 +102,43 @@ public sealed record PendingOperation
     /// <summary>タグ・属性：始める前に古い名前を持っていた商品と、その付け方（タグなら付けたタグの並び、属性なら属性の値）の指紋。</summary>
     public IReadOnlyDictionary<string, string>? Holders { get; init; }
 }
+
+/// <summary>
+/// 「止まった後に内容が変わっていたので、続きは行いませんでした」の知らせに添える、もう一度操作するための値
+/// （ユーザ判断 2026-11-19・open 145：前の値を入れて、その操作の窓を開くだけ。自動では当てない）。
+/// やりかけの記録はその時に消すので、値は知らせに持たせる。題の文から読み戻すと、名前に「／」「→」「」」が入ったときに戻せない。
+/// 指紋や参照は持たない（窓は今の中身で最初から行う）。欠けた欄は書き出さない。
+/// </summary>
+public sealed record OperationRetry
+{
+    public PendingOperationKind Kind { get; init; }
+
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? FromId { get; init; }
+
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? ToId { get; init; }
+
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Top { get; init; }
+
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Sub { get; init; }
+
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? OldName { get; init; }
+
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? NewName { get; init; }
+
+    public static OperationRetry From(PendingOperation operation) => new()
+    {
+        Kind = operation.Kind,
+        FromId = operation.FromId,
+        ToId = operation.ToId,
+        Top = operation.Top,
+        Sub = operation.Sub,
+        OldName = operation.OldName,
+        NewName = operation.NewName,
+    };
+}

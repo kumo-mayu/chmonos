@@ -1331,8 +1331,8 @@ public sealed class CommandHandler
 
                 return RepairResult(rebuild.ItemId, await _brokenItems.RebuildFromBoothAsync(rebuild.ItemId, cancellationToken));
 
-            case UiCommand.ResumePendingOperations:
-                return new CommandResult.Counted(await Pending.ResumeAsync(cancellationToken));
+            case UiCommand.ResumePendingOperations resume:
+                return new CommandResult.Counted(await Pending.ResumeAsync(resume.OperationId, cancellationToken));
 
             case UiCommand.DetectOrphanReferences:
                 if (_notifications is null)

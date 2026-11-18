@@ -631,9 +631,11 @@ public abstract record UiCommand
 
     /// <summary>
     /// 前の起動で途中で止まった操作（IDの変更・タグや属性の名前の変更）の続きを済ませる（pending-operations.json。ユーザ判断 2026-10-06「A」）。
-    /// 起動したときに主画面が1回送る。BOOTHへは問い合わせない。結果は扱った記録の件数
+    /// 起動したときに主画面が1回送る。通知の「今すぐ続ける」は <paramref name="OperationId"/> でその1件だけを送る（ユーザ判断 2026-11-18・open 145）。
+    /// BOOTHへは問い合わせない。結果は扱った記録の件数
     /// </summary>
-    public record ResumePendingOperations : UiCommand;
+    /// <param name="OperationId">続ける記録の ID。null なら残っている物を全部。</param>
+    public record ResumePendingOperations(string? OperationId = null) : UiCommand;
 
     /// <summary>
     /// 読めない商品の記録を、アプリが最後に書いた版の控えに戻す（通知の「1つ前の版に戻す」）。
