@@ -155,12 +155,12 @@ flowchart LR
 | 「商品説明」の三角 | 左の列 | クリック | 欄を畳む | いつも | ItemDescriptionExpander・ItemView.xaml:352 |
 | 説明の見出し | 左の列 | クリック | その節を畳む | 見出しのある説明 | ItemSectionHeader・ItemView.xaml:409 |
 | 「すべて折りたたむ」「すべて広げる」 | 「商品説明」の右上 | クリック | 全部の節 | 見出しのある説明 | ItemToggleAllSections・ItemView.xaml:501 |
-| 説明文・メモの字とリンク | 左の列・右の列 | クリック・なぞる・右クリック | リンクを開く・コピー・登録 | 説明・メモがある時 | —・Controls/TextMenu.cs |
+| 説明文・メモの字とリンク | 左の列・右の列 | クリック・なぞる・右クリック・中クリック | リンクを開く（中クリックはいつもブラウザ）・コピー・登録 | 説明・メモがある時 | —・Controls/TextMenu.cs |
 | 「動画」の三角・動画の絵 | 左の列 | クリック | 欄を開く・ブラウザで YouTube | 動画がある時 | ItemVideosExpander／ItemVideoOpen・ItemVideosPanel.xaml:25,41 |
 | 星 | 名前の枠 | クリック・Enter | お気に入り | いつも | ItemFavorite・ItemView.xaml:570 |
 | 商品名 | 名前の枠 | なぞる | 選んで写す | いつも | ItemName・ItemView.xaml:590 |
-| ショップ名 | 名前の枠 | クリック・なぞる | ショップの画面へ | いつも | ItemShopLink・ItemView.xaml:610 |
-| 「ID …」 | 名前の枠 | クリック | ID をコピー | いつも | ItemIdCopy・ItemView.xaml:624 |
+| ショップ名 | 名前の枠 | クリック・なぞる・中クリック | ショップの画面へ（中クリックは BOOTH のショップのページ） | いつも | ItemShopLink・ItemView.xaml:610 |
+| 「ID …」 | 名前の枠 | クリック・中クリック | ID をコピー（中クリックは BOOTH の商品ページ） | いつも | ItemIdCopy・ItemView.xaml:624 |
 | 「IDを変える」 | 名前の枠 | クリック → 窓 | 商品のIDを変える窓 | いつも | ItemChangeId・ItemView.xaml:632 |
 | 「同じ商品をBOOTHで探す」 | 名前の枠 | クリック → 窓 | 自動で探す | BOOTH で見つからない商品 | ItemFindOnBooth・ItemView.xaml:667 |
 | 「ユーザータグ」「BOOTHのタグ」の三角 | 名前の枠 | クリック | 畳む | いつも | ItemUserTagsExpander／ItemBoothTagsExpander・ItemView.xaml:681,715 |
@@ -200,7 +200,7 @@ flowchart LR
 | つなぎ先（右クリック「確認済みにする」「外す」）・✓・× | 変換扱い | クリック・右クリック | 確かめる・外す | つなぎ先がある時 | ItemConversionTarget／ItemConversionConfirm／ItemConversionRemove・ItemConversionPanel.xaml:97-128 |
 | つなぎ先を選ぶ入力欄 | 変換扱い | 打つ → 選ぶ | つなぎ先を決める | つなぎ先が無い時 | ItemConversionChoose・ItemConversionPanel.xaml:134 |
 | 外したつなぎ先の「戻す」 | 変換扱い | クリック | 戻す | 外した物がある時 | ItemConversionRejectedExpander／ItemConversionRestore・ItemConversionPanel.xaml:160,174 |
-| 小さな見出しの星・ショップ名 | 小さな見出し | クリック | お気に入り・ショップへ | 商品名が流れ去った時 | ItemCompactFavorite／ItemCompactShopLink・ItemCompactBar.xaml:31,64 |
+| 小さな見出しの星・ショップ名 | 小さな見出し | クリック・中クリック | お気に入り・ショップへ（ショップ名の中クリックは BOOTH） | 商品名が流れ去った時 | ItemCompactFavorite／ItemCompactShopLink・ItemCompactBar.xaml:31,64 |
 | キー：Ctrl+F・← →・Alt+← | どこでも | キー | ページ内検索・画像送り・戻る | いつも | —・docs/spec/ui-keyboard.md |
 | ページにファイル・画像・URL を落とす | どこでも | ドラッグ | 紐付けるか取り込むか・画像として足すかを聞く | いつも | —・ViewModels/MainViewModel.Drop.cs:166,290 |
 

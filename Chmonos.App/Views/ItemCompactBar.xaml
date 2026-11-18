@@ -57,7 +57,7 @@
                 <controls:TrailingFollowPanel Gap="14">
                     <TextBlock Text="{Binding ItemName}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis" ToolTip="{Binding ItemName}" />
-                    <Button Command="{Binding ShopCommand}" Cursor="Hand" VerticalAlignment="Center" Height="Auto"
+                    <Button Command="{Binding ShopCommand}" controls:MiddleClick.Command="{Binding ShopBoothCommand}" Cursor="Hand" VerticalAlignment="Center" Height="Auto"
                             ToolTip="このショップの商品を見る"
                             AutomationProperties.AutomationId="{Binding IdPrefix, StringFormat={}{0}CompactShopLink}"
                             AutomationProperties.Name="{Binding ShopName, StringFormat={}{0}の商品を見る}"

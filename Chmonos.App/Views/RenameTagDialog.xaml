@@ -24,7 +24,7 @@
             既にある名前と同じ綴りを打っただけでも統合先になる（RenameTagDialogViewModel.Input）。
             決めた名前は欄に残す——消すと、打った物が決まったのかが欄から読めない
         -->
-        <controls:SuggestBox Source="{Binding Candidates}" CommitCommand="{Binding PickCommand}"
+        <controls:SuggestBox x:Name="NameBox" Source="{Binding Candidates}" CommitCommand="{Binding PickCommand}"
                              Text="{Binding Input, Mode=TwoWay}" KeepsCommittedText="True"
                              AllowNew="True" Placeholder="新しい名前" AutomationProperties.Name="新しい名前" />
 

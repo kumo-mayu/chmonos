@@ -110,6 +110,7 @@ flowchart LR
 | このフォルダを選択 | 束の見出し | クリック | フォルダの束を選ぶ | zipの中身でない束 | ResolveGroupSelectFolder・ResolveView.xaml:396 |
 | 元zipで登録（小） | 1行で出ている中身の行の下 | クリック | 元のzipの行を選ぶ | 元のzipが一覧にある時 | ResolveRowTreatAsOriginZip・ResolveView.xaml:560 |
 | 境目 | 左の一覧と右の欄の間 | ドラッグ | 一覧の幅を変える | 組み込みでない時 | —・ResolveView.xaml:235 |
+| 左の一覧を畳むつまみ（‹ ›） | 境の線の右上 | クリック | 左の一覧を畳む（縦の見出しの帯だけ）・広げる。畳んだかは次の起動にも残る（次のバージョンから） | 組み込みでない時 | ResolveView.xaml・PaneCollapseToggle |
 | 元zipで登録 | 対象の帯の右端 | クリック | 元のzipの行を選ぶ | 元のzipがディスクと一覧にある中身を選んだ時 | ResolveTargetOriginZip・ResolveView.xaml:614 |
 | zipの中身 n 件／フォルダの n 件 ・ このファイルだけ | 対象の帯 | クリック | 束で扱うか1件だけか | 束の行を選び、チェックが無い時 | ResolveTargetUnit・ResolveTargetSingle・ResolveView.xaml:622・625 |
 | 選択を解除 | 対象の帯 | クリック | チェックを外して選んだ1件に戻す | チェックがある時 | ResolveTargetClearChecks・ResolveView.xaml:630 |

@@ -64,4 +64,34 @@ public class BoothLinksTests
         Assert.Null(BoothLinks.ShopPage("evil.example.com/x", null));
         Assert.Null(BoothLinks.ShopPage("local-0a1b2c3d", null));
     }
+
+    // 商品のショップの BOOTH のページ（商品ページのショップ名の中クリック・ショップ順の区切りの札。open.md 136）
+    private static ItemRecord WithShops(BoothShop? booth, LocalShop? local) => new()
+    {
+        Id = "9900001",
+        Booth = new BoothBlock { Name = "作り物", Shop = booth },
+        Local = new LocalBlock { Shop = local },
+    };
+
+    [Fact]
+    public void 商品のショップは_人が入れたショップのURLを取れた側より先に使う()
+    {
+        var item = WithShops(
+            new BoothShop { Name = "取れた店", Subdomain = "fetched-shop", Url = "https://fetched-shop.booth.pm/" },
+            new LocalShop { Name = "直した店", Subdomain = "fixed-shop", Url = "https://fixed-shop.booth.pm/" });
+
+        Assert.Equal("https://fixed-shop.booth.pm/", BoothLinks.ShopPage(item));
+    }
+
+    [Fact]
+    public void 商品のショップのURLが無ければ_サブドメインから作る()
+        => Assert.Equal("https://sample-shop.booth.pm/",
+            BoothLinks.ShopPage(WithShops(new BoothShop { Name = "店", Subdomain = "sample-shop" }, null)));
+
+    [Fact]
+    public void 手元だけのショップとショップの無い商品には_BOOTHのページが無い()
+    {
+        Assert.Null(BoothLinks.ShopPage(WithShops(null, new LocalShop { Name = "手元の店", Subdomain = "local-0a1b2c3d" })));
+        Assert.Null(BoothLinks.ShopPage(WithShops(null, null)));
+    }
 }

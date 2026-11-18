@@ -128,6 +128,7 @@ flowchart LR
 | すべて畳む／すべて広げる | 左の上 | 押す | 全部畳む／1段ずつ広げる | いつも。広げ切ると「すべて広げる」は押せない | ModificationsCollapseAll・ModificationsExpandAll・Hub:926-929 |
 | 新しい版が出たものだけ（n） | 左の上 | チェック | 新しい版の出た改変だけ | 該当がある時・入れている間 | ModificationsOnlyBehind・Hub:948 |
 | 左右の境目 | 境目 | ドラッグ | 左の幅を替える | いつも | Hub:838 |
+| 左の一覧を畳むつまみ（‹ ›） | 境の線の右上 | クリック | 左の一覧を畳む（縦の見出しの帯だけ）・広げる。畳んだかは次の起動にも残る（次のバージョンから） | いつも | ModificationHubView.xaml・PaneCollapseToggle |
 | プロジェクトの見出し（行・名前） | 左の一覧 | 押す | 右にプロジェクト | プロジェクトの見方 | ModificationsProjectLink・Hub:339 |
 | プロジェクトの見出しの三角 | 左の一覧 | 押す | 畳む・広げる | 同上 | ModificationsProjectToggle・Hub:327 |
 | Unityを開く（見出し） | 左の一覧 | 押す | Unity を開く・手前に出す | 同上・プロジェクトの見出し | ModificationsProjectOpenUnity・Hub:330 |

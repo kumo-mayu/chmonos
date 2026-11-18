@@ -177,7 +177,7 @@ public abstract class ManageViewModelBase<TRow, TOrphan> : ViewModelBase, IPendi
     private PaneColumn? _listPane;
 
     /// <summary>左の一覧の列。ドラッグで幅を変えられる（ユーザ判断 2026-09-14）。</summary>
-    public PaneColumn ListPane => _listPane ??= new PaneColumn(_services.PaneWidths, _listPaneKey);
+    public PaneColumn ListPane => _listPane ??= new PaneColumn(_services.PaneWidths, _listPaneKey, remembersCollapse: true);
 
     /// <summary>戻る（ユーザ判断 2026-09-20・V2・V3）。**ナビから入っても直前の画面へ戻れる。**</summary>
     public MainViewModel Main => _main;

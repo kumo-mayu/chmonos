@@ -26,12 +26,40 @@ public sealed class SelectableLink : RichTextBox
     public static readonly DependencyProperty OpensOnBlankProperty =
         DependencyProperty.Register(nameof(OpensOnBlank), typeof(bool), typeof(SelectableLink));
 
+    /// <summary>
+    /// 中クリックで開く先（BOOTH）。左クリックがアプリの中へ行く字でも、中クリックは外へ出る（open.md 136。<see cref="MiddleClick"/> と同じ近道）。
+    /// 左クリックと同じく字の上だけで開く。
+    /// </summary>
+    public static readonly DependencyProperty MiddleCommandProperty =
+        DependencyProperty.Register(nameof(MiddleCommand), typeof(ICommand), typeof(SelectableLink));
+
     private Point? _pressedAt;
 
     public SelectableLink()
     {
         // RichTextBox は押下を自分で受けて「済んだ」にするので、済んだ物も受ける
         AddHandler(MouseLeftButtonUpEvent, new MouseButtonEventHandler(OnReleased), handledEventsToo: true);
+        AddHandler(MouseDownEvent, new MouseButtonEventHandler(OnMiddlePressed), handledEventsToo: true);
+    }
+
+    public ICommand? MiddleCommand
+    {
+        get => (ICommand?)GetValue(MiddleCommandProperty);
+        set => SetValue(MiddleCommandProperty, value);
+    }
+
+    private void OnMiddlePressed(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != MouseButton.Middle
+            || MiddleCommand is not { } command
+            || !command.CanExecute(null)
+            || !(OpensOnBlank || GetPositionFromPoint(e.GetPosition(this), snapToText: false) is not null))
+        {
+            return;
+        }
+
+        command.Execute(null);
+        e.Handled = true;
     }
 
     public bool OpensOnBlank

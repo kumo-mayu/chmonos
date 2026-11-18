@@ -474,7 +474,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
     private PaneColumn? _listPane;
 
     /// <summary>左の一覧の列。単独の画面ではドラッグで幅を変えられる（ユーザ判断 2026-09-14）。組み込んだときは一覧を出さない（幅0）。</summary>
-    public PaneColumn ListPane => _listPane ??= new PaneColumn(_services.PaneWidths, "resolve.list")
+    public PaneColumn ListPane => _listPane ??= new PaneColumn(_services.PaneWidths, "resolve.list", remembersCollapse: true)
     {
         Fixed = IsEmbedded ? new System.Windows.GridLength(0) : null,
     };

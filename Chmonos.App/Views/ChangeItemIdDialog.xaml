@@ -19,7 +19,7 @@
 
         <TextBlock Text="移し先の商品ID" Style="{StaticResource SectionLabel}" Margin="0,18,0,6" />
         <Grid>
-            <TextBox Text="{Binding IdInput, UpdateSourceTrigger=PropertyChanged}"
+            <TextBox x:Name="IdBox" Text="{Binding IdInput, UpdateSourceTrigger=PropertyChanged}"
                          AutomationProperties.Name="移し先の商品ID"
                      Height="30" VerticalContentAlignment="Center" Padding="8,0" Margin="0,0,110,0">
                 <!--

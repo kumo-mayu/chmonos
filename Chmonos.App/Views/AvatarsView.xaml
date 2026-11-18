@@ -25,6 +25,9 @@
         <Style x:Key="AvatarRowStyle" TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
             <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}" />
             <Setter Property="ContextMenu" Value="{StaticResource CardMenu}" />
+            <!-- 中クリックで BOOTH の商品ページ（検索のカード・管理の一覧の行と同じ近道・open.md 136）。ID の無い行では何も開かない -->
+            <Setter Property="controls:MiddleClick.Command" Value="{Binding DataContext.OpenBoothCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" />
+            <Setter Property="controls:MiddleClick.CommandParameter" Value="{Binding}" />
             <!-- 付けないと、行の型の名前が読まれる（読み上げ・自動操作）。アバターの名前を読ませる -->
             <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
             <Setter Property="AutomationProperties.AutomationId" Value="AvatarRow" />
@@ -360,11 +363,15 @@
 
                 <!-- 左の一覧の幅を変える境目（ユーザ判断 2026-09-14） -->
                 <controls:PaneSplitter Grid.Column="0" HorizontalAlignment="Right" Panel.ZIndex="2"
-                                       ResetCommand="{Binding ListPane.ResetCommand}" />
+                                       ResetCommand="{Binding ListPane.ResetCommand}"
+                                       Visibility="{Binding ListPane.CanResize, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                <!-- 左の一覧を畳む・広げるつまみ（open.md 51。検索の絞り込みと同じ）。畳んでいる間は境目を出さない -->
+                <controls:PaneCollapseToggle Grid.Column="0" Pane="{Binding ListPane}" Label="アバター" AutomationKey="AvatarsToggleList" />
 
                 <!-- 左：アバターの一覧。所有しているものを先に出す -->
                 <Border Grid.Column="0" Background="{DynamicResource Surface}"
-                        BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0">
+                        BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0"
+                        Visibility="{Binding ListPane.IsCollapsed, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                     <DockPanel>
                         <!--
                             見る物の切り替え（U16）。以前は共通素体の管理がどのアバターの詳細の下にも付いて回り、
@@ -692,7 +699,7 @@
                                                 色も商品ページに揃える（前の TextFaint より1段濃い TextMuted。押せる物を薄すぎる色で出さない）
                                             -->
                                             <TextBlock Style="{StaticResource Mono}" FontSize="11.5" ToolTip="{Binding IdCopyTip}">
-                                                <Hyperlink Command="{Binding CopyIdCommand}" TextDecorations="{x:Null}"
+                                                <Hyperlink Command="{Binding CopyIdCommand}" controls:MiddleClick.Command="{Binding OpenBoothCommand}" TextDecorations="{x:Null}"
                                                            AutomationProperties.AutomationId="AvatarIdCopy"
                                                            Foreground="{DynamicResource TextMuted}">
                                                     <Run Text="{Binding SelectedIdText, Mode=OneWay}" />

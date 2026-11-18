@@ -397,7 +397,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     private PaneColumn? _listPane;
 
     /// <summary>左の一覧の列。ドラッグで幅を変えられる（ユーザ判断 2026-09-14）。</summary>
-    public PaneColumn ListPane => _listPane ??= new PaneColumn(_services.PaneWidths, "avatars.list");
+    public PaneColumn ListPane => _listPane ??= new PaneColumn(_services.PaneWidths, "avatars.list", remembersCollapse: true);
     private readonly MainViewModel _main;
 
     private ManageItemView? _itemView;

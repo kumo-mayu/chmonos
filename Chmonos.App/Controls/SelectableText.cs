@@ -333,6 +333,10 @@ public static class SelectableText
     {
         var link = new Hyperlink(new Run(url)) { NavigateUri = uri };
 
+        // 中クリックはいつもブラウザで開く（ユーザ指摘 2026-11-18・open.md 136）。ライブラリにある商品のリンクも、
+        // 左クリックはアプリの商品ページ、中クリックは外へ出る。カードの中クリック（BOOTH を開く）と同じ「外へ」の近道
+        link.MouseDown += OpenInBrowserOnMiddle;
+
         // ライブラリに持っている商品へのリンクは、色を「所持」と揃えて外部リンクと区別する。
         // 踏む前に、外に出るのか手元のページへ移るのかが分かるようにするため。
         if (navigator?.CanNavigate(uri) == true)
@@ -364,5 +368,16 @@ public static class SelectableText
 
         // 説明文は出品者が書いた物で、手で直した JSON からも来る。開くのは Shell の守り（http/https だけ）を通す
         Services.Shell.OpenUrl(args.Uri.AbsoluteUri);
+    }
+
+    private static void OpenInBrowserOnMiddle(object sender, MouseButtonEventArgs args)
+    {
+        if (args.ChangedButton != MouseButton.Middle || sender is not Hyperlink { NavigateUri: { } uri })
+        {
+            return;
+        }
+
+        args.Handled = true;
+        Services.Shell.OpenUrl(uri.AbsoluteUri);
     }
 }

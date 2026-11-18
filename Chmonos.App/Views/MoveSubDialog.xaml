@@ -18,7 +18,7 @@
                    TextWrapping="Wrap" Margin="0,7,0,0" />
 
         <TextBlock Text="{Binding TargetLabel}" Style="{StaticResource SectionLabel}" Margin="0,18,0,6" />
-        <controls:SuggestBox Source="{Binding Targets}" CommitCommand="{Binding PickTargetCommand}"
+        <controls:SuggestBox x:Name="TargetBox" Source="{Binding Targets}" CommitCommand="{Binding PickTargetCommand}"
                              AllowNew="False" Placeholder="大分類を選ぶ" />
 
         <TextBlock Text="{Binding TargetText}" Style="{StaticResource Mono}" FontSize="11.5" Margin="0,8,0,0" />

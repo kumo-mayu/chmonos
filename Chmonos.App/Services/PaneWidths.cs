@@ -100,6 +100,44 @@ public sealed class PaneWidths(SettingsService settings, CommandHandler commands
 
     public GridLength Column(string key) => new(Get(key));
 
+    private HashSet<string>? _collapsed;
+
+    /// <summary>
+    /// その場所の左の一覧を畳んでいるか（ui-state.json の <c>collapsedPanes</c>。open.md 51）。
+    /// 画面は開くたびに作り直すが、このサービスは起動の間ずっと居るので、ここで手元に持つ。
+    /// 書き込みは裏で済むので、畳んですぐ別の画面へ行って戻ると、ファイルから読み直す形では古い値を読み得る
+    /// </summary>
+    public bool IsCollapsed(string key)
+    {
+        lock (_gate)
+        {
+            return Collapsed().Contains(key);
+        }
+    }
+
+    /// <summary>畳んだ・広げたを覚える。幅（<see cref="Set"/>）とは別に持つので、畳んでも幅は消えない。</summary>
+    public void SetCollapsed(string key, bool collapsed)
+    {
+        lock (_gate)
+        {
+            if (collapsed ? !Collapsed().Add(key) : !Collapsed().Remove(key))
+            {
+                return;
+            }
+        }
+
+        // 書くときは今のファイルの値に当てる（手元の控えを丸ごと書くと、間にほかから書いた分を潰す）
+        commands.ExecuteAsync(new UiCommand.ChangeUiState(state => state with
+        {
+            CollapsedPanes = collapsed
+                ? [.. (state.CollapsedPanes ?? []).Where(name => name != key), key]
+                : [.. (state.CollapsedPanes ?? []).Where(name => name != key)],
+        })).Forget();
+    }
+
+    private HashSet<string> Collapsed()
+        => _collapsed ??= new HashSet<string>(settings.UiState.CollapsedPanes ?? [], StringComparer.Ordinal);
+
     /// <summary>ドラッグで変わった幅。範囲に収めて覚え、少し待ってから書く。</summary>
     public void Set(string key, double width)
     {

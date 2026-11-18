@@ -14,6 +14,14 @@ public partial class ChangeItemIdDialog : Window
 
         // 閉じた後も探し続けると、誰も見ない結果のために BOOTH へ問い合わせ続ける
         Closed += (_, _) => model.StopSearchCommand.Execute(null);
+
+        // 打つ欄が1つの窓は、開いたらすぐ打てるようにその欄に止まる（ui-dialogs.md「キー」）。
+        // 入っている ID があれば全部選び、打てば置き換わるようにする
+        Loaded += (_, _) =>
+        {
+            IdBox.Focus();
+            IdBox.SelectAll();
+        };
     }
 
     private void OnMove(object sender, RoutedEventArgs e) => DialogResult = true;

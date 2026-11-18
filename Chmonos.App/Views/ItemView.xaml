@@ -614,7 +614,7 @@
                             <controls:SelectableLink Style="{StaticResource SelectableBody}" Cursor="Hand" FontSize="13" Margin="-2,8,0,0"
                                                      IsTabStop="True" FocusVisualStyle="{StaticResource ChipFocusVisual}"
                                                      Foreground="{DynamicResource Accent}"
-                                                     Command="{Binding OpenShopCommand}"
+                                                     Command="{Binding OpenShopCommand}" MiddleCommand="{Binding OpenShopInBoothCommand}"
                                                      ToolTip="このショップの商品を見る"
                                                      AutomationProperties.AutomationId="ItemShopLink"
                                                      AutomationProperties.Name="{Binding ShopName, StringFormat={}{0}の商品を見る}"
@@ -629,7 +629,7 @@
                                      手で書き写させない。UI要素は増やさない -->
                                 <TextBlock Style="{StaticResource Mono}" FontSize="11" Margin="0,0,14,0" ToolTip="{Binding IdCopyTip}">
                                     <!-- 名前は中の文字（「ID 1234567」）のまま。確かめの道具が「今どの商品のページか」を読む場所なので、ID を付ける -->
-                                    <Hyperlink Command="{Binding CopyIdCommand}" TextDecorations="{x:Null}"
+                                    <Hyperlink Command="{Binding CopyIdCommand}" controls:MiddleClick.Command="{Binding OpenBoothCommand}" TextDecorations="{x:Null}"
                                                AutomationProperties.AutomationId="ItemIdCopy"
                                                Foreground="{DynamicResource TextMuted}">
                                         <Run Text="{Binding IdText, Mode=OneWay}" />
@@ -1094,7 +1094,7 @@
 
         <!-- 名前と星・絵は商品ページの持ち主から。ショップ名は頭の段と同じく押すとショップの画面へ -->
         <views:ItemCompactBar x:Name="CompactBar" Page="{Binding}" ItemName="{Binding Name}" ShopName="{Binding ShopName}"
-                              ShopCommand="{Binding OpenShopCommand}" IdPrefix="Item" />
+                              ShopCommand="{Binding OpenShopCommand}" ShopBoothCommand="{Binding OpenShopInBoothCommand}" IdPrefix="Item" />
         </Grid>
     </DockPanel>
 </UserControl>
