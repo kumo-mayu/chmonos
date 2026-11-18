@@ -120,7 +120,10 @@ public sealed partial class SettingsViewModel
         _saveImages = settings.SaveImages;
         _refreshIntervalDays = settings.RefreshIntervalDays;
         _oscPort = settings.OscPort;
-        _quietUnitySend = settings.QuietUnitySend;
+        // 前の版の設定（3つの欄が無い）は、古い欄から読み替えた値を出す（AppSettings の読み口）
+        _notifyUnitySendResult = settings.NotifiesUnitySendResult;
+        _unitySendResultToast = settings.UnitySendResultByToast;
+        _confirmUnitySend = settings.ConfirmsUnitySend;
         _notificationRetentionCount = settings.NotificationRetentionCount;
         _notificationArchiveMegabytes = settings.NotificationArchiveMegabytes;
         _searchHistoryCount = settings.SearchHistoryCount;

@@ -1092,13 +1092,48 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         }
     }
 
-    private bool _quietUnitySend;
+    private bool _notifyUnitySendResult;
 
-    /// <summary>Unity へ送るとき、確認と結果の窓を出さず、結果を Windows の通知で知らせるか（ユーザ判断 2026-11-03）。</summary>
-    public bool QuietUnitySend
+    /// <summary>
+    /// Unity へ送った結果を知らせるか（親。ユーザ判断 2026-11-19・open.md 167）。切っても知らせ方の値は残す（入手日の区切りの子と同じ）。
+    /// 前は1つのチェックが「確認しない」と「Windowsの通知」を一緒に決めていた
+    /// </summary>
+    public bool NotifyUnitySendResult
     {
-        get => _quietUnitySend;
-        set { if (SetField(ref _quietUnitySend, value)) { Save(); } }
+        get => _notifyUnitySendResult;
+        set { if (SetField(ref _notifyUnitySendResult, value)) { Save(); } }
+    }
+
+    private bool _unitySendResultToast;
+
+    /// <summary>知らせ方の繋がったボタンの右（Windowsの通知）。</summary>
+    public bool UnitySendResultToast
+    {
+        get => _unitySendResultToast;
+        set
+        {
+            if (SetField(ref _unitySendResultToast, value))
+            {
+                OnPropertyChanged(nameof(UnitySendResultWindow));
+                Save();
+            }
+        }
+    }
+
+    /// <summary>繋がったボタンの左（ウィンドウ）。外れる側の知らせ（false）では何もしない（右の側が書く）。</summary>
+    public bool UnitySendResultWindow
+    {
+        get => !_unitySendResultToast;
+        set { if (value) { UnitySendResultToast = false; } }
+    }
+
+    private bool _confirmUnitySend;
+
+    /// <summary>Unity へ送る前に「送ります」の確認を出すか（ユーザ判断 2026-11-19：結果の知らせ方と別のチェックに分ける）。</summary>
+    public bool ConfirmUnitySend
+    {
+        get => _confirmUnitySend;
+        set { if (SetField(ref _confirmUnitySend, value)) { Save(); } }
     }
 
     private int _oscPort;
@@ -1772,7 +1807,10 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             SaveImages = SaveImages,
             RefreshIntervalDays = RefreshIntervalDays,
             OscPort = OscPort,
-            QuietUnitySend = QuietUnitySend,
+            // 古い欄（QuietUnitySend）は書かない。前の版に戻したときに、前の動きのまま残る
+            NotifyUnitySendResult = NotifyUnitySendResult,
+            UnitySendResultToast = UnitySendResultToast,
+            ConfirmUnitySend = ConfirmUnitySend,
             NotificationRetentionCount = NotificationRetentionCount,
             NotificationArchiveMegabytes = NotificationArchiveMegabytes,
             SearchHistoryCount = SearchHistoryCount,

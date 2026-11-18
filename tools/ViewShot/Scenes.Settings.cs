@@ -36,6 +36,8 @@ internal static partial class Scenes
         SettingsApiMenu(),
         SettingsFolderLayouts(),
         SettingsFileOrder(),
+        SettingsUnityNotice("settings-unity-notice-on", "設定の「操作」の Unity：確認を切り、結果をWindowsの通知で知らせる形", notify: true),
+        SettingsUnityNotice("settings-unity-notice-off", "設定の「操作」の Unity：結果を知らせない形（知らせ方は押せず薄い・値は残る）", notify: false),
         SettingsHiddenItems("settings-hidden-cards", "設定の「隠したもの」：非表示にした商品を検索と同じカードで出した形（右下に大きさのつまみ）", list: false),
         SettingsHiddenItems("settings-hidden-list", "設定の「隠したもの」：非表示にした商品をリストで出した形", list: true),
         SettingsSection("settings-display-groups", "設定の「表示」：共通（色・大きさ・幅 ─ R-18・消えた画像）と、小見出し「対応アバター」", "表示"),
@@ -86,6 +88,21 @@ internal static partial class Scenes
             await context.SettleAsync();
 
             return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, "隠したもの")) };
+        });
+
+    /// <summary>設定の「操作」の Unity：確認・結果を知らせる（親）・知らせ方（子の繋がったボタン）。親が切れている間は子が薄い（open.md 167）</summary>
+    private static Scene SettingsUnityNotice(string name, string description, bool notify)
+        => new(name, description, async context =>
+        {
+            var main = await context.StartAsync(settings => settings with { NotifyUnitySendResult = notify, UnitySendResultToast = true, ConfirmUnitySend = false });
+            main.ShowSettings();
+            var settings = context.Screen<SettingsViewModel>();
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+            await SceneContext.UntilAsync(() => !settings.IsLoading, "設定を読み終わる");
+            await context.SettleAsync();
+
+            return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, "Unityへ送った結果を知らせる")) };
         });
 
     /// <summary>設定の「商品ページと編集」：ファイルの表示順のプルダウンと向きの繋がったボタン（2026-11-11）。「バージョンを考えた名前順」の降順を選んだ形</summary>
