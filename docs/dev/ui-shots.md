@@ -134,7 +134,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | ショップ一覧：空・2店・更新あり・更新ありだけ | `empty-shops`（900）・`shops-cards`（900）・`shops-cards-updated`・`shops-cards-updated-only` |
 | ショップの中：一番上・半分・流れ去った後・一番下（カード・リスト） | `shop-header`（900）・`shop-scroll-*`・`shop-list-*` |
 | ショップの中：メモ無し・長いメモ・切り替え・フォーカス | `shop-compact-memo-none`・`shop-compact-memo-long`・`shop-switch-keeps`・`shop-focus-reveal` |
-| フォルダ：空・木（ファイル名・商品名）・選んだ・知らせ | `empty-folder`（900）・`folder-tree-filenames`・`folder-tree-itemnames`・`folder-cards`（900）・`folder-notice-off`・`folder-notice-on` |
+| フォルダ：空・木（ファイル名・商品名）・選んだ・知らせ | `empty-folder`（900）・`folder-tree-filenames`・`folder-tree-itemnames`・`folder-cards`（900）・`folder-notice-off`・`folder-notice-on`・`folder-tree-badges`（ファイルの行の右端の札。900） |
 
 ## アバター（09-avatars）・改変（10-modifications）
 

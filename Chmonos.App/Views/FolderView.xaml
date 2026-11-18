@@ -110,17 +110,32 @@
             </DockPanel>
         </DataTemplate>
 
-        <!-- ファイルの行の下の1行（見つからない・ほかの場所・展開したフォルダ）。商品のファイルと未確定で同じ -->
-        <DataTemplate x:Key="FolderRowFileNotes" DataType="{x:Type vm:FolderViewRow}">
-            <WrapPanel>
-                <TextBlock Text="{Binding MissingText}" FontSize="10.5" Foreground="{DynamicResource Warn}" Margin="0,0,8,0"
-                           Visibility="{Binding HasMissingText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                <Button AutomationProperties.AutomationId="FolderRowShowOther" AutomationProperties.Name="{Binding Title, StringFormat={}{0}のほかの場所へ移る}" Style="{StaticResource HubLink}" Margin="0,0,8,0"
+        <!--
+            ファイルの行の右端の札（見つからない・ほかの場所）。商品のファイルと未確定で同じ。
+            前は行の下に小さな字で並べていて、行と行の間に出るので上下どちらの行の話か読み取りにくかった（open.md 98 行・ユーザのメモ 2026-11-18）。
+            フォルダの行の「未確定 n」と同じ列・同じ形の札にする
+        -->
+        <DataTemplate x:Key="FolderRowFileBadges" DataType="{x:Type vm:FolderViewRow}">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Border Style="{StaticResource BadgeWarn}" CornerRadius="8" Padding="6,0"
+                        Visibility="{Binding HasMissingText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <TextBlock Text="{Binding MissingText}" FontSize="10" Foreground="{DynamicResource Warn}" />
+                </Border>
+                <!-- 押すと移る札（前の下線の文字と同じ命令・同じ ID） -->
+                <Button AutomationProperties.AutomationId="FolderRowShowOther" AutomationProperties.Name="{Binding Title, StringFormat={}{0}のほかの場所へ移る}" Style="{StaticResource HubLink}" Margin="4,0,0,0"
                         Visibility="{Binding HasOthers, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                         Command="{Binding DataContext.ShowOtherCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                         CommandParameter="{Binding}" ToolTip="同じ中身のファイルが置いてある、もう1つの場所へ移ります">
-                    <TextBlock Text="{Binding OthersText}" FontSize="10.5" Foreground="{DynamicResource Accent}" TextDecorations="Underline" />
+                    <Border Style="{StaticResource BadgeAccent}" CornerRadius="8" Padding="6,0">
+                        <TextBlock Text="{Binding OthersText}" FontSize="10" Foreground="{DynamicResource Accent}" />
+                    </Border>
                 </Button>
+            </StackPanel>
+        </DataTemplate>
+
+        <!-- ファイルの行の下の1行（展開したフォルダ）。商品のファイルと未確定で同じ -->
+        <DataTemplate x:Key="FolderRowFileNotes" DataType="{x:Type vm:FolderViewRow}">
+            <WrapPanel>
                 <!-- zip の横の展開したフォルダ（ユーザ判断：zip の下に薄く出す） -->
                 <Button AutomationProperties.AutomationId="FolderRowRevealExtracted" AutomationProperties.Name="{Binding Title, StringFormat={}{0}の展開したフォルダを開く}" Style="{StaticResource HubLink}"
                         Visibility="{Binding HasExtracted, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
@@ -136,6 +151,9 @@
             <DockPanel Margin="{Binding Indent}" MinHeight="26">
                 <!-- 三角の幅だけ空ける（フォルダの行と絵の位置を揃える。ファイルは開け閉めしない） -->
                 <FrameworkElement DockPanel.Dock="Left" Width="18" />
+
+                <!-- 右端の札（見つからない・ほかの場所）。フォルダの行の数の札と同じ列 -->
+                <ContentControl DockPanel.Dock="Right" Margin="6,0,2,0" VerticalAlignment="Center" Content="{Binding}" ContentTemplate="{StaticResource FolderRowFileBadges}" Focusable="False" />
 
                 <!--
                     商品の絵。乗せると大きめの絵と商品名を出す（ユーザ指摘 2026-09-14：フォルダビューの商品の絵にホバーが無い。
@@ -178,6 +196,9 @@
         <DataTemplate x:Key="UnresolvedRowTemplate" DataType="{x:Type vm:FolderViewRow}">
             <DockPanel Margin="{Binding Indent}" MinHeight="26">
                 <FrameworkElement DockPanel.Dock="Left" Width="18" />
+
+                <!-- 右端の札（見つからない・ほかの場所）。フォルダの行の数の札と同じ列 -->
+                <ContentControl DockPanel.Dock="Right" Margin="6,0,2,0" VerticalAlignment="Center" Content="{Binding}" ContentTemplate="{StaticResource FolderRowFileBadges}" Focusable="False" />
 
                 <Border DockPanel.Dock="Left" Width="26" Height="26" Margin="0,2,7,2" VerticalAlignment="Top"
                         CornerRadius="4" Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}" BorderThickness="1">

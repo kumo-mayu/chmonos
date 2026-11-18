@@ -76,6 +76,31 @@ internal static partial class Scenes
             await context.SettleAsync();
             return new Shot(root);
         }),
+
+        // open.md 98 行（2026-11-18）：「見つかりません」「ほかに n か所」を行の右端の札にした。上下どちらの行の話かが読めるか、狭い木で名前が押されすぎないかを見る
+        new Scene("folder-tree-badges", "フォルダビュー：ファイルの行の右端の札（見つかりません・ほかに n か所）。同じ zip を別のフォルダにも置いた商品と、ファイルが見つからない商品", async context =>
+        {
+            var copy = Fake.Zip(@"控え\item3.zip");
+            await SeedLibraryAsync(context, count: 8, change: (index, record) => index switch
+            {
+                // 同じ中身を2か所に置いた（ライブラリと控え）
+                3 => record with { Local = record.Local with { LocalFiles = [record.Local.LocalFiles[0] with { Paths = [.. record.Local.LocalFiles[0].Paths, copy] }] } },
+                // 記録はあるがディスクに無い
+                6 => record with { Local = record.Local with { LocalFiles = [Fake.FileRecord(System.IO.Path.GetFullPath(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(copy)!, "..", "ライブラリ", "消えた.zip")))] } },
+                _ => record,
+            });
+            var main = await context.StartAsync();
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+            await SceneContext.UntilAsync(() => main.Search.TotalCount == 8, "商品を読み終える");
+            main.ShowFolders();
+            var folders = context.Screen<FolderViewModel>();
+            await SceneContext.UntilAsync(() => folders.Rows.Any(row => row.IsFolderLike), "フォルダの行が並ぶ");
+            folders.ExpandAllCommand.Execute(folders.Rows.First(row => row.IsFolderLike));
+            await SceneContext.UntilAsync(() => folders.Rows.Any(row => row.HasOthers) && folders.Rows.Any(row => row.HasMissingText), "札の付いた行が並ぶ");
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
     ];
 
     /// <summary>開いたときに WPF が渡す宛先と DataContext だけを手で渡す（項目の命令は宛先の Tag を引く束縛のまま確かめる）。</summary>
