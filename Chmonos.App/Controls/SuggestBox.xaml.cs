@@ -284,6 +284,7 @@ public partial class SuggestBox : UserControl
 
     private bool _isCommitting;
     private bool _skipNextFocusOpen;
+    private bool _quietFocusPending;
 
     public SuggestBox()
     {
@@ -323,6 +324,18 @@ public partial class SuggestBox : UserControl
 
     /// <summary>入力欄にフォーカスを移す。ボタンで出した直後にすぐ打てるように（対応アバターの「＋ 追加」）。</summary>
     public void FocusInput() => Input.Focus();
+
+    /// <summary>
+    /// 候補を開かずに入力欄へフォーカスだけ置く。窓を開いた直後に打てるよう欄に止まるが、
+    /// 候補の一覧は打つまで出さない（出ていると、開いた直後の Enter が先頭の候補を決めてしまう。open.md 161）。
+    /// 窓が手前になる前に呼ばれるとフォーカスは後から入るので、印は「次にフォーカスが入るまで」残し、
+    /// 入った時か外れた時に外す（時間では外さない）
+    /// </summary>
+    public void FocusInputQuietly()
+    {
+        _quietFocusPending = true;
+        Input.Focus();
+    }
 
     /// <summary>
     /// 候補の元が差し替わったとき、閉じている窓は開かない（開くのは人が欄を触ったときだけ）。
@@ -408,6 +421,12 @@ public partial class SuggestBox : UserControl
             return;
         }
 
+        if (_quietFocusPending)
+        {
+            _quietFocusPending = false;
+            return;
+        }
+
         Dispatcher.BeginInvoke(new Action(Refresh), System.Windows.Threading.DispatcherPriority.Input);
     }
 
@@ -435,6 +454,7 @@ public partial class SuggestBox : UserControl
 
     private void OnInputLostFocus(object sender, KeyboardFocusChangedEventArgs e)
     {
+        _quietFocusPending = false;
         // 候補の側へフォーカスが移っただけなら閉じない
         if (!Candidates.IsKeyboardFocusWithin)
         {

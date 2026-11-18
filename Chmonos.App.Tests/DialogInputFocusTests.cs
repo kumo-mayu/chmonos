@@ -20,7 +20,7 @@ public sealed class DialogInputFocusTests
     /// 窓を画面の外に出して開き、Loaded を走らせる。窓は主の窓を持ち主にするので、表示した主の窓の代わりを置く
     /// （無いと、作った窓そのものが主の窓になり、持ち主を自分に向けて落ちる）。
     /// </summary>
-    private static async Task<IInputElement?> FocusedAfterOpenAsync(Func<Window> create)
+    private static async Task<IInputElement?> FocusedAfterOpenAsync(Func<Window> create, Action<Window>? inspect = null)
     {
         var owner = Offscreen(new Window { Width = 200, Height = 200 });
         owner.Show();
@@ -33,6 +33,7 @@ public sealed class DialogInputFocusTests
             window.ShowActivated = true;
             window.Show();
             await UiThread.Settle();
+            inspect?.Invoke(window);
             return FocusManager.GetFocusedElement(window);
         }
         finally
@@ -71,6 +72,28 @@ public sealed class DialogInputFocusTests
 
         var box = (SuggestBox)window!.FindName("TargetBox");
         Assert.Same(box.FindName("Input"), focused);
+    });
+
+    [Fact]
+    public Task 名前を変更の窓は_開いた直後に候補を開かない() => UiThread.Run(async () =>
+    {
+        bool? open = null;
+        await FocusedAfterOpenAsync(
+            () => new RenameTagDialog(new RenameTagDialogViewModel("大分類", "服", 3, ["衣装", "小物"])),
+            w => open = ((System.Windows.Controls.Primitives.Popup)((SuggestBox)w.FindName("NameBox")).FindName("DropDown")).IsOpen);
+
+        Assert.False(open);
+    });
+
+    [Fact]
+    public Task 別の大分類へ移す窓は_開いた直後に候補を開かない() => TestApp.Run(async app =>
+    {
+        bool? open = null;
+        await FocusedAfterOpenAsync(
+            () => new MoveSubDialog(new MoveSubDialogViewModel(app.Services.UserTags, "服", "上着", ["衣装", "小物"])),
+            w => open = ((System.Windows.Controls.Primitives.Popup)((SuggestBox)w.FindName("TargetBox")).FindName("DropDown")).IsOpen);
+
+        Assert.False(open);
     });
 
     [Fact]
