@@ -286,20 +286,18 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
     /// </summary>
     public bool IsFoldersExpanded
     {
-        get => s_foldersExpanded;
+        // 取り込み画面の同じ一覧と1つの値を使う（ユーザ判断 2026-11-18：開閉を共有し、既定は閉じる。
+        // 2026-09-28 の「既定は開いた形」を改めた）
+        get => ImportFolderHistoryFold.IsExpanded;
         set
         {
-            if (s_foldersExpanded != value)
+            if (ImportFolderHistoryFold.IsExpanded != value)
             {
-                s_foldersExpanded = value;
+                ImportFolderHistoryFold.IsExpanded = value;
                 OnPropertyChanged(nameof(IsFoldersExpanded));
             }
         }
     }
-
-    // 既定は畳んだ形（ユーザ判断 2026-11-18：履歴は増えるので、見たい時だけ開く。2026-09-28 の「既定は開いた形」を改めた）。
-    // 取り込み画面と開閉を共有する値の置き場は、取り込み側の担当が決める
-    private static bool s_foldersExpanded = false;
 
     // 節の開け閉め（ユーザ判断 2026-10-02：案A）。既定は全部開き、設定の画面は開くたびに作り直されるので、
     // アプリを閉じるまでここに持つ（ファイルには書かない。取り込み元の履歴と同じ）。
