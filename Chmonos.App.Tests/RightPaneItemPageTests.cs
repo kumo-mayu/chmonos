@@ -81,6 +81,18 @@ public class RightPaneItemPageTests
     });
 
     [Fact]
+    public Task 窓が手前に戻って木を読み直しても_重ねた商品ページは閉じない() => TestApp.Run(async app =>
+    {
+        var (_, folders, detail) = await OpenFolderAsync(app);
+        detail.OpenItem(detail.ListItems.OfType<ItemCardViewModel>().First());
+
+        folders.NoteWindowActivated();
+        await app.SettleAsync();
+
+        Assert.True(folders.RightItem.IsOpen);
+    });
+
+    [Fact]
     public Task 別の画面へ移って戻ると_同じフォルダの上に同じ商品を重ね直す() => TestApp.Run(async app =>
     {
         var (main, folders, detail) = await OpenFolderAsync(app);
