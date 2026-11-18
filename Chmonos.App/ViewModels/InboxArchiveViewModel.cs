@@ -431,9 +431,12 @@ public sealed class InboxArchiveViewModel : ViewModelBase
         {
             _allMonths = Task.Run(() => _services.Store.NotificationArchive.CatalogAsync());
             var catalog = await _allMonths;
-            _itemChoices = catalog.ItemChoices();
+
+            // 候補と種類の数えは全部の知らせを回るので、数千件でも画面を止めないよう裏で数える
+            var (choices, kinds) = await Task.Run(() => (catalog.ItemChoices(), catalog.Kinds()));
+            _itemChoices = choices;
             OnPropertyChanged(nameof(ItemCandidates));
-            foreach (var (kind, count) in catalog.Kinds())
+            foreach (var (kind, count) in kinds)
             {
                 Kinds.Add(new ArchiveKindChoice(kind, $"{InboxViewModel.KindLabel(kind)}（{count:N0}）"));
             }

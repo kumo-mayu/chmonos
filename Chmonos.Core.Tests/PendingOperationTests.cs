@@ -334,7 +334,7 @@ public sealed class PendingOperationTests : IDisposable
 
     /// <summary>
     /// 起動時の続きと通知の「今すぐ続ける」が同じ記録を同時に当てない。2回目が当たると、移す先が1回目で変わっているので
-    /// 「内容が変わっていた」と知らせ、済んだ操作を止まったように見せていた（advisor の点検）
+    /// 「内容が変わっていた」と知らせ、済んだ操作を止まったように見せていた
     /// </summary>
     [Fact]
     public async Task 同じ記録を同時に続けても1回だけ当てる()
