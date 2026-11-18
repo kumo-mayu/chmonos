@@ -35,6 +35,12 @@ public sealed record CardMenuCommands
     /// <summary>「非表示にする」。自分の一覧を持つ画面は、書いた後にその一覧からも外す版へ差し替える。</summary>
     public required RelayCommand HideItemCommand { get; init; }
 
+    /// <summary>
+    /// その項目の字。非表示にした商品を並べる画面（設定）は、同じ項目で非表示を戻すので「非表示を解除」に替える
+    /// （「非表示にする」のままだと、押すと戻るのに逆に読める）
+    /// </summary>
+    public string HideItemHeader { get; init; } = "非表示にする";
+
     /// <summary>検索画面の命令をそのまま借りる（カードを並べるどの画面でも、押したときの働きは検索画面と同じにする）。</summary>
     public static CardMenuCommands BorrowedFrom(SearchViewModel search) => new()
     {

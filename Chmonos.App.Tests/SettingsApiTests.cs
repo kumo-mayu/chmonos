@@ -357,6 +357,41 @@ public sealed class SettingsApiTests
     });
 
     [Fact]
+    public Task すべて許可とすべて外すは_その組だけを1回で書き_ほかの組とほかのソフトは残す() => TestApp.Run(async app =>
+    {
+        // 変更する操作と知らせる操作は別の組（ユーザ判断 2026-11-18）。片方を許すつもりで、もう片方まで動かさない
+        JsonStore.Write(app.Services.Paths.ApiClientsFile, new ApiClientList
+        {
+            Clients = [FakeClient("a1", "作り物の道具", ApiScopes.Marks, ApiScopes.WatchItemOpened), FakeClient("b2", "別の作り物", ApiScopes.Unity)],
+        });
+        var main = await app.StartAsync();
+        var settings = new SettingsViewModel(app.Services, main);
+        var row = settings.ApiClients.First();
+
+        row.AllowAllScopesCommand.Execute(null);
+        await app.SettleAsync();
+        var saved = app.Services.Store.ApiClients.Load().Clients;
+        Assert.Equal([.. ApiScopes.Writes, ApiScopes.WatchItemOpened], saved.Single(client => client.Id == "a1").Scopes);
+        Assert.Equal([ApiScopes.Unity], saved.Single(client => client.Id == "b2").Scopes);
+
+        row = settings.ApiClients.First();
+        row.ClearAllScopesCommand.Execute(null);
+        await app.SettleAsync();
+        Assert.Equal([ApiScopes.WatchItemOpened], app.Services.Store.ApiClients.Load().Clients.Single(client => client.Id == "a1").Scopes);
+
+        row = settings.ApiClients.First();
+        row.AllowAllWatchesCommand.Execute(null);
+        await app.SettleAsync();
+        Assert.Equal(ApiScopes.Watches, app.Services.Store.ApiClients.Load().Clients.Single(client => client.Id == "a1").Scopes);
+
+        row = settings.ApiClients.First();
+        row.ClearAllWatchesCommand.Execute(null);
+        await app.SettleAsync();
+        Assert.Empty(app.Services.Store.ApiClients.Load().Clients.Single(client => client.Id == "a1").Scopes);
+        settings.OnLeaving();
+    });
+
+    [Fact]
     public Task 手で権限をnullにしたソフトも_チェックで書き換えて保存する() => TestApp.Run(async app =>
     {
         // 手で直した api-clients.json の "scopes": null は空として受ける（CLAUDE.md「欠けた配列は空」）。

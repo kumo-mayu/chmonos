@@ -13,6 +13,23 @@ public static class UpdateCheck
     /// <summary>ダウンロードページ。GitHub と BOOTH で同じ zip を配っている（docs/dev/signing.md）。</summary>
     public const string DownloadPage = "https://github.com/kumo-mayu/chmonos/releases/latest";
 
+    /// <summary>GitHub のリポジトリ。設定の「について」から開く。</summary>
+    public const string RepositoryPage = "https://github.com/kumo-mayu/chmonos";
+
+    /// <summary>
+    /// マニュアルのページ。<paramref name="file"/> は manual/ の中のファイル名（無ければフォルダの入口）。
+    /// 配った版のマニュアルは印 <c>manual-v&lt;版&gt;</c> に残る（docs/dev/signing.md）ので、版が分かる組み立てはそこを指す。
+    /// master のマニュアルは「（次のバージョンから）」の動きも含むので、配った版の利用者には合わない。
+    /// 印の無い組み立て（開発中）は master を指す（<paramref name="released"/> が false）
+    /// </summary>
+    public static string ManualPage(string version, bool released, string? file = null)
+    {
+        var reference = released ? $"manual-v{version}" : "master";
+        return file is null
+            ? $"{RepositoryPage}/tree/{reference}/manual"
+            : $"{RepositoryPage}/blob/{reference}/manual/{file}";
+    }
+
     /// <summary>最新の公開版。下書きとプレリリースは返らない（公開の前に中身を確かめる運用に合う）。</summary>
     private const string LatestApi = "https://api.github.com/repos/kumo-mayu/chmonos/releases/latest";
 

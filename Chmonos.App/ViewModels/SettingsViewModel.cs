@@ -297,7 +297,9 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         }
     }
 
-    private static bool s_foldersExpanded = true;
+    // 既定は畳んだ形（ユーザ判断 2026-11-18：履歴は増えるので、見たい時だけ開く。2026-09-28 の「既定は開いた形」を改めた）。
+    // 取り込み画面と開閉を共有する値の置き場は、取り込み側の担当が決める
+    private static bool s_foldersExpanded = false;
 
     // 節の開け閉め（ユーザ判断 2026-10-02：案A）。既定は全部開き、設定の画面は開くたびに作り直されるので、
     // アプリを閉じるまでここに持つ（ファイルには書かない。取り込み元の履歴と同じ）。
@@ -457,7 +459,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
 
     public bool HasWatched => Watched.Count > 0;
 
-    public ObservableCollection<RestorableRow> Hidden { get; } = [];
+
 
     /// <summary>
     /// 除外したファイルの行。**欄を開いている間だけ作る**（閉じている間は空）。
@@ -1451,11 +1453,11 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
                 ? $"{Core.Models.DisplayText.Size(size)} / {files:N0} ファイル"
                 : "読めませんでした";
 
-    public bool HasHidden => Hidden.Count > 0;
+    public bool HasHidden => HiddenItems.Count > 0;
 
     public bool HasExcluded => _excludedFiles.Count > 0;
 
-    public string HiddenText => $"{Hidden.Count} 件";
+    public string HiddenText => $"{HiddenItems.Count} 件";
 
     // 行ではなく記録で数える（閉じている間は行が無い）
     public string ExcludedText => $"{_excludedFiles.Count} 件";
@@ -1586,17 +1588,10 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
 
             OnPropertyChanged(nameof(HasWatched));
 
-            Hidden.Clear();
+            HiddenItems.Clear();
             foreach (var item in hidden)
             {
-                var captured = item.ItemId;
-                Hidden.Add(new RestorableRow
-                {
-                    Key = item.ItemId,
-                    Label = item.Name,
-                    RestoreCommand = new RelayCommand(() => UnhideAsync(captured).Forget()),
-                    OpenCommand = new RelayCommand(() => OpenHiddenAsync(captured).Forget()),
-                });
+                HiddenItems.Add(MakeHiddenRow(item.ItemId, item.Name));
             }
 
             _excludedFiles = excluded;
@@ -2027,6 +2022,42 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             : "ライセンスの文書が見つかりませんでした。アプリを入れ直してください。");
 
     private RelayCommand? _openThirdPartyNoticesCommand;
+
+    /// <summary>
+    /// 開発中の組み立て（Debug）は、印の無い版を指すと開けないので master にする
+    /// </summary>
+    internal static bool IsReleasedBuild =>
+#if DEBUG
+        false;
+#else
+        true;
+#endif
+
+    internal static string ManualUrl(string? file = null)
+        => Core.Services.UpdateCheck.ManualPage(Services.AppVersion.Text, IsReleasedBuild, file);
+
+    public RelayCommand OpenRepositoryCommand => _openRepositoryCommand ??= new RelayCommand(
+        () => Services.Shell.OpenUrl(Core.Services.UpdateCheck.RepositoryPage));
+
+    private RelayCommand? _openRepositoryCommand;
+
+    public RelayCommand OpenManualCommand => _openManualCommand ??= new RelayCommand(
+        () => Services.Shell.OpenUrl(ManualUrl()));
+
+    private RelayCommand? _openManualCommand;
+
+    public RelayCommand OpenApiManualCommand => _openApiManualCommand ??= new RelayCommand(
+        () => Services.Shell.OpenUrl(ManualUrl("40-api.md")));
+
+    private RelayCommand? _openApiManualCommand;
+
+    /// <summary>辞書の出典（CC BY-SA 4.0 の表示に添える許諾の URL）。字と同じ物を開く。</summary>
+    public const string DictionaryLicenseUrl = "https://www.edrdg.org/edrdg/licence.html";
+
+    public RelayCommand OpenDictionaryLicenseCommand => _openDictionaryLicenseCommand ??= new RelayCommand(
+        () => Services.Shell.OpenUrl(DictionaryLicenseUrl));
+
+    private RelayCommand? _openDictionaryLicenseCommand;
 
     private string _licenseNoteText = string.Empty;
 

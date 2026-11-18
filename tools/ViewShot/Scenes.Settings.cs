@@ -36,7 +36,57 @@ internal static partial class Scenes
         SettingsApiMenu(),
         SettingsFolderLayouts(),
         SettingsFileOrder(),
+        SettingsHiddenItems("settings-hidden-cards", "設定の「隠したもの」：非表示にした商品を検索と同じカードで出した形（右下に大きさのつまみ）", list: false),
+        SettingsHiddenItems("settings-hidden-list", "設定の「隠したもの」：非表示にした商品をリストで出した形", list: true),
+        SettingsSection("settings-display-groups", "設定の「表示」：共通（色・大きさ・幅 ─ R-18・消えた画像）と、小見出し「対応アバター」", "表示"),
+        SettingsSection("settings-about-links", "設定の「Chmonos（クモノス）について」：GitHub・マニュアル・辞書の出典のリンク", "Chmonos（クモノス）について"),
+        SettingsSection("settings-folders-collapsed", "設定の「取り込みと取得」：取り込み元の履歴は既定で畳み、「フォルダを追加」は見出しのすぐ右", "取り込み元の履歴"),
     ];
+
+    /// <summary>設定の節ひとつを撮る。<paramref name="focusText"/> の字を持つ枠が見える所を撮る。</summary>
+    private static Scene SettingsSection(string name, string description, string sectionText)
+        => new(name, description, async context =>
+        {
+            var main = await context.StartAsync(settings => settings with { ImportFolders = [@"D:\作り物\取り込み元1", @"D:\作り物\取り込み元2"] });
+            main.ShowSettings();
+            var settings = context.Screen<SettingsViewModel>();
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+            await SceneContext.UntilAsync(() => !settings.IsLoading, "設定を読み終わる");
+            await context.SettleAsync();
+
+            return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, sectionText)) };
+        });
+
+    /// <summary>設定の「隠したもの」：非表示にした商品を検索と同じカード・リストで出す（open.md 172）。</summary>
+    private static Scene SettingsHiddenItems(string name, string description, bool list)
+        => new(name, description, async context =>
+        {
+            for (var index = 0; index < 5; index++)
+            {
+                var number = index;
+                await context.Fake.ItemAsync($"98001{number:00}", $"作り物の隠した衣装{number + 1}", record => record with
+                {
+                    Local = record.Local with { IsHidden = true },
+                }, images: 1);
+            }
+
+            var main = await context.StartAsync();
+            main.ShowSettings();
+            var settings = context.Screen<SettingsViewModel>();
+            settings.SectionHiddenOpen = true;
+            if (list)
+            {
+                settings.ShowListCommand.Execute(null);
+            }
+
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+            await SceneContext.UntilAsync(() => !settings.IsLoading && settings.HiddenItems.Count == 5, "設定を読み終わる");
+            await context.SettleAsync();
+
+            return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, "隠したもの")) };
+        });
 
     /// <summary>設定の「商品ページと編集」：ファイルの表示順のプルダウンと向きの繋がったボタン（2026-11-11）。「バージョンを考えた名前順」の降順を選んだ形</summary>
     private static Scene SettingsFileOrder()
