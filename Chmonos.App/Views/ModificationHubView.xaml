@@ -314,8 +314,18 @@
                     右クリック（ユーザ判断 2026-11-10）：見つかるプロジェクトでも場所を付け替えられる（同じ名前で残った古いフォルダを片付ける前など）。
                     紐付けていない改変の見出しには付け替える先が無いので、メニューを開かない（空のメニューを出さない）
                 -->
+                <!-- 「Unityを開く」「エクスプローラで開く」も置く（feedback 2026-11-18）。見つからないフォルダでは押せない（ボタンと同じ） -->
                 <Border.ContextMenu>
                     <ContextMenu>
+                        <MenuItem Header="Unityを開く" AutomationProperties.AutomationId="ProjectRowMenu.OpenUnity"
+                                  IsEnabled="{Binding CanOpen}"
+                                  Command="{Binding PlacementTarget.Tag.OpenProjectCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding Path}" />
+                        <MenuItem Header="エクスプローラで開く" AutomationProperties.AutomationId="ProjectRowMenu.OpenFolder"
+                                  IsEnabled="{Binding CanOpen}"
+                                  Command="{Binding PlacementTarget.Tag.OpenProjectFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding Path}" />
+                        <Separator />
                         <MenuItem Header="場所を付け替える…" AutomationProperties.AutomationId="ProjectRowMenu.Relocate"
                                   Command="{Binding PlacementTarget.Tag.RelocateProjectCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                   CommandParameter="{Binding Path}"
