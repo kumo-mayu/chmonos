@@ -326,7 +326,8 @@ public sealed record BaseItemCandidate(string ItemId, string Label, RelayCommand
 /// 素体でグループ化した一覧にすると「素体の指定なし」に大半が落ちて読めなくなる
 /// （実データでは独自素体が大半）。素体の管理は別の欄に分ける。
 /// </summary>
-public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, ILeavingScreen, IItemCardHost, IItemImagesListener
+public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, ILeavingScreen, IItemCardHost, IItemImagesListener,
+    IEmbeddedItemPageHost, IRightPaneItemHost
 {
     /// <summary>名前の候補を出す数。並べすぎると選べない。</summary>
     private const int MaxNameSuggestions = 5;
@@ -432,6 +433,9 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
     void IItemImagesListener.NoteItemImagesSaved(string itemId)
     {
+        // 重ねた商品ページは主画面から見えない（今の画面はこちら）ので、自分が渡す
+        RightItem.Page?.NoteImagesSaved(itemId);
+
         foreach (var row in _all)
         {
             if (string.Equals(row.ItemId, itemId, StringComparison.Ordinal))
@@ -455,19 +459,36 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     /// </param>
     /// <param name="openConversion">戻るで「変換」へ戻すとき、変換の見方で開く。</param>
     /// <param name="selectConversionItemId">そのとき選んでおく商品（一覧から消えていれば、決めていない最初の商品）。</param>
+    /// <param name="rightItemId">戻るで開き直す時、右の欄に重ねていた商品（open.md 95 行）。左の選びが決まった後に重ね直す。</param>
     public AvatarsViewModel(
         AppServiceContainer services,
         MainViewModel main,
         string? selectItemId = null,
         string? selectBaseName = null,
         bool openConversion = false,
-        string? selectConversionItemId = null)
+        string? selectConversionItemId = null,
+        string? rightItemId = null)
     {
         _services = services;
         _main = main;
         _openWith = selectItemId;
         _openBaseWith = selectBaseName;
         _openConversionWith = selectConversionItemId;
+        _openRightWith = rightItemId;
+
+        // 右の「商品ページを開く」は右の欄の中に重ねる（open.md 95 行）。変換の見方で開く前に作る（見方の切り替えが閉じに来る）
+        RightItem = new RightPaneItemPage(main, this, item => new ItemViewModel(item, _services, _main, _main.Thumbnails)
+        {
+            IsEmbedded = true,
+            EmbeddedPaneKey = "avatars.item.left",
+        });
+        RightItem.Changed += () =>
+        {
+            OnPropertyChanged(nameof(DetailWidthWanted));
+
+            // Ctrl+Enter（確認済みにして次へ）は画面全体のキーなので、重ねている間は隠れた変換の欄に効かないようにする
+            RelayCommand.RaiseCanExecuteChanged();
+        };
 
         // ほかの長い作業（書き出し・移動・候補の検索など）が走っている間は押せない。帯は1本しか持てないので、
         // 重ねると後から始めた方が帯と「中止」の宛先を奪い、先に終わった方が帯ごと消していた（ユーザ判断 2026-10-01）
@@ -579,9 +600,12 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
     private async Task OpenItemAsync()
     {
-        if (Selected is not null && await _services.Store.Items.LoadAsync(Selected.ItemId) is { } item)
+        var wanted = Selected?.ItemId;
+        if (wanted is not null && await _services.Store.Items.LoadAsync(wanted) is { } item
+            && Selected?.ItemId == wanted && IsAvatarMode)
         {
-            _main.ShowItem(item);
+            // 右の欄の中に重ねる（左の選びを残す・open.md 95 行）。読む間に左で別の物を選んでいたら重ねない
+            OpenItemInRightPane(item);
         }
     }
 
@@ -830,6 +854,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
                 }
 
                 RaiseModes();
+                CloseRightItemIfLeftMoved();
             }
         }
     }
@@ -1035,6 +1060,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
                 OnPropertyChanged(nameof(MemberCandidates));
                 OnPropertyChanged(nameof(HasSelectedBase));
                 OnPropertyChanged(nameof(ShowsBaseDetail));
+                CloseRightItemIfLeftMoved();
             }
         }
     }
@@ -1275,7 +1301,73 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     private readonly MemoAutoSave<string> _memo;
 
     /// <summary>待っているメモを今書く（画面を離れる前・閉じる前）。</summary>
-    public Task FlushPendingWritesAsync() => _memo.FlushAsync();
+    public Task FlushPendingWritesAsync()
+        => Task.WhenAll(_memo.FlushAsync(), RightItem.Page?.FlushPendingWritesAsync() ?? Task.CompletedTask);
+
+    // ---- 右の欄に重ねる商品ページ（open.md 95 行・ユーザ判断 2026-11-18・11-19） ----
+
+    /// <summary>
+    /// 右の「商品ページを開く」（アバター・変換）から開いた商品ページ。左の選びはそのままで、
+    /// 「← 一覧に戻る」（Alt+← も）で前の右の中身へ戻る
+    /// </summary>
+    public RightPaneItemPage RightItem { get; }
+
+    /// <summary>重ねた時の左の選び（見方と、選んでいた物）。これが替わったら重ねたページを閉じる。</summary>
+    private string? _rightItemLeftKey;
+
+    /// <summary>
+    /// 左の選びを1つの値で表す。読み直しは同じアバター・同じ商品の新しい行へ選び直す（変換は一度 null を挟む）ので、
+    /// 行そのものでなく ID で比べる。行で比べると、重ねたページで書き込むたびに閉じてしまう
+    /// </summary>
+    private string LeftKey()
+        => IsConversionMode ? "conversion:" + SelectedConversion?.ItemId
+            : IsBaseMode ? "base:" + SelectedBase?.Name
+            : "avatar:" + Selected?.ItemId;
+
+    /// <summary>左で別の物を選んだ・見方を替えたら、右に重ねた商品ページは役目を終える（戻る先の中身が替わった）。</summary>
+    private void CloseRightItemIfLeftMoved()
+    {
+        // 作っている途中（RightItem より前に選びが動く）と、重ねていない時は何もしない
+        if (RightItem is { IsOpen: true } && LeftKey() != _rightItemLeftKey)
+        {
+            RightItem.Close();
+        }
+    }
+
+    /// <summary>右の欄に重ねる。左の選びを控え、替わったら閉じる。</summary>
+    private void OpenItemInRightPane(ItemRecord item)
+    {
+        RightItem.Open(item);
+        _rightItemLeftKey = LeftKey();
+    }
+
+    /// <summary>戻るで開き直した時に重ね直す商品（最初の読み込みで左の選びが決まった後に1回だけ使う）。</summary>
+    private string? _openRightWith;
+
+    /// <summary>
+    /// 重ねていた商品を重ね直す。商品が消えていれば重ねない。
+    /// 重ねるのは選んでいた物そのものの商品ページなので、戻した左の選びが別の物（消えて先頭に落ちた等）なら重ねない
+    /// </summary>
+    private void ReopenRightItem()
+    {
+        if (_openRightWith is not { } itemId)
+        {
+            return;
+        }
+
+        _openRightWith = null;
+        var selectedId = IsConversionMode ? SelectedConversion?.ItemId : Selected?.ItemId;
+        if (selectedId == itemId && _main.Search.FindItem(itemId) is { } item)
+        {
+            OpenItemInRightPane(item);
+        }
+    }
+
+    /// <summary>重ねた商品ページが求める右の幅（フォルダ・改変の画面と同じ計算）。重ねていない時は右の欄の最小で足りる。</summary>
+    public double DetailWidthWanted => RightItem.Page is { } page ? ModificationHubViewModel.WidthWanted(page.BodyMinWidth) : 0;
+
+    /// <summary>落とした・貼った画像と、画像が届いた知らせの宛先（重ねたページも商品ページとして受ける・ユーザ判断 2026-11-19）。</summary>
+    ItemViewModel? IEmbeddedItemPageHost.EmbeddedItemPage => RightItem.Page;
 
     /// <summary>
     /// このセッションで書いたメモ。保存のたびに一覧を読み直すと、打っている途中の欄が保存した時点の文に戻るので読み直さない。
@@ -1371,6 +1463,8 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
                 ModificationNameInput = string.Empty;
                 LoadModificationsAsync().Forget();
             }
+
+            CloseRightItemIfLeftMoved();
         }
     }
 
@@ -1672,6 +1766,12 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             if (openBase && SelectedBase?.Name == selectedBaseName)
             {
                 IsBaseMode = true;
+            }
+
+            // 戻るでアバターの見方へ戻した時は、重ねていた商品ページを重ね直す（変換の見方は一覧ができてから・RefreshConversionItems）
+            if (IsAvatarMode)
+            {
+                ReopenRightItem();
             }
         });
     }

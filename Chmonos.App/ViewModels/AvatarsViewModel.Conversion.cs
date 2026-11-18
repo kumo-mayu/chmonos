@@ -39,6 +39,7 @@ public sealed partial class AvatarsViewModel
                 }
 
                 RaiseModes();
+                CloseRightItemIfLeftMoved();
             }
         }
     }
@@ -73,6 +74,9 @@ public sealed partial class AvatarsViewModel
                 OnPropertyChanged(nameof(ShowsConversionDetail));
                 RelayCommand.RaiseCanExecuteChanged();
             }
+
+            // 一覧の作り直しは一度 null を挟んで同じ商品へ選び直すので、ここでは ID で比べる（LeftKey）
+            CloseRightItemIfLeftMoved();
         }
     }
 
@@ -92,7 +96,7 @@ public sealed partial class AvatarsViewModel
     public RelayCommand DecideSuggestedCommand => _decideSuggestedCommand ??= new RelayCommand(
         () => DecideSuggestedAsync().Forget(),
         // 確認待ちが無ければ押せない（ユーザ判断 2026-11-09。押しても次へ進むだけで、「後で」と見分けが付かなかった）
-        () => IsConversionMode && SelectedConversion is not null && ConversionEditor.UnconfirmedTargets.Count > 0);
+        () => IsConversionMode && SelectedConversion is not null && ConversionEditor.UnconfirmedTargets.Count > 0 && !RightItem.IsOpen);
 
     private RelayCommand? _decideSuggestedCommand;
 
@@ -115,7 +119,9 @@ public sealed partial class AvatarsViewModel
         {
             if (SelectedConversion?.Item is { } item)
             {
-                _main.ShowItem(item);
+                // 右の欄の中に重ねる（左の選びを残す・open.md 95 行）。行は作った時の商品を持つので、
+                // 重ねたページで書いた後に開き直しても古くならないよう検索の写しから引き直す
+                OpenItemInRightPane(_main.Search.FindItem(item.Id) ?? item);
             }
         },
         () => SelectedConversion is not null);
@@ -396,6 +402,12 @@ public sealed partial class AvatarsViewModel
                         OnPropertyChanged(nameof(HasConversionItems));
                         RaiseBulk();
                         RaiseModes();
+
+                        // 戻るで変換の見方へ戻した時は、選び直した後に重ねていた商品ページを重ね直す
+                        if (IsConversionMode)
+                        {
+                            ReopenRightItem();
+                        }
                     });
                 },
                 TaskScheduler.Default)

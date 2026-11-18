@@ -324,8 +324,11 @@ public sealed partial class MainViewModel
         ShopViewModel shop => ShopEntry(shop.Shop, shop.CaptureState()),
         ModificationViewModel modification => ModificationEntry(Shorten(modification.Record.Name), modification.Record.Id),
         // 変換を見ていたなら、変換の見方と選んでいた商品で戻す（ユーザ指示 2026-11-09。控えずに、アバターの見方で開き直していた）
-        AvatarsViewModel { IsConversionMode: true } avatars => new HistoryEntry("アバターの管理", RestoreConversion(avatars.SelectedConversion?.ItemId)),
-        AvatarsViewModel avatars => new HistoryEntry("アバターの管理", RestoreAvatars(avatars.Selected?.ItemId, avatars.IsBaseMode ? avatars.SelectedBase?.Name : null)),
+        // 右の欄に重ねていた商品ページも控え、戻ったら重ね直す（open.md 95 行。フォルダ・改変の画面と同じ）
+        AvatarsViewModel { IsConversionMode: true } avatars => new HistoryEntry("アバターの管理",
+            RestoreConversion(avatars.SelectedConversion?.ItemId, avatars.RightItem.Page?.Item.Id)),
+        AvatarsViewModel avatars => new HistoryEntry("アバターの管理",
+            RestoreAvatars(avatars.Selected?.ItemId, avatars.IsBaseMode ? avatars.SelectedBase?.Name : null, avatars.RightItem.Page?.Item.Id)),
         ModificationHubViewModel hub => HubEntry(hub.Level, hub.Selection),
         ShopsViewModel shops => ShopsEntry(shops.CaptureListAnchor()),
         FolderViewModel folders => FolderEntry(folders.SelectedRef),
@@ -335,8 +338,9 @@ public sealed partial class MainViewModel
         // 保管した通知を見ていたなら、その月と絞りで戻す（商品ページを開いて戻ると、今の通知へ落ちないように）
         InboxViewModel { Archive: { } archive } => ArchiveEntry(archive.SelectedMonth?.Month, archive.NameFilter),
         InboxViewModel => new HistoryEntry("通知", ShowInbox),
-        TagManageViewModel => new HistoryEntry("タグの管理", ShowTagManage),
-        AttributeManageViewModel => new HistoryEntry("属性の管理", ShowAttributeManage),
+        // 選んでいた名前は各画面が覚えている。右の欄に重ねていた商品ページだけ控え、戻ったら重ね直す（open.md 95 行）
+        TagManageViewModel tags => TagManageEntry(tags.RightItem.Page?.Item.Id),
+        AttributeManageViewModel attributes => AttributeManageEntry(attributes.RightItem.Page?.Item.Id),
         SettingsViewModel => new HistoryEntry("設定", ShowSettings),
         EditViewModel edit => EditEntry(edit),
         _ => null,
@@ -367,6 +371,12 @@ public sealed partial class MainViewModel
         => new("改変", () => ShowModifications(level, selection));
 
     private HistoryEntry FolderEntry(FolderRowRef? row) => new("フォルダ", () => ShowFolders(row));
+
+    private HistoryEntry TagManageEntry(string? rightItemId) => new("タグの管理",
+        rightItemId is null ? ShowTagManage : () => CurrentViewModel = new TagManageViewModel(_services, this, rightItemId));
+
+    private HistoryEntry AttributeManageEntry(string? rightItemId) => new("属性の管理",
+        rightItemId is null ? ShowAttributeManage : () => CurrentViewModel = new AttributeManageViewModel(_services, this, rightItemId));
 
     /// <summary>
     /// 保管した通知の見方を、月と「商品名で絞る」の中身だけで控える。見方そのもの（月の目録と読んだ行）を抱えると、
@@ -585,12 +595,15 @@ public sealed partial class MainViewModel
     };
 
     /// <summary>アバター画面は、選んでいたアバターを選んだ状態で戻す。</summary>
-    private Action RestoreAvatars(string? selectedId, string? baseName)
-        => selectedId is null && baseName is null ? ShowAvatars : () => ShowAvatarAt(selectedId, baseName);
+    private Action RestoreAvatars(string? selectedId, string? baseName, string? rightItemId)
+        => selectedId is null && baseName is null ? ShowAvatars
+            : rightItemId is null ? () => ShowAvatarAt(selectedId, baseName)
+            : () => CurrentViewModel = new AvatarsViewModel(_services, this, selectedId, baseName, rightItemId: rightItemId);
 
     /// <summary>アバター画面の「変換」は、選んでいた商品を選んだ状態で戻す。</summary>
-    private Action RestoreConversion(string? selectedId)
-        => () => CurrentViewModel = new AvatarsViewModel(_services, this, openConversion: true, selectConversionItemId: selectedId);
+    private Action RestoreConversion(string? selectedId, string? rightItemId)
+        => () => CurrentViewModel = new AvatarsViewModel(
+            _services, this, openConversion: true, selectConversionItemId: selectedId, rightItemId: rightItemId);
 
     /// <summary>
     /// 商品ページは開き直した時点の中身で出す（覚えた時の中身は、その後の編集で古くなっている）。

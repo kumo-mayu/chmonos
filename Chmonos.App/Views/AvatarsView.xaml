@@ -19,6 +19,7 @@
             <views:ItemCardResources />
             <!-- 繋がったボタン（タグ・属性の管理と同じ部品・M4） -->
             <ResourceDictionary Source="ManageResources.xaml" />
+            <ResourceDictionary Source="RightPaneItemResources.xaml" />
         </ResourceDictionary.MergedDictionaries>
 
         <!-- 行の右クリック。アバターは商品でもあるので、カードと同じ操作ができる -->
@@ -354,7 +355,7 @@
             </StackPanel>
 
             <controls:PaneGrid Visibility="{Binding IsLoading, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}"
-                  Pane="{Binding ListPane}">
+                  Pane="{Binding ListPane}" OppositeWidth="{Binding DetailWidthWanted}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="{Binding ListPane.Width, Mode=TwoWay}"
                                       MinWidth="{Binding ListPane.MinWidth}" MaxWidth="{Binding ListPane.MaxWidth}" />
@@ -619,8 +620,20 @@
                     </DockPanel>
                 </Border>
 
-                <!-- 右：選んだアバターの詳細と、共通素体の管理 -->
+                <!--
+                    右：選んだアバターの詳細と、共通素体の管理。右の「商品ページを開く」で開いた商品ページは上に重ね、こちらは隠すだけ
+                    （open.md 95 行。フォルダ・改変の画面と同じ）。Collapsed でなく Hidden にするのは、戻った時に流した位置を切り詰めないため
+                -->
                 <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="24,20,24,24">
+                    <ScrollViewer.Style>
+                        <Style TargetType="ScrollViewer">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding RightItem.IsOpen}" Value="True">
+                                    <Setter Property="Visibility" Value="Hidden" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ScrollViewer.Style>
                     <!-- 文章と入力が主なので最大幅で止め、中央に寄せる（ユーザ判断 2026-09-23。広い窓で枠だけ横に伸び、中身は左に寄っていた） -->
                     <StackPanel MaxWidth="{StaticResource ReadingMaxWidth}">
 
@@ -1263,6 +1276,8 @@
                         </Border>
                     </StackPanel>
                 </ScrollViewer>
+                <ContentControl Grid.Column="1" Content="{Binding RightItem}" Focusable="False"
+                                Visibility="{Binding RightItem.IsOpen, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
             </controls:PaneGrid>
         </Grid>
     </DockPanel>

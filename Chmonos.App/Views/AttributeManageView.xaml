@@ -13,6 +13,7 @@
       <ResourceDictionary>
         <ResourceDictionary.MergedDictionaries>
             <ResourceDictionary Source="ManageResources.xaml" />
+            <ResourceDictionary Source="RightPaneItemResources.xaml" />
             <!-- カード表示は検索と同じカード（ユーザ指示 2026-09-20・M4） -->
             <views:ItemCardResources />
         </ResourceDictionary.MergedDictionaries>
@@ -46,7 +47,7 @@
             </Grid>
         </Border>
 
-        <controls:PaneGrid Pane="{Binding ListPane}">
+        <controls:PaneGrid Pane="{Binding ListPane}" OppositeWidth="{Binding DetailWidthWanted}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="{Binding ListPane.Width, Mode=TwoWay}"
                                   MinWidth="{Binding ListPane.MinWidth}" MaxWidth="{Binding ListPane.MaxWidth}" />
@@ -199,7 +200,20 @@
                 前は商品の数だけ Tab が止まり、下の「編集画面に最初から並べる」へ行くのに商品の数だけ押した。
                 頭・見出し・下の枠は入力欄とボタンのある所なので、並びの外（ArrowGroup.IsOutside）にして今までどおり1つずつ止まる
             -->
+            <!--
+                右の商品の行・カードから開いた商品ページは上に重ね、一覧は隠すだけ（open.md 95 行。フォルダ・改変の画面と同じ）。
+                Collapsed でなく Hidden にするのは、大きさを保ったまま残し、段の切り直し（幅 0 で1列）と流した位置の切り詰めを起こさないため
+            -->
             <DockPanel Grid.Column="1">
+            <DockPanel.Style>
+                <Style TargetType="DockPanel">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding RightItem.IsOpen}" Value="True">
+                            <Setter Property="Visibility" Value="Hidden" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </DockPanel.Style>
             <!-- 右下の大きさのスライダー（検索と同じ。メモ10-④ 2026-10-02） -->
             <ContentControl DockPanel.Dock="Bottom" Content="{Binding}" ContentTemplate="{StaticResource ItemSizeBar}" Focusable="False" />
             <controls:ContentItemsControl ItemsSource="{Binding Lines}" Focusable="False" controls:ArrowGroup.IsEnabled="True"
@@ -504,6 +518,8 @@
                 </ItemsControl.Resources>
             </controls:ContentItemsControl>
             </DockPanel>
+            <ContentControl Grid.Column="1" Content="{Binding RightItem}" Focusable="False"
+                            Visibility="{Binding RightItem.IsOpen, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
         </controls:PaneGrid>
     </DockPanel>
 </UserControl>

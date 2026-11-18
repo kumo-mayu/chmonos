@@ -274,16 +274,21 @@ public class AvatarsConversionTests
         Assert.True(avatars.OpenConversionBoothCommand.CanExecute(null));
     });
 
-    /// <summary>ユーザ指示 2026-11-09：変換から商品ページへ行って戻ると、アバターの見方で開き直していた。</summary>
+    /// <summary>
+    /// ユーザ指示 2026-11-09：変換から商品ページへ行って戻ると、アバターの見方で開き直していた。
+    /// 商品ページは右の欄に重ねるようになった（open.md 95 行・2026-11-19）ので、重ねたまま別の画面へ移って戻る形で見る
+    /// </summary>
     [Fact]
-    public Task 変換から商品ページを開いて戻ると_変換の見方で同じ商品を選んで開き直す() => TestApp.Run(async app =>
+    public Task 変換から商品ページを開いて別の画面から戻ると_変換の見方で同じ商品を選び_商品ページを重ね直す() => TestApp.Run(async app =>
     {
         var avatars = await OpenAsync(app);
         avatars.ShowConversionModeCommand.Execute(null);
         avatars.SelectedConversion = Row(avatars, "9900862");
 
         avatars.OpenConversionItemCommand.Execute(null);
-        await UiThread.Until(() => app.Main.CurrentViewModel is ItemViewModel, "商品ページが開く");
+        Assert.Equal("9900862", avatars.RightItem.Page?.Item.Id);
+        app.Main.ShowStatsCommand.Execute(null);
+        await app.SettleAsync();
         Assert.Equal("← アバターの管理に戻る", app.Main.BackButtonText);
 
         app.Main.GoBack();
@@ -294,6 +299,8 @@ public class AvatarsConversionTests
 
         Assert.True(restored.IsConversionMode);
         Assert.Equal("9900862", restored.SelectedConversion!.ItemId);
+        await UiThread.Until(() => restored.RightItem.IsOpen, "戻ると商品ページを重ね直す");
+        Assert.Equal("9900862", restored.RightItem.Page!.Item.Id);
     });
 
     /// <summary>
