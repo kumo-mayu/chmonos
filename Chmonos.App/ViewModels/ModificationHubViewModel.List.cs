@@ -297,7 +297,10 @@ public sealed partial class ModificationHubViewModel
     private static bool Hit(string? text, string query)
         => !string.IsNullOrEmpty(text) && Compare.IndexOf(text, query, Loose) >= 0;
 
-    /// <summary>アバターを引ける語。表示名・BOOTHの正式名・別名・商品ID（アバターの管理と同じ）。</summary>
+    /// <summary>
+    /// アバターを引ける語。表示名・BOOTHの正式名・別名・商品ID（アバターの管理と同じ）。
+    /// 別名は人が消していない物だけ（ユーザ判断 2026-11-18：消した呼び方は探す欄でも使わない。`AvatarAliasList.LiveTexts`）
+    /// </summary>
     private bool AvatarHit(string id, string query)
     {
         if (Hit(AvatarNameOf(id), query) || id.Contains(query, StringComparison.Ordinal))
@@ -306,7 +309,7 @@ public sealed partial class ModificationHubViewModel
         }
 
         return _avatars.TryGetValue(id, out var summary)
-            && (Hit(summary.Entry.BoothName, query) || summary.Entry.Aliases.Any(alias => Hit(alias.Text, query)));
+            && (Hit(summary.Entry.BoothName, query) || summary.Entry.Aliases.LiveTexts().Any(alias => Hit(alias, query)));
     }
 
     private string AvatarNameOf(string id)
