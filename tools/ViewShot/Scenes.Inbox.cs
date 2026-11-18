@@ -85,7 +85,43 @@ internal static partial class Scenes
         }),
 
         // 行のボタンの結果を、行の中と一覧の見出しの下へ移した（2026-10-04）。出る前（inbox-rows）と並べて、行が動かないことを見る
-        new Scene("inbox-notices", "通知：行のボタンの途中経過・失敗が行の中に、成功が一覧の見出しの下に出た所", async context =>
+        // 途中で止まった操作の行（open 145）：続けられる物は「今すぐ続ける」、内容が変わって止めた物は「もう一度操作する」
+        new Scene("inbox-unfinished", "通知：途中で止まった操作の行。「今すぐ続ける」と「もう一度操作する」", async context =>
+        {
+            var day = new DateTimeOffset(2026, 11, 19, 21, 0, 0, TimeSpan.FromHours(9));
+            await context.Seed.Notifications.SaveAsync(
+            [
+                new NotificationRecord
+                {
+                    Id = Chmonos.Core.Services.PendingOperationRunner.NotificationPrefix + "viewshot-1",
+                    Kind = NotificationKind.UnfinishedOperation,
+                    Title = "タグの名前の変更が途中で止まっています",
+                    Detail = Chmonos.Core.Services.PendingOperationRunner.FailedDetail,
+                    CreatedAt = day,
+                },
+                new NotificationRecord
+                {
+                    Id = Chmonos.Core.Services.PendingOperationRunner.NotificationPrefix + "viewshot-2",
+                    Kind = NotificationKind.UnfinishedOperation,
+                    Title = "IDの変更が途中で止まっています",
+                    Detail = Chmonos.Core.Services.PendingOperationRunner.ChangedDetail,
+                    Retry = new OperationRetry { Kind = PendingOperationKind.ChangeItemId, FromId = "9900501", ToId = "9900502" },
+                    CreatedAt = day.AddHours(-1),
+                },
+            ]);
+
+            var main = await context.StartAsync();
+            main.ShowInboxCommand.Execute(null);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            var inbox = context.Screen<InboxViewModel>();
+            await SceneContext.UntilAsync(() => inbox.Lines.OfType<InboxRowLine>().Count() == 2, "知らせの行が2つ並ぶ");
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
+
+        new Scene("inbox-notices","通知：行のボタンの途中経過・失敗が行の中に、成功が一覧の見出しの下に出た所", async context =>
         {
             var item = await context.Fake.ItemAsync("9900501", "作り物の衣装セット");
             var day = new DateTimeOffset(2026, 9, 20, 21, 0, 0, TimeSpan.FromHours(9));
@@ -391,6 +427,26 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
+        // 一番上の切り替え（open 146）：変更の種類で、すべての月から並べた所（種類の欄・「商品名で絞る」・見出しが種類の名前）
+        new Scene("inbox-archive-kind", "通知：保管した通知を「変更の種類」で切り替え、商品ページの変更をすべての月から並べた所", async context =>
+        {
+            var inbox = await OpenSeededArchiveAsync(context);
+            inbox.Archive!.IsKindLevel = true;
+            await SceneContext.UntilAsync(() => inbox.Archive.Lines.OfType<InboxRowLine>().Count() == 2, "種類の行が2つ並ぶ");
+            await context.SettleAsync();
+            return new Shot(context.MainWindow());
+        }),
+
+        // 一番上の切り替え（open 146）：商品で、選ぶ前の空の表示（候補付きの欄に入れて選ぶ）
+        new Scene("inbox-archive-item", "通知：保管した通知を「商品」で切り替え、商品を選ぶ前（候補付きの欄と空の表示）", async context =>
+        {
+            var inbox = await OpenSeededArchiveAsync(context);
+            inbox.Archive!.IsItemLevel = true;
+            await SceneContext.UntilAsync(() => inbox.Archive.EmptyTitle == "商品を選んでください", "商品を選ぶ前の表示になる");
+            await context.SettleAsync();
+            return new Shot(context.MainWindow());
+        }),
+
         // 保管した通知が1つも無いとき（保管しない設定）。空の表示が並ぶようにする方法を言うことを見る
         new Scene("inbox-archive-empty", "通知：保管した通知が無いとき（保管の容量が 0）の空の表示", async context =>
         {
@@ -500,4 +556,41 @@ internal static partial class Scenes
         }),
 
     ];
+
+    /// <summary>保管した通知を2つの月に置き、保管した通知の見方（年月）を開く。一番上の切り替えの場面が使う。</summary>
+    private static async Task<InboxViewModel> OpenSeededArchiveAsync(SceneContext context)
+    {
+        var item = await context.Fake.ItemAsync("9900502", "作り物のワンピース");
+        var day = new DateTimeOffset(2026, 10, 20, 21, 0, 0, TimeSpan.FromHours(9));
+        await context.Seed.NotificationArchive.AppendAsync(
+        [
+            new NotificationRecord
+            {
+                Id = "archive-1", Kind = NotificationKind.ItemUpdated, ItemId = item.Id, Title = "作り物のワンピース",
+                Detail = "価格が変わりました。", Diffs = [new NotificationDiff { Field = "価格", Before = "¥ 1,500", After = "¥ 1,800" }],
+                CreatedAt = day.AddDays(-3), IsRead = true,
+            },
+            new NotificationRecord
+            {
+                Id = "archive-3", Kind = NotificationKind.OrphanTag, Title = "タグ「冬服」がどの一覧にもありません",
+                Detail = "ユーザータグ：冬服", CreatedAt = day.AddDays(-9), IsResolved = true,
+            },
+        ]);
+        await context.Seed.NotificationArchive.AppendAsync(
+        [
+            new NotificationRecord
+            {
+                Id = "archive-sep", Kind = NotificationKind.ItemUpdated, ItemId = item.Id, Title = "作り物のワンピース",
+                Detail = "説明が変わりました。", CreatedAt = day.AddMonths(-1), IsRead = true,
+            },
+        ]);
+
+        var main = await context.StartAsync();
+        main.ShowInboxCommand.Execute(null);
+        await context.PresentAsync(context.MainWindow());
+        context.Screen<InboxViewModel>().ShowArchiveCommand.Execute(null);
+        var inbox = context.Screen<InboxViewModel>();
+        await SceneContext.UntilAsync(() => inbox.Archive?.Lines.OfType<InboxRowLine>().Count() == 2, "保管した通知の行が並ぶ");
+        return inbox;
+    }
 }

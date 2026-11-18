@@ -207,7 +207,7 @@
                                         AutomationProperties.AutomationId="InboxRowAction"
                                         Margin="8,0,0,0" Command="{Binding ActionCommand}"
                                         ToolTip="{Binding ActionTip}"
-                                        Visibility="{Binding HasAction, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                        Visibility="{Binding ShowsActionOnHover, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                 <!-- 手で直す物（食い違ったJSON・読めない商品の記録）の場所を開く。直し方は人が決める（ユーザ指示 2026-11-18） -->
                                 <Button Content="エクスプローラで開く" Style="{StaticResource SmallButton}"
                                         AutomationProperties.AutomationId="InboxRowReveal"
@@ -215,6 +215,12 @@
                                         ToolTip="そのJSONのある場所を開きます。"
                                         Visibility="{Binding HasReveal, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                 </StackPanel>
+                                <!-- 乗せなくても出す行のボタン（「zipで登録し直す」。ユーザ判断 2026-11-19）。乗せた時の並びの後ろに続く -->
+                                <Button Content="{Binding ActionText}" Style="{StaticResource SmallButton}"
+                                        AutomationProperties.AutomationId="InboxRowAction"
+                                        Margin="8,0,0,0" Command="{Binding ActionCommand}" VerticalAlignment="Center"
+                                        ToolTip="{Binding ActionTip}"
+                                        Visibility="{Binding ShowsActionAlways, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                 <!--
                                     押した行のボタンの途中経過と失敗。ボタンは指した間だけ出るので、離れても読めるよう外に置く。
                                     同じ段なので行の高さは変わらない。長い文は1行で切り、全部は吹き出しで読む
@@ -253,6 +259,51 @@
                                 </DataTrigger>
                             </DataTemplate.Triggers>
                         </DataTemplate>
+
+        <!--
+            保管した通知の一番上の切り替え（年月・商品・変更の種類。open 146・ユーザ判断 2026-11-19）。
+            改変の画面の HubSegment と同じ見た目（1つの枠を区切る）。あちらは改変の画面の中の資源なので、ここに写して持つ。
+            選んだ区画の字を太らせると幅が変わって隣が動くので、太字の幅を見えない字で先に取っておく
+        -->
+        <Style x:Key="ArchiveSegment" TargetType="RadioButton">
+            <Setter Property="GroupName" Value="InboxArchiveLevel" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Foreground" Value="{DynamicResource Text}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Root" Background="Transparent" Padding="{TemplateBinding Padding}"
+                                CornerRadius="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}">
+                            <Grid VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}"
+                                           FontWeight="SemiBold" Visibility="Hidden" />
+                                <ContentPresenter HorizontalAlignment="Center">
+                                    <ContentPresenter.Resources>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                            <Setter Property="Foreground" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
+                                        </Style>
+                                    </ContentPresenter.Resources>
+                                </ContentPresenter>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource SurfaceAlt}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource AccentFill}" />
+                                <Setter Property="Foreground" Value="{DynamicResource OnAccent}" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </UserControl.Resources>
     <DockPanel Background="{DynamicResource Bg}">
 
@@ -303,11 +354,50 @@
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"
                             Visibility="{Binding Archive.HasMonths, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}">
+                    <Border VerticalAlignment="Center" Margin="0,0,8,0" Background="{DynamicResource Surface}"
+                            BorderBrush="{DynamicResource BorderStrong}" BorderThickness="1" CornerRadius="6">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton Content="年月" Style="{StaticResource ArchiveSegment}" AutomationProperties.AutomationId="InboxArchiveLevel.Month"
+                                         IsChecked="{Binding Archive.IsMonthLevel, Mode=TwoWay}">
+                                <RadioButton.Tag>
+                                    <CornerRadius>5,0,0,5</CornerRadius>
+                                </RadioButton.Tag>
+                            </RadioButton>
+                            <Border Width="1" Background="{DynamicResource BorderStrong}" />
+                            <RadioButton Content="商品" Style="{StaticResource ArchiveSegment}" AutomationProperties.AutomationId="InboxArchiveLevel.Item"
+                                         IsChecked="{Binding Archive.IsItemLevel, Mode=TwoWay}">
+                                <RadioButton.Tag>
+                                    <CornerRadius>0</CornerRadius>
+                                </RadioButton.Tag>
+                            </RadioButton>
+                            <Border Width="1" Background="{DynamicResource BorderStrong}" />
+                            <RadioButton Content="変更の種類" Style="{StaticResource ArchiveSegment}" AutomationProperties.AutomationId="InboxArchiveLevel.Kind"
+                                         IsChecked="{Binding Archive.IsKindLevel, Mode=TwoWay}">
+                                <RadioButton.Tag>
+                                    <CornerRadius>0,5,5,0</CornerRadius>
+                                </RadioButton.Tag>
+                            </RadioButton>
+                        </StackPanel>
+                    </Border>
                     <ComboBox Width="130" VerticalAlignment="Center" Margin="0,0,8,0"
                               AutomationProperties.AutomationId="InboxArchiveMonth" AutomationProperties.Name="表示する月"
                               ItemsSource="{Binding Archive.Months}" SelectedItem="{Binding Archive.SelectedMonth, Mode=TwoWay}"
-                              DisplayMemberPath="Label" />
-                    <Grid Width="220">
+                              DisplayMemberPath="Label"
+                              Visibility="{Binding Archive.IsMonthLevel, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}" />
+                    <ComboBox Width="220" VerticalAlignment="Center" Margin="0,0,8,0"
+                              AutomationProperties.AutomationId="InboxArchiveKind" AutomationProperties.Name="表示する変更の種類"
+                              ItemsSource="{Binding Archive.Kinds}" SelectedItem="{Binding Archive.SelectedKind, Mode=TwoWay}"
+                              DisplayMemberPath="Label"
+                              Visibility="{Binding Archive.IsKindLevel, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}" />
+                    <!-- 商品は数が多いので、全部を並べず候補付きの欄で1つ選ぶ（.claude/rules：候補を全部並べる画面は作らない） -->
+                    <Grid Width="260" VerticalAlignment="Center"
+                          Visibility="{Binding Archive.IsItemLevel, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}">
+                        <controls:SuggestBox Source="{Binding Archive.ItemCandidates}" CommitCommand="{Binding Archive.PickItemCommand}"
+                                             AllowNew="False" KeepsCommittedText="True" Placeholder="商品名を入れて選ぶ"
+                                             AutomationProperties.AutomationId="InboxArchiveItem" AutomationProperties.Name="表示する商品" />
+                    </Grid>
+                    <Grid Width="220"
+                          Visibility="{Binding Archive.ShowsNameFilter, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}">
                         <TextBox x:Name="ArchiveFilterBox" Padding="6,3" VerticalAlignment="Center"
                                  AutomationProperties.AutomationId="InboxArchiveFilter" AutomationProperties.Name="商品名で絞る"
                                  Text="{Binding Archive.NameFilter, UpdateSourceTrigger=PropertyChanged, Delay=200}" />
@@ -381,7 +471,7 @@
                                         BorderThickness="1,1,1,1" CornerRadius="8,8,0,0" Padding="18,13">
                                     <DockPanel>
                                         <TextBlock DockPanel.Dock="Right" Text="新しい順" Style="{StaticResource Caption}" VerticalAlignment="Center" />
-                                        <TextBlock Text="{Binding Archive.MonthLabel}" FontWeight="Bold" FontSize="13"
+                                        <TextBlock Text="{Binding Archive.HeadLabel}" FontWeight="Bold" FontSize="13"
                                                    Foreground="{DynamicResource Text}" />
                                     </DockPanel>
                                 </Border>

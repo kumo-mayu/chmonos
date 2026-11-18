@@ -85,7 +85,21 @@ internal static partial class Scenes
             Height = 1000,
         },
 
-        new Scene("import-running-scanning", "取り込んでいる最中：ファイルをスキャン（総数が無いので棒は出ず件数だけ）", async context =>
+        // 未確定などから移ってきて、積んだまま始めていない対象がある（open 122）。対象の欄の上に件数と「開始」
+        new Scene("import-not-started", "取り込み画面：まだ始めていない対象が2件（対象の欄の上の帯と「開始」）", async context =>
+        {
+            // 一覧に直に足すと「空」の文の出し分け（HasFolders）は知らせが出ない。描く前に足して、描く時に読ませる
+            var main = await context.StartAsync();
+            main.Import.Folders.Add(@"D:\作り物\ダウンロード\作り物の衣装_v1.zip");
+            main.Import.Folders.Add(@"D:\作り物\ダウンロード\作り物の髪型_v2.zip");
+            main.ShowImportCommand.Execute(null);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
+
+        new Scene("import-running-scanning","取り込んでいる最中：ファイルをスキャン（総数が無いので棒は出ず件数だけ）", async context =>
         {
             var main = await context.StartAsync();
             main.ShowImportCommand.Execute(null);

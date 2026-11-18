@@ -184,6 +184,7 @@ flowchart LR
 | フォルダ名・「開く ▾」（「エクスプローラで開く」「パスをコピー」） | フォルダの行 | クリック | 開く・コピー | フォルダがある時 | ItemFolderName／ItemFolderOpenMenu・ItemFilesPanel.xaml:231,240 |
 | 「取り込みを開く」 | フォルダ・ファイルの行 | クリック | 取り込みの画面へ | 見つからない時 | ItemFolderImportLink／ItemFileImportLink・ItemFilesPanel.xaml:268,361 |
 | フォルダの「外す」 | フォルダの行 | クリック | フォルダの登録を外す | フォルダがある時 | ItemFolderUnregister・ItemFilesPanel.xaml:286 |
+| 黄色の枠の「zipで登録し直す」 | フォルダの行の枠 | クリック（窓が出る事あり） | 隣の zip を付けてフォルダの登録を外し、改変の記録を zip の中の包みへ付け替える（通知と同じ流れ・同じ窓） | 隣に名前の合う zip がある時 | ItemFolderSwapForArchive・ItemFilesPanel.xaml・ArchiveSwapFlow |
 | ファイル名・「開く ▾」（「エクスプローラで開く」「パスをコピー」「一時的に展開して開く」） | ファイルの行 | クリック | 開く・コピー・展開 | ファイルがある時（展開は zip） | ItemFileName／ItemFileOpenMenu・ItemFilesPanel.xaml:315,414-441 |
 | 「外す」「この商品に戻す」 | ファイルの行 | クリック | 未確定へ戻す・付け直す | 外せる時／外した行 | ItemFileDetach／ItemFileReattach・ItemFilesPanel.xaml:456,472 |
 | 「古い版の記録を片付ける」 | ファイルの行 | クリック | 行を消す | 古い版の行 | ItemFileForgetOldVersion・ItemFilesPanel.xaml:464 |

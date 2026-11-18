@@ -240,11 +240,19 @@ internal sealed class LocalFileEditor(DataStore store)
         var already = item.Local.OwnedFiles.Any(file => file.Paths.Any(
             path => string.Equals(path, archivePath, StringComparison.OrdinalIgnoreCase)));
 
+        var normalized = Path.TrimEndingDirectorySeparator(folderPath);
+        var (folderPackages, otherFolderPackages) = FolderPackagesOf(item.Local.LocalFolders, normalized);
+
+        // 改変の付け替えは、フォルダの登録を外す**前**に行う。外した後で付け替えが止まる（書けない・落ちる）と、
+        // 押し直してもフォルダの包みの一覧が残っておらず、二度と付け替わらない。先に付け替えておけば、止まっても押し直しで済む
         if (already)
         {
             // zipは既に付いている。あとはフォルダの登録を外すだけ
+            var owned = item.Local.OwnedFiles.First(file => file.Paths.Any(
+                path => string.Equals(path, archivePath, StringComparison.OrdinalIgnoreCase)));
+            var relinked = await RelinkFolderMembersAsync(itemId, folderPackages, otherFolderPackages, owned, cancellationToken);
             await UnregisterFolderAsync(itemId, folderPath, cancellationToken);
-            return new ArchiveSwapOutcome(ArchiveSwapResult.AlreadyRegistered, name);
+            return new ArchiveSwapOutcome(ArchiveSwapResult.AlreadyRegistered, name) { Members = relinked };
         }
 
         if (await ReadHandFileAsync(archivePath, cancellationToken) is not { } record)
@@ -261,7 +269,8 @@ internal sealed class LocalFileEditor(DataStore store)
                 return new ArchiveSwapOutcome(ArchiveSwapResult.OwnedElsewhere, name) { Holders = holders };
         }
 
-        var normalized = Path.TrimEndingDirectorySeparator(folderPath);
+        // 付け替えは上と同じ理由で、商品を書く前に（除外・ほかの持ち主で何も書かずに返す時は、改変にも触らない）
+        var members = await RelinkFolderMembersAsync(itemId, folderPackages, otherFolderPackages, record, cancellationToken);
 
         // ファイルとフォルダを1回で、商品の錠の中で今の値に当てて書く。2回に分けると、間に人が触った入力が消える。
         // 上で読んだ写しは使わない（2026-10-05・file-lifecycle.md「気になった所」3）：zip のハッシュに数秒〜かかる間に
@@ -287,7 +296,69 @@ internal sealed class LocalFileEditor(DataStore store)
         await AfterHandAttachAsync(itemId, hash, liftExclusion, otherHolders, cancellationToken);
         await RemoveUnresolvedUnderAsync(normalized, cancellationToken);
 
-        return new ArchiveSwapOutcome(ArchiveSwapResult.Registered, name);
+        return new ArchiveSwapOutcome(ArchiveSwapResult.Registered, name) { Members = members };
+    }
+
+    /// <summary>外すフォルダの包みの場所と、残るほかのフォルダの包みの場所（<see cref="FolderMemberRelink.Targets"/>）。</summary>
+    private static (HashSet<string> Folder, HashSet<string> Others) FolderPackagesOf(
+        IReadOnlyList<LocalFolderRecord> folders, string normalized)
+    {
+        var folder = new HashSet<string>(StringComparer.Ordinal);
+        var others = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var registered in folders)
+        {
+            var target = string.Equals(
+                Path.TrimEndingDirectorySeparator(registered.Path), normalized, StringComparison.OrdinalIgnoreCase)
+                ? folder
+                : others;
+            target.UnionWith(registered.UnityPackages ?? []);
+        }
+
+        return (folder, others);
+    }
+
+    /// <summary>
+    /// 改変の使ったもののうち、外したフォルダの包みを指す行を zip の中の包みへ付け替える（ユーザ判断 2026-11-19・open 144・150）。
+    /// 全件を読んでから1件ずつ、**改変の錠の中で読み直した今の値に当てる**（読んでから書くまでに、改変の画面が名前やメモを書き、
+    /// Unity から構成物が届く。読んだ写しで書くとそれが消える。<see cref="ItemIdChanger"/> と同じ作法）。
+    /// 付け替える行が無い改変は書かない。
+    /// </summary>
+    private async Task<FolderMemberRelink.Counts> RelinkFolderMembersAsync(
+        string itemId,
+        IReadOnlySet<string> folderPackages,
+        IReadOnlySet<string> otherFolderPackages,
+        LocalFileRecord zip,
+        CancellationToken cancellationToken)
+    {
+        if (folderPackages.Count == 0)
+        {
+            return default;
+        }
+
+        var zipPackages = UnityHandoff.PackageEntriesIn(zip);
+        var total = default(FolderMemberRelink.Counts);
+        var loaded = await store.Modifications.LoadAllAsync(cancellationToken);
+        foreach (var found in loaded.Modifications)
+        {
+            if (!found.Members.Any(member => FolderMemberRelink.Targets(member, itemId, folderPackages, otherFolderPackages)))
+            {
+                continue;
+            }
+
+            var counts = default(FolderMemberRelink.Counts);
+            await store.Modifications.UpdateAsync(
+                found.Id,
+                current =>
+                {
+                    (var changed, counts) = FolderMemberRelink.Apply(
+                        current, itemId, folderPackages, otherFolderPackages, zip.Hash, zip.VariationId, zipPackages);
+                    return changed;
+                },
+                cancellationToken);
+            total += counts;
+        }
+
+        return total;
     }
 
     /// <summary>

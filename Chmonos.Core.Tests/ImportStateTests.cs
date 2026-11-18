@@ -115,6 +115,92 @@ public class ImportStateTests : IDisposable
         return folder;
     }
 
+    /// <summary>
+    /// 中断した取り込みが新しく作った商品だけを記録する（open 119）。既にある商品にファイルを足した分は入れない——
+    /// 中断の窓の「新しく登録した n 件を削除する」がこれで消す相手を決めるので、入れると前からある商品を消す。
+    /// </summary>
+    [Fact]
+    public async Task RecordsOnlyTheItemsThisImportCreated()
+    {
+        await _store.Items.SaveAsync(new ItemRecord { Id = "111", Booth = new BoothBlock(), Local = new LocalBlock { Memo = "前から" } });
+
+        // 2商品目まで通し、3商品目で閉じる
+        _failAfter = 2;
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => _pipeline.RunAsync([CreateSource("111", "222", "333")]));
+
+        var created = _store.ImportState.Load().CreatedItems!;
+        Assert.Contains("222", created);
+        Assert.DoesNotContain("111", created);
+    }
+
+    /// <summary>
+    /// 中断して消すと、記録した商品の JSON・控え・説明・画像を消し、人が手を入れた商品と記録に無い商品は残す。
+    /// ディスクの購入ファイルには触らない。消した商品は記録から外し、残した商品は記録に残す
+    /// </summary>
+    [Fact]
+    public async Task RemovesOnlyUntouchedCreatedItemsAndKeepsTheFiles()
+    {
+        var source = CreateSource("222", "333", "444");
+        _failAfter = 3;
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => _pipeline.RunAsync([source]));
+        Assert.Equal(["222", "333", "444"], _store.ImportState.Load().CreatedItems);
+
+        // 取り込みの間に人がメモを入れた・名前を入れた
+        await _store.Items.ChangeLocalAsync("333", local => local with { Memo = "人が書いた" }, [LocalField.Memo]);
+
+        // 記録に無い商品（前からある）
+        await _store.Items.SaveAsync(new ItemRecord { Id = "555", Booth = new BoothBlock(), Local = new LocalBlock() });
+
+        // 説明と画像の置き場（その商品のために取った物）
+        var images = Path.Combine(_paths.ImagesDir, "222");
+        Directory.CreateDirectory(images);
+        File.WriteAllBytes(Path.Combine(images, "1.jpg"), [1, 2, 3]);
+        await _store.Items.SaveAsync((await _store.Items.LoadAsync("222"))!);
+        Assert.True(File.Exists(Path.Combine(_paths.ItemsDir, ".prev", "222.json")));
+
+        var removed = await new Chmonos.Core.Services.ImportedItemRemoval(_store).RemoveAsync();
+
+        Assert.Equal(new Chmonos.Core.Services.ImportedItemsRemoved(Deleted: 2, Kept: 1), removed);
+        Assert.Null(await _store.Items.LoadAsync("222"));
+        Assert.Null(await _store.Items.LoadAsync("444"));
+        Assert.Equal("人が書いた", (await _store.Items.LoadAsync("333"))!.Local.Memo);
+        Assert.NotNull(await _store.Items.LoadAsync("555"));
+        Assert.False(Directory.Exists(images));
+        Assert.False(File.Exists(Path.Combine(_paths.ItemsDir, ".prev", "222.json")));
+        Assert.All(Directory.GetFiles(source, "*.zip"), path => Assert.True(File.Exists(path)));
+        Assert.Equal(3, Directory.GetFiles(source, "*.zip").Length);
+        Assert.Equal(["333"], _store.ImportState.Load().CreatedItems);
+    }
+
+    /// <summary>
+    /// 取り込みと見回りが自分で書く値（ファイル・フォルダ・検出した対応アバター・推した変換扱い）は人の手と見ない。
+    /// 見ると取り込んだ商品が全部「残した」になり、何も消えない。人が足した・違うと言った・決めた値は人の手
+    /// </summary>
+    [Fact]
+    public void AutomaticValuesAreNotHumanInput()
+    {
+        var automatic = new LocalBlock
+        {
+            LocalFiles = [new LocalFileRecord { Paths = ["a.zip"], Hash = "h", SizeBytes = 1 }],
+            LocalFolders = [new LocalFolderRecord { Path = "dir" }],
+            Avatars = [new AvatarLink { AvatarItemId = "1", Source = AvatarLinkSource.SupportSection, Confirmed = true }],
+            AvatarBases = [new AvatarBaseLink { BaseName = "素体", Source = AvatarLinkSource.Tag, Confirmed = true }],
+            Conversion = new ConversionSetting { Targets = [new ConversionTarget { AvatarItemId = "1", Slug = "s" }] },
+        };
+
+        Assert.False(Chmonos.Core.Services.ImportedItemRemoval.HasHumanInput(automatic));
+        Assert.True(Chmonos.Core.Services.ImportedItemRemoval.HasHumanInput(
+            automatic with { Avatars = [new AvatarLink { AvatarItemId = "2", Source = AvatarLinkSource.Manual, Confirmed = true }] }));
+        Assert.True(Chmonos.Core.Services.ImportedItemRemoval.HasHumanInput(
+            automatic with { Avatars = [new AvatarLink { AvatarItemId = "1", Source = AvatarLinkSource.SupportSection, Rejected = true }] }));
+        Assert.True(Chmonos.Core.Services.ImportedItemRemoval.HasHumanInput(
+            automatic with { Conversion = new ConversionSetting { Mode = ConversionMode.NotProfile } }));
+        Assert.True(Chmonos.Core.Services.ImportedItemRemoval.HasHumanInput(
+            automatic with { Conversion = new ConversionSetting { Targets = [new ConversionTarget { AvatarItemId = "1", Confirmed = true }] } }));
+        Assert.True(Chmonos.Core.Services.ImportedItemRemoval.HasHumanInput(automatic with { NotifyOnUpdate = false }));
+    }
+
     /// <summary>最後まで終われば記録は残さない。残すと次の起動で「中断した」と嘘をつく。</summary>
     [Fact]
     public async Task LeavesNoTraceWhenTheImportFinished()

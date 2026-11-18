@@ -213,3 +213,73 @@ public class InboxArchiveSwapTests
         Assert.All((await LocalOfAsync(app, OtherId)).LocalFiles, file => Assert.False(file.Detached));
     });
 }
+
+/// <summary>
+/// 「zipで登録し直す」の見せ方と、商品ページの黄色の枠からの同じ流れ（ユーザ判断 2026-11-19・open 144・150）。
+/// </summary>
+public class ArchiveSwapEverywhereTests
+{
+    private const string ItemId = "9900133";
+
+    private static NotificationRecord Record(NotificationKind kind) => new()
+    {
+        Id = kind.ToString(),
+        Kind = kind,
+        Title = "作り物",
+        Detail = string.Empty,
+        CreatedAt = new DateTimeOffset(2026, 11, 19, 12, 0, 0, TimeSpan.FromHours(9)),
+    };
+
+    [Fact]
+    public void 通知のzipで登録し直すは乗せなくても出し_ほかの種類の直すボタンは乗せた時だけ()
+    {
+        var archive = new NotificationRow { Record = Record(NotificationKind.ArchiveFoundForFolder), KindText = "作り物", ActionText = "zipで登録し直す" };
+        var orphan = new NotificationRow { Record = Record(NotificationKind.OrphanTag), KindText = "作り物", ActionText = "タグの管理を開く" };
+
+        Assert.True(archive.ShowsActionAlways);
+        Assert.False(archive.ShowsActionOnHover);
+        Assert.False(orphan.ShowsActionAlways);
+        Assert.True(orphan.ShowsActionOnHover);
+    }
+
+    [Fact]
+    public Task 商品ページの枠から登録し直すと_改変の記録をzipの中の包みへ付け替えて数を言う() => TestApp.Run(async app =>
+    {
+        var folder = Path.Combine(app.Root, "files", "作り物_v2");
+        Directory.CreateDirectory(Path.Combine(folder, "pkg"));
+        File.WriteAllBytes(Path.Combine(folder, "pkg", "作り物.unitypackage"), new byte[5]);
+
+        // 頭にフォルダ名が付いた zip（展開すると1段減る形）。フォルダからの場所の後ろで当てる
+        ZipFile.CreateFromDirectory(folder, folder + ".zip", CompressionLevel.Fastest, includeBaseDirectory: true);
+        var hash = await Core.Scanning.FileHasher.ComputeSha256Async(folder + ".zip");
+        await app.AddItemAsync(Make.Item(ItemId, "作り物の衣装") with
+        {
+            Local = new LocalBlock
+            {
+                LocalFolders = [new LocalFolderRecord { Path = folder, FileCount = 1, TotalBytes = 5, UnityPackages = ["pkg/作り物.unitypackage"] }],
+            },
+        });
+        await app.Store.Modifications.SaveAsync(new ModificationRecord
+        {
+            Id = "mod-0000c001",
+            AvatarItemId = "9900001",
+            Name = "作り物の改変",
+            Members = [new ModificationMember { ItemId = ItemId, Package = "pkg/作り物.unitypackage" }],
+        });
+
+        var main = await app.StartAsync();
+        var page = new ItemViewModel((await app.Store.Items.LoadAsync(ItemId))!, app.Services, main, main.Thumbnails);
+        page.SwapFolderForArchiveCommand.Execute(folder);
+        await UiThread.Until(() => page.FilesNotice.Text.Length > 0 && !page.FilesNotice.Text.EndsWith('…'), "押した結果が出る");
+        await app.SettleAsync();
+
+        Assert.Contains("改変の記録 1 件を、zipの中の同じファイルに付け替えました。", page.FilesNotice.Text);
+        var local = (await app.Store.Items.LoadAsync(ItemId))!.Local;
+        Assert.Empty(local.LocalFolders);
+        Assert.Equal(hash, Assert.Single(local.LocalFiles).Hash);
+        var member = Assert.Single(Assert.Single((await app.Store.Modifications.LoadAllAsync()).Modifications).Members);
+        Assert.Equal(hash, member.FileHash);
+        Assert.Equal("作り物_v2/pkg/作り物.unitypackage", member.Package);
+        Assert.Empty(page.LocalFolders);
+    });
+}

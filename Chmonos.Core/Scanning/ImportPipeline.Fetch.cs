@@ -214,6 +214,11 @@ public sealed partial class ImportPipeline
                 // 時刻は保存した今のもの（書くのは後でも、1件ずつ書いていたときと同じ時刻が残る）
                 await addedStamps.AddAsync(itemId, Services.RecentKind.Added, DateTimeOffset.Now);
 
+                if (created)
+                {
+                    totals.NoteCreated(itemId);
+                }
+
                 fetched.Add(item);
                 added++;
                 NoteBroken(itemId, discovered);
@@ -406,6 +411,7 @@ public sealed partial class ImportPipeline
                 Unfetched = totals.Unfetched,
                 Stopped = totals.Outage.Stopped,
                 Scanning = scanning,
+                CreatedItems = totals.Created,
             },
             cancellationToken);
 

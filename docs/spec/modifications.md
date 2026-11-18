@@ -38,7 +38,7 @@
 |---|---|---|
 | `itemId` | どの商品か | 常に |
 | `variationId` | どの種類か | 分かれば（送ったファイルに種類が付いていれば） |
-| `fileHash` | どの zip か＝版 | Unity へ送ったときと、手で足すときに窓で選んだとき。後から人が選び直せる（下の「選び直す」） |
+| `fileHash` | どの zip か＝版 | Unity へ送ったときと、手で足すときに窓で選んだとき。後から人が選び直せる（下の「選び直す」）。登録したフォルダの中の物を送った行（ここが空で `package` だけ）は、「zipで登録し直す」でそのフォルダの包みが zip の中に1つに決まれば、zip のハッシュと zip の中の場所に付け替わる（[notifications.md](notifications.md)） |
 | `package` | zip の中のどの unitypackage か（依存物と本体が同じ zip にある） | 同上（unitypackage の無いファイルを選んだときは空） |
 | `addedAt` | いつ積んだか | 常に |
 | `updateCheckedAt` | 使ったものの更新の促しに、この改変で「確認した」を押した日時（[used-updates.md](used-updates.md)） | 押したときだけ |

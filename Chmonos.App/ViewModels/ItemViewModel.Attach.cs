@@ -10,7 +10,7 @@ namespace Chmonos.App.ViewModels;
 ///
 /// 作者が前の商品を消して同じ物を新しいIDで出し直すと、ファイルの手掛かり（Zone.Identifier・ファイル名）は古いIDを指したままで、
 /// 取り込むと古い商品の方へ行くか未確定に出る。商品ページからファイルを直にその商品へ紐付ける道が無かった。
-/// 事情（除外・ほかの持ち主）は通知の「zipで登録し直す」と同じに聞く（`InboxViewModel.SwapFolderForArchiveAsync`）。
+/// 事情（除外・ほかの持ち主）は通知と商品ページの「zipで登録し直す」と同じに聞く（`ArchiveSwapFlow`）。
 /// </summary>
 public sealed partial class ItemViewModel
 {
@@ -247,6 +247,80 @@ public sealed partial class ItemViewModel
         _main.Search.NoteItemChanged(reloaded);
         RebuildLocalFilesInPlace(reloaded);
         FilesAttached?.Invoke(reloaded);
+    }
+
+    /// <summary>
+    /// フォルダの行の黄色の枠の「zipで登録し直す」（ユーザ判断 2026-11-19・open 150）。引数は登録したフォルダの場所。
+    /// 通知の行と同じ流れ・同じ窓（<see cref="ArchiveSwapFlow"/>）で、改変の記録の付け替えも同じ1つの命令の中で行う
+    /// </summary>
+    public RelayCommand SwapFolderForArchiveCommand => _swapFolderForArchiveCommand ??= new RelayCommand(
+        parameter => SwapFolderForArchiveAsync(parameter as string).Forget(),
+
+        // 取り込みの③が済むまでは中身を変える操作を塞ぐ（外すと同じ）。zip のハッシュに数秒かかる間の2度押しで同じ zip を2回読ませない
+        parameter => parameter is string && !IsEditLocked && !_isAttachingFiles);
+
+    private RelayCommand? _swapFolderForArchiveCommand;
+
+    private async Task SwapFolderForArchiveAsync(string? folderPath)
+    {
+        if (folderPath is null || _isAttachingFiles)
+        {
+            return;
+        }
+
+        _isAttachingFiles = true;
+        RelayCommand.RaiseCanExecuteChanged();
+        IsFilesExpanded = true;
+        FilesNotice.Show("zipを読んで登録しています…");
+        ArchiveSwapFlow.Result result;
+        try
+        {
+            result = await ArchiveSwapFlow.RunAsync(_services.Commands, Item.Id, folderPath);
+        }
+        catch (Exception exception)
+        {
+            // 受けないと「読んで登録しています…」のまま残り、止まったように見える
+            Core.Diagnostics.AppLog.Error("商品ページからのzipでの登録しなおし", exception);
+            FilesNotice.Warn($"登録し直せませんでした。{FailureText.Cause(exception)}");
+            return;
+        }
+        finally
+        {
+            _isAttachingFiles = false;
+            RelayCommand.RaiseCanExecuteChanged();
+        }
+
+        if (result.OpenItemId is { } open)
+        {
+            FilesNotice.Clear();
+            if (await _services.Store.Items.LoadAsync(open) is { } holder)
+            {
+                _main.ShowItem(holder);
+            }
+
+            return;
+        }
+
+        if (result.Text.Length == 0)
+        {
+            FilesNotice.Clear();
+            return;
+        }
+
+        if (result.Done)
+        {
+            FilesNotice.Show(result.Text);
+        }
+        else
+        {
+            FilesNotice.Warn(result.Text);
+        }
+
+        // 登録し直せなかった時も、間に外された・付けられた物があり得るので読み直す（行と枠を今の記録に揃える）
+        await AfterAttachAsync(result.TakenFrom);
+        BuildLocalFolders();
+        OnPropertyChanged(nameof(LocalFolders));
+        ArchiveSwapFlow.NoteRelinked(_main, result);
     }
 
     private void RebuildLocalFilesInPlace(ItemRecord reloaded)

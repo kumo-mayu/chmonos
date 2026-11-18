@@ -306,8 +306,19 @@
                                                     <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
                                                             BorderThickness="1" CornerRadius="6" Padding="10,7" Margin="0,7,0,0"
                                                             Visibility="{Binding HasArchive, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                                        <TextBlock Text="{Binding ArchiveNoticeText}" FontSize="11.5"
-                                                                   Foreground="{DynamicResource Warn}" TextWrapping="Wrap" />
+                                                        <!-- 枠の中で登録し直せるようにする。通知の行と同じ流れ・同じ窓（ユーザ判断 2026-11-19・open 150） -->
+                                                        <DockPanel>
+                                                            <Button DockPanel.Dock="Right" Content="zipで登録し直す" Style="{StaticResource SmallButton}"
+                                                                    Margin="10,0,0,0" VerticalAlignment="Center"
+                                                                    AutomationProperties.AutomationId="ItemFolderSwapForArchive"
+                                                                    AutomationProperties.Name="{Binding Name, StringFormat={}{0}をzipで登録し直す}"
+                                                                    ToolTip="展開したフォルダの代わりにzipで数えます。ファイルは削除しません。"
+                                                                    Command="{Binding DataContext.SwapFolderForArchiveCommand,
+                                                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                    CommandParameter="{Binding Path}" />
+                                                            <TextBlock Text="{Binding ArchiveNoticeText}" FontSize="11.5" VerticalAlignment="Center"
+                                                                       Foreground="{DynamicResource Warn}" TextWrapping="Wrap" />
+                                                        </DockPanel>
                                                     </Border>
                                                     <!-- フォルダの中の unitypackage。zip の行と同じ部品・同じ命令（ユーザ判断 2026-10-05） -->
                                                     <ContentControl Content="{Binding}" ContentTemplate="{StaticResource UnityPackagesBlock}" IsTabStop="False" Margin="0,4,0,0" />

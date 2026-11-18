@@ -440,8 +440,8 @@ public sealed partial class ItemViewModel
         HasArchive = archive is not null,
         ArchiveNoticeText = archive is null
             ? string.Empty
-            : $"{System.IO.Path.GetFileName(archive)} が見つかりました。"
-                + "zipを取り込めば展開先は対象から外れるので、このフォルダの登録は外してください。",
+            // 枠の中に「zipで登録し直す」を置いたので、次にやることはボタンが言う（open 150）。前は「取り込んで、登録を外して」と2手を頼んでいた
+            : $"{System.IO.Path.GetFileName(archive)} が見つかりました。zipで登録し直すと、二重に数えなくなります。",
     };
 
     private static bool s_filesExpanded = true;

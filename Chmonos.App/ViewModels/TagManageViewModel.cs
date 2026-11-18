@@ -1181,11 +1181,41 @@ public sealed class TagManageViewModel : ManageViewModelBase<TagTopRow, OrphanTa
         await _main.ReloadLibraryAsync();
     }
 
+    /// <summary>
+    /// 通知の「もう一度操作する」（open 145）：小分類の名前の変更を、前の値を入れた窓で開き直す。押すまで何も書かない。
+    /// 大分類か小分類がもう無ければ偽
+    /// </summary>
+    internal async Task<bool> RetryRenameSubAsync(string top, string sub, string newName)
+    {
+        await ReloadAsync();
+        var topRow = AllRows.FirstOrDefault(entry => string.Equals(entry.Name, top, StringComparison.Ordinal));
+        if (topRow is null)
+        {
+            return false;
+        }
+
+        Selected = topRow;
+        var row = Subs.FirstOrDefault(entry => string.Equals(entry.Name, sub, StringComparison.Ordinal));
+        if (row is null)
+        {
+            return false;
+        }
+
+        await AskRenameSubAsync(row, newName);
+        return true;
+    }
+
     /// <summary>名前を変える窓を出してから実行する。既にある名前を選ぶと統合になる。</summary>
-    private async Task AskRenameSubAsync(TagSubRow row)
+    /// <param name="prefill">窓の欄に先に入れておく名前（通知の「もう一度操作する」）。</param>
+    private async Task AskRenameSubAsync(TagSubRow row, string? prefill = null)
     {
         var model = new RenameTagDialogViewModel("小分類", row.Name, row.ItemCount, row.OtherNames);
-        if (new Views.RenameTagDialog(model).ShowDialog() != true)
+        if (prefill is not null)
+        {
+            model.Input = prefill;
+        }
+
+        if (!RenameDialogAsk.Ask(model))
         {
             return;
         }

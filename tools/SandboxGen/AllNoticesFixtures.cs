@@ -42,9 +42,6 @@ internal static class AllNoticesFixtures
 
     private static readonly (string Heading, string[] Lines)[] BaseSections = [("■ 内容", ["作り物のファイル一式"])];
 
-    // 前の起動で続けられなかったときの文（PendingOperationRunner.FailedDetail は internal なので、同じ文を写す）
-    private const string FailedDetail = "途中で止まっていた操作を続けられませんでした。次に起動したときに、もう一度続けます。";
-
     public static async Task<int> RunAsync(AllNoticesContext c, string[] args)
     {
         if (args.Length < 1)
@@ -313,7 +310,7 @@ internal static class AllNoticesFixtures
         await c.Run(new UiCommand.AddNotification(new NotificationRecord
         {
             Id = PendingOperationRunner.NotificationPrefix + resumed.Id, Kind = NotificationKind.UnfinishedOperation,
-            Title = PendingOperationRunner.TitleOf(resumed), Detail = FailedDetail, CreatedAt = started.AddMinutes(5), IsStrong = true,
+            Title = PendingOperationRunner.TitleOf(resumed), Detail = PendingOperationRunner.FailedDetail, CreatedAt = started.AddMinutes(5), IsStrong = true,
         }));
         await c.Run(new UiCommand.ResumePendingOperations());
 

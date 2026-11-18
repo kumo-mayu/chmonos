@@ -163,7 +163,11 @@ public sealed class PendingOperationRunner
     /// BOOTHへは問い合わせない。
     /// </summary>
     /// <returns>扱った記録の数（済んだ物と、続けられなかった物）。</returns>
-    public async Task<int> ResumeAsync(CancellationToken cancellationToken = default)
+    public Task<int> ResumeAsync(CancellationToken cancellationToken = default) => ResumeAsync(null, cancellationToken);
+
+    /// <inheritdoc cref="ResumeAsync(CancellationToken)"/>
+    /// <param name="onlyId">この記録だけを続ける（通知の「今すぐ続ける」）。null なら全部。</param>
+    public async Task<int> ResumeAsync(string? onlyId, CancellationToken cancellationToken = default)
     {
         if (_journal is null)
         {
@@ -182,20 +186,42 @@ public sealed class PendingOperationRunner
             return 0;
         }
 
-        var handled = 0;
-        foreach (var operation in pending.OrderBy(entry => entry.StartedAt))
+        // 通知の「今すぐ続ける」で、記録がもう無い（裏の続きで済んだ・手で消した）なら、続ける物が無いので知らせを片付ける。
+        // 残すと押しても何も起きない行が残り続ける
+        if (onlyId is not null && _notifications is not null
+            && !pending.Any(entry => string.Equals(entry.Id, onlyId, StringComparison.Ordinal)))
         {
+            await _notifications.ResolveAsync([NotificationPrefix + onlyId], cancellationToken);
+            return 0;
+        }
+
+        var handled = 0;
+        foreach (var operation in pending
+                     .Where(entry => onlyId is null || string.Equals(entry.Id, onlyId, StringComparison.Ordinal))
+                     .OrderBy(entry => entry.StartedAt))
+        {
+            // 当てる間は自分も印を付ける。起動時の続きと通知の「今すぐ続ける」が同じ記録を同時に当てると、
+            // ID の付け替えや改名を2回当てる（2回目は指紋が合わず「内容が変わっていた」と知らせてしまう）
             lock (_running)
             {
-                if (_running.Contains(operation.Id))
+                if (!_running.Add(operation.Id))
                 {
                     continue;
                 }
             }
 
-            handled++;
             try
             {
+                // 読んだ後に、もう片方の続きが当て終えていれば当て直さない（読んだ写しは古い）。
+                // 終えた印だけ付いて消せなかった行は、次の起動の続きが消す
+                var fresh = (await _journal.LoadAsync(cancellationToken))
+                    .FirstOrDefault(entry => string.Equals(entry.Id, operation.Id, StringComparison.Ordinal));
+                if (fresh is null || fresh.FinishedAt != operation.FinishedAt)
+                {
+                    continue;
+                }
+
+                handled++;
                 // 終えた印のある行は、前の起動で済んだ（または当てずにやめた）のに消せなかった物。**当て直さずに消すだけ。**
                 // 指紋だけでは「済んだ後に同じ物を作り直した」と見分けられず、作り直した参照・名前に当たっていた（L110）
                 if (operation.FinishedAt is null && !await ResumeOneAsync(operation, cancellationToken))
@@ -225,6 +251,13 @@ public sealed class PendingOperationRunner
             {
                 AppLog.Error($"やりかけの操作の続き（{operation.Kind}）", exception);
                 await NotifyAsync(operation, FailedDetail, cancellationToken);
+            }
+            finally
+            {
+                lock (_running)
+                {
+                    _running.Remove(operation.Id);
+                }
             }
         }
 
@@ -500,10 +533,10 @@ public sealed class PendingOperationRunner
     }
 
     /// <summary>続きを当てられなかった（次の起動でまた試す）。</summary>
-    internal const string FailedDetail = "途中で止まっていた操作を続けられませんでした。次に起動したときに、もう一度続けます。";
+    public const string FailedDetail = "途中で止まっていた操作を続けられませんでした。次に起動したときに、もう一度続けます。";
 
     /// <summary>記録した時から対象が変わっていたので当てなかった（記録は消した）。</summary>
-    internal const string ChangedDetail = "止まった後に内容が変わっていたので、続きは行いませんでした。必要なら、もう一度操作してください。";
+    public const string ChangedDetail = "止まった後に内容が変わっていたので、続きは行いませんでした。必要なら、もう一度操作してください。";
 
     /// <summary>操作は済んだが、記録を消せなかった（次の起動でまた見分ける）。</summary>
     internal const string NotRemovedDetail = "操作は済みましたが、保存先に書き込めませんでした。次に起動したときに、もう一度確かめます。";
@@ -527,6 +560,9 @@ public sealed class PendingOperationRunner
                     Detail = detail,
                     CreatedAt = DateTimeOffset.Now,
                     IsStrong = true,
+
+                    // 当てずにやめた物は記録を消すので、もう一度操作する窓に入れる値を知らせに残す（open 145）
+                    Retry = detail == ChangedDetail ? OperationRetry.From(operation) : null,
                 },
                 cancellationToken);
         }

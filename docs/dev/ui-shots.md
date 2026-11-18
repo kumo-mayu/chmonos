@@ -120,7 +120,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 |---|---|
 | 取り込み：空 | `empty-import`（900） |
 | 取り込み：結果（読めない・OneDrive・壊れたzip・長い名前） | `import-result-unreadable`（900）・`import-result-one-broken` |
-| 取り込み：取り込んでいる最中（段・件数・棒・中断・残りの見込み・下の1行）・スキャン（棒なし）・減速 | `import-running`（900）・`import-running-scanning`・`import-running-throttled` |
+| 取り込み：取り込んでいる最中（段・件数・棒・中断・残りの見込み・下の1行）・スキャン（棒なし）・減速 | `import-running`（900）・`import-running-scanning`・`import-running-throttled`・まだ始めていない対象 `import-not-started` |
 | 取り込み：「探す」の窓と候補 | F3 の担当が足す |
 | 未確定：空 | `empty-resolve`（900） |
 | 未確定：一覧（壊れたzip・束・行の札・順番待ち） | `resolve-broken-zip`（900）・`resolve-row-badges`・`resolve-bundles`・`resolve-queue` |
@@ -174,7 +174,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 
 | 状態 | 場面 |
 |---|---|
-| 通知：空・束と行・読めない商品・知らせ・行の差分・指して開く | `empty-inbox`（900）・`inbox-rows`（900）・`inbox-unreadable`・`inbox-notices(-none)`・`inbox-lines`・`inbox-target` |
+| 通知：空・束と行・読めない商品・知らせ・行の差分・指して開く | `empty-inbox`（900）・`inbox-rows`（900）・`inbox-unreadable`・`inbox-notices(-none)`・`inbox-lines`・`inbox-target`・止まった操作 `inbox-unfinished`（ボタンは乗せたときだけ出るので台では出ない）・保管した通知の切り替え `inbox-archive-kind`・`inbox-archive-item` |
 | 統計：空・8件 | `empty-stats`（900）・`stats`（900）・期間を選んだ所 `stats-period`・`stats-period-custom` |
 | 統計：60件・12店 | `catalog-stats-many` |
 | 設定：全体（除外 0・3・5000件）・欄を開いた形 | `settings-excluded-*` |
@@ -191,7 +191,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | 下の帯：同梱の辞書などが無い・一時展開・バックアップ（中・数える・済み・失敗）・戻す・落とした URL の登録（1件・まとめて） | `band-unpacking(-two)`・`band-registering-dropped`・`band-registering-batch`・`band-missing-assets`・`band-backup-*`・`band-restore-running` |
 | 主の窓の知らせの帯（隠した・離れたページの操作・取り込みを始められない・監視をやめた・編集の書きかけを控えた） | `catalog-notice-hidden`・`catalog-notice-changed-away`・`catalog-notice-import-not-started`・`catalog-notice-folder-removed`・`catalog-notice-draft` |
 | 知らせの窓（OK/キャンセル・はい/いいえ・エラー） | `notice-okcancel-long`・`notice-yesno-warning`・`notice-error-short` |
-| 2択・3択の窓 | `catalog-dialog-choice-two`・`catalog-dialog-choice-three` |
+| 2択・3択の窓 | `catalog-dialog-choice-two`・`catalog-dialog-choice-three`・ボタンの名前が長い2択（取り込みの中断）`catalog-dialog-import-cancel` |
 | 検索の保存・名前を変える（今ある名前） | `catalog-dialog-saved-search-save`・`-taken`・`-rename` |
 | 商品IDを変える窓（確かめる前） | `catalog-dialog-change-item-id` |
 | 初回の窓（長いパス・短いパス・環境変数） | `first-run-*` |

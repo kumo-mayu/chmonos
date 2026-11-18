@@ -61,6 +61,7 @@ public sealed partial class ImportViewModel : ViewModelBase
         // 過去に指したフォルダ全部が走り、起動時の自動取り込みは説明と逆に履歴を全部舐めていた（G1）。
         // 履歴は別の一覧として出し、そこから1件ずつ対象に積む
         Folders.CollectionChanged += (_, _) => QueuePlaceCheck();
+        Folders.CollectionChanged += OnFoldersChanged;
         History.CollectionChanged += (_, _) => QueuePlaceCheck();
         Watched.CollectionChanged += (_, _) => QueuePlaceCheck();
         SyncFolderLists();
@@ -267,6 +268,54 @@ public sealed partial class ImportViewModel : ViewModelBase
     public bool HasFolders => Folders.Count > 0;
 
     /// <summary>
+    /// 取り込み対象に積んだが、まだ一度も取り込みを始めていない物（open 122・ユーザ判断 2026-11-19）。
+    /// 取り込み対象の一覧は取り込みが終わっても残るので、一覧の有無では「始めていない」が決まらない。積んだ時に入れ、始めると頼んだ時に外す。
+    /// 取り込み対象と同じく起動をまたがない（対象は次の起動で空から始まる・G3）。比べ方は対象の一覧と同じく大文字と小文字を区別しない
+    /// </summary>
+    private readonly HashSet<string> _notStarted = new(StringComparer.OrdinalIgnoreCase);
+
+    private void OnFoldersChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset)
+        {
+            _notStarted.Clear();
+        }
+
+        foreach (var removed in e.OldItems?.OfType<string>() ?? [])
+        {
+            _notStarted.Remove(removed);
+        }
+
+        foreach (var added in e.NewItems?.OfType<string>() ?? [])
+        {
+            _notStarted.Add(added);
+        }
+
+        RaiseNotStarted();
+    }
+
+    private void RaiseNotStarted()
+    {
+        OnPropertyChanged(nameof(NotStartedCount));
+        OnPropertyChanged(nameof(ShowsNotStarted));
+        OnPropertyChanged(nameof(NotStartedText));
+    }
+
+    public int NotStartedCount => _notStarted.Count;
+
+    /// <summary>取り込み中は出さない（走っている間は「今の取り込みに追加」で積む。帯が二重の案内になる）。</summary>
+    public bool ShowsNotStarted => NotStartedCount > 0 && !IsRunning;
+
+    public string NotStartedText => $"まだ始めていない対象が {NotStartedCount} 件あります。";
+
+    private RelayCommand? _startNotStarted;
+
+    /// <summary>帯の［開始］。始めていない物だけを取り込む（一覧全部で始めると、前に取り込んだ物までもう一度読む）。</summary>
+    public RelayCommand StartNotStartedCommand => _startNotStarted ??= new RelayCommand(
+        () => StartOrStackAsync(only: Folders.Where(_notStarted.Contains).ToList()).Forget(),
+        () => NotStartedCount > 0 && !IsRunning && !IsRemovingUnpacked);
+
+    /// <summary>
     /// 対象が空のときに出す文。**次にやることを書く。**
     ///
     /// ボタンは既に押せない状態になっているが、それだけだと
@@ -304,6 +353,7 @@ public sealed partial class ImportViewModel : ViewModelBase
                 OnPropertyChanged(nameof(HasUnresolvedResult));
                 OnPropertyChanged(nameof(HasAddedResult));
                 OnPropertyChanged(nameof(HasBrokenOnItemsResult));
+                OnPropertyChanged(nameof(ShowsNotStarted));
                 NoteBusyChanged();
             }
         }
@@ -1317,7 +1367,101 @@ public sealed partial class ImportViewModel : ViewModelBase
         }
     }
 
-    private void Cancel() => _services.Imports.Cancel();
+    /// <summary>
+    /// 中断。この取り込みが新しく作った商品があるときだけ、それを消すかも聞く（open 119・ユーザ判断 2026-11-19）。
+    /// 無ければ今までどおり聞かずに止める（止めたいときに窓を挟まない）。消すのは止まり切ってから（<see cref="OnImportFinished"/>）——
+    /// 走っている間に消すと、後の段（説明・画像・検出）がまた書くことがある
+    /// </summary>
+    private void Cancel()
+    {
+        // 記録の数を見るのは、今の回が商品を作った後だけ（作業集合の数はこの回の分）。前の回を「中断する」で止めた記録は、
+        // 今の回が記録を空にし直すまで残るので、始めた直後に押すと前の回の商品を消す相手に数えてしまう
+        var created = 0;
+        if (_shownWork is { AddedCount: > 0 })
+        {
+            try
+            {
+                created = _services.Store.ImportState.Load().CreatedItems?.Count ?? 0;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+            {
+                // 読めなくても中断は効かせる（消す方は聞かない）
+                Core.Diagnostics.AppLog.Error("中断の窓で取り込みの記録を読む", exception);
+            }
+        }
+
+        if (created > 0)
+        {
+            var answer = ChoiceQuestion.Ask(CancelQuestion(created));
+            if (answer is not (Views.ChoiceDialogResult.First or Views.ChoiceDialogResult.Second))
+            {
+                return;
+            }
+
+            // 窓を開いている間も取り込みは進む。その間に終わり切っていれば、止まった知らせはもう来ないので、印を立てても消えない
+            if (!IsRunning)
+            {
+                if (answer == Views.ChoiceDialogResult.Second)
+                {
+                    StackNotice = "取り込みはもう終わっていたため、削除しませんでした。";
+                }
+
+                return;
+            }
+
+            _deleteCreatedAfterStop = answer == Views.ChoiceDialogResult.Second;
+        }
+
+        _services.Imports.Cancel();
+    }
+
+    /// <summary>止まり切ったら、この取り込みが作った商品を消す（中断の窓で選んだとき）。</summary>
+    private bool _deleteCreatedAfterStop;
+
+    internal static ChoiceRequest CancelQuestion(int created) => new(
+        "取り込みを中断",
+        "取り込みを中断します。",
+        "「中断する」\n取り込めた商品はそのまま残ります。\n\n"
+        + $"「中断して、この取り込みで新しく登録した {created} 件を削除する」\n"
+        + "この取り込みで新しく登録した商品を、説明と画像も含めて削除します。元に戻せません。\n"
+        + "名前やメモを入れた商品は残します。ファイルは削除しません。",
+        "中断する",
+        $"中断して、この取り込みで新しく登録した {created} 件を削除する");
+
+    /// <summary>中断の窓で「削除する」を選んだ後、止まり切ってから消す。結果は「開始」の下に出す。</summary>
+    private async Task DeleteCreatedAsync()
+    {
+        try
+        {
+            var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.DeleteImportedItems());
+            if (result is Core.Commands.CommandResult.Failed failed)
+            {
+                StackNotice = failed.Message;
+                return;
+            }
+
+            if (result is Core.Commands.CommandResult.ImportedItemsDeleted { Result: var removed })
+            {
+                StackNotice = DeletedText(removed);
+            }
+
+            // 消えた商品が検索と件数に残らないよう読み直す
+            await _main.ReloadLibraryAsync();
+        }
+        catch (Exception exception)
+        {
+            Core.Diagnostics.AppLog.Error("中断した取り込みが作った商品の削除", exception);
+            StackNotice = $"削除できませんでした。{Core.Services.FailureText.Cause(exception)}";
+        }
+    }
+
+    internal static string DeletedText(Core.Services.ImportedItemsRemoved removed) => removed switch
+    {
+        // 止める前に取り込みが最後まで終わっていると、記録はもう空
+        { Deleted: 0, Kept: 0 } => "削除する商品はありませんでした。",
+        { Kept: 0 } => $"この取り込みで登録した {removed.Deleted} 件を削除しました。",
+        _ => $"この取り込みで登録した {removed.Deleted} 件を削除しました。名前やメモが入っていた {removed.Kept} 件は残しました。",
+    };
 
     private void OnUnpackedRowChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
     {
@@ -1526,6 +1670,11 @@ public sealed partial class ImportViewModel : ViewModelBase
     private async Task StartOrStackAsync(bool ask = true, IReadOnlyList<string>? only = null)
     {
         var targets = only?.ToList() ?? Folders.ToList();
+
+        // 始めると頼んだ時点で「まだ始めていない」から外す。展開フォルダの問いでやめても、人が始めると決めて押した物なので帯に戻さない
+        _notStarted.ExceptWith(targets);
+        RaiseNotStarted();
+
         var added = await _services.Imports.StartOrStackAsync(new ImportRequest(() => ResolveUnpackedTargets(targets.ToList(), ask), targets));
         if (added is { } count)
         {
@@ -1565,6 +1714,10 @@ public sealed partial class ImportViewModel : ViewModelBase
         }
 
         _shownWork = work;
+
+        // 中断の窓で「削除する」を選んだのに、押す前に取り込みが終わっていた（止まり切った知らせが来ない）。
+        // 持ち越すと次の取り込みが終わった時に、その回の商品を消してしまう
+        _deleteCreatedAfterStop = false;
         StackNotice = null;
 
         // 走らせ直したので、前回の中断はもう伝えることが無い
@@ -1688,6 +1841,12 @@ public sealed partial class ImportViewModel : ViewModelBase
         ClearEstimate();
         IsRunning = false;
         _main.BoothActivity.EndWork(WorkSource.Import);
+
+        if (_deleteCreatedAfterStop)
+        {
+            _deleteCreatedAfterStop = false;
+            DeleteCreatedAsync().Forget();
+        }
     }
 
     /// <summary>

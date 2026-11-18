@@ -9,7 +9,14 @@ namespace Chmonos.Core.Storage;
 /// 本文・変わったところ（行の大半の大きさ）は持たない：50MB の月を丸ごと読むと作業セットが 359MB になった（2026-11-10 に測った）。
 /// </summary>
 /// <param name="Ordinal">月のファイルの中で何行目の知らせか（版の行・空行を除いて0から）。</param>
-public sealed record NotificationArchiveEntry(int Ordinal, string Id, string Title, DateTimeOffset LastChangedAt);
+public sealed record NotificationArchiveEntry(int Ordinal, string Id, string Title, DateTimeOffset LastChangedAt)
+{
+    /// <summary>種類（保管した通知を種類で切り替えて見る。open 146）。</summary>
+    public NotificationKind Kind { get; init; }
+
+    /// <summary>指す商品（商品で切り替えて見る。open 146）。商品を指さない知らせは null。</summary>
+    public string? ItemId { get; init; }
+}
 
 /// <summary>
 /// 保管した月の目録（保管した通知を読む画面。ユーザ案 2026-11-10「その形で良いです」）。
@@ -18,7 +25,7 @@ public sealed record NotificationArchiveEntry(int Ordinal, string Id, string Tit
 public sealed class NotificationArchiveIndex
 {
     /// <summary>商品名の照らし方。アバター名で絞る欄（編集画面）と同じく、大文字小文字・ひらがなとカタカナ・全角と半角を区別しない。</summary>
-    private const CompareOptions NameMatch = CompareOptions.IgnoreCase | CompareOptions.IgnoreKanaType | CompareOptions.IgnoreWidth;
+    internal const CompareOptions NameMatch = CompareOptions.IgnoreCase | CompareOptions.IgnoreKanaType | CompareOptions.IgnoreWidth;
 
     internal NotificationArchiveIndex(string month, IReadOnlyList<NotificationArchiveEntry> newest, bool precise, int unreadableLines, int unreadableBlocks)
     {
@@ -78,6 +85,8 @@ public sealed partial class NotificationArchive
         public required DateTimeOffset CreatedAt { get; init; }
 
         public DateTimeOffset? UpdatedAt { get; init; }
+
+        public string? ItemId { get; init; }
     }
 
     /// <summary>
@@ -133,7 +142,7 @@ public sealed partial class NotificationArchive
 
             if (seen.Add((head.Id, head.CreatedAt)))
             {
-                entries.Add(new NotificationArchiveEntry(ordinal, head.Id, head.Title, head.UpdatedAt ?? head.CreatedAt));
+                entries.Add(new NotificationArchiveEntry(ordinal, head.Id, head.Title, head.UpdatedAt ?? head.CreatedAt) { Kind = head.Kind, ItemId = head.ItemId });
             }
         }
 
@@ -156,7 +165,7 @@ public sealed partial class NotificationArchive
         }
 
         return Parse(line, version, path) is { } record
-            ? new EntryHead { Id = record.Id, Kind = record.Kind, Title = record.Title, CreatedAt = record.CreatedAt, UpdatedAt = record.UpdatedAt }
+            ? new EntryHead { Id = record.Id, Kind = record.Kind, Title = record.Title, CreatedAt = record.CreatedAt, UpdatedAt = record.UpdatedAt, ItemId = record.ItemId }
             : null;
     }
 
@@ -166,6 +175,14 @@ public sealed partial class NotificationArchive
     /// 目録の後で月が書き直された（閉じるときの整理）などで、位置の行の ID が違えば出さない（別の知らせを出さない）。
     /// </summary>
     public async Task<IReadOnlyList<NotificationRecord>> ReadEntriesAsync(
+        NotificationArchiveIndex index, IReadOnlyList<NotificationArchiveEntry> entries, CancellationToken cancellationToken = default)
+    {
+        var found = await ReadByOrdinalAsync(index, entries, cancellationToken);
+        return entries.Where(entry => found.ContainsKey(entry.Ordinal)).Select(entry => found[entry.Ordinal]).ToList();
+    }
+
+    /// <summary>位置ごとの中身（月をまたぐ目録が、同じ ID の別の知らせを取り違えずに当てる）。</summary>
+    internal async Task<Dictionary<int, NotificationRecord>> ReadByOrdinalAsync(
         NotificationArchiveIndex index, IReadOnlyList<NotificationArchiveEntry> entries, CancellationToken cancellationToken = default)
     {
         var path = FileFor(index.Month);
@@ -196,6 +213,6 @@ public sealed partial class NotificationArchive
             }
         }
 
-        return entries.Where(entry => found.ContainsKey(entry.Ordinal)).Select(entry => found[entry.Ordinal]).ToList();
+        return found;
     }
 }

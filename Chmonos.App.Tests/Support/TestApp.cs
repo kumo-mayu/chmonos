@@ -224,6 +224,12 @@ internal sealed class TestApp
     /// <summary>出すはずだった「IDを変える」の窓。</summary>
     public List<ChangeItemIdDialogViewModel> ChangeIdDialogs { get; } = [];
 
+    /// <summary>名前を変える窓（タグの管理・属性の管理）への答え（窓は出ない）。既定は「キャンセル」。</summary>
+    public Func<RenameTagDialogViewModel, bool> AnswerRename { get; set; } = _ => false;
+
+    /// <summary>出すはずだった、名前を変える窓。</summary>
+    public List<RenameTagDialogViewModel> RenameDialogs { get; } = [];
+
     /// <summary>改変を作る・複製するときの名前の窓への答え（窓は出ない）。名前は窓の Name を書き換えて決める。既定は「キャンセル」。</summary>
     public Func<ModificationNameDialogViewModel, bool> NameModification { get; set; } = _ => false;
 
@@ -385,6 +391,11 @@ internal sealed class TestApp
             {
                 app.ChangeIdDialogs.Add(model);
                 return app.AnswerChangeId(model);
+            };
+            RenameDialogAsk.Intercept = model =>
+            {
+                app.RenameDialogs.Add(model);
+                return app.AnswerRename(model);
             };
             ModificationNameDialogViewModel.Intercept = model =>
             {
@@ -549,6 +560,7 @@ internal sealed class TestApp
             MemberFilePickViewModel.Intercept = null;
             MissingSearchScopeViewModel.Intercept = null;
             ChangeItemIdDialogViewModel.Intercept = null;
+            RenameDialogAsk.Intercept = null;
             ModificationNameDialogViewModel.Intercept = null;
             // Run で差し替えた口は全部ここで戻す（点検24：この2つだけ戻しておらず、TestApp を使わない試験が
             // 同じ入口を呼ぶと前の試験の答えを使い、走らせる順で結果が変わり得た）

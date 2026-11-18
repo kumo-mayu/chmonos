@@ -110,6 +110,13 @@ public sealed record NotificationRecord
 
     /// <summary>更新履歴セクションの変化など、注目度の高い通知か。</summary>
     public bool IsStrong { get; init; }
+
+    /// <summary>
+    /// 途中で止まった操作のうち、内容が変わって続きを当てなかった物の、もう一度操作するための値（open 145）。
+    /// ほかの知らせと、これを持つ前に作った知らせには無い（行の「もう一度操作する」を出さない）。無ければ書き出さない。
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public OperationRetry? Retry { get; init; }
 }
 
 /// <summary>変わったセクション1つぶんの差分要約。</summary>
