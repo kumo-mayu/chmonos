@@ -134,7 +134,7 @@
                                         Visibility="{Binding IsResolved, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                     <TextBlock Text="解消済み" FontSize="10" Foreground="{DynamicResource TextMuted}" />
                                 </Border>
-                                <controls:SelectableLink Style="{StaticResource SelectableBody}" FontSize="12.5" Foreground="{DynamicResource Text}" controls:SelectableText.LineHeight="18" Command="{Binding OpenItemCommand}" OpensOnBlank="True" AutomationProperties.Name="{Binding Title}" controls:SelectableText.PlainText="True" controls:SelectableText.Text="{Binding Title}" />
+                                <controls:SelectableLink Style="{StaticResource SelectableBody}" Cursor="Hand" FontSize="12.5" Foreground="{DynamicResource Text}" controls:SelectableText.LineHeight="18" Command="{Binding OpenItemCommand}" OpensOnBlank="True" AutomationProperties.Name="{Binding Title}" controls:SelectableText.PlainText="True" controls:SelectableText.Text="{Binding Title}" />
                             </DockPanel>
                 
                             <!--
@@ -150,7 +150,7 @@
                                             <StackPanel>
                                                 <TextBlock Text="{Binding Field}" FontSize="11.5" FontWeight="Medium"
                                                            Visibility="{Binding Field, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
-                                                <controls:SelectableLink Style="{StaticResource SelectableBody}" FontSize="11" Foreground="{DynamicResource TextMuted}" Margin="-2,3,0,0" controls:SelectableText.LineHeight="16" Command="{Binding DataContext.OpenItemCommand, RelativeSource={RelativeSource AncestorType=controls:PressableBorder}}" OpensOnBlank="True" AutomationProperties.Name="{Binding Text}" controls:SelectableText.PlainText="True" controls:SelectableText.Text="{Binding Text}" Visibility="{Binding Text, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
+                                                <controls:SelectableLink Style="{StaticResource SelectableBody}" Cursor="Hand" FontSize="11" Foreground="{DynamicResource TextMuted}" Margin="-2,3,0,0" controls:SelectableText.LineHeight="16" Command="{Binding DataContext.OpenItemCommand, RelativeSource={RelativeSource AncestorType=controls:PressableBorder}}" OpensOnBlank="True" AutomationProperties.Name="{Binding Text}" controls:SelectableText.PlainText="True" controls:SelectableText.Text="{Binding Text}" Visibility="{Binding Text, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
                                                 <!-- 説明文の見出しは、変わった行だけを出す（メモ13-②）。札の色と文字は商品ページの印と同じ -->
                                                 <ItemsControl ItemsSource="{Binding Lines}" Focusable="False" Margin="0,4,0,0"
                                                               ItemTemplate="{StaticResource ChangedLineTemplate}"
@@ -208,6 +208,12 @@
                                         Margin="8,0,0,0" Command="{Binding ActionCommand}"
                                         ToolTip="{Binding ActionTip}"
                                         Visibility="{Binding HasAction, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                <!-- 手で直す物（食い違ったJSON・読めない商品の記録）の場所を開く。直し方は人が決める（ユーザ指示 2026-11-18） -->
+                                <Button Content="エクスプローラで開く" Style="{StaticResource SmallButton}"
+                                        AutomationProperties.AutomationId="InboxRowReveal"
+                                        Margin="8,0,0,0" Command="{Binding RevealCommand}"
+                                        ToolTip="そのJSONのある場所を開きます。"
+                                        Visibility="{Binding HasReveal, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                 </StackPanel>
                                 <!--
                                     押した行のボタンの途中経過と失敗。ボタンは指した間だけ出るので、離れても読めるよう外に置く。
@@ -259,7 +265,7 @@
                     <TextBlock DockPanel.Dock="Left" Text="通知" FontWeight="Bold" VerticalAlignment="Center" />
                     <Border DockPanel.Dock="Left" Width="1" Height="20" Background="{DynamicResource Border}" Margin="12,0" />
                     <TextBlock DockPanel.Dock="Left" Text="{Binding HeaderText}" Style="{StaticResource Mono}" VerticalAlignment="Center" />
-                    <TextBlock Text="既読にしても消えません" Style="{StaticResource Caption}"
+                    <TextBlock Text="{Binding RetentionText}" ToolTip="{Binding RetentionText}" Style="{StaticResource Caption}"
                                VerticalAlignment="Center" Margin="14,0,0,0" TextTrimming="CharacterEllipsis" />
                 </DockPanel>
 
@@ -534,9 +540,9 @@
                                                     束ごとの「まとめて既読」（ユーザ判断 2026-09-18：選んで既読にするより、
                                                     束ごとにあれば十分）。未読がある束にだけ出す
                                                 -->
-                                                <Button AutomationProperties.AutomationId="InboxGroupMarkRead" AutomationProperties.Name="{Binding KindText, StringFormat={}{0}の束を既読にする}" Content="この束を既読にする" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                                                <Button AutomationProperties.AutomationId="InboxGroupMarkRead" AutomationProperties.Name="{Binding KindText, StringFormat={}{0}の種類を既読にする}" Content="この種類を既読にする" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
                                                         Command="{Binding MarkGroupReadCommand}"
-                                                        ToolTip="この種別の未読を、まとめて既読にします。"
+                                                        ToolTip="この種類の未読を、まとめて既読にします。"
                                                         Visibility="{Binding HasUnread, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                             </StackPanel>
                                         </controls:SplitRowPanel>
