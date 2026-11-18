@@ -36,6 +36,49 @@ internal static partial class Scenes
             return new Shot(root) { Focus = () => Look.View<ResolveView>(root) };
         }),
 
+        new Scene("resolve-known-presence", "未確定：分かっていることの「見つかりません」「同じ中身がほかに n か所」の行", async context =>
+        {
+            // 書いた場所にファイルを置かない（移した・消した物）
+            var kept = Fake.Zip(@"ダウンロード\hair_ribbon_v1.0.zip", "hair_ribbon.unitypackage");
+            var gone = Path.Combine(Path.GetDirectoryName(kept)!, "消したフォルダ", "accessory_pack.zip");
+            await context.Seed.Unresolved.SaveAsync([Fake.Unresolved(gone)]);
+
+            var main = await context.StartAsync();
+            main.ShowResolveCommand.Execute(null);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            var screen = context.Screen<ResolveViewModel>();
+            await SceneContext.UntilAsync(() => screen.Files.Count == 1, "未確定の一覧が並ぶ");
+            screen.Selected = screen.Files[0];
+            await SceneContext.UntilAsync(() => screen.HasSelectedPresence, "見つからない1行が出る");
+            await context.SettleAsync();
+
+            return new Shot(root) { Focus = () => Look.View<ResolveView>(root) };
+        }),
+
+        new Scene("resolve-known-presence-others", "未確定：分かっていることの「同じ中身がほかに 2 か所」", async context =>
+        {
+            var kept = Fake.Zip(@"ダウンロード\hair_ribbon_v1.0.zip", "hair_ribbon.unitypackage");
+            var copy = Fake.Zip(@"バックアップ\hair_ribbon_v1.0.zip", "hair_ribbon.unitypackage");
+            await context.Seed.Unresolved.SaveAsync(
+            [
+                new Chmonos.Core.Models.UnresolvedFile { Hash = Fake.Unresolved(kept).Hash, Paths = [kept, copy, Path.Combine(Path.GetDirectoryName(kept)!, "移した", "hair_ribbon_v1.0.zip")], SizeBytes = 48_300_000, ModifiedAtUtc = DateTimeOffset.Now, FirstSeenAt = DateTimeOffset.Now },
+            ]);
+
+            var main = await context.StartAsync();
+            main.ShowResolveCommand.Execute(null);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            var screen = context.Screen<ResolveViewModel>();
+            await SceneContext.UntilAsync(() => screen.Files.Count == 1, "未確定の一覧が並ぶ");
+            screen.Selected = screen.Files[0];
+            await context.SettleAsync();
+
+            return new Shot(root) { Focus = () => Look.View<ResolveView>(root) };
+        }),
+
         new Scene("resolve-row-badges", "未確定：一覧の行だけ（壊れたzipの札・幅の狭い一覧での折り返し）", async context =>
         {
             await context.Seed.Unresolved.SaveAsync(

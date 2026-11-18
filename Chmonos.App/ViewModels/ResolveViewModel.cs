@@ -884,6 +884,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         OnPropertyChanged(nameof(RegisterTargetSummary));
         OnPropertyChanged(nameof(CanRegisterFolder));
         OnPropertyChanged(nameof(SelectedPaths));
+        RefreshSelectedPresenceAsync().Forget();
         OnPropertyChanged(nameof(SelectedContents));
         OnPropertyChanged(nameof(HasContents));
         OnPropertyChanged(nameof(ContentsSummary));

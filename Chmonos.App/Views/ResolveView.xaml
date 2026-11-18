@@ -720,6 +720,16 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </controls:ContentItemsControl>
+                            <!--
+                                フォルダの木の札と同じ事を、ここにも1行ずつ（open.md 97・ユーザ判断 2026-11-19 案A）。
+                                見つからない方は札と同じ注意の色。ほかの場所は事実を言うだけなので普通の小さな字
+                            -->
+                            <TextBlock Text="{Binding SelectedPresenceText}" FontSize="12" Foreground="{DynamicResource Warn}" Margin="0,3,0,0"
+                                       AutomationProperties.AutomationId="ResolvePresenceNote"
+                                       Visibility="{Binding HasSelectedPresence, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            <TextBlock Text="{Binding SelectedOthersText}" Style="{StaticResource Caption}" Margin="0,3,0,0"
+                                       AutomationProperties.AutomationId="ResolveOthersNote"
+                                       Visibility="{Binding HasSelectedOthers, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                             <TextBlock Text="ダウンロード元" Style="{StaticResource SectionLabel}" Margin="0,12,0,5"
                                        Visibility="{Binding HasZone, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
