@@ -42,6 +42,7 @@ using SixLabors.ImageSharp.Processing;
 //   exceptions <作り物のフォルダ> <無い文字> <表で読み替える文字> <番号で読み替える文字>
 //                                      画面で確かめる例外の状態（無いドライブ・見つからない・壊れた zip・外した・古い版・非公開など）を、
 //                                      今ある写しに足すだけで作る（ExceptionFixtures.cs。ファイルは exception-fixtures.ps1 が先に置く）
+//   allnotices <作り物のフォルダ>     通知の全種類（未読・既読・解消済み・強い・保管した月2つ）を、状況ごと作る（AllNoticesFixtures.cs。changes の後に。2回目は何もしない）
 //   showcase <一覧の JSON> <画像のフォルダ>
 //                                      BOOTH のページ用の画面に写す、架空の商品の写しを組む（tools/SandboxGen/showcase.json）。
 //                                      商品・対応アバター・購入記録・タグ・属性・手元の zip・未確定・改変・通知まで入れる
@@ -90,10 +91,16 @@ var images = new ImagePipeline(client, paths, Settings);
 var unityPackages = new UnityPackageCatalog(store, new UnityPackagePathStore(paths));
 var pipeline = new ImportPipeline(store, client, images, Settings, null, unityPackages);
 var itemService = new ItemService(store, client, images, Settings);
+var notificationService = new NotificationService(store, Settings);
+var attributeService = new AttributeService(store);
 var handler = new CommandHandler(
-    pipeline, itemService, new EditService(store), null, null, new NotificationService(store, Settings),
-    new UserTagService(store), new AttributeService(store), new ModificationService(store, images), new AvatarService(store, Settings, client), unityPackages,
-    settingsService, null, null, images, client, store.VideoTitles, store.ShopNotes, new MissingFileFinder(store), null, store.ImportState);
+    pipeline, itemService, new EditService(store), null, null, notificationService,
+    new UserTagService(store), attributeService, new ModificationService(store, images), new AvatarService(store, Settings, client), unityPackages,
+    settingsService, null, null, images, client, store.VideoTitles, store.ShopNotes, new MissingFileFinder(store), null, store.ImportState)
+{
+    // アプリの組み立て（AppServiceContainer）と同じく、やりかけの記録を渡す。渡さないと続きの手順（ResumePendingOperations）が何もしない
+    PendingOperations = store.PendingOperations,
+};
 
 var imageCache = new Dictionary<(int Hue, int Index), byte[]>();
 
@@ -111,6 +118,9 @@ var code = step switch
     "showcase" => await ShowcaseAsync(rest[0], rest[1], rest.Length > 2 ? rest[2] : null),
     "show" => await ShowAsync(),
     "exceptions" => await ExceptionFixtures.RunAsync(store, rest),
+    "allnotices" => await AllNoticesFixtures.RunAsync(new AllNoticesContext(
+        store, paths, client, RunAsync, () => new ItemService(store, client, images, Settings), AddItemsAsync, ScanAsync,
+        notificationService, attributeService), rest),
     _ => Unknown(step),
 };
 
@@ -988,6 +998,9 @@ internal sealed class OfflineClient : IBoothClient
     /// <summary>商品の番号ごとに、返す商品JSONとHTML（changes の手順だけが置く。台本に無い商品は断る）。</summary>
     public Dictionary<string, (string Json, string Html)> Script { get; } = [];
 
+    /// <summary>「BOOTH に無い」と答える商品の番号（allnotices の手順だけが置く。非公開と見なしてから戻す流れを作るため）。</summary>
+    public HashSet<string> NotFound { get; } = [];
+
 #pragma warning disable CS0067 // 取得をしないので、知らせる物が無い
     public event Action<BoothActivity>? ActivityChanged;
 #pragma warning restore CS0067
@@ -1003,7 +1016,8 @@ internal sealed class OfflineClient : IBoothClient
     }
 
     public Task<BoothFetchResult<string>> GetItemJsonAsync(string itemId, CancellationToken cancellationToken = default)
-        => Script.TryGetValue(itemId, out var scripted) ? Task.FromResult(BoothFetchResult<string>.Success(scripted.Json)) : Refuse<string>();
+        => NotFound.Contains(itemId) ? Task.FromResult(BoothFetchResult<string>.NotFound())
+            : Script.TryGetValue(itemId, out var scripted) ? Task.FromResult(BoothFetchResult<string>.Success(scripted.Json)) : Refuse<string>();
 
     public Task<BoothFetchResult<string>> GetItemHtmlAsync(string itemId, CancellationToken cancellationToken = default)
         => Script.TryGetValue(itemId, out var scripted) ? Task.FromResult(BoothFetchResult<string>.Success(scripted.Html)) : Refuse<string>();

@@ -10,7 +10,8 @@ internal sealed record ChangeVersion(
     bool EndOfSale = false,
     int ExtraVariations = 0,
     string[]? Description = null,
-    (string Heading, string[] Lines)[]? Sections = null)
+    (string Heading, string[] Lines)[]? Sections = null,
+    bool DropMainVariation = false)
 {
     private static readonly string[] DefaultDescription = ["確かめ用の作り物の商品です。"];
 
@@ -18,7 +19,10 @@ internal sealed record ChangeVersion(
     {
         var booth = item.Booth;
         var price = Price ?? booth.Variations[0].Price;
-        var variations = Enumerable.Range(0, 1 + ExtraVariations).Select(n => new Dictionary<string, object?>
+        // DropMainVariation：購入の記録が指す元の種類（n=0）を BOOTH から消した版（allnotices の「消えたバリエーション」）。
+        // 追加の種類だけを残すので、ExtraVariations を1以上にして使う
+        var first = DropMainVariation ? 1 : 0;
+        var variations = Enumerable.Range(first, 1 + ExtraVariations - first).Select(n => new Dictionary<string, object?>
         {
             ["id"] = booth.Variations[0].Id + n * 1000,
             ["name"] = n == 0 ? "通常版" : $"追加版 {n}",

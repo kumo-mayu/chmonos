@@ -16,7 +16,8 @@ $ChmonosRecipes = [ordered]@{
   manage    = 'many に、タグ（大分類20×小分類10）・属性20・知らせ1000・改変300 を入れた物。管理の画面の一覧'
   movecheck = '商品 10 件＋「BOOTHに無い商品」4件（3件にタグとメモ）＋未確定6件（束が2つ）。取り込み元と監視は作り物のフォルダ。ファイルを移したとき・未確定の束'
   notices   = '商品 12 件（絵つき）に、商品ページの変化の知らせ（足した・消した行／見出しごとの足し引き／名前・価格・販売終了／同じ商品への2回続けた変更）。通知・商品ページの「変わった行」'
-  bigcheck  = '商品 10 件（2件に大きな zip）＋未確定が多い状態（既定 約5千件、-Full で約8万件と 4.8GB の zip）。大容量の確かめ'
+  'notices-all' = 'notices に、通知の残りの全種類（タグの参照切れ・消えた／復活したバリエーション・zip を入手・非公開から戻った・展開先・手で直した JSON・読めない記録・途中で止まった操作・形式の変化・プロファイル）を状況ごと足し、既読・解消済み・保管した2か月も入れた物。通知の画面の読み合わせ'
+  bigcheck  ='商品 10 件（2件に大きな zip）＋未確定が多い状態（既定 約5千件、-Full で約8万件と 4.8GB の zip）。大容量の確かめ'
 }
 
 # 写しを組む道具をビルドして、実行ファイルのパスを返す。ソリューションに入れていないので、使うときにビルドする
@@ -51,7 +52,7 @@ function Invoke-ChmonosRecipe {
   $note = { param($lines) foreach ($l in @($lines)) { $log.Add("$l") } }
 
   # 前の回の作り物が残っていたら消す（同じ名前の古いファイルを取り込まないように）
-  $usesFixtures = $Recipe -in 'movecheck', 'bigcheck'
+  $usesFixtures = $Recipe -in 'movecheck', 'bigcheck', 'notices-all'
   if ($usesFixtures -and (Test-Path -LiteralPath (Join-Path $ChmonosFixtureHome $Set))) { & $note (Remove-ChmonosFixtures -Set $Set) }
 
   & $note (& $gen @('init'))
@@ -66,6 +67,12 @@ function Invoke-ChmonosRecipe {
       # 知らせはアプリの取り直しに、台本どおりの商品ページを返して作る（JSON を手で組まない）。商品は7件以上要る
       & $note (& $gen @('items', "$(if ($Items) { $Items } else { 12 })"))
       & $note (& $gen @('changes'))
+    }
+    'notices-all' {
+      # changes が先頭7件、allnotices がその後ろの25件を種類ごとに専用で使う（壊す商品とほかの知らせを混ぜない）
+      & $note (& $gen @('items', "$(if ($Items) { $Items } else { 32 })"))
+      & $note (& $gen @('changes'))
+      & $note (& $gen @('allnotices', (Get-ChmonosFixtureDir $Set)))
     }
     'movecheck' {
       $fx = Get-ChmonosFixtureDir $Set
