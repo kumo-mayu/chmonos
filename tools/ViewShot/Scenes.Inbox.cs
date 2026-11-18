@@ -85,7 +85,43 @@ internal static partial class Scenes
         }),
 
         // 行のボタンの結果を、行の中と一覧の見出しの下へ移した（2026-10-04）。出る前（inbox-rows）と並べて、行が動かないことを見る
-        new Scene("inbox-notices", "通知：行のボタンの途中経過・失敗が行の中に、成功が一覧の見出しの下に出た所", async context =>
+        // 途中で止まった操作の行（open 145）：続けられる物は「今すぐ続ける」、内容が変わって止めた物は「もう一度操作する」
+        new Scene("inbox-unfinished", "通知：途中で止まった操作の行。「今すぐ続ける」と「もう一度操作する」", async context =>
+        {
+            var day = new DateTimeOffset(2026, 11, 19, 21, 0, 0, TimeSpan.FromHours(9));
+            await context.Seed.Notifications.SaveAsync(
+            [
+                new NotificationRecord
+                {
+                    Id = Chmonos.Core.Services.PendingOperationRunner.NotificationPrefix + "viewshot-1",
+                    Kind = NotificationKind.UnfinishedOperation,
+                    Title = "タグの名前の変更が途中で止まっています",
+                    Detail = Chmonos.Core.Services.PendingOperationRunner.FailedDetail,
+                    CreatedAt = day,
+                },
+                new NotificationRecord
+                {
+                    Id = Chmonos.Core.Services.PendingOperationRunner.NotificationPrefix + "viewshot-2",
+                    Kind = NotificationKind.UnfinishedOperation,
+                    Title = "IDの変更が途中で止まっています",
+                    Detail = Chmonos.Core.Services.PendingOperationRunner.ChangedDetail,
+                    Retry = new OperationRetry { Kind = PendingOperationKind.ChangeItemId, FromId = "9900501", ToId = "9900502" },
+                    CreatedAt = day.AddHours(-1),
+                },
+            ]);
+
+            var main = await context.StartAsync();
+            main.ShowInboxCommand.Execute(null);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            var inbox = context.Screen<InboxViewModel>();
+            await SceneContext.UntilAsync(() => inbox.Lines.OfType<InboxRowLine>().Count() == 2, "知らせの行が2つ並ぶ");
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
+
+        new Scene("inbox-notices","通知：行のボタンの途中経過・失敗が行の中に、成功が一覧の見出しの下に出た所", async context =>
         {
             var item = await context.Fake.ItemAsync("9900501", "作り物の衣装セット");
             var day = new DateTimeOffset(2026, 9, 20, 21, 0, 0, TimeSpan.FromHours(9));

@@ -16,6 +16,12 @@ public partial class ChoiceDialog : Window
     /// <summary>ボタンが4つ（キャンセル＋3択）並ぶときの幅。540では長い名前のボタンが収まらない。</summary>
     private const double WideWidth = 660;
 
+    /// <summary>
+    /// 2択で広い幅にする、2つのボタンの名前の字数の和。540 の窓にキャンセル（90）と余白を引くと、2つのボタンに使えるのは約 400。
+    /// 12px の字で約 30 字を超えると収まらない（「中断する」＋「中断して、この取り込みで…件を削除する」の 34 字ではみ出した）
+    /// </summary>
+    private const int LongChoiceChars = 30;
+
     private ChoiceDialog(string title, string question, string detail, string first, string second, string? third)
     {
         InitializeComponent();
@@ -29,6 +35,11 @@ public partial class ChoiceDialog : Window
         {
             ThirdButton.Content = third;
             ThirdButton.Visibility = Visibility.Visible;
+            Width = WideWidth;
+        }
+        else if (first.Length + second.Length > LongChoiceChars)
+        {
+            // 2択でも、ボタンの名前が長いと540では左のボタンが窓の外へはみ出す（取り込みの中断の「…n 件を削除する」・open 119）
             Width = WideWidth;
         }
 

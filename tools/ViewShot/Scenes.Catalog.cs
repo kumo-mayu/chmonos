@@ -280,6 +280,13 @@ internal static partial class Scenes
             "古い方を残す",
             "両方とも残す"))),
 
+        // 取り込みの中断の窓（open 119）。長い2つ目のボタンの折り返しを見る。中身は画面と同じ CancelQuestion から作る
+        DialogScene("catalog-dialog-import-cancel", "取り込みの中断の窓：中断する・この取り込みで新しく登録した 12 件を削除する", _ =>
+        {
+            var request = Chmonos.App.ViewModels.ImportViewModel.CancelQuestion(12);
+            return Task.FromResult(NewChoice(request.Title, request.Question, request.Detail, request.First, request.Second, request.Third));
+        }),
+
         // ほかの商品が持つファイルを付けるときの窓（plan 27・2026-11-11 に「両方に付ける」を足した）。中身は画面と同じ ChoiceQuestion から作る
         DialogScene("catalog-dialog-owned-elsewhere", "ほかの商品が持つファイルの窓：持ち主1件・付け直すと向こうに残らない", _ => Task.FromResult(NewOwnedElsewhere(
             [new ArchiveHolder("9900001", "作り物のセット（衣装3点）", LosesLastFile: true)]))),
