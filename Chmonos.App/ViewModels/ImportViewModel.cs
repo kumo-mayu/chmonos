@@ -1398,6 +1398,17 @@ public sealed partial class ImportViewModel : ViewModelBase
                 return;
             }
 
+            // 窓を開いている間も取り込みは進む。その間に終わり切っていれば、止まった知らせはもう来ないので、印を立てても消えない
+            if (!IsRunning)
+            {
+                if (answer == Views.ChoiceDialogResult.Second)
+                {
+                    StackNotice = "取り込みはもう終わっていたため、削除しませんでした。";
+                }
+
+                return;
+            }
+
             _deleteCreatedAfterStop = answer == Views.ChoiceDialogResult.Second;
         }
 
