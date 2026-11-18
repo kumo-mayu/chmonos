@@ -101,6 +101,20 @@ public sealed class StaleTemporaryFileTests : IDisposable
         Assert.False(File.Exists(leftover));
     }
 
+    /// <summary>
+    /// 通知の控え（.jsonl.gz）も取り直せないので、本体が無ければ残す。初めは JSON だけを残していた（Codex の点検 2026-11-19 の2回目）
+    /// </summary>
+    [Fact]
+    public void KeepsAnOldArchiveTemporaryWhoseFileIsGone()
+    {
+        var stranded = Path.Combine(_dir, "2026-11.jsonl.gz.1a2b-7.tmp");
+        File.WriteAllText(stranded, "");
+        File.SetLastWriteTimeUtc(stranded, DateTime.UtcNow.AddHours(-1));
+
+        Assert.Equal(0, JsonStore.DeleteStaleTemporaryFiles(_dir));
+        Assert.True(File.Exists(stranded));
+    }
+
     [Fact]
     public void IgnoresAMissingFolder()
     {

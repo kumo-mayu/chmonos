@@ -697,13 +697,17 @@ public static class JsonStore
     /// 本体の JSON が無いのに残った一時ファイルは、置き換えの途中で本体が退けられ据え直せなかった物
     /// （<see cref="StrandedReplacementException"/>）かもしれず、新しい中身はそこにしか無い。古さだけで消すと
     /// 書き込みの失敗の時にわざと残した中身を、次の起動で消してしまう（Codex の点検 2026-11-19）。
-    /// JSON は人が入れた値なので残し、取り直せる HTML・画像は今までどおり消す
+    /// 残すのは、BOOTH から取り直せる HTML の写し以外の全部（JSON・通知の控えの .jsonl.gz など）。
+    /// 初めは JSON だけを残し、取り直せない通知の控えが漏れていた（Codex の点検 2026-11-19 の2回目）。
+    /// 画像の一時ファイル（32桁の名前）は書き込みの形が違い、ここでは当たらないので今までどおり消す
     /// </summary>
     private static bool MayHoldTheOnlyCopy(string temporaryPath)
     {
-        var match = System.Text.RegularExpressions.Regex.Match(temporaryPath, @"^(.*\.json)\.[0-9a-f]+-[0-9a-f]+\.tmp$",
+        var match = System.Text.RegularExpressions.Regex.Match(temporaryPath, @"^(.*)\.[0-9a-f]+-[0-9a-f]+\.tmp$",
             System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-        return match.Success && !File.Exists(match.Groups[1].Value);
+        return match.Success
+            && !match.Groups[1].Value.EndsWith(".html", StringComparison.OrdinalIgnoreCase)
+            && !File.Exists(match.Groups[1].Value);
     }
 
     /// <summary>
