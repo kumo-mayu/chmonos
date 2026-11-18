@@ -884,6 +884,20 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// <summary>一覧に出す枠。画像に「足す」枠を1つ足したもの。</summary>
     public ObservableCollection<GalleryImage> GalleryTiles { get; } = [];
 
+    /// <summary>小さな絵の並びを畳んでいるか（<see cref="IGalleryHost"/>。次に起動した時まで覚える）。</summary>
+    public bool GalleryTilesFolded
+    {
+        get => _services.PaneWidths.IsCollapsed(GalleryFoldKey.Tiles);
+        set
+        {
+            if (GalleryTilesFolded != value)
+            {
+                _services.PaneWidths.SetCollapsed(GalleryFoldKey.Tiles, value);
+                OnPropertyChanged();
+            }
+        }
+    }
+
     public ObservableCollection<VariationRow> Variations { get; } = [];
 
     private static bool s_variationsExpanded = true;

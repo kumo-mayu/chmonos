@@ -57,6 +57,15 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
+        new Scene("item-page-gallery-folded", "商品ページ：小さな絵の並びを畳んだ所（絵は隠れ、足す「＋」の枠は残る。open.md 61）", async context =>
+        {
+            var item = await context.Fake.ItemAsync("9900423", "作り物の衣装", images: 4);
+            var root = await OpenItemAsync(context, item);
+            context.Screen<ItemViewModel>().GalleryTilesFolded = true;
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
+
         new Scene("item-page-gallery-remove-own", "商品ページ：自分で足した画像を選んでいる所（「この画像を削除」が押せる）", async context =>
         {
             var item = await context.Fake.ItemAsync("9900422", "作り物の衣装", record => record with

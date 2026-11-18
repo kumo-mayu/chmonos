@@ -509,7 +509,9 @@
                                                         <Button Style="{StaticResource MemberNameLink}" HorizontalAlignment="Stretch"
                                                                 AutomationProperties.Name="{Binding Name}"
                                                                 Command="{Binding DataContext.OpenItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                CommandParameter="{Binding}">
+                                                                CommandParameter="{Binding}"
+                                                                controls:MiddleClick.Command="{Binding DataContext.OpenMemberBoothCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                controls:MiddleClick.CommandParameter="{Binding}">
                                                             <ContentControl Content="{Binding Card}" ContentTemplate="{StaticResource ItemListIconCell}" Focusable="False"
                                                                             Style="{StaticResource DetachedMemberDim}" />
                                                         </Button>
@@ -535,7 +537,9 @@
                                                                 <!-- 名前を押すと商品ページ（「開く」ボタンの代わり） -->
                                                                 <Button AutomationProperties.AutomationId="ModificationMemberLink" AutomationProperties.Name="{Binding Name}" Style="{StaticResource MemberNameLink}" ToolTip="{Binding Name}"
                                                                         Command="{Binding DataContext.OpenItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                        CommandParameter="{Binding}">
+                                                                        CommandParameter="{Binding}"
+                                                                        controls:MiddleClick.Command="{Binding DataContext.OpenMemberBoothCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        controls:MiddleClick.CommandParameter="{Binding}">
                                                                     <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="Medium" TextTrimming="CharacterEllipsis">
                                                                         <TextBlock.Style>
                                                                             <Style TargetType="TextBlock">

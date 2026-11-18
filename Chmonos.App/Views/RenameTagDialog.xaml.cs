@@ -14,7 +14,7 @@ public partial class RenameTagDialog : Window
 
         // 打つ欄が1つの窓は、開いたらすぐ打てるようにその欄に止まる（ui-dialogs.md「キー」）。
         // 欄は空で始まる（今の名前は見出しに出している）ので、全部を選ぶ物は無い
-        Loaded += (_, _) => NameBox.FocusInput();
+        Loaded += (_, _) => NameBox.FocusInputQuietly();
     }
 
     private void OnCommit(object sender, RoutedEventArgs e) => DialogResult = true;

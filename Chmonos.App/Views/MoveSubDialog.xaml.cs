@@ -13,7 +13,7 @@ public partial class MoveSubDialog : Window
         Services.DialogFit.Prepare(this);
 
         // 打つ欄が1つの窓は、開いたらすぐ打てるようにその欄に止まる（ui-dialogs.md「キー」）
-        Loaded += (_, _) => TargetBox.FocusInput();
+        Loaded += (_, _) => TargetBox.FocusInputQuietly();
     }
 
     private void OnMove(object sender, RoutedEventArgs e) => DialogResult = true;

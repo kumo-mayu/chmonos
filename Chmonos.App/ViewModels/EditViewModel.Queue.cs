@@ -49,37 +49,34 @@ public sealed partial class EditViewModel
     }
 
     /// <summary>
-    /// ユーザータグ・属性の欄を開いているか（ユーザ指示 2026-11-18：既定は開いた折りたたみ）。
-    /// 畳んだかを次の商品・次の起動まで覚えるかは未決。いまは購入の欄と同じく、アプリを閉じるまで持つ
+    /// ユーザータグ・属性の欄を開いているか（ユーザ指示 2026-11-18：既定は開いた折りたたみ。2026-11-19：畳んだかは次に起動した時まで覚える）。
+    /// 左の一覧のつまみと同じ覚え方（<see cref="PaneWidths.SetCollapsed"/>・ui-state.json の collapsedPanes）。編集画面は開くたびに作り直すが、
+    /// 次の商品へ進んでも畳んだままにする。畳んだ物だけを覚えるので、何も無ければ開いている
     /// </summary>
-    private static bool s_isTagsExpanded = true;
-
-    private static bool s_isAttributesExpanded = true;
-
     public bool IsTagsExpanded
     {
-        get => s_isTagsExpanded;
-        set
-        {
-            if (s_isTagsExpanded != value)
-            {
-                s_isTagsExpanded = value;
-                OnPropertyChanged();
-            }
-        }
+        get => !_services.PaneWidths.IsCollapsed(TagsFoldKey);
+        set => SetFold(TagsFoldKey, value, nameof(IsTagsExpanded));
     }
 
     public bool IsAttributesExpanded
     {
-        get => s_isAttributesExpanded;
-        set
+        get => !_services.PaneWidths.IsCollapsed(AttributesFoldKey);
+        set => SetFold(AttributesFoldKey, value, nameof(IsAttributesExpanded));
+    }
+
+    private const string TagsFoldKey = "edit.tags";
+    private const string AttributesFoldKey = "edit.attributes";
+
+    private void SetFold(string key, bool expanded, string property)
+    {
+        if (_services.PaneWidths.IsCollapsed(key) == !expanded)
         {
-            if (s_isAttributesExpanded != value)
-            {
-                s_isAttributesExpanded = value;
-                OnPropertyChanged();
-            }
+            return;
         }
+
+        _services.PaneWidths.SetCollapsed(key, !expanded);
+        OnPropertyChanged(property);
     }
 
     /// <summary>見出しに添える種類の数。畳んでいても何件あるかは分かるように。</summary>

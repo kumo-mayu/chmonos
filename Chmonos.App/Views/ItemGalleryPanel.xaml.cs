@@ -29,12 +29,16 @@ public partial class ItemGalleryPanel : UserControl
         Unloaded += (_, _) => _dwellTimer.Stop();
     }
 
-    /// <summary>小さな絵の並びを畳む・広げる。状態は部品が持つので、商品を替えても保たれる。</summary>
+    /// <summary>
+    /// 小さな絵の並びを畳む・広げる。覚えるのは持ち主（<see cref="IGalleryHost.GalleryTilesFolded"/>）で、
+    /// 商品を替えても、次に起動しても保たれる。畳んでも「＋」の枠は残す（絵を足す入口なので）
+    /// </summary>
     private void OnToggleTiles(object sender, RoutedEventArgs e)
     {
-        var fold = Tiles.Visibility == Visibility.Visible;
-        Tiles.Visibility = fold ? Visibility.Collapsed : Visibility.Visible;
-        TilesToggle.Content = fold ? "小さな絵を広げる" : "小さな絵を折りたたむ";
+        if (DataContext is IGalleryHost host)
+        {
+            host.GalleryTilesFolded = !host.GalleryTilesFolded;
+        }
     }
 
     private void OnThumbnailMouseEnter(object sender, MouseEventArgs e)
