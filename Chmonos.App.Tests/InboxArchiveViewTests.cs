@@ -235,4 +235,89 @@ public sealed class InboxArchiveViewTests
         Assert.Equal("衣装", back.Archive.NameFilter);
         Assert.Equal(["sep"], Ids(back.Archive));
     });
+
+    /// <summary>
+    /// 一番上を「変更の種類」にすると、すべての月からその種類の通知を新しい順に並べる（open 146・ユーザ判断 2026-11-19）。
+    /// 種類の欄は数の多い順に件数付きで、最初の種類を選んで開く。「商品名で絞る」も効く
+    /// </summary>
+    [Fact]
+    public Task 変更の種類で切り替えると全部の月から並べる() => TestApp.Run(async app =>
+    {
+        await app.Store.NotificationArchive.AppendAsync(
+        [
+            Record("sep-update", At(9, 1)),
+            Record("sep-tag", At(9, 2), "タグ「作り物」", NotificationKind.OrphanTag) with { ItemId = null },
+        ]);
+        await app.Store.NotificationArchive.AppendAsync(
+        [
+            Record("oct-update", At(10, 1), "作り物の髪型"),
+            Record("oct-update2", At(10, 2)),
+        ]);
+        var (_, archive) = await OpenArchiveAsync(app);
+
+        archive.IsKindLevel = true;
+        await archive.Pending;
+
+        Assert.Equal(["商品ページの変更（3）", "タグの参照切れ（1）"], archive.Kinds.Select(kind => kind.Label));
+        Assert.Equal(NotificationKind.ItemUpdated, archive.SelectedKind!.Kind);
+        Assert.Equal(["oct-update2", "oct-update", "sep-update"], Ids(archive));
+        Assert.Equal("3 件", archive.CountText);
+        Assert.Equal("商品ページの変更（3）", archive.HeadLabel);
+        Assert.True(archive.ShowsNameFilter);
+
+        archive.NameFilter = "髪型";
+        await archive.Pending;
+        Assert.Equal(["oct-update"], Ids(archive));
+        Assert.Equal("3 件中 1 件", archive.CountText);
+
+        archive.SelectedKind = archive.Kinds[1];
+        await archive.Pending;
+        Assert.Empty(Ids(archive));
+
+        archive.NameFilter = string.Empty;
+        await archive.Pending;
+        Assert.Equal(["sep-tag"], Ids(archive));
+
+        // 年月へ戻すと、選んでいた月の見方に戻る
+        archive.IsMonthLevel = true;
+        await archive.Pending;
+        Assert.Equal(["oct-update2", "oct-update"], Ids(archive));
+    });
+
+    /// <summary>
+    /// 一番上を「商品」にすると、商品を選ぶまでは何も並べず、選ぶとすべての月からその商品の通知を新しい順に並べる。
+    /// 候補は商品の知らせの題（商品名）。同じ名前の別の商品は ID を添えて分ける
+    /// </summary>
+    [Fact]
+    public Task 商品で切り替えると選んだ商品の通知を全部の月から並べる() => TestApp.Run(async app =>
+    {
+        await app.Store.NotificationArchive.AppendAsync(
+        [
+            Record("sep-a", At(9, 1)),
+            Record("sep-twin", At(9, 2)) with { ItemId = "9900602" },
+        ]);
+        await app.Store.NotificationArchive.AppendAsync(
+        [
+            Record("oct-a", At(10, 1)),
+            Record("oct-b", At(10, 2), "作り物の髪型") with { ItemId = "9900603" },
+        ]);
+        var (_, archive) = await OpenArchiveAsync(app);
+
+        archive.IsItemLevel = true;
+        await archive.Pending;
+
+        Assert.Empty(Ids(archive));
+        Assert.Equal("商品を選んでください", archive.EmptyTitle);
+        Assert.False(archive.ShowsNameFilter);
+        Assert.Equal(
+            ["作り物の衣装（9900601）", "作り物の衣装（9900602）", "作り物の髪型"],
+            archive.ItemCandidates.Order(StringComparer.Ordinal));
+
+        archive.PickItemCommand.Execute("作り物の衣装（9900601）");
+        await archive.Pending;
+
+        Assert.Equal(["oct-a", "sep-a"], Ids(archive));
+        Assert.Equal("作り物の衣装（9900601）", archive.HeadLabel);
+        Assert.Equal("2 件", archive.CountText);
+    });
 }

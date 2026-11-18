@@ -11,18 +11,40 @@ public sealed record ArchiveMonthChoice(string Month, string Label)
     public override string ToString() => Label;
 }
 
-/// <summary>保管した通知の一覧の先頭の行（月の見出しと件数。行の枠の上側）。</summary>
+/// <summary>変更の種類を選ぶ欄の1項目（件数はすべての月の合計）。</summary>
+public sealed record ArchiveKindChoice(NotificationKind Kind, string Label)
+{
+    public override string ToString() => Label;
+}
+
+/// <summary>保管した通知の一番上をどれで切り替えるか（open 146・ユーザ判断 2026-11-19）。</summary>
+public enum ArchiveLevel
+{
+    /// <summary>年月。月を1つ選び、その月の通知を全部の商品まとめて新しい順に。</summary>
+    Month,
+
+    /// <summary>商品。商品を1つ選び、すべての月からその商品の通知を新しい順に。</summary>
+    Item,
+
+    /// <summary>変更の種類。種類を1つ選び、すべての月からその種類の通知を新しい順に。</summary>
+    Kind,
+}
+
+/// <summary>保管した通知の一覧の先頭の行（見出しと件数。行の枠の上側）。</summary>
 public sealed class ArchiveHeadLine(InboxArchiveViewModel archive) : InboxLine
 {
     public InboxArchiveViewModel Archive { get; } = archive;
 }
 
 /// <summary>
-/// 保管した通知を読む見方（ユーザ案 2026-11-10「その形で良いです」）。通知の画面の中で切り替え、月ごとに読むだけ（既読・行のボタンは出さない）。
+/// 保管した通知を読む見方（ユーザ案 2026-11-10「その形で良いです」）。通知の画面の中で切り替え、読むだけ（既読・行のボタンは出さない）。
 ///
-/// **月を丸ごと読まない**：50MB の月を丸ごと読むと作業セットが 359MB になった。月の目録（位置・題・日時だけ）を作り、
+/// **月を丸ごと読まない**：50MB の月を丸ごと読むと作業セットが 359MB になった。目録（位置・題・日時・種類・商品だけ）を作り、
 /// 新しい順に <see cref="PageSize"/> 件ずつ中身を読み、流して終わりに近づいたら続きを読む（<see cref="NotificationArchive.IndexAsync"/>）。
 /// 商品名で絞るのは目録の題で照らすので、打ち替えても月を流し直さない。
+///
+/// 一番上は「年月・商品・変更の種類」で切り替える（open 146）。商品と種類は月をまたぐので、初めてどちらかへ切り替えた時に、
+/// 全部の月の目録を裏で一度だけ作る（<see cref="NotificationArchive.CatalogAsync"/>。変わっていない月は控えを使う）。
 /// </summary>
 public sealed class InboxArchiveViewModel : ViewModelBase
 {
@@ -36,16 +58,28 @@ public sealed class InboxArchiveViewModel : ViewModelBase
     private readonly Func<NotificationRecord, NotificationRow> _createRow;
     private readonly ArchiveHeadLine _head;
 
-    private NotificationArchiveIndex? _index;
-    private IReadOnlyList<NotificationArchiveEntry> _matching = [];
+    /// <summary>今の見方で読む目録（年月なら選んだ月だけ、商品・種類なら全部の月）。</summary>
+    private NotificationArchiveCatalog? _source;
+
+    /// <summary>全部の月の目録。商品・種類へ初めて切り替えた時に作る（読み終えるまでは読みかけの物）。</summary>
+    private Task<NotificationArchiveCatalog>? _allMonths;
+
+    private IReadOnlyDictionary<string, string> _itemChoices = new Dictionary<string, string>();
+    private IReadOnlyList<NotificationArchiveCatalogEntry> _matching = [];
+
+    /// <summary>今の見方で絞る前の数（件数の「全体」）。</summary>
+    private int _total;
 
     /// <summary>目録の中で、読みに出した件数（読み終えた物と読んでいる最中の物）。</summary>
     private int _requested;
 
-    /// <summary>読みの番号。月や絞りを替えたら上がり、前の読みの結果は当てない（最後に頼んだ物だけを出す）。</summary>
+    /// <summary>読みの番号。見方・月・絞りを替えたら上がり、前の読みの結果は当てない（最後に頼んだ物だけを出す）。</summary>
     private int _turn;
 
+    private ArchiveLevel _level = ArchiveLevel.Month;
     private ArchiveMonthChoice? _selectedMonth;
+    private ArchiveKindChoice? _selectedKind;
+    private string? _selectedItem;
     private string _nameFilter;
     private ArchiveState _state = ArchiveState.Loading;
     private bool _loadingMore;
@@ -55,6 +89,7 @@ public sealed class InboxArchiveViewModel : ViewModelBase
         Loading,
         Ready,
         NoMonths,
+        NeedItem,
         Failed,
     }
 
@@ -66,6 +101,7 @@ public sealed class InboxArchiveViewModel : ViewModelBase
         _createRow = createRow;
         _nameFilter = nameFilter ?? string.Empty;
         _head = new ArchiveHeadLine(this);
+        PickItemCommand = new RelayCommand(parameter => PickItem(parameter as string));
         Pending = StartAsync(month);
     }
 
@@ -77,11 +113,79 @@ public sealed class InboxArchiveViewModel : ViewModelBase
 
     public ObservableCollection<ArchiveMonthChoice> Months { get; } = [];
 
-    /// <summary>月と「商品名で絞る」の欄を出すか（保管した月が無ければ、選ぶ物も絞る物も無い）。</summary>
+    /// <summary>種類の欄の項目。全部の月の目録ができてから並ぶ。</summary>
+    public ObservableCollection<ArchiveKindChoice> Kinds { get; } = [];
+
+    /// <summary>商品で選ぶ欄の候補（商品名）。全部の月の目録ができてから並ぶ。</summary>
+    public IReadOnlyList<string> ItemCandidates => [.. _itemChoices.Keys];
+
+    /// <summary>商品で選ぶ欄で確定した（引数は選んだ候補の文字）。</summary>
+    public RelayCommand PickItemCommand { get; }
+
+    /// <summary>見方の切り替え・月・「商品名で絞る」の欄を出すか（保管した月が無ければ、選ぶ物も絞る物も無い）。</summary>
     public bool HasMonths => Months.Count > 0;
 
-    /// <summary>先頭は月の見出しの行、続いて知らせの行（<see cref="InboxRowLine"/>）。</summary>
+    /// <summary>先頭は見出しの行、続いて知らせの行（<see cref="InboxRowLine"/>）。</summary>
     public ObservableCollection<object> Lines { get; } = [];
+
+    public ArchiveLevel Level
+    {
+        get => _level;
+        set
+        {
+            if (!SetField(ref _level, value))
+            {
+                return;
+            }
+
+            foreach (var name in new[]
+            {
+                nameof(IsMonthLevel), nameof(IsItemLevel), nameof(IsKindLevel), nameof(ShowsNameFilter), nameof(HeadLabel),
+            })
+            {
+                OnPropertyChanged(name);
+            }
+
+            Pending = ReloadAsync();
+        }
+    }
+
+    /// <summary>切り替えの3つの区切り（改変の画面の HubSegment と同じ見た目の RadioButton）が結ぶ。</summary>
+    public bool IsMonthLevel
+    {
+        get => _level == ArchiveLevel.Month;
+        set
+        {
+            if (value)
+            {
+                Level = ArchiveLevel.Month;
+            }
+        }
+    }
+
+    public bool IsItemLevel
+    {
+        get => _level == ArchiveLevel.Item;
+        set
+        {
+            if (value)
+            {
+                Level = ArchiveLevel.Item;
+            }
+        }
+    }
+
+    public bool IsKindLevel
+    {
+        get => _level == ArchiveLevel.Kind;
+        set
+        {
+            if (value)
+            {
+                Level = ArchiveLevel.Kind;
+            }
+        }
+    }
 
     public ArchiveMonthChoice? SelectedMonth
     {
@@ -94,11 +198,47 @@ public sealed class InboxArchiveViewModel : ViewModelBase
             }
 
             OnPropertyChanged(nameof(MonthLabel));
-            Pending = LoadMonthAsync(value.Month);
+            OnPropertyChanged(nameof(HeadLabel));
+            if (_level == ArchiveLevel.Month)
+            {
+                Pending = ReloadAsync();
+            }
         }
     }
 
+    public ArchiveKindChoice? SelectedKind
+    {
+        get => _selectedKind;
+        set
+        {
+            if (value is null || !SetField(ref _selectedKind, value))
+            {
+                return;
+            }
+
+            OnPropertyChanged(nameof(HeadLabel));
+            if (_level == ArchiveLevel.Kind)
+            {
+                Pending = ReloadAsync();
+            }
+        }
+    }
+
+    /// <summary>商品で選ぶ欄で選んだ商品（候補の文字）。</summary>
+    public string? SelectedItem => _selectedItem;
+
     public string MonthLabel => _selectedMonth?.Label ?? string.Empty;
+
+    /// <summary>一覧の先頭の見出し：選んだ月・商品・種類。</summary>
+    public string HeadLabel => _level switch
+    {
+        ArchiveLevel.Item => _selectedItem ?? string.Empty,
+        ArchiveLevel.Kind => _selectedKind?.Label ?? string.Empty,
+        _ => MonthLabel,
+    };
+
+    /// <summary>「商品名で絞る」は商品で見るときは出さない（商品を選ぶ欄と重なる）。</summary>
+    public bool ShowsNameFilter => _level != ArchiveLevel.Item;
 
     /// <summary>「商品名で絞る」欄。打ち替えたら目録の題で照らし直し、最初の100件から読み直す。</summary>
     public string NameFilter
@@ -111,25 +251,27 @@ public sealed class InboxArchiveViewModel : ViewModelBase
                 return;
             }
 
-            if (_index is not null)
+            if (_source is not null && _level != ArchiveLevel.Item)
             {
                 Pending = ApplyFilterAsync();
             }
         }
     }
 
-    public bool IsFiltering => _nameFilter.Trim().Length > 0;
+    public bool IsFiltering => _level != ArchiveLevel.Item && _nameFilter.Trim().Length > 0;
 
-    /// <summary>この月の件数。絞っているときは「全体 中 当てはまる数」（アバター名で絞る欄と同じ形）。</summary>
-    public string CountText => _index is null
+    /// <summary>見ている物の件数。絞っているときは「全体 中 当てはまる数」（アバター名で絞る欄と同じ形）。</summary>
+    public string CountText => _source is null || _state != ArchiveState.Ready
         ? string.Empty
         : IsFiltering
-            ? $"{_index.Newest.Count:N0} 件中 {_matching.Count:N0} 件"
-            : $"{_index.Newest.Count:N0} 件";
+            ? $"{_total:N0} 件中 {_matching.Count:N0} 件"
+            : $"{_matching.Count:N0} 件";
 
     /// <summary>読めなかった所がある月では、その分を出していないことを言う（黙って欠けさせない）。</summary>
-    public string DamageText => _index is { } index && index.UnreadableLines + index.UnreadableBlocks > 0
-        ? "この月の一部を読めなかったため、その分は表示していません。"
+    public string DamageText => _source is { HasDamage: true }
+        ? _level == ArchiveLevel.Month
+            ? "この月の一部を読めなかったため、その分は表示していません。"
+            : "一部の月を読めなかったため、その分は表示していません。"
         : string.Empty;
 
     public bool HasDamage => DamageText.Length > 0;
@@ -154,6 +296,7 @@ public sealed class InboxArchiveViewModel : ViewModelBase
         ArchiveState.Loading => "読み込んでいます…",
         ArchiveState.Failed => "保管した通知を読めませんでした",
         ArchiveState.NoMonths => "保管した通知はありません",
+        ArchiveState.NeedItem => "商品を選んでください",
         _ when IsFiltering => "当てはまる通知はありません",
         _ => "この月の通知を読めませんでした",
     };
@@ -161,10 +304,12 @@ public sealed class InboxArchiveViewModel : ViewModelBase
     public string EmptyNote => _state switch
     {
         ArchiveState.Loading => string.Empty,
-        ArchiveState.Failed => "ほかのアプリが開いているかもしれません。少し待ってから、月を選び直してください。",
+        ArchiveState.Failed => "ほかのアプリが開いているかもしれません。少し待ってから、もう一度選んでください。",
         ArchiveState.NoMonths when _services.Settings.NotificationArchiveMegabytes == 0 =>
             "設定の「通知の保管に使う容量」を0より大きくすると、古い通知をここに保管します。",
         ArchiveState.NoMonths => "通知に残す件数を超えた古い既読の通知が、ここに月ごとに保管されます。",
+        ArchiveState.NeedItem => "上の欄に商品名を入れて選ぶと、その商品の通知をすべての月から並べます。",
+        _ when IsFiltering && _level == ArchiveLevel.Kind => "商品名の言葉を変えるか、別の種類を選ぶか、絞り込みを消してください。",
         _ when IsFiltering => "商品名の言葉を変えるか、別の月を選ぶか、絞り込みを消してください。",
         _ => "この月のファイルが壊れているかもしれません。",
     };
@@ -207,23 +352,61 @@ public sealed class InboxArchiveViewModel : ViewModelBase
             ? $"{year}年{number}月"
             : month;
 
-    private async Task LoadMonthAsync(string month)
+    private void PickItem(string? name)
+    {
+        if (name is null || !_itemChoices.ContainsKey(name) || name == _selectedItem)
+        {
+            return;
+        }
+
+        _selectedItem = name;
+        OnPropertyChanged(nameof(SelectedItem));
+        OnPropertyChanged(nameof(HeadLabel));
+        if (_level == ArchiveLevel.Item)
+        {
+            Pending = ReloadAsync();
+        }
+    }
+
+    /// <summary>今の見方で目録を作り直し、最初の100件から読み直す。</summary>
+    private async Task ReloadAsync()
     {
         var turn = ++_turn;
         IsLoadingMore = false;
-        _index = null;
+        _source = null;
         _matching = [];
         _requested = 0;
         Lines.Clear();
+        if (Months.Count == 0)
+        {
+            SetState(_state == ArchiveState.Failed ? ArchiveState.Failed : ArchiveState.NoMonths);
+            return;
+        }
+
         SetState(ArchiveState.Loading);
 
-        NotificationArchiveIndex index;
+        NotificationArchiveCatalog source;
         try
         {
-            index = await Task.Run(() => _services.Store.NotificationArchive.IndexAsync(month));
+            if (_level == ArchiveLevel.Month)
+            {
+                if (_selectedMonth is not { } month)
+                {
+                    return;
+                }
+
+                var index = await Task.Run(() => _services.Store.NotificationArchive.IndexAsync(month.Month));
+                source = NotificationArchiveCatalog.OfMonth(index);
+            }
+            else
+            {
+                source = await AllMonthsAsync();
+            }
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
+            // 次に切り替えた時に作り直す（読めなかった物を控えに残さない）
+            _allMonths = null;
             if (turn == _turn)
             {
                 SetState(ArchiveState.Failed);
@@ -237,13 +420,39 @@ public sealed class InboxArchiveViewModel : ViewModelBase
             return;
         }
 
-        _index = index;
+        _source = source;
         await ApplyFilterAsync();
+    }
+
+    /// <summary>全部の月の目録。初めて頼まれた時に裏で作り、種類と商品の欄を埋める。</summary>
+    private async Task<NotificationArchiveCatalog> AllMonthsAsync()
+    {
+        if (_allMonths is null)
+        {
+            _allMonths = Task.Run(() => _services.Store.NotificationArchive.CatalogAsync());
+            var catalog = await _allMonths;
+            _itemChoices = catalog.ItemChoices();
+            OnPropertyChanged(nameof(ItemCandidates));
+            foreach (var (kind, count) in catalog.Kinds())
+            {
+                Kinds.Add(new ArchiveKindChoice(kind, $"{InboxViewModel.KindLabel(kind)}（{count:N0}）"));
+            }
+
+            // 選んだだけで読み直さない（読み直すのは呼んだ側。ここで読み直すと、読みが2本になり先の方が待たれない）
+            if (_selectedKind is null && Kinds.Count > 0)
+            {
+                _selectedKind = Kinds[0];
+                OnPropertyChanged(nameof(SelectedKind));
+                OnPropertyChanged(nameof(HeadLabel));
+            }
+        }
+
+        return await _allMonths;
     }
 
     private async Task ApplyFilterAsync()
     {
-        if (_index is not { } index)
+        if (_source is not { } source)
         {
             return;
         }
@@ -251,12 +460,33 @@ public sealed class InboxArchiveViewModel : ViewModelBase
         var turn = ++_turn;
         IsLoadingMore = false;
         var filter = _nameFilter;
-        var matching = await Task.Run(() => index.Matching(filter));
+        var level = _level;
+        var kind = _selectedKind?.Kind;
+        IReadOnlySet<string>? items = _selectedItem is { } picked && _itemChoices.TryGetValue(picked, out var id)
+            ? new HashSet<string>(StringComparer.Ordinal) { id }
+            : null;
+
+        if (level == ArchiveLevel.Item && items is null)
+        {
+            _matching = [];
+            _requested = 0;
+            Lines.Clear();
+            SetState(ArchiveState.NeedItem);
+            return;
+        }
+
+        var (total, matching) = await Task.Run(() => level switch
+        {
+            ArchiveLevel.Kind => (source.Matching(kind: kind).Count, source.Matching(kind: kind, name: filter)),
+            ArchiveLevel.Item => (0, source.Matching(itemIds: items)),
+            _ => (source.Newest.Count, source.Matching(name: filter)),
+        });
         if (turn != _turn)
         {
             return;
         }
 
+        _total = total;
         _matching = matching;
         _requested = 0;
         Lines.Clear();
@@ -278,7 +508,7 @@ public sealed class InboxArchiveViewModel : ViewModelBase
 
     private async Task ReadNextAsync(int turn)
     {
-        if (_index is not { } index || _requested >= _matching.Count)
+        if (_source is not { } source || _requested >= _matching.Count)
         {
             return;
         }
@@ -291,7 +521,7 @@ public sealed class InboxArchiveViewModel : ViewModelBase
             IReadOnlyList<NotificationRecord> records;
             try
             {
-                records = await Task.Run(() => _services.Store.NotificationArchive.ReadEntriesAsync(index, page));
+                records = await Task.Run(() => source.ReadAsync(_services.Store.NotificationArchive, page));
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {

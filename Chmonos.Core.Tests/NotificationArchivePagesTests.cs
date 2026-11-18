@@ -237,4 +237,49 @@ public sealed class NotificationArchivePagesTests : IDisposable
 
         Assert.Empty(page);
     }
+
+    /// <summary>
+    /// 月をまたぐ目録（open 146）：全部の月の知らせを新しい順に並べ、種類と商品を持つ。中身は月ごとに読んで、頼んだ順に返す。
+    /// 同じ ID の別の機会（商品の更新は同じ ID で何度も来る）も取り違えない
+    /// </summary>
+    [Fact]
+    public async Task 月をまたぐ目録は新しい順で_種類と商品で選べて_中身を頼んだ順に読める()
+    {
+        var september = new DateTimeOffset(2026, 9, 5, 12, 0, 0, TimeSpan.FromHours(9));
+        await _archive.AppendAsync(
+        [
+            Record("same", september),
+            Record("tag", september.AddDays(1)) with { Kind = NotificationKind.OrphanTag, ItemId = null },
+        ]);
+        await _archive.AppendAsync(
+        [
+            Record("same", At(1)) with { Detail = "10月の更新" },
+            Record("other", At(2)) with { ItemId = "9900502" },
+        ]);
+
+        var catalog = await _archive.CatalogAsync();
+
+        Assert.Equal(["other", "same", "tag", "same"], catalog.Newest.Select(item => item.Entry.Id));
+        Assert.Equal(["2026-10", "2026-10", "2026-09", "2026-09"], catalog.Newest.Select(item => item.Month));
+        Assert.Equal([(NotificationKind.ItemUpdated, 3), (NotificationKind.OrphanTag, 1)], catalog.Kinds());
+        Assert.Equal(["9900502", "9900501"], catalog.ItemIds());
+
+        var ofItem = catalog.Newest.Where(item => item.Entry.ItemId == "9900501").ToList();
+        var records = await catalog.ReadAsync(_archive, ofItem);
+        Assert.Equal(["10月の更新", "価格：500 → 800"], records.Select(record => record.Detail));
+    }
+
+    /// <summary>開き直すたびに全部の月を流さない。変わった月だけ作り直す（足した知らせは次の目録に出る）</summary>
+    [Fact]
+    public async Task 月をまたぐ目録は変わった月だけ作り直す()
+    {
+        await _archive.AppendAsync([Record("a", At(1))]);
+        var first = await _archive.CatalogAsync();
+        Assert.Single(first.Newest);
+
+        await _archive.AppendAsync([Record("b", At(2))]);
+        var second = await _archive.CatalogAsync();
+
+        Assert.Equal(["b", "a"], second.Newest.Select(item => item.Entry.Id));
+    }
 }

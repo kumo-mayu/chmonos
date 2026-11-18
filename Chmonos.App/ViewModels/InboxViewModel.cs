@@ -1462,7 +1462,7 @@ public sealed class InboxViewModel : ViewModelBase
         CollectionSync.Apply(Lines, target);
     }
 
-    private static string KindLabel(NotificationKind kind) => kind switch
+    internal static string KindLabel(NotificationKind kind) => kind switch
     {
         // 見出しはユーザ指定（2026-09-18）。何が起きたかを名詞で言い切る
         NotificationKind.ItemUpdated => "商品ページの変更",
