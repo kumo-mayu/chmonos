@@ -16,6 +16,48 @@ public partial class SettingsView : UserControl
     public SettingsView()
     {
         InitializeComponent();
+        DataContextChanged += OnDataContextChanged;
+    }
+
+    private SettingsViewModel? _watched;
+
+    /// <summary>
+    /// 非表示にした商品の商品ページへ行って戻ると、流した位置が失われていた（open.md 50）。設定の画面は開くたびに作り直されるので、
+    /// 商品ページへ移る直前の位置を静的な値に預け、戻って読み終えたときに1回だけ戻す。
+    /// 読み終えるまで待つのは、行が入る前は画面が短く、その位置まで流せないため
+    /// </summary>
+    private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (_watched is not null)
+        {
+            _watched.OpeningItem -= RememberScroll;
+            _watched.PropertyChanged -= OnSettingsChanged;
+        }
+
+        _watched = e.NewValue as SettingsViewModel;
+        if (_watched is not null)
+        {
+            _watched.OpeningItem += RememberScroll;
+            _watched.PropertyChanged += OnSettingsChanged;
+        }
+    }
+
+    private void RememberScroll() => SettingsViewModel.PendingScrollOffset = PageScroll.VerticalOffset;
+
+    private void OnSettingsChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(SettingsViewModel.IsLoading) || sender is not SettingsViewModel { IsLoading: false }
+            || SettingsViewModel.PendingScrollOffset is not { } offset)
+        {
+            return;
+        }
+
+        SettingsViewModel.PendingScrollOffset = null;
+        Dispatcher.BeginInvoke(() =>
+        {
+            PageScroll.UpdateLayout();
+            PageScroll.ScrollToVerticalOffset(offset);
+        }, System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
     /// <summary>

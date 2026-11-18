@@ -17,6 +17,16 @@ public sealed class ApiScopeChoice : ViewModelBase
 
     private readonly Action<ApiScopeChoice>? _changed;
 
+    /// <summary>
+    /// チェックだけを動かし、変更の通知は出さない。「すべて許可」「すべて外す」が、11個のチェックを1個ずつ書かずに
+    /// 1回の書き込みにするため（行は書き込みの後に作り直される）
+    /// </summary>
+    internal void SetCheckedWithoutSaving(bool value)
+    {
+        _isChecked = value;
+        OnPropertyChanged(nameof(IsChecked));
+    }
+
     /// <summary>種類の名前（<see cref="ApiScopes"/>）。</summary>
     public string Scope { get; }
 

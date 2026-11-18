@@ -187,7 +187,7 @@ public sealed partial class SettingsViewModel
         ApiClients.Clear();
         foreach (var (record, menu, pending) in rows)
         {
-            ApiClients.Add(new ApiClientRow(record, ChangeApiClientScope, RevokeApiClient)
+            ApiClients.Add(new ApiClientRow(record, ChangeApiClientScope, RevokeApiClient, SetApiClientScopes)
             {
                 Menu = new ApiClientMenu(record.Id, menu, pending, _expandedApiMenus, () => RemoveApiClientMenuAsync(record.Id).Forget()),
             });
@@ -324,6 +324,21 @@ public sealed partial class SettingsViewModel
                     Scopes = choice.IsChecked
                         ? ApiScopes.All.Where(scope => scope == choice.Scope || client.Scopes.Contains(scope)).ToList()
                         : client.Scopes.Where(scope => scope != choice.Scope).ToList(),
+                }).ToList(),
+        }).Forget();
+
+    /// <summary>
+    /// 一組の種類をまとめて許す・外す。1回の書き込みにして読み直しも1回（11回書くと、そのたびに動いている API が読み直す）。
+    /// 並べ直しは <see cref="ApiScopes.All"/> の順で、別の組の許しは残す
+    /// </summary>
+    private void SetApiClientScopes(ApiClientRow row, IReadOnlyList<string> group, bool allow)
+        => SaveApiClientsAsync(list => list with
+        {
+            Clients = list.Clients.Select(client => client.Id != row.Id
+                ? client
+                : client with
+                {
+                    Scopes = ApiScopes.All.Where(scope => group.Contains(scope) ? allow : client.Scopes.Contains(scope)).ToList(),
                 }).ToList(),
         }).Forget();
 
@@ -490,13 +505,38 @@ public sealed class ApiClientRow
 {
     private readonly ApiClientRecord _record;
 
-    public ApiClientRow(ApiClientRecord record, Action<ApiClientRow, ApiScopeChoice> scopeChanged, Action<ApiClientRow> revoke)
+    public ApiClientRow(ApiClientRecord record, Action<ApiClientRow, ApiScopeChoice> scopeChanged, Action<ApiClientRow> revoke,
+        Action<ApiClientRow, IReadOnlyList<string>, bool>? setMany = null)
     {
         _record = record;
         Scopes = ApiScopes.Writes.Select(scope => new ApiScopeChoice(scope, record.Scopes?.Contains(scope) == true, choice => scopeChanged(this, choice))).ToList();
         Watches = ApiScopes.Watches.Select(scope => new ApiScopeChoice(scope, record.Scopes?.Contains(scope) == true, choice => scopeChanged(this, choice))).ToList();
         RevokeCommand = new RelayCommand(() => revoke(this));
+
+        // 変更する操作と知らせる操作は別の組にする（データを変えるかどうかが違うので、片方を許すつもりでもう片方まで動かさない）
+        void SetGroup(IReadOnlyList<ApiScopeChoice> group, bool on)
+        {
+            foreach (var choice in group)
+            {
+                choice.SetCheckedWithoutSaving(on);
+            }
+
+            setMany?.Invoke(this, [.. group.Select(choice => choice.Scope)], on);
+        }
+
+        AllowAllScopesCommand = new RelayCommand(() => SetGroup(Scopes, true));
+        ClearAllScopesCommand = new RelayCommand(() => SetGroup(Scopes, false));
+        AllowAllWatchesCommand = new RelayCommand(() => SetGroup(Watches, true));
+        ClearAllWatchesCommand = new RelayCommand(() => SetGroup(Watches, false));
     }
+
+    public RelayCommand AllowAllScopesCommand { get; }
+
+    public RelayCommand ClearAllScopesCommand { get; }
+
+    public RelayCommand AllowAllWatchesCommand { get; }
+
+    public RelayCommand ClearAllWatchesCommand { get; }
 
     public string Id => _record.Id;
 

@@ -173,3 +173,5 @@
 `Chmonos.Api/ApiClients.cs`（控えの写し・求めの列）・`ApiClientEndpoints.cs`・`ApiConnectionOwners.cs`、`ApiHost.GuardAsync`・`ApiWriter.Guard`、
 `Chmonos.Core/Models/ApiClients.cs`、`Chmonos.App/Services/ApiClientApprovalPrompt.cs`・`Views/ApiClientApprovalDialog.xaml`・`ViewModels/SettingsViewModel.Api.cs`。
 試験 `ApiClientTests`（Api。止めの数え方・上限・0・閉じたとき・重なったときも）・`SettingsApiTests`（App。止めの一覧・外す・上限・窓の答えの分け方・許した項目の並び・畳む・メニューから外す）・`ApiPluginMenuTests`（App。待っている間の知らせ・許す・拒否・外した後に送り直す）。撮る場面は ViewShot `settings-api-menu`・`BackupArchiveTests`・`SnapshotUpdateTests`。
+
+- **設定の「つないでいるソフト」には、変更する操作と知らせる操作の組ごとに「すべて許可」「すべて外す」を置く**（2026-11-18 ユーザ判断。許しの窓には置かない）。1回の書き込み（`SetApiClientScopes`）で、押した組だけを入れ・外し、別の組と別のソフトの許しは残す。「拒否」の語は許しの窓の［拒否］（続けると止める）と紛れるので、ここでは「外す」と書く。

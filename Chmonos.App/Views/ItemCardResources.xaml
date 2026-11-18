@@ -123,7 +123,8 @@
         </MenuItem>
         <Separator />
         <!-- 設定画面から戻せるので、確認は挟まない -->
-        <MenuItem Header="非表示にする" CommandParameter="{Binding}" AutomationProperties.AutomationId="CardMenu.Hide"
+        <MenuItem Header="{Binding PlacementTarget.Tag.MenuCommands.HideItemHeader, RelativeSource={RelativeSource AncestorType=ContextMenu}, FallbackValue=非表示にする}"
+                  CommandParameter="{Binding}" AutomationProperties.AutomationId="CardMenu.Hide"
                   IsEnabled="{Binding Converter={x:Static vm:CardMenuEnabledConverter.Instance}, ConverterParameter=Hide}"
                   ToolTip="{Binding Converter={x:Static vm:CardMenuTipConverter.Instance}, ConverterParameter=Hide}"
                   Command="{Binding PlacementTarget.Tag.MenuCommands.HideItemCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />

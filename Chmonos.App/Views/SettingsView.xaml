@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:Chmonos.App.Controls"
              xmlns:vm="clr-namespace:Chmonos.App.ViewModels"
+             xmlns:views="clr-namespace:Chmonos.App.Views"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
@@ -12,6 +13,8 @@
         <!-- 畳む三角（TriangleExpander）は商品ページ・編集画面と同じ物を引く（ユーザ判断 2026-09-27：畳む印を三角に揃える） -->
         <ResourceDictionary.MergedDictionaries>
             <ResourceDictionary Source="ManageResources.xaml" />
+            <!-- 非表示にした商品は検索と同じカードで出す（ユーザ判断 2026-11-18） -->
+            <views:ItemCardResources />
         </ResourceDictionary.MergedDictionaries>
 
         <Style x:Key="GroupTitle" TargetType="TextBlock">
@@ -77,7 +80,7 @@
             </Grid>
         </Border>
 
-        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24,20,24,24">
+        <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto" Padding="24,20,24,24">
             <StackPanel MaxWidth="{StaticResource ReadingMaxWidth}">
 
                 <!--
@@ -140,6 +143,7 @@
                                        AutomationProperties.AutomationId="Settings.PaneWidthNote"
                                        Text="{Binding PaneWidthNote}" />
 
+                        <Border Height="1" Background="{DynamicResource Divider}" Margin="0,18,0,14" />
                             <CheckBox Content="R-18 の商品を表示する" Style="{StaticResource SettingCheck}"
                                       IsChecked="{Binding ShowAdult, Mode=TwoWay}"
                                       ToolTip="オフにすると検索とショップの件数から外れます。統計の金額には含まれたままです。" />
@@ -148,6 +152,8 @@
                                       IsChecked="{Binding ShowRemovedBoothImages, Mode=TwoWay}"
                                       AutomationProperties.AutomationId="Settings.ShowRemovedBoothImages"
                                       ToolTip="作者が商品ページから外した画像です。手元には残っています。" />
+                        <Border Height="1" Background="{DynamicResource Divider}" Margin="0,18,0,14" />
+                        <TextBlock Text="対応アバター" Style="{StaticResource AreaTitle}" Margin="0,0,0,10" />
                             <!-- 共通素体経由の対応アバター（ユーザ指示 2026-11-04・既定はオン）。点線の札で、記録した対応と分けて見せる -->
                             <CheckBox Content="共通素体経由の対応アバターも表示する" Style="{StaticResource SettingCheck}"
                                       IsChecked="{Binding ShowAvatarsViaBase, Mode=TwoWay}"
@@ -162,7 +168,7 @@
                                       IsChecked="{Binding ShowAvatarsViaConversion, Mode=TwoWay}"
                                       AutomationProperties.AutomationId="Settings.ShowAvatarsViaConversion"
                                       ToolTip="持っているプロファイルで変換できる見込みのアバターを、商品ページに並べます。" />
-                            <CheckBox Content="確認していない変換も含める" Style="{StaticResource SettingCheck}"
+                            <CheckBox Content="確認していない変換も含める" Style="{StaticResource SettingCheck}" Margin="26,0,0,10"
                                       IsChecked="{Binding IncludeUnconfirmedConversion, Mode=TwoWay}"
                                       AutomationProperties.AutomationId="Settings.IncludeUnconfirmedConversion"
                                       ToolTip="自動で推したプロファイルのつなぎ先も、変換経由に使います。" />
@@ -176,19 +182,6 @@
                                       IsChecked="{Binding ShowVariationTargetsForUnpurchased, Mode=TwoWay}"
                                       AutomationProperties.AutomationId="Settings.ShowVariationTargetsForUnpurchased"
                                       ToolTip="編集の画面の、購入したバリエーションの欄に効きます。" />
-                            <!--
-                                読み上げソフト・自動操作に画面の中身を伝えるか（ユーザ判断 2026-11-08・既定はオン）。読み取るソフトが常駐しているだけで、
-                                画面を組むたびに読み上げ用の木の組み直しが乗る（商品ページを開くのに約25%）。効くのは起動し直してから（MainWindow.ExposesContent）。
-                                ここに「今すぐ再起動」を置かないのは、編集途中の入力が黙って消えるため（保存先の移動は先に保存を頼んでいる）
-                            -->
-                            <CheckBox Content="読み上げソフトや自動操作に画面の内容を伝える" Style="{StaticResource SettingCheck}"
-                                      IsChecked="{Binding ExposeScreenToAutomation, Mode=TwoWay}"
-                                      AutomationProperties.AutomationId="Settings.ExposeScreenToAutomation"
-                                      ToolTip="オフにすると、画面の切り替えが少し速くなります。" />
-                            <TextBlock Style="{StaticResource FieldNotice}" Margin="26,0,0,6" TextWrapping="Wrap"
-                                       AutomationProperties.AutomationId="Settings.AutomationRestartNote"
-                                       Text="{Binding AutomationRestartNote}"
-                                       Visibility="{Binding AutomationRestartNote, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
                         <Border Height="1" Background="{DynamicResource Divider}" Margin="0,18,0,14" />
                         <TextBlock Text="一覧と検索" Style="{StaticResource AreaTitle}" Margin="0,0,0,10" />
                             <!--
@@ -409,6 +402,20 @@
                                 </ItemsControl.ItemTemplate>
                             </controls:ContentItemsControl>
 
+                            <!--
+                                読み上げソフト・自動操作に画面の中身を伝えるか（ユーザ判断 2026-11-08・既定はオン）。読み取るソフトが常駐しているだけで、
+                                画面を組むたびに読み上げ用の木の組み直しが乗る（商品ページを開くのに約25%）。効くのは起動し直してから（MainWindow.ExposesContent）。
+                                ここに「今すぐ再起動」を置かないのは、編集途中の入力が黙って消えるため（保存先の移動は先に保存を頼んでいる）
+                            -->
+                            <CheckBox Content="読み上げソフトや自動操作に画面の内容を伝える" Style="{StaticResource SettingCheck}"
+                                      IsChecked="{Binding ExposeScreenToAutomation, Mode=TwoWay}"
+                                      AutomationProperties.AutomationId="Settings.ExposeScreenToAutomation"
+                                      ToolTip="オフにすると、画面の切り替えが少し速くなります。" />
+                            <TextBlock Style="{StaticResource FieldNotice}" Margin="26,0,0,6" TextWrapping="Wrap"
+                                       AutomationProperties.AutomationId="Settings.AutomationRestartNote"
+                                       Text="{Binding AutomationRestartNote}"
+                                       Visibility="{Binding AutomationRestartNote, Converter={x:Static vm:EmptyToCollapsedConverter.Instance}}" />
+
                         <Border Height="1" Background="{DynamicResource Divider}" Margin="0,18,0,14" />
                         <TextBlock Text="編集" Style="{StaticResource AreaTitle}" Margin="0,0,0,10" />
                             <CheckBox Content="編集が終わったら検索に戻る" Style="{StaticResource SettingCheck}"
@@ -540,9 +547,19 @@
                             </controls:ContentItemsControl>
                             </StackPanel>
                             </Expander>
-                                <Button Content="フォルダを追加" Style="{StaticResource SmallButton}" VerticalAlignment="Top"
-                                        AutomationProperties.AutomationId="Settings.AddFolder"
-                                        HorizontalAlignment="Right" Command="{Binding AddFolderCommand}" />
+                                <!--
+                                    ボタンは見出しの字と件数のすぐ右に置く（ユーザ判断 2026-11-18）。見出しと同じ字を見えない形（Hidden）で前に置いて場所だけ取るので、
+                                    件数の桁が変わってもずれない。左の 30 は三角の丸（22）とその右の余白（8）（ManageResources.xaml の TriangleExpander）。
+                                    隠した字は押せないので、見出しの開閉は妨げない（上に重なるのはボタンの所だけ）
+                                -->
+                                <StackPanel Orientation="Horizontal" Margin="30,0,0,0" VerticalAlignment="Top" HorizontalAlignment="Left">
+                                    <TextBlock Text="取り込み元の履歴" Style="{StaticResource SubTitle}" Visibility="Hidden" IsHitTestVisible="False" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding FoldersCountText}" Style="{StaticResource Mono}" FontSize="11" Visibility="Hidden"
+                                               IsHitTestVisible="False" Margin="10,0,0,0" VerticalAlignment="Center" />
+                                    <Button Content="フォルダを追加" Style="{StaticResource SmallButton}" Margin="14,0,0,0" VerticalAlignment="Center"
+                                            AutomationProperties.AutomationId="Settings.AddFolder"
+                                            Command="{Binding AddFolderCommand}" />
+                                </StackPanel>
                             </Grid>
 
                     <!--
@@ -633,7 +650,7 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </controls:ContentItemsControl>
-                    <Button Content="フォルダを追加" Style="{StaticResource SmallButton}" HorizontalAlignment="Left"
+                    <Button Content="置き方を指定するフォルダを選ぶ…" Style="{StaticResource SmallButton}" HorizontalAlignment="Left"
                             AutomationProperties.AutomationId="Settings.AddFolderLayout"
                             Command="{Binding AddFolderLayoutCommand}" />
                         <Border Height="1" Background="{DynamicResource Divider}" Margin="0,18,0,14" />
@@ -854,31 +871,45 @@
                                            AutomationProperties.AutomationId="Settings.HiddenNote"
                                            Text="{Binding HiddenNote}" />
                             </StackPanel>
-                            <controls:ContentItemsControl ItemsSource="{Binding Hidden}" controls:ArrowGroup.IsEnabled="True" Margin="0,0,0,10"
-                                          Visibility="{Binding HasHidden, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate DataType="{x:Type vm:RestorableRow}">
-                                        <Border Style="{StaticResource ButtonListRow}">
-                                        <Grid>
-                                            <TextBlock Text="{Binding Label}" FontSize="12" VerticalAlignment="Center"
-                                                       TextTrimming="CharacterEllipsis" Margin="0,0,220,0" />
-                                            <!-- 戻す前に中身を確かめられるよう、商品ページも開ける（動線の点検 D9） -->
-                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                                <Button Content="商品ページを開く" Style="{StaticResource SmallButton}" Margin="0,0,6,0"
-                                                        AutomationProperties.AutomationId="Settings.HiddenOpen"
-                                                        AutomationProperties.Name="{Binding Label, StringFormat={}{0}の商品ページを開く}"
-                                                        Command="{Binding OpenCommand}"
-                                                        Visibility="{Binding CanOpen, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                                <Button Content="解除" Style="{StaticResource SmallButton}"
-                                                        AutomationProperties.AutomationId="Settings.HiddenRestore"
-                                                        AutomationProperties.Name="{Binding Label, StringFormat={}{0}の非表示を解除}"
-                                                        Command="{Binding RestoreCommand}" />
-                                            </StackPanel>
-                                        </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </controls:ContentItemsControl>
+                            <!--
+                                非表示にした商品は、検索と同じカード・リストで出す（ユーザ判断 2026-11-18・案A）。右クリックの「非表示を解除」で戻す。
+                                カードの右クリック・クリックの宛先はこの画面（Tag に入る。SettingsViewModel の IItemCardHost）。
+                                カードの中身は流れてきたときに作る（DeferredCardHost）ので、多くても開くのは軽い
+                            -->
+                            <StackPanel Visibility="{Binding HasHidden, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" Margin="0,0,0,10">
+                                <DockPanel Margin="0,0,0,8">
+                                    <ContentControl DockPanel.Dock="Right" Content="{Binding}" ContentTemplate="{StaticResource ItemViewModeSwitch}" Focusable="False" />
+                                    <TextBlock Text="押すと商品ページを開きます。右クリックの「非表示を解除」で検索に戻します。" Style="{StaticResource Caption}"
+                                               TextWrapping="Wrap" VerticalAlignment="Center" />
+                                </DockPanel>
+                                <controls:ContentItemsControl ItemsSource="{Binding HiddenItems}" controls:ArrowGroup.IsEnabled="True"
+                                              AutomationProperties.AutomationId="Settings.HiddenCards"
+                                              AutomationProperties.Name="非表示にした商品"
+                                              Visibility="{Binding IsCardMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type vm:TagItemRow}">
+                                            <ContentControl Content="{Binding Card}" ContentTemplate="{StaticResource ItemCardTemplate}" Focusable="False" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </controls:ContentItemsControl>
+                                <controls:ContentItemsControl ItemsSource="{Binding HiddenItems}" controls:ArrowGroup.IsEnabled="True"
+                                              ItemTemplate="{StaticResource ManageItemTemplate}"
+                                              AutomationProperties.AutomationId="Settings.HiddenList"
+                                              AutomationProperties.Name="非表示にした商品"
+                                              Visibility="{Binding IsListMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </controls:ContentItemsControl>
+                                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ItemSizeBar}" Focusable="False" />
+                            </StackPanel>
 
                             <!--
                                 除外は溜まる一方で上限が無い。1件ごとに行を作って並べていた頃は、5,000 件で設定を開くたびに
@@ -1166,7 +1197,19 @@
                         </Expander.Header>
                         <StackPanel Margin="0,14,0,0">
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
-                                       Text="開発者向けの機能です。ほかのアプリや自作のツールから、このアプリのデータを読めるようにします。使い方はマニュアルの「API」の章にあります。" />
+                                       Text="開発者向けの機能です。ほかのアプリや自作のツールから、このアプリのデータを読めるようにします。" />
+                            <!-- 使い方の章へ（ユーザ判断 2026-11-18）。先は配った版の印のマニュアル（UpdateCheck.ManualPage）。押して開け、なぞって選べる -->
+                            <StackPanel Orientation="Horizontal" Margin="0,-6,0,12">
+                                <TextBlock Style="{StaticResource Caption}" VerticalAlignment="Center" Text="使い方は" />
+                                <controls:SelectableLink Style="{StaticResource SelectableBody}" FontSize="11" Foreground="{DynamicResource Accent}"
+                                                         controls:SelectableText.FitWidth="True" controls:SelectableText.PlainText="True"
+                                                         controls:SelectableText.Text="マニュアルの「API」の章" Margin="0,0,0,0"
+                                                         Command="{Binding OpenApiManualCommand}"
+                                                         ToolTip="ブラウザでマニュアルの「API」の章を開きます"
+                                                         AutomationProperties.AutomationId="Settings.ApiManualLink"
+                                                         AutomationProperties.Name="マニュアルのAPIの章を開く" />
+                                <TextBlock Style="{StaticResource Caption}" VerticalAlignment="Center" Text="にあります。" />
+                            </StackPanel>
 
                             <!-- アプリと同じプロセスで動く。オンにしたらすぐ待ち受け、オフですぐ止める（ユーザ判断 2026-10-13） -->
                             <CheckBox Content="APIを使う" Style="{StaticResource SettingCheck}"
@@ -1244,6 +1287,18 @@
                                                                Foreground="{DynamicResource Text}" />
                                                     <TextBlock Text="{Binding WhereText}" Style="{StaticResource Mono}" FontSize="11.5" TextWrapping="Wrap" Margin="0,3,0,0" />
                                                     <TextBlock Text="{Binding LastUsedText}" Style="{StaticResource Caption}" Margin="0,3,0,6" />
+                                                    <!-- 設定の画面だけに置く（ユーザ判断 2026-11-18。許しの窓には置かない）。変更と知らせる操作は別の組 -->
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,3">
+                                                        <TextBlock Text="変更する操作" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                                        <Button Content="すべて許可" Style="{StaticResource SmallButton}" Margin="12,0,0,0"
+                                                                AutomationProperties.AutomationId="Settings.ApiClientScopeAllow"
+                                                                AutomationProperties.Name="{Binding Name, StringFormat={}{0}の変更する操作をすべて許可}"
+                                                                Command="{Binding AllowAllScopesCommand}" />
+                                                        <Button Content="すべて外す" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
+                                                                AutomationProperties.AutomationId="Settings.ApiClientScopeClear"
+                                                                AutomationProperties.Name="{Binding Name, StringFormat={}{0}の変更する操作をすべて外す}"
+                                                                Command="{Binding ClearAllScopesCommand}" />
+                                                    </StackPanel>
                                                     <ItemsControl ItemsSource="{Binding Scopes}">
                                                         <ItemsControl.ItemsPanel>
                                                             <ItemsPanelTemplate>
@@ -1260,7 +1315,17 @@
                                                         </ItemsControl.ItemTemplate>
                                                     </ItemsControl>
                                                     <!-- 知らせる操作（plan 44）。データを変えないので、変更のチェックとは行を分ける -->
-                                                    <TextBlock Text="知らせる操作" Style="{StaticResource Caption}" Margin="0,2,0,3" />
+                                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,3">
+                                                        <TextBlock Text="知らせる操作" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                                        <Button Content="すべて許可" Style="{StaticResource SmallButton}" Margin="12,0,0,0"
+                                                                AutomationProperties.AutomationId="Settings.ApiClientWatchAllow"
+                                                                AutomationProperties.Name="{Binding Name, StringFormat={}{0}の知らせる操作をすべて許可}"
+                                                                Command="{Binding AllowAllWatchesCommand}" />
+                                                        <Button Content="すべて外す" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
+                                                                AutomationProperties.AutomationId="Settings.ApiClientWatchClear"
+                                                                AutomationProperties.Name="{Binding Name, StringFormat={}{0}の知らせる操作をすべて外す}"
+                                                                Command="{Binding ClearAllWatchesCommand}" />
+                                                    </StackPanel>
                                                     <ItemsControl ItemsSource="{Binding Watches}">
                                                         <ItemsControl.ItemsPanel>
                                                             <ItemsPanelTemplate>
@@ -1429,13 +1494,31 @@
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap"
                                        Text="BOOTHで買ったアセットを手元で管理するために、pixivプラットフォーム（BOOTH）を利用して個人が開発した、非公式のアプリケーションです。pixivが作成、配布しているアプリケーションではありません。「BOOTH」「pixiv」はピクシブ株式会社（pixiv Inc.）の登録商標です。" />
 
+                            <!-- GitHub のリポジトリとマニュアルへ（ユーザ判断 2026-11-18）。先は ManualPage（配った版の印のマニュアル） -->
+                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                <controls:SelectableLink Style="{StaticResource SelectableBody}" FontSize="12" Foreground="{DynamicResource Accent}" Margin="-2,0,0,0"
+                                                         controls:SelectableText.FitWidth="True" controls:SelectableText.PlainText="True"
+                                                         controls:SelectableText.Text="GitHub" Command="{Binding OpenRepositoryCommand}"
+                                                         ToolTip="ブラウザで GitHub のページを開きます"
+                                                         AutomationProperties.AutomationId="Settings.GitHubLink" AutomationProperties.Name="GitHub のページを開く" />
+                                <controls:SelectableLink Style="{StaticResource SelectableBody}" FontSize="12" Foreground="{DynamicResource Accent}" Margin="14,0,0,0"
+                                                         controls:SelectableText.FitWidth="True" controls:SelectableText.PlainText="True"
+                                                         controls:SelectableText.Text="マニュアル" Command="{Binding OpenManualCommand}"
+                                                         ToolTip="ブラウザで、今のバージョンのマニュアルを開きます"
+                                                         AutomationProperties.AutomationId="Settings.ManualLink" AutomationProperties.Name="マニュアルを開く" />
+                            </StackPanel>
+
                             <TextBlock Text="表記をまたぐ検索" Style="{StaticResource SubTitle}" Margin="0,16,0,6" />
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap"
                                        Text="打った語の別の表記でも探します。toriなら「鳥」、sharkなら「サメ」が見つかります。検索欄の右の「オプション」で「別表記でも検索」を入れると働きます。通信はしません。" />
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,10,0,0"
                                        Text="辞書：JMdict・KANJIDIC2（Electronic Dictionary Research and Development Group）／CC BY-SA 4.0" />
-                            <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,2,0,0"
-                                       Text="https://www.edrdg.org/edrdg/licence.html" />
+                            <controls:SelectableLink Style="{StaticResource SelectableBody}" FontSize="11" Foreground="{DynamicResource Accent}" Margin="-2,2,0,0"
+                                                     controls:SelectableText.FitWidth="True" controls:SelectableText.PlainText="True"
+                                                     HorizontalAlignment="Left" controls:SelectableText.Text="https://www.edrdg.org/edrdg/licence.html"
+                                                     Command="{Binding OpenDictionaryLicenseCommand}"
+                                                     AutomationProperties.AutomationId="Settings.DictionaryLicenseLink"
+                                                     AutomationProperties.Name="辞書の許諾のページを開く" />
 
                             <!-- 第三者のライブラリの許諾文（THIRD-PARTY-NOTICES.txt）へ、アプリから辿れるようにする（外部の点検 2026-10-07） -->
                             <TextBlock Text="使っているライブラリ" Style="{StaticResource SubTitle}" Margin="0,16,0,6" />
