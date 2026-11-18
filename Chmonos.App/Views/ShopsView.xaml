@@ -31,17 +31,17 @@
                 <WrapPanel VerticalAlignment="Center">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Height="35">
                     <!-- ★だけ（ユーザ指示 2026-09-16）。星はカードの右上でも付けられる -->
-                    <CheckBox IsChecked="{Binding FavoritesOnly, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,14,0"
+                    <CheckBox IsChecked="{Binding FavoritesOnly, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,10,0"
                               AutomationProperties.Name="星を付けたショップだけ" ToolTip="星を付けたショップだけを表示します。">
                         <TextBlock FontSize="12.5" Foreground="{DynamicResource Text}">
-                            <Run Text="★" Foreground="{DynamicResource Star}" /><Run Text=" だけ" />
+                            <Run Text="★" Foreground="{DynamicResource Star}" /><Run Text=" ショップだけ" />
                         </TextBlock>
                     </CheckBox>
                     <!--
                         カードに「更新のあった商品が n 件」の札が出ているショップだけ（2026-10-02 のメモ7）。言い方はショップの中のチェックと同じ。
                         札が1枚も無いときは出さない（押しても必ず0件になる）
                     -->
-                    <CheckBox Content="更新があるものだけ" IsChecked="{Binding UpdatedOnly, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,14,0"
+                    <CheckBox Content="更新があるものだけ" IsChecked="{Binding UpdatedOnly, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,10,0"
                               Foreground="{DynamicResource Text}"
                               Visibility="{Binding HasUpdatedShops, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     <!--
@@ -51,7 +51,7 @@
                     -->
                     <Grid VerticalAlignment="Center">
                         <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged, Delay=200}" MaxLength="500"
-                                 Width="200" Padding="9,5" BorderBrush="{DynamicResource BorderStrong}"
+                                 Width="130" Padding="9,5" BorderBrush="{DynamicResource BorderStrong}"
                                  AutomationProperties.Name="ショップを探す"
                                  ToolTip="スペースで両方、-で除く、&quot;&quot;でひとまとまり、ORでどちらか" />
                         <TextBlock Text="{Binding SearchPlaceholder}" Margin="12,0,0,0" VerticalAlignment="Center"
@@ -88,7 +88,7 @@
                     <TextBlock Text="表示順" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="14,0,7,0" />
                     <ComboBox ItemsSource="{Binding SortOptions}" SelectedItem="{Binding Sort, Mode=TwoWay}"
                               AutomationProperties.Name="表示順"
-                              DisplayMemberPath="Label" Width="170" VerticalAlignment="Center" />
+                              DisplayMemberPath="Label" Width="120" VerticalAlignment="Center" />
                     <Button Content="読み直す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                             Command="{Binding RefreshCommand}" />
                 </StackPanel>

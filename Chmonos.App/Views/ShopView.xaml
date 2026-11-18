@@ -65,7 +65,7 @@
             名前の段が流れ去ったら1行の見出し（CompactBar）を上に重ね、「このショップの商品」の行（StickyRow）はその下で止める
         -->
         <Grid SizeChanged="OnShopAreaSizeChanged">
-        <controls:InsetScrollViewer x:Name="ShopScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+        <controls:InsetScrollViewer x:Name="ShopScroll" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Disabled"
                                     CanContentScroll="False" ScrollChanged="OnShopScrollChanged">
         <StackPanel x:Name="ScrollBody" SizeChanged="OnScrollBodySizeChanged">
         <StackPanel x:Name="ShopHeader">
