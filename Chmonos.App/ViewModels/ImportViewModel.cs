@@ -1115,6 +1115,7 @@ public sealed partial class ImportViewModel : ViewModelBase
         AddToFolders(kinds, addedFolders: null);
         starting();
         var targets = kinds.Select(kind => kind.Path).ToList();
+        NoteWatchedNew(targets);
 
         // 押していないので展開先のファイルは窓で尋ねない（G2）。
         // 履歴には見つけたファイルではなく監視フォルダを載せる（「新しいファイルを取り込む」と同じ。ユーザ判断 2026-11-20）
@@ -1291,6 +1292,7 @@ public sealed partial class ImportViewModel : ViewModelBase
 
             // 押した操作なので、展開先のファイルがあれば尋ねる。監視フォルダの中なので「監視しますか」は聞かない。
             // 取り込み元の履歴には見つけたファイルではなく監視フォルダを載せる（ユーザ 2026-11-06。ファイルが1つずつ並んでいた）
+            NoteWatchedNew(take);
             AddDroppedPaths(take, startImmediately: true, offerWatch: false, history: WatchedSources(take, folders));
             return take.Count;
         }
@@ -1353,17 +1355,20 @@ public sealed partial class ImportViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// 帯の件数（起動時に見つけた監視フォルダの新着）から取り込み対象へ積んだ物。取り込みを始める時に、履歴へはファイルではなく監視フォルダを載せる。
-    /// 積んでから始めるまでの間があるので、始める時まで控える
+    /// 監視フォルダの新着として取り込み対象へ積んだ物。「開始」で一覧全部を始めた時も、履歴へはファイルではなく監視フォルダを載せる
+    /// （ユーザ判断 2026-11-20）。取り込み対象の一覧は取り込みが終わっても残り、後の「開始」で一緒に流れるので、一覧から外すまで控える
     /// </summary>
     private readonly HashSet<string> _watchedNewInList = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>監視フォルダの新着を取り込み対象へ積む（始めない）。始めた時の履歴は監視フォルダの1行（<see cref="HistoryWithWatchedSources"/>）</summary>
     internal void AddWatchedNew(IReadOnlyList<string> files)
     {
-        _watchedNewInList.UnionWith(files);
+        NoteWatchedNew(files);
         AddDroppedPaths(files);
     }
+
+    /// <summary>監視フォルダの新着として一覧へ積む物を控える（<see cref="_watchedNewInList"/>）</summary>
+    internal void NoteWatchedNew(IEnumerable<string> files) => _watchedNewInList.UnionWith(files);
 
     private async Task RemoveWatchedAsync(string? folder)
     {
@@ -1758,7 +1763,6 @@ public sealed partial class ImportViewModel : ViewModelBase
         history ??= _watchedNewInList.Count == 0
             ? targets
             : HistoryWithWatchedSources(targets, _watchedNewInList, _services.Settings.WatchedFolders);
-        _watchedNewInList.ExceptWith(targets);
 
         var added = await _services.Imports.StartOrStackAsync(new ImportRequest(() => ResolveUnpackedTargets(targets.ToList(), ask), history));
         if (added is { } count)

@@ -251,6 +251,33 @@ public class ImportWatchedNowTests
         Assert.Contains(app.Services.Settings.ImportFolders, path => Core.Services.PathText.Same(path, other));
     });
 
+    /// <summary>
+    /// 取り込み対象の一覧は取り込みが終わっても残り、後の「開始」は一覧全部で始める。そのときも、新着だったファイルは1つずつ載せない（ユーザ判断 2026-11-20）
+    /// </summary>
+    [Fact]
+    public Task 新着を取り込んだ後に開始で一覧全部を始めても_ファイルは履歴に載せない() => TestApp.Run(async app =>
+    {
+        var watched = Path.GetDirectoryName(app.NewFile(@"watched\keep.txt"))!;
+        await app.ChangeSettingsAsync(settings => settings with { WatchedFolders = [watched] });
+        var main = await app.StartAsync();
+        var costume = app.NewFile(@"watched\costume.zip", [1, 2, 3, 4]);
+        var other = app.NewFile(@"other\dropped.zip", [9, 9, 9]);
+
+        main.Import.ImportWatchedCommand.Execute(null);
+        await UiThread.Until(() => main.Import.Summary is not null, "新着の取り込みが終わる");
+        await app.SettleAsync();
+
+        main.Import.AddDroppedPaths([other]);
+        await UiThread.Until(() => main.Import.Folders.Count == 2, "取り込み対象に積む");
+        main.Import.StartCommand.Execute(null);
+        await UiThread.Until(
+            () => app.Services.Settings.ImportFolders.Any(path => Core.Services.PathText.Same(path, other)),
+            "2回目の取り込みの履歴を書く");
+        await app.SettleAsync();
+
+        AssertHistoryHasOnlyTheFolder(app, watched, costume);
+    });
+
     [Fact]
     public Task 監視していなければ押せない() => TestApp.Run(async app =>
     {

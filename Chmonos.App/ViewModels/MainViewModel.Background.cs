@@ -147,8 +147,12 @@ public sealed partial class MainViewModel
                     // 続きの対象には監視していないフォルダもあるが、起動時に「監視しますか」とも聞かない。
                     // 履歴には新着のファイルではなく監視フォルダを載せる（「新しいファイルを取り込む」と同じ。ユーザ判断 2026-11-20）。続きはそのまま
                     var history = ImportViewModel.HistoryWithWatchedSources(present, result.NewFiles, watched);
-                    RunOnUiThread(() => Import.AddDroppedPaths(
-                        present, startImmediately: true, offerWatch: false, askAboutUnpacked: false, history: history));
+                    RunOnUiThread(() =>
+                    {
+                        Import.NoteWatchedNew(present.Intersect(result.NewFiles, StringComparer.OrdinalIgnoreCase));
+                        Import.AddDroppedPaths(
+                            present, startImmediately: true, offerWatch: false, askAboutUnpacked: false, history: history);
+                    });
                     return;
                 }
 
