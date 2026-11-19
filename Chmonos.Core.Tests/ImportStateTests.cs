@@ -161,7 +161,7 @@ public class ImportStateTests : IDisposable
 
         var removed = await new Chmonos.Core.Services.ImportedItemRemoval(_store).RemoveAsync();
 
-        Assert.Equal(new Chmonos.Core.Services.ImportedItemsRemoved(Deleted: 2, Kept: 1), removed);
+        Assert.Equal(new Chmonos.Core.Services.ImportedItemsRemoved(Deleted: 2, Kept: 1, ReturnedFiles: 2), removed);
         Assert.Null(await _store.Items.LoadAsync("222"));
         Assert.Null(await _store.Items.LoadAsync("444"));
         Assert.Equal("人が書いた", (await _store.Items.LoadAsync("333"))!.Local.Memo);
@@ -171,6 +171,62 @@ public class ImportStateTests : IDisposable
         Assert.All(Directory.GetFiles(source, "*.zip"), path => Assert.True(File.Exists(path)));
         Assert.Equal(3, Directory.GetFiles(source, "*.zip").Length);
         Assert.Equal(["333"], _store.ImportState.Load().CreatedItems);
+
+        // 消した商品のファイルは未確定に戻る（open 119・ユーザ判断 2026-11-20）。残した商品のファイルは戻さない
+        Assert.Equal(
+            ["item_222.zip", "item_444.zip"],
+            _store.Unresolved.Load().SelectMany(file => file.Paths).Select(Path.GetFileName).Order(StringComparer.Ordinal));
+        // ダウンロード元もファイルを外した時と同じく読む（未確定の束ね方に使う）
+        Assert.All(_store.Unresolved.Load(), file => Assert.StartsWith("https://booth.pm/ja/items/", file.ZoneHostUrl));
+    }
+
+    /// <summary>
+    /// 消した商品のファイルを未確定に戻すとき、ほかの商品がまだ持つ中身・実体の無いファイルは戻さず、
+    /// 既に未確定にある中身は2行にしない（open 119・ファイルを外した時と同じ決まり）
+    /// </summary>
+    [Fact]
+    public async Task ReturnsOnlyFreeLivingFilesOfDeletedItemsToUnresolved()
+    {
+        var source = CreateSource("222", "333", "444");
+        _failAfter = 3;
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => _pipeline.RunAsync([source]));
+
+        var hash222 = (await _store.Items.LoadAsync("222"))!.Local.OwnedFiles.Single().Hash;
+        var hash333 = (await _store.Items.LoadAsync("333"))!.Local.OwnedFiles.Single().Hash;
+        var file444 = (await _store.Items.LoadAsync("444"))!.Local.OwnedFiles.Single();
+
+        // 222 の中身は前からある商品も持っている（両方に付けた）
+        await _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = "555",
+            Booth = new BoothBlock(),
+            Local = new LocalBlock { LocalFiles = [new LocalFileRecord { Paths = [@"X:\elsewhere.zip"], Hash = hash222, SizeBytes = 3 }] },
+        });
+
+        // 333 のファイルはもう消えている
+        File.Delete(Path.Combine(source, "item_333.zip"));
+
+        // 444 の中身は既に未確定にある
+        await _store.Unresolved.UpdateAsync(current =>
+        {
+            current.Add(new UnresolvedFile
+            {
+                Hash = file444.Hash,
+                Paths = file444.Paths,
+                SizeBytes = file444.SizeBytes,
+                ModifiedAtUtc = DateTimeOffset.UnixEpoch,
+                FirstSeenAt = DateTimeOffset.UnixEpoch,
+            });
+            return current;
+        });
+
+        var removed = await new Chmonos.Core.Services.ImportedItemRemoval(_store).RemoveAsync();
+
+        Assert.Equal(new Chmonos.Core.Services.ImportedItemsRemoved(Deleted: 3, Kept: 0, ReturnedFiles: 0), removed);
+        var unresolved = Assert.Single(_store.Unresolved.Load());
+        Assert.Equal(file444.Hash, unresolved.Hash);
+        Assert.Equal(DateTimeOffset.UnixEpoch, unresolved.FirstSeenAt);
+        Assert.DoesNotContain(_store.Unresolved.Load(), file => file.Hash == hash333);
     }
 
     /// <summary>

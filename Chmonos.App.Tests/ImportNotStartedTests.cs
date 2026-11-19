@@ -41,6 +41,34 @@ public class ImportNotStartedTests
         Assert.False(main.Import.ShowsNotStarted);
     });
 
+    /// <summary>
+    /// 展開先のファイルの窓には「やめる」が無く、どちらを選んでも取り込みが始まる（open 122）。始めると頼んだ時に帯の印を外すのは、
+    /// これが前提。窓にやめる道を足すなら、やめた時に帯へ戻す直しも要る（ユーザ判断 2026-11-20：帯を戻す）
+    /// </summary>
+    [Fact]
+    public Task 展開先のファイルの窓はやめられず_いいえでも始まる() => TestApp.Run(async app =>
+    {
+        var main = await app.StartAsync();
+        app.NewFile(@"dl\costume.zip", [1, 2, 3]);
+        var inner = app.NewFile(@"dl\costume\inner.txt", [4, 5, 6]);
+        var started = new List<IReadOnlyList<string>>();
+        app.Services.Imports.Started += work => started.Add(work.Accepted);
+        app.Answer = request => request.Caption == "展開先のファイル"
+            ? System.Windows.MessageBoxResult.No
+            : System.Windows.MessageBoxResult.OK;
+
+        main.Import.TakeFromHistoryCommand.Execute(inner);
+        main.Import.StartNotStartedCommand.Execute(null);
+        await UiThread.Until(() => started.Count == 1, "取り込みが始まる");
+
+        var question = Assert.Single(app.Notices, request => request.Caption == "展開先のファイル");
+        Assert.Equal(System.Windows.MessageBoxButton.YesNo, question.Button);
+        Assert.Equal([inner], started[0]);
+        Assert.False(main.Import.ShowsNotStarted);
+        await UiThread.Until(() => !main.Import.IsRunning, "終わる");
+        await app.SettleAsync();
+    });
+
     [Fact]
     public Task 取り込み中は出さず_外した対象は数えない() => TestApp.Run(async app =>
     {

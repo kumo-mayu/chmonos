@@ -811,50 +811,7 @@ internal sealed class LocalFileEditor(DataStore store)
 
         if (alive.Count > 0)
         {
-            var modified = DateTimeOffset.Now;
-            try
-            {
-                modified = new DateTimeOffset(File.GetLastWriteTimeUtc(alive[0]), TimeSpan.Zero);
-            }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-            {
-                // 日時が読めなくても未確定には出したいので、今の時刻で通す
-            }
-
-            // ダウンロード元の記録（Zone.Identifier）は、未確定の記録を作るここで読む（ユーザ判断 2026-09-30）。
-            // 商品の記録は持っておらず、未確定の画面は開くたびには読み直さない（UnresolvedOrigin）。
-            // 入れないと、展開した中身は次に取り込み直すまで元zipの束に入らず、フォルダで束ねられる。
-            // 人の操作1回につき1ファイルで、読めなければ無いものとして返る
-            var zone = BoothZipInspector.ZoneIdentifierReader.Read(alive[0]);
-
-            var entry = new UnresolvedFile
-            {
-                Hash = target.Hash,
-                Paths = alive,
-                SizeBytes = target.SizeBytes,
-                ModifiedAtUtc = modified,
-                FirstSeenAt = DateTimeOffset.Now,
-                Contents = target.Contents,
-                ZoneHostUrl = zone.HostUrl,
-                ZoneReferrerUrl = zone.ReferrerUrl,
-
-                // 開けなかった印は商品の記録から引き継ぐ。未確定の画面は開き直して確かめないので、
-                // ここで落とすと次の取り込みまで普通の未確定に見える
-                ArchiveBroken = target.ArchiveBroken,
-            };
-
-            // 錠の中で今の一覧に足す（技術的負債 1-2）
-            await store.Unresolved.UpdateAsync(
-                current =>
-                {
-                    if (!current.Any(file => string.Equals(file.Hash, hash, StringComparison.OrdinalIgnoreCase)))
-                    {
-                        current.Add(entry);
-                    }
-
-                    return current;
-                },
-                cancellationToken);
+            await AddUnresolvedAsync(store, [ToUnresolved(target, alive)], cancellationToken);
         }
 
         // 在るかを見るのは落ちたネットワークドライブなら数秒かかり、未確定の錠も待つ。
@@ -906,6 +863,76 @@ internal sealed class LocalFileEditor(DataStore store)
     /// 古い版だけが残る外し方も「空になった」として、画面が最後のファイルのときと同じく残し方を聞けるようにする（⑤-B）。
     /// </summary>
     private static bool HoldsAnything(LocalBlock local) => local.IsOwned;
+
+    /// <summary>
+    /// 商品から離れたファイルの、未確定の記録（ファイルを外した時と、取り込みの中断で商品を消した時・open 119。同じ形で出す）。
+    /// <paramref name="alive"/> は実体が残っているパス（1つ以上）。
+    /// </summary>
+    internal static UnresolvedFile ToUnresolved(LocalFileRecord target, IReadOnlyList<string> alive)
+    {
+        var modified = DateTimeOffset.Now;
+        try
+        {
+            modified = new DateTimeOffset(File.GetLastWriteTimeUtc(alive[0]), TimeSpan.Zero);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // 日時が読めなくても未確定には出したいので、今の時刻で通す
+        }
+
+        // ダウンロード元の記録（Zone.Identifier）は、未確定の記録を作るここで読む（ユーザ判断 2026-09-30）。
+        // 商品の記録は持っておらず、未確定の画面は開くたびには読み直さない（UnresolvedOrigin）。
+        // 入れないと、展開した中身は次に取り込み直すまで元zipの束に入らず、フォルダで束ねられる。
+        // 人の操作1回につき1ファイルか、中断で消した商品の分だけで、読めなければ無いものとして返る
+        var zone = BoothZipInspector.ZoneIdentifierReader.Read(alive[0]);
+
+        return new UnresolvedFile
+        {
+            Hash = target.Hash,
+            Paths = [.. alive],
+            SizeBytes = target.SizeBytes,
+            ModifiedAtUtc = modified,
+            FirstSeenAt = DateTimeOffset.Now,
+            Contents = target.Contents,
+            ZoneHostUrl = zone.HostUrl,
+            ZoneReferrerUrl = zone.ReferrerUrl,
+
+            // 開けなかった印は商品の記録から引き継ぐ。未確定の画面は開き直して確かめないので、
+            // ここで落とすと次の取り込みまで普通の未確定に見える
+            ArchiveBroken = target.ArchiveBroken,
+        };
+    }
+
+    /// <summary>未確定に足す。同じ中身が既にあれば足さない（1つの中身は未確定に1行）。</summary>
+    /// <returns>足した数。</returns>
+    internal static async Task<int> AddUnresolvedAsync(
+        DataStore dataStore, IReadOnlyList<UnresolvedFile> entries, CancellationToken cancellationToken)
+    {
+        if (entries.Count == 0)
+        {
+            return 0;
+        }
+
+        // 錠の中で今の一覧に足す（技術的負債 1-2）
+        var added = 0;
+        await dataStore.Unresolved.UpdateAsync(
+            current =>
+            {
+                added = 0;
+                foreach (var entry in entries)
+                {
+                    if (!current.Any(file => string.Equals(file.Hash, entry.Hash, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        current.Add(entry);
+                        added++;
+                    }
+                }
+
+                return current;
+            },
+            cancellationToken);
+        return added;
+    }
 
     /// <summary>
     /// 外したファイルをこの商品に戻す（商品ページの灰色の行の「この商品に戻す」・ユーザ判断 2026-09-12）。

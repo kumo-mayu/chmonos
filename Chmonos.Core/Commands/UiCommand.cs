@@ -634,7 +634,7 @@ public abstract record UiCommand
 
     /// <summary>
     /// 中断した取り込みが新しく作った商品を消す（中断の窓の「中断して、この取り込みで新しく登録した n 件を削除する」・open 119）。
-    /// 人が手を入れた商品は残す。ディスクのファイルには触らない。取り込みが止まってから送る。結果は <see cref="CommandResult.ImportedItemsDeleted"/>
+    /// 人が手を入れた商品は残す。ディスクのファイルには触らず、消した商品のファイルは未確定に戻す。取り込みが止まってから送る。結果は <see cref="CommandResult.ImportedItemsDeleted"/>
     /// </summary>
     public record DeleteImportedItems : UiCommand;
 

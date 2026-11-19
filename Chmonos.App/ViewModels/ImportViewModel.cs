@@ -1424,7 +1424,7 @@ public sealed partial class ImportViewModel : ViewModelBase
         "「中断する」\n取り込めた商品はそのまま残ります。\n\n"
         + $"「中断して、この取り込みで新しく登録した {created} 件を削除する」\n"
         + "この取り込みで新しく登録した商品を、説明と画像も含めて削除します。元に戻せません。\n"
-        + "名前やメモを入れた商品は残します。ファイルは削除しません。",
+        + "名前やメモを入れた商品は残します。ファイルは削除せず、未確定に戻します。",
         "中断する",
         $"中断して、この取り込みで新しく登録した {created} 件を削除する");
 
@@ -1459,9 +1459,17 @@ public sealed partial class ImportViewModel : ViewModelBase
     {
         // 止める前に取り込みが最後まで終わっていると、記録はもう空
         { Deleted: 0, Kept: 0 } => "削除する商品はありませんでした。",
-        { Kept: 0 } => $"この取り込みで登録した {removed.Deleted} 件を削除しました。",
-        _ => $"この取り込みで登録した {removed.Deleted} 件を削除しました。名前やメモが入っていた {removed.Kept} 件は残しました。",
+        { Kept: 0 } => DeletedSentence(removed),
+        _ => DeletedSentence(removed) + $"名前やメモが入っていた {removed.Kept} 件は残しました。",
     };
+
+    /// <summary>
+    /// 消した数と、そのファイルを未確定に戻した数を1文で（open 119・ユーザ判断 2026-11-20）。どこへ行ったかを言わないと、
+    /// 窓で「未確定に戻します」と読んだ人が探せない。0件（実体が無い・ほかの商品が持つ）なら言わない
+    /// </summary>
+    private static string DeletedSentence(Core.Services.ImportedItemsRemoved removed) => removed.ReturnedFiles > 0
+        ? $"この取り込みで登録した {removed.Deleted} 件を削除し、ファイル {removed.ReturnedFiles} 件を未確定に戻しました。"
+        : $"この取り込みで登録した {removed.Deleted} 件を削除しました。";
 
     private void OnUnpackedRowChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
     {
@@ -1671,7 +1679,9 @@ public sealed partial class ImportViewModel : ViewModelBase
     {
         var targets = only?.ToList() ?? Folders.ToList();
 
-        // 始めると頼んだ時点で「まだ始めていない」から外す。展開フォルダの問いでやめても、人が始めると決めて押した物なので帯に戻さない
+        // 始めると頼んだ時点で「まだ始めていない」から外す。展開先のファイルの窓（ResolveUnpackedTargets）は「はい・いいえ」だけで、
+        // Esc も × も効かない（NoticeLayout）。どちらを選んでも取り込みは始まるので、窓の答えを待たずに外してよい
+        // （open 122 の「問いでやめると帯が戻らない」は、やめる道が無いので起きない。2026-11-20 に確かめた）
         _notStarted.ExceptWith(targets);
         RaiseNotStarted();
 
