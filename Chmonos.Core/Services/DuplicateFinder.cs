@@ -47,6 +47,13 @@ public sealed record DuplicateGroup
     /// </summary>
     public required long ReclaimableBytes { get; init; }
 
+    /// <summary>
+    /// <see cref="DuplicateKind.ArchiveAndUnpacked"/> の zip の大きさ（記録の値）。zip だけをごみ箱へ移す時に空く量
+    /// （ユーザ判断 2026-11-20）。<see cref="ReclaimableBytes"/> は展開したフォルダを消す前提の値で、zip だけを移す操作の量とは違う。
+    /// 別の種類の組では 0
+    /// </summary>
+    public long ArchiveBytes { get; init; }
+
     /// <summary>商品をまたいでいるか。1つの商品の中だけなら false。</summary>
     public bool CrossesItems => Places.Select(place => place.ItemId).Distinct().Count() > 1;
 }
@@ -172,12 +179,12 @@ public static class DuplicateFinder
                     continue;
                 }
 
-                var archivePath = item.Local.OwnedFiles
-                    .SelectMany(file => file.Paths)
-                    .FirstOrDefault(path =>
-                        string.Equals(Path.GetFileName(path), archiveName, StringComparison.OrdinalIgnoreCase));
+                var archiveFile = item.Local.OwnedFiles.FirstOrDefault(file => file.Paths.Any(path =>
+                    string.Equals(Path.GetFileName(path), archiveName, StringComparison.OrdinalIgnoreCase)));
+                var archivePath = archiveFile?.Paths.FirstOrDefault(path =>
+                    string.Equals(Path.GetFileName(path), archiveName, StringComparison.OrdinalIgnoreCase));
 
-                if (archivePath is null)
+                if (archiveFile is null || archivePath is null)
                 {
                     continue;
                 }
@@ -195,6 +202,7 @@ public static class DuplicateFinder
 
                     // 展開した方を消す前提。zipは配布物そのもので作り直せない
                     ReclaimableBytes = folder.TotalBytes,
+                    ArchiveBytes = archiveFile.SizeBytes,
                 };
             }
         }

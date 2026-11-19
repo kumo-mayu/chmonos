@@ -64,6 +64,15 @@ public static class ItemListColumnsView
         /// <summary>右クリックで出した列を次に置く所。続けて出すと、出した列の右へ順に並ぶ。</summary>
         private string? _anchor;
 
+        /// <summary>
+        /// 「この列を左へ・右へ」で動かす列＝メニューを開いた見出しの列。<see cref="_anchor"/> と違い、列を出しても動かさない
+        /// （出した列に移ると、「この列」が押した見出しでなくなる）
+        /// </summary>
+        private string? _target;
+
+        private const string MoveLeftId = MenuAutomationId + ".MoveLeft";
+        private const string MoveRightId = MenuAutomationId + ".MoveRight";
+
         public Host(ListView list)
         {
             _list = list;
@@ -171,7 +180,9 @@ public static class ItemListColumnsView
             menu.Opened += (_, _) =>
             {
                 // 右クリックした見出しの列の右に出す。見出しの無い右の余白なら右端
+                // Shift+F10・メニューキーで開いた時も、焦点のある見出しが PlacementTarget になる（WPF の既定）ので同じ列を指す
                 _anchor = (menu.PlacementTarget as GridViewColumnHeader)?.Column is { } clicked && _keys.TryGetValue(clicked, out var key) ? key : null;
+                _target = _anchor;
                 FillMenu(menu);
             };
             return menu;
@@ -184,6 +195,11 @@ public static class ItemListColumnsView
             {
                 return;
             }
+
+            // キーボードだけでも並べ替えられるように（ドラッグの代わり。ユーザ判断 2026-11-20）。端の列では押せない
+            AddMoveItem(menu, "この列を左へ", MoveLeftId, -1);
+            AddMoveItem(menu, "この列を右へ", MoveRightId, 1);
+            menu.Items.Add(new Separator());
 
             var index = 0;
             foreach (var heading in ItemListColumnCatalog.Headings)
@@ -212,6 +228,20 @@ public static class ItemListColumnsView
             RefreshMenu(menu, columns);
         }
 
+        private void AddMoveItem(ContextMenu menu, string header, string automationId, int direction)
+        {
+            var item = new MenuItem { Header = header, Tag = direction };
+            AutomationProperties.SetAutomationId(item, automationId);
+            item.Click += (_, _) =>
+            {
+                if (_columns is { } columns && _target is { } key)
+                {
+                    columns.Move(key, direction);
+                }
+            };
+            menu.Items.Add(item);
+        }
+
         private void OnMenuItemClick(ContextMenu menu, MenuItem item)
         {
             if (_columns is not { } columns || item.Tag is not string key)
@@ -229,8 +259,13 @@ public static class ItemListColumnsView
         }
 
         /// <summary>チェックと押せるかを今の並びに合わせる（最後の1列は外せない）。</summary>
-        private static void RefreshMenu(ContextMenu menu, ItemListColumns columns)
+        private void RefreshMenu(ContextMenu menu, ItemListColumns columns)
         {
+            foreach (var move in menu.Items.OfType<MenuItem>().Where(item => item.Tag is int))
+            {
+                move.IsEnabled = _target is { } target && columns.CanMove(target, (int)move.Tag);
+            }
+
             foreach (var item in menu.Items.OfType<MenuItem>().SelectMany(group => group.Items.OfType<MenuItem>()))
             {
                 var key = (string)item.Tag;

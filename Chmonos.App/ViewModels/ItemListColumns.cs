@@ -163,6 +163,37 @@ public sealed class ItemListColumns : ViewModelBase
     /// <summary>見出しのドラッグで並べ替えた後の並び。選ぶ列は左端に置き直す（<see cref="ItemListColumnCatalog.Normalize"/>）。</summary>
     public void Reorder(IEnumerable<string> order) => Save(ItemListColumnCatalog.Normalize(_screen, order));
 
+    /// <summary>
+    /// 列を左（-1）か右（+1）へ1つ動かせるか。端の列では動かせない。選ぶ列は動かさず、動く先にもならない
+    /// （左端はいつも選ぶ列。ドラッグと同じ決まり）
+    /// </summary>
+    public bool CanMove(string key, int direction)
+    {
+        var order = MovableOrder();
+        var index = order.IndexOf(key);
+        return key != ItemListColumnCatalog.Select && index >= 0 && index + direction >= 0 && index + direction < order.Count;
+    }
+
+    /// <summary>
+    /// 列を1つ左・右へ動かす（ユーザ判断 2026-11-20：ドラッグができない人のための、キーボードでの並べ替え）。
+    /// 並べ替えた順は画面ごとに覚える（ドラッグと同じ <see cref="Save"/>）
+    /// </summary>
+    public void Move(string key, int direction)
+    {
+        if (!CanMove(key, direction))
+        {
+            return;
+        }
+
+        var order = MovableOrder();
+        var index = order.IndexOf(key);
+        (order[index], order[index + direction]) = (order[index + direction], order[index]);
+        Save([ItemListColumnCatalog.Select, .. order]);
+    }
+
+    /// <summary>選ぶ列を除いた並び。</summary>
+    private List<string> MovableOrder() => Order.Where(column => column != ItemListColumnCatalog.Select).ToList();
+
     private void Save(IReadOnlyList<string> order)
     {
         _widths.SetListColumns(_screen, order);

@@ -148,4 +148,49 @@ public sealed class StatsDuplicateRemoveTests
             File.Delete(a);
         }
     });
+
+    [Fact]
+    public void zipと展開したフォルダの組の_空く量は_zipの大きさ()
+    {
+        var group = new DuplicateGroup
+        {
+            Kind = DuplicateKind.ArchiveAndUnpacked,
+            Label = "x",
+            UnitBytes = 900,
+            ReclaimableBytes = 900,
+            ArchiveBytes = 200,
+            Places = [new DuplicatePlace("1", "a", @"C:\x.zip"), new DuplicatePlace("1", "a", @"C:\x")],
+        };
+
+        var row = new DuplicateRowViewModel(group);
+
+        // 移せるのは zip だけなので、展開したフォルダの大きさ（900）は出さない
+        Assert.Equal(DisplayText.Size(200) + " 空きます", row.ReclaimText);
+        Assert.NotEqual(DisplayText.Size(900) + " 空きます", row.ReclaimText);
+    }
+
+    [Fact]
+    public Task zipだけを移す確かめの窓には_zipの大きさを出す() => TestApp.Run(async app =>
+    {
+        var item = Item("1000001", @"C:\none\x.zip");
+        await app.AddItemAsync(item);
+        var main = await app.StartAsync();
+        var stats = new StatsViewModel(app.Services, main, new DateOnly(2026, 11, 19));
+        await UiThread.Until(() => !stats.IsLoading, "統計の集計");
+        var group = new DuplicateGroup
+        {
+            Kind = DuplicateKind.ArchiveAndUnpacked,
+            Label = "x",
+            UnitBytes = 900,
+            ReclaimableBytes = 900,
+            ArchiveBytes = 2048,
+            Places = [new DuplicatePlace("1000001", "a", @"C:\none\x.zip"), new DuplicatePlace("1000001", "a", @"C:\none\x")],
+        };
+
+        await stats.RemovePlaceAsync(group, group.Places[0]);
+
+        Assert.Contains(DisplayText.Size(2048), app.Notices[0].Text);
+        stats.OnLeaving();
+        await app.SettleAsync();
+    });
 }

@@ -769,7 +769,7 @@
                             AutomationProperties.AutomationId="SelectionBar.AddToModification"
                             Command="{Binding AddSelectionToModificationCommand}"
                             ToolTip="どの改変に追加するかを選んでから、選んだ商品をまとめて追加します。" />
-                    <Button Content="全てUnityへ送る…" Style="{StaticResource SmallButton}" Margin="0,2,7,2"
+                    <Button Content="Unityへ送る…" Style="{StaticResource SmallButton}" Margin="0,2,7,2"
                             AutomationProperties.AutomationId="SelectionBar.SendToUnity"
                             Command="{Binding SendSelectionToUnityCommand}"
                             ToolTip="開いているUnityへ1件ずつ送ります。取り込み画面を閉じると次へ進みます。" />
@@ -781,7 +781,7 @@
                                 <!-- 帯が1行に入り切らないときに畳んだボタン（SelectionBarFold）。畳んでいなければ出さない -->
                                 <MenuItem Header="改変に追加…" Command="{Binding AddSelectionToModificationCommand}" Visibility="Collapsed"
                                           AutomationProperties.AutomationId="SelectionBar.More.Folded.AddToModification" />
-                                <MenuItem Header="全てUnityへ送る…" Command="{Binding SendSelectionToUnityCommand}" Visibility="Collapsed"
+                                <MenuItem Header="Unityへ送る…" Command="{Binding SendSelectionToUnityCommand}" Visibility="Collapsed"
                                           AutomationProperties.AutomationId="SelectionBar.More.Folded.SendToUnity" />
                                 <Separator Visibility="Collapsed" AutomationProperties.AutomationId="SelectionBar.More.FoldedSeparator" />
                                 <!-- 探すのは選んだ物のうち見つからないファイルを持つ商品だけ。その数を出す（ユーザ判断 2026-11-20） -->

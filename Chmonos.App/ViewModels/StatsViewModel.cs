@@ -73,14 +73,16 @@ public sealed class DuplicateRowViewModel(
 {
     public string Label { get; } = group.Label;
 
-    public string ReclaimText { get; } = Core.Models.DisplayText.Size(group.ReclaimableBytes) + " 空きます";
+    // zip と展開したフォルダの組は、移せるのが zip だけなので zip の大きさを出す（ユーザ判断 2026-11-20）
+    public string ReclaimText { get; } = Core.Models.DisplayText.Size(
+        group.Kind == DuplicateKind.ArchiveAndUnpacked ? group.ArchiveBytes : group.ReclaimableBytes) + " 空きます";
 
     /// <summary>
     /// 何が起きているかの一言。消し方が違うので種類を言い分ける。
     /// </summary>
     public string KindText { get; } = group.Kind switch
     {
-        DuplicateKind.ArchiveAndUnpacked => "zipと展開したフォルダの両方があります。空く量は展開した方の分です。zipだけをごみ箱へ移すこともできます",
+        DuplicateKind.ArchiveAndUnpacked => "zipと展開したフォルダの両方があります。空く量は zip の分です。zip だけをごみ箱へ移せます",
         _ when group.CrossesItems => $"{group.Places.Count} 箇所にあり、別の商品にも紐付いています",
         _ => $"{group.Places.Count} 箇所に同じ中身があります",
     };
@@ -1235,7 +1237,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         var hash = group.Hash ?? string.Empty;
         var others = group.Places.Where(other => !string.Equals(other.Path, place.Path, StringComparison.OrdinalIgnoreCase)).ToList();
         var text = isArchive
-            ? $"この zip をごみ箱へ移します。\n\n{place.Path}\n\n展開したフォルダはそのまま残ります。ごみ箱を空にするまでは元に戻せます。"
+            ? $"この zip をごみ箱へ移します。\n\n{place.Path}\n（{Core.Models.DisplayText.Size(group.ArchiveBytes)}）\n\n展開したフォルダはそのまま残ります。ごみ箱を空にするまでは元に戻せます。"
             : $"このファイルをごみ箱へ移します。\n\n{place.Path}\n（{Core.Models.DisplayText.Size(group.UnitBytes)}）\n\n"
                 + $"同じ中身のファイルは、ほかの {others.Count} 箇所に残ります。ごみ箱を空にするまでは元に戻せます。";
 
