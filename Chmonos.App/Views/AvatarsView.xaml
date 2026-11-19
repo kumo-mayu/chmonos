@@ -314,20 +314,29 @@
 
         <Border DockPanel.Dock="Top" Height="52" Background="{DynamicResource Surface}"
                 BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
+            <!--
+                左は残りの幅だけを使い、説明は入り切らなければ「…」で切る。横の StackPanel だと幅を測らずに伸び、
+                幅900で説明が右の「対応アバターを検出する」の下に潜っていた（2026-11-20。統計の見出しと同じ省き方）
+            -->
             <Grid Margin="24,0">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <DockPanel VerticalAlignment="Center" Margin="0,0,12,0">
                     <!-- 戻る（U23）。商品ページの札から来たときに、元の商品へ戻れるように -->
-                    <StackPanel Orientation="Horizontal"
+                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Left"
                                 Visibility="{Binding CanGoBack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                         <Button Content="{Binding BackText}" Command="{Binding BackCommand}" BorderThickness="0" Background="Transparent" />
                         <Border Width="1" Height="20" Background="{DynamicResource Border}" Margin="12,0" />
                     </StackPanel>
-                    <TextBlock Text="アバターの管理" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" />
+                    <TextBlock Text="アバターの管理" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" DockPanel.Dock="Left" />
                     <TextBlock Text="対応アバターの名前と共通素体、変換ツールのプロファイルを管理します"
-                               Style="{StaticResource Caption}" Margin="14,0,0,0" VerticalAlignment="Center" />
-                </StackPanel>
+                               Style="{StaticResource Caption}" Margin="14,0,0,0" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                </DockPanel>
 
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <!--
                         普通のボタンの見た目にする（2026-11-18 のメモ・ユーザ判断）。検出は取り込み・未確定の登録・起動時の間隔で自動で走るので、
                         この画面の主の操作ではない。青にすると押すべき物に見える
@@ -1179,7 +1188,11 @@
                                         素体の側からアバターを足す欄（メモ46）。候補はほかのアバターの候補と同じ作り（群・呼び方・絵）。
                                         ほかの素体に入っている物は聞かずに移し、欄の下で知らせる（アバターの側で選ぶと聞かずに入るのと揃える）
                                     -->
-                                    <Grid Width="280" HorizontalAlignment="Left" Margin="0,12,0,0">
+                                    <!-- 幅は280まで。右の欄が狭い（幅900）と欄の方が広く、右が切れていたので、残りの幅に縮める（2026-11-20） -->
+                                    <Grid Margin="0,12,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" MaxWidth="280" />
+                                        </Grid.ColumnDefinitions>
                                         <controls:SuggestBox Source="{Binding MemberCandidates}" CommitCommand="{Binding AddMemberCommand}"
                                                              InfoSelector="{Binding MemberInfoSelector}" GroupHeadings="{Binding MemberGroupHeadings}"
                                                              IconSelector="{Binding MemberIconSelector}"
