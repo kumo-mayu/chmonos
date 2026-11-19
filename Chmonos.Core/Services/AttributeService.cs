@@ -352,7 +352,7 @@ public sealed class AttributeService : IAttributeService
 
     /// <summary>
     /// マスタを読み直してから書き換える。<c>attributes.json</c> は書き手が2つ（管理画面・編集画面）あるので、
-    /// **読んでから書くまでを錠の中に入れる**（`docs/spec/data-model.md`）。
+    /// **読んでから書くまでを錠の中に入れる**（`docs/spec/data-writing.md`）。
     /// <paramref name="change"/> が null を返したら書かない。
     /// </summary>
     private async Task<AttributeMaster> ChangeMasterAsync(

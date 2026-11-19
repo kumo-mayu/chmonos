@@ -806,7 +806,7 @@ public sealed class UserTagService : IUserTagService
 
     /// <summary>
     /// マスタを読み直してから書き換える。<c>userTags.json</c> は書き手が2つ（管理画面・編集画面）あるので、
-    /// **読んでから書くまでを錠の中に入れる**（`docs/spec/data-model.md`）。
+    /// **読んでから書くまでを錠の中に入れる**（`docs/spec/data-writing.md`）。
     /// 錠の外で読むと、並べ替えや改名の最中に編集画面が足したタグが消える。
     /// <paramref name="change"/> が null を返したら書かない。
     /// </summary>
