@@ -217,6 +217,8 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         _range = Ranges[0];
         _today = today ?? DateOnly.FromDateTime(DateTime.Today);
         _selectedYear = _today.Year;
+        _includeHidden = services.Settings.StatsIncludeHidden;
+        _includeAdult = services.Settings.StatsIncludeAdult;
 
         // 「開始と終了を選ぶ」を選んだ時に、何も選ばないうちから読める期間にしておく（今月の初めから今日まで）
         _customFrom = new DateTime(_today.Year, _today.Month, 1);
@@ -224,6 +226,64 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         Panels = new StatsPanelsViewModel(services.StatsPanels);
 
         LoadAsync().Forget();
+    }
+
+    // ---- 集計に含める範囲（ユーザ判断 2026-11-20）。値は設定に残し、切り替えると集計し直す ----
+
+    private bool _includeHidden;
+    private bool _includeAdult;
+
+    private StatsScope Scope => new(_includeHidden, _includeAdult);
+
+    /// <summary>非表示の商品を数に含めるか。既定は含める（前と同じ）</summary>
+    public bool IncludeHidden
+    {
+        get => _includeHidden;
+        set
+        {
+            if (SetField(ref _includeHidden, value))
+            {
+                ScopeChanged().Forget();
+            }
+        }
+    }
+
+    /// <summary>R-18の商品を数に含めるか。検索の「R-18を表示」の設定とは別の値</summary>
+    public bool IncludeAdult
+    {
+        get => _includeAdult;
+        set
+        {
+            if (SetField(ref _includeAdult, value))
+            {
+                ScopeChanged().Forget();
+            }
+        }
+    }
+
+    /// <summary>
+    /// 切り替えたら、読み込み済みの全商品から集計し直す（ディスクは読み直さない）。設定へは錠の中で当てる。
+    /// 読み込みの途中で切り替えられたら、読み込みが済んでから今の範囲で集計し直す
+    /// </summary>
+    internal async Task ScopeChanged()
+    {
+        var hidden = _includeHidden;
+        var adult = _includeAdult;
+        if (_source is { } source)
+        {
+            IsLoading = true;
+            LoadAsync(source).Forget();
+        }
+        else
+        {
+            RefreshCommand.Execute(null);
+        }
+
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSettings(settings => settings with
+        {
+            StatsIncludeHidden = hidden,
+            StatsIncludeAdult = adult,
+        }));
     }
 
     /// <summary>欄を開いているか（次の起動まで覚える）。</summary>
@@ -399,6 +459,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
 
         var range = SelectedRange;
         var useDetected = _services.Settings.UseDetectedVariationTargets;
+        var scope = Scope;
         var token = _leaving.Token;
         Task.Run(() =>
         {
@@ -408,7 +469,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
             }
 
             var narrowed = StatsPeriods.Narrow(source.Dated, selected);
-            return (StatsPeriods.Build(narrowed, source.Registry, source.UnresolvedCount, useDetected), narrowed);
+            return (StatsPeriods.Build(narrowed, source.Registry, source.UnresolvedCount, useDetected, scope), narrowed);
         }, token).ContinueWith(task =>
         {
             if (task.IsCompletedSuccessfully)
@@ -715,7 +776,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
     /// <summary>読み込み中の取り消し。読み直しで前の読み込みを止める（画面を離れた時の <see cref="_leaving"/> とつなぐ）。</summary>
     private CancellationTokenSource? _loadCts;
 
-    private async Task LoadAsync()
+    private async Task LoadAsync(StatsSource? reuse = null)
     {
         var cts = CancellationTokenSource.CreateLinkedTokenSource(_leaving.Token);
         Interlocked.Exchange(ref _loadCts, cts)?.Cancel();
@@ -724,7 +785,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         // 壊れた商品が1件あるだけで画面が空のまま戻らなかった（失敗そのものはログに残る）
         try
         {
-            await LoadCoreAsync(cts.Token);
+            await LoadCoreAsync(cts.Token, reuse);
         }
         finally
         {
@@ -736,18 +797,19 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         }
     }
 
-    private async Task LoadCoreAsync(CancellationToken token)
+    private async Task LoadCoreAsync(CancellationToken token, StatsSource? reuse = null)
     {
         // アバターの欄は検索と同じ設定で、持っていないバリエーションの分を外す（open.md 106）
         var useDetected = _services.Settings.UseDetectedVariationTargets;
+        var scope = Scope;
         // 全商品は1回だけ読み、期間を替えるたびには読み直さない（open.md 104）。期間の集計も読み込みと同じ裏で済ませる
         var range = SelectedRange;
         var option = _range;
         var version = _periodVersion;
         var (source, snapshot, period, narrowed, latest) = await Task.Run(async () =>
         {
-            var source = await _services.Stats.LoadSourceAsync(token);
-            var snapshot = StatsService.Build(source.Items, source.Registry, source.UnresolvedCount, useDetected);
+            var source = reuse ?? await _services.Stats.LoadSourceAsync(token);
+            var snapshot = StatsService.Build(source.Items, source.Registry, source.UnresolvedCount, useDetected, scope);
             var latest = source.Dated.SelectMany(item => item.Purchases.Select(row => row.Date).Append(item.ItemDate)).Max();
 
             // 直近 n ヶ月の右端は先の日付の購入まで伸ばすので、最後の日付が分かってから期間を決め直す
@@ -760,7 +822,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
             }
 
             var narrowed = StatsPeriods.Narrow(source.Dated, chosen);
-            return (source, snapshot, StatsPeriods.Build(narrowed, source.Registry, source.UnresolvedCount, useDetected), narrowed, latest);
+            return (source, snapshot, StatsPeriods.Build(narrowed, source.Registry, source.UnresolvedCount, useDetected, scope), narrowed, latest);
         }, token);
 
         RunOnUiThread(() =>

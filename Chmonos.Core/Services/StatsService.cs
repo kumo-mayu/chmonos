@@ -356,6 +356,16 @@ public sealed record StatsAvatarWearable
     public int Total => DirectCount + ViaBaseCount;
 }
 
+/// <summary>
+/// 集計に含める商品の範囲（ユーザ判断 2026-11-20）。既定は全部含める（前と同じ）。
+/// 外すのは所持の数・金額・容量などの集計だけ。「手元の状態」の非表示の数・積み残し・贈った数は全商品で数えるので、ここでは外さない
+/// </summary>
+public sealed record StatsScope(bool IncludeHidden = true, bool IncludeAdult = true)
+{
+    public bool Includes(ItemRecord item)
+        => (IncludeHidden || !item.Local.IsHidden) && (IncludeAdult || !item.Booth.IsAdult);
+}
+
 public interface IStatsService
 {
     Task<StatsSnapshot> LoadAsync(bool useDetectedVariationTargets = true, CancellationToken cancellationToken = default);
@@ -373,8 +383,9 @@ public sealed record StatsSource(
 ///
 /// 数え方は決定事項に従う：
 /// ・集計対象はファイル（またはフォルダ）を持つitemだけ。持っていないものは資産ではない
-/// ・非表示のitemも含める。非表示は見せ方の操作であって「持っていないことにする」ではない
-/// ・R-18も金額・容量に含める。表示設定で総額が変わると資産の把握に使えなくなる
+/// ・非表示のitemも含める（既定）。非表示は見せ方の操作であって「持っていないことにする」ではない
+/// ・R-18も金額・容量に含める（既定）。表示設定で総額が変わると資産の把握に使えなくなる
+/// ・ただし統計の画面の切り替えで外せる（<see cref="StatsScope"/>・ユーザ判断 2026-11-20）。検索の「R-18を表示」の設定とは別の値
 /// ・支出はギフトを除いた購入価格の合計。BOOTHから消えたvariationも含める
 /// ・時系列の軸は入手日。手入力が無ければファイルの日付で代え、代えた件数を持ち回る
 ///
@@ -415,9 +426,10 @@ public sealed class StatsService : IStatsService
         IReadOnlyList<ItemRecord> items,
         AvatarRegistry registry,
         int unresolvedCount,
-        bool useDetectedVariationTargets = true)
+        bool useDetectedVariationTargets = true,
+        StatsScope? scope = null)
     {
-        var owned = items.Where(IsOwned).ToList();
+        var owned = items.Where(IsOwned).Where(item => scope?.Includes(item) ?? true).ToList();
 
         var spent = 0L;
         var gifted = 0;

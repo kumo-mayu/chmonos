@@ -6,7 +6,7 @@ namespace Chmonos.Core.Services;
 /// 統計の追加集計。
 ///
 /// 基本の集計（<see cref="StatsService"/>）と同じ走査結果を受け取って組み立てる。
-/// 数え方の原則は同じで、対象はファイルを持つitemだけ、非表示とR-18も含める。
+/// 数え方の原則は同じで、対象はファイルを持つitemだけ、非表示とR-18も既定では含める（統計の画面の切り替えで外せる。`StatsScope`）。
 /// </summary>
 public static class StatsExtras
 {

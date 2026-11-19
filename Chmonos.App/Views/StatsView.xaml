@@ -141,7 +141,7 @@
                 <DockPanel VerticalAlignment="Center" MinHeight="35">
                     <TextBlock Text="統計" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" DockPanel.Dock="Left" />
                     <!-- 何を数えているかを最初に断る。件数の意味を取り違えると読み方が全部ずれる -->
-                    <TextBlock Text="ファイルを持っている商品だけを集計しています。非表示とR-18も含みます。"
+                    <TextBlock Text="ファイルを持っている商品だけを集計しています。"
                                Style="{StaticResource Caption}" Margin="14,0,0,0" VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis" />
                 </DockPanel>
@@ -150,6 +150,13 @@
                     期間（ユーザ判断 2026-11-18・open.md 104）。「年を選ぶ」は右に年の欄、「開始と終了を選ぶ」は右に日の欄2つ（カレンダーは検索の日付の条件と同じ部品）
                 -->
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <!-- 数える範囲（ユーザ判断 2026-11-20）。値は設定に残る。検索の「R-18を表示」とは別 -->
+                    <CheckBox Content="非表示を含む" IsChecked="{Binding IncludeHidden, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,12,0"
+                              Foreground="{DynamicResource Text}" AutomationProperties.AutomationId="StatsIncludeHidden"
+                              ToolTip="オフにすると、非表示にした商品を数・金額・容量から外します。" />
+                    <CheckBox Content="R-18を含む" IsChecked="{Binding IncludeAdult, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,12,0"
+                              Foreground="{DynamicResource Text}" AutomationProperties.AutomationId="StatsIncludeAdult"
+                              ToolTip="オフにすると、R-18の商品を数・金額・容量から外します。" />
                     <!-- 読み直し。ほかの画面の「読み直す」と同じ小さいボタンで、ここは帯が狭いので記号だけにする（名前は同じ「読み直す」） -->
                     <Button Content="↺" Style="{StaticResource SmallButton}" Width="27" Padding="0" FontSize="17" Margin="0,0,8,0"
                             VerticalAlignment="Center" Command="{Binding RefreshCommand}"
