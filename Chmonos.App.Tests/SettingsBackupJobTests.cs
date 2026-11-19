@@ -233,4 +233,21 @@ public class SettingsBackupJobTests
         Assert.Equal(string.Empty, SettingsViewModel.LeftoverNote(cleaned));
         Assert.Contains(@"「D:\作り物\移動先」", SettingsViewModel.LeftoverNote(left));
     }
+
+    /// <summary>元に残ったのが中身の無いフォルダだけなら、ファイルが残ったとは言わず、手で消せると言う（ユーザ判断 2026-11-20）</summary>
+    [Fact]
+    public void 引越しの後に元に残った物は_空のフォルダだけならそう言う()
+    {
+        const string source = @"D:\作り物\元";
+        var removed = new StoreMoveResult { Succeeded = true, Copied = 1, Bytes = 1, SourceRemoved = true };
+        var filesLeft = removed with { SourceRemoved = false };
+        var foldersLeft = filesLeft with { OnlyEmptyFoldersLeft = true };
+
+        Assert.Equal(string.Empty, SettingsViewModel.LeftInSourceNote(removed, source));
+        Assert.Contains("消せなかったファイルが残っています", SettingsViewModel.LeftInSourceNote(filesLeft, source));
+        var note = SettingsViewModel.LeftInSourceNote(foldersLeft, source);
+        Assert.Contains("中身の無いフォルダが残りました", note);
+        Assert.Contains("手で削除", note);
+        Assert.DoesNotContain("ファイルが残っています", note);
+    }
 }
