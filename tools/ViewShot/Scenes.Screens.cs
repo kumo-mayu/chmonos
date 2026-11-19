@@ -790,6 +790,28 @@ internal static partial class Scenes
             Height = 2000,
         },
 
+        new Scene("modification-gallery-folded", "改変の画面：右の欄の写真を大きな絵ごと畳んだ所（「写真を広げる」だけが残り、使ったものの追加が上へ詰まる）", async context =>
+        {
+            var selected = await SeedModificationsAsync(context);
+            var main = await context.StartAsync();
+            main.ShowModifications(
+                ModificationHubLevel.Modification,
+                new ModificationHubSelection(ModificationHubSelectionKind.Modification, selected));
+            await UntilHubLoadedAsync(main);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            await UntilModificationShownAsync(context, root);
+            ((ModificationViewModel)context.Screen<ModificationHubViewModel>().Detail!).GalleryFolded = true;
+            await context.SettleAsync();
+
+            return new Shot(root);
+        })
+        {
+            Width = 1280,
+            Height = 1000,
+        },
+
         new Scene("modification-selected-status","改変の画面：右の欄の上の帯に知らせの文が出ている所（日付と知らせが下の段へ送られる）・窓の最小の幅", async context =>
         {
             var selected = await SeedModificationsAsync(context);

@@ -227,7 +227,14 @@
                                     </Style>
                                 </Button.Style>
                             </Button>
-                            <controls:ContentItemsControl x:Name="Tiles" ItemsSource="{Binding GalleryTiles}" Margin="10" controls:ArrowGroup.IsEnabled="True">
+                            <!--
+                                小さな絵は、見えている段（と1段先）だけを最初の配置で作り、残りは絵を描いた後に1枚ずつ足す
+                                （ProgressiveItems。ユーザ判断 2026-11-20：最初の数段だけ作り、残りは手の空いた時に作る）。
+                                78枚の商品で、開く時の1回の止まりが3枚より約120〜130ms 長く、その多くが小さな絵の配置と読み上げの木の作り直しだった（2026-11-18 に測った）。
+                                先読みの 62 は1段（枠 54＋間 8）：少し流した所に空きが見えないだけの分。既定の 300 では十段近くを最初に作ってしまう
+                            -->
+                            <controls:ContentItemsControl x:Name="Tiles" controls:ProgressiveItems.Source="{Binding GalleryTiles}" controls:ProgressiveItems.LookAheadOverride="62"
+                                                          Margin="10" controls:ArrowGroup.IsEnabled="True">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <WrapPanel />

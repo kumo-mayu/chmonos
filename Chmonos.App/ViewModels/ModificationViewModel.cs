@@ -1027,6 +1027,28 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         }
     }
 
+    /// <summary>
+    /// 写真の欄を大きな絵ごと畳んでいるか（ユーザ判断 2026-11-20：商品ページの「小さな絵を折りたたむ」と同じ形で）。
+    /// 右の欄の上に大きな絵が出て、使ったものが下へ押されるため。次に起動した時まで覚える（<see cref="GalleryFoldKey.Modification"/>）。
+    /// 畳んでいる間は部品ごと作らない（画面の側）ので、小さな絵の枠も作らない。写真の落とす・貼るは画面全体で受けるので畳んでも使える
+    /// </summary>
+    public bool GalleryFolded
+    {
+        get => _services.PaneWidths.IsCollapsed(GalleryFoldKey.Modification);
+        set
+        {
+            if (GalleryFolded != value)
+            {
+                _services.PaneWidths.SetCollapsed(GalleryFoldKey.Modification, value);
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public RelayCommand ToggleGalleryCommand => _toggleGalleryCommand ??= new RelayCommand(() => GalleryFolded = !GalleryFolded);
+
+    private RelayCommand? _toggleGalleryCommand;
+
     public RelayCommand PreviousImageCommand { get; }
 
     public RelayCommand NextImageCommand { get; }

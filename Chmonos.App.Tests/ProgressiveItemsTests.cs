@@ -49,6 +49,21 @@ public class ProgressiveItemsTests
     });
 
     [Fact]
+    public Task 一覧ごとの先読みを付けると_その分だけを最初の配置で足す() => UiThread.Run(async () =>
+    {
+        // ギャラリーの小さな絵（ユーザ判断 2026-11-20：最初の数段だけ作る）。先読み 0 なら、見える範囲 200 − 上の物 100 ＝ 2行だけ
+        using var host = new Host();
+        ProgressiveItems.SetLookAheadOverride(host.List, 0);
+        host.Bind(Numbers(Rows));
+        host.Layout();
+
+        Assert.Equal(2, host.List.Items.Count);
+
+        await Idle();
+        Assert.Equal(Numbers(Rows), host.List.Items.Cast<object>());
+    });
+
+    [Fact]
     public Task 足している途中でも_足し切る命令で全部が並ぶ() => UiThread.Run(() =>
     {
         using var host = new Host();
