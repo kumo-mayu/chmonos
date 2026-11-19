@@ -160,6 +160,29 @@ public sealed class ConversionPairTests : IDisposable
         Assert.Empty(Routes(Clothing(avatars: ["9000005"]), [], pair));
     }
 
+    /// <summary>この機能の主な相手はプロファイルを持たない人。検索の「変換で使える物も含める」も組だけで効く</summary>
+    [Fact]
+    public void プロファイルが無くても_検索の変換で使える物も含めるは組で当たる()
+    {
+        var clothing = new ItemRecord { Id = "9300001", Booth = new BoothBlock(), Local = Clothing(avatars: ["9000001"]) };
+        var context = new SearchModuleContext(() => Compat, ModificationUsage.Empty, RecentTimes.Empty, null, DateTimeOffset.Now)
+        {
+            Items = [clothing],
+            ConversionPairs = [Pair(ConversionEnd.Avatar("9000001"), ConversionEnd.Avatar("9000002"))],
+        };
+
+        bool Hits(bool viaConversion) => SearchModuleConditions.From(new SearchModuleState
+        {
+            Kind = "Avatar",
+            Items = ["avatar:9000002"],
+            Flag = true,
+            Toggles = new Dictionary<string, bool> { [SearchModuleConditions.ViaConversionToggle] = viaConversion },
+        })!.Matches(clothing, context);
+
+        Assert.False(Hits(viaConversion: false));
+        Assert.True(Hits(viaConversion: true));
+    }
+
     // ---- 足す・外す・読み替え ----
 
     [Fact]
