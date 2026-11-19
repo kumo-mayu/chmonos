@@ -61,10 +61,16 @@ public static class BackupWritingRecord
     ///
     /// **書きかけがまだ残っているかもしれない間は、記録を外さない**（点検23）：消そうとして失敗した（ほかのアプリが開いている）・
     /// 書き出し先のフォルダが今は見えない（外付けを外している・ネットの共有が切れている）ときは、次の起動でまた試す。
-    /// 外すのは、消せた・フォルダはあるのに書きかけが無い・記録が読めない／書きかけの名前ではない（こちらでは何もできない）とき
+    /// 外すのは、消せた・フォルダはあるのに書きかけが無い・記録が読めない／書きかけの名前ではない（こちらでは何もできない）・
+    /// ごみ箱へ送れない（ごみ箱の無いドライブ・入りきらず完全に消すのを断った。何度試しても同じなので、書きかけは残して手で消してもらう）とき
     /// </summary>
-    /// <returns>書きかけを消したか。</returns>
-    public static bool CleanUp(string root)
+    /// <param name="discard">
+    /// 書きかけを片付ける所。アプリはごみ箱へ送る物を渡す（点検29・ユーザ判断 2026-11-20）。記録は手で直せるので、名前の形が合うだけの
+    /// 使う人のファイルを指され得る。完全に消すと取り戻せない。ごみ箱へ送れないときは <see cref="Scanning.NotRecyclableException"/> を投げる。
+    /// 渡さなければ完全に消す（試験）。片付けられたかは、後で在るかどうかで見る
+    /// </param>
+    /// <returns>書きかけを片付けたか。</returns>
+    public static bool CleanUp(string root, Action<string>? discard = null)
     {
         var recordPath = Path.Combine(root, FileName);
         if (!File.Exists(recordPath))
@@ -94,7 +100,13 @@ public static class BackupWritingRecord
         {
             if (File.Exists(temporary))
             {
-                File.Delete(temporary);
+                (discard ?? File.Delete)(temporary);
+                if (File.Exists(temporary))
+                {
+                    // 片付けた所が黙って残した。次の起動でまた試す
+                    return false;
+                }
+
                 End(root);
                 return true;
             }
@@ -105,6 +117,13 @@ public static class BackupWritingRecord
                 End(root);
             }
 
+            return false;
+        }
+        catch (Scanning.NotRecyclableException exception)
+        {
+            // ごみ箱へ送れない場所は、次の起動でも送れない。毎回試すと、入りきらない大きさでは起動のたびに Windows が聞いてくる
+            AppLog.Warn("バックアップの書き出し", $"前の書きかけをごみ箱へ送れないので残した：{temporary}（{exception.Message}）");
+            End(root);
             return false;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)

@@ -481,12 +481,34 @@ public sealed class AppServiceContainer : IDisposable
             var deleted = JsonStore.DeleteStaleTemporaryFiles(Paths.Root, includeSubdirectories: true);
 
             // 前のバックアップの書き出しが途中で止まっていたら、書き出し先に残った書きかけを消す
-            if (Core.Storage.BackupWritingRecord.CleanUp(Paths.Root))
+            if (CleanUpBackupWriting(Paths.Root))
             {
                 UiTrace.Write("速さ", "起動時の片付け：前のバックアップの書きかけを消した");
             }
             UiTrace.Write("速さ", $"起動時の片付け：書きかけ {deleted} 件を消した（窓を出した後に裏で）");
         }).Forget();
+
+    /// <summary>
+    /// 前のバックアップの書き出しが残した書きかけを、ごみ箱へ送る（点検29・ユーザ判断 2026-11-20）。
+    /// 書きかけの場所は保存先の中の手で直せる記録から読むので、名前の形が合うだけの使う人のファイルを指され得る。
+    /// ごみ箱の無いドライブ（取り外せる・ネットワーク・UNC）では **Windows を呼ばずに**残す。呼ぶと「完全に削除しますか」の窓が出て、
+    /// 起動の片付けは書き込みの門を持ったまま答えを待ち、使う人には何の窓かも分からない（完全に消すと取り戻せないので、消す側にも倒さない）
+    /// </summary>
+    /// <param name="shell">Windows の削除を呼ぶ所（試験で差し替える。<see cref="Services.RecycleBin.Send"/>）。</param>
+    /// <param name="hasRecycleBin">ごみ箱のあるドライブか（試験で差し替える。既定は <see cref="Services.RecycleBin.HasRecycleBin"/>）。</param>
+    internal static bool CleanUpBackupWriting(
+        string root,
+        Func<string, ushort, (int Result, bool Aborted)>? shell = null,
+        Func<string, bool>? hasRecycleBin = null)
+        => Core.Storage.BackupWritingRecord.CleanUp(root, path =>
+        {
+            if (!(hasRecycleBin ?? Services.RecycleBin.HasRecycleBin)(path))
+            {
+                throw new NotRecyclableException("ごみ箱を使えないドライブなので、削除しません。");
+            }
+
+            Services.RecycleBin.Send(path, shell);
+        });
 
     public DataStore Store { get; }
 

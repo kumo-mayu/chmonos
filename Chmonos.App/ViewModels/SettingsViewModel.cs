@@ -2079,6 +2079,17 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             ? string.Empty
             : $"\n\n移動先「{result.LeftoverAt}」に、途中までコピーしたファイルが残っています。不要なら削除してください。";
 
+    /// <summary>
+    /// 移し終えた後、元の場所に残った物を添える。中身の無いフォルダだけなら、そう言う（ユーザ判断 2026-11-20）。
+    /// OneDrive の中から引っ越すと、同期のアプリが掴んだ空のフォルダが残り、「ファイルが残っています」で移しそこねたと読めた
+    /// </summary>
+    internal static string LeftInSourceNote(Core.Storage.StoreMoveResult result, string source)
+        => result.SourceRemoved
+            ? string.Empty
+            : result.OnlyEmptyFoldersLeft
+                ? $"元の場所「{source}」に空のフォルダが残りました。不要なら手で削除してください。\n\n"
+                : $"元の場所「{source}」に消せなかったファイルが残っています。\n\n";
+
     private async Task<Core.Storage.StoreMoveResult> MoveStoreAsync(string source, string destination, bool replace)
     {
         // **どの画面からでも止められるようにする**（ユーザ判断 2026-09-21・C3）。
@@ -2319,7 +2330,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         }
 
         // 場所の書き換えは運ぶ命令が元を消す前に済ませている（書けなければ上の失敗で返る）
-        var leftInSource = result.SourceRemoved ? string.Empty : $"元の場所「{source}」に消せなかったファイルが残っています。\n\n";
+        var leftInSource = LeftInSourceNote(result, source);
         RestartIntoNewRoot(
             replace
                 ? $"{result.Copied:N0} ファイルを「{picked}」へ移して置き換えました。\n\n"

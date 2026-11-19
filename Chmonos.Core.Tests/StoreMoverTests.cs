@@ -120,6 +120,43 @@ public class StoreMoverTests : IDisposable
         Assert.True(File.Exists(Path.Combine(new AppPaths(Destination).BaseImagesDir, "user-0a1b2c3d.webp")));
     }
 
+    /// <summary>
+    /// 元のフォルダが消せず、中身の無いフォルダだけが残った時は、ファイルが残ったのとは分けて返す（ユーザ判断 2026-11-20）。
+    /// 消せないフォルダは読み取り専用の印で作る（OneDrive の中から引っ越した時に、空のフォルダが16個残った）
+    /// </summary>
+    [Fact]
+    public void TellsWhenOnlyEmptyFoldersAreLeft()
+    {
+        var stuck = new DirectoryInfo(Path.Combine(Source, "images", "123"));
+        stuck.Attributes |= FileAttributes.ReadOnly;
+        try
+        {
+            var result = StoreMover.Move(Source, Destination);
+
+            Assert.True(result.Succeeded);
+            Assert.True(stuck.Exists);
+            Assert.False(result.SourceRemoved);
+            Assert.True(result.OnlyEmptyFoldersLeft);
+        }
+        finally
+        {
+            stuck.Attributes &= ~FileAttributes.ReadOnly;
+        }
+    }
+
+    /// <summary>ファイルが残った時は、空のフォルダだけが残ったとは言わない</summary>
+    [Fact]
+    public void DoesNotCallLeftFilesEmptyFolders()
+    {
+        var item = Path.Combine(Source, "items", "123.json");
+
+        var result = StoreMover.Move(Source, Destination, commit: () => File.WriteAllText(item, "{ \"id\": \"123\", \"memo\": \"後から\" }"));
+
+        Assert.True(result.Succeeded);
+        Assert.False(result.SourceRemoved);
+        Assert.False(result.OnlyEmptyFoldersLeft);
+    }
+
     /// <summary>コピーが済んでから元を消す。順序が逆だと、失敗したときに何も残らない。</summary>
     [Fact]
     public void RemovesTheSourceAfterCopying()

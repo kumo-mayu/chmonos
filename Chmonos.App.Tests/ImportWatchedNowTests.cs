@@ -170,6 +170,114 @@ public class ImportWatchedNowTests
         Assert.Equal([@"D:\監視", @"D:\監視\中\", @"D:\監視-別", @"E:\外\e.zip"], sources);
     }
 
+    /// <summary>新着と続きが混ざった対象は、新着だけを監視フォルダに替え、続きはそのまま載せる（ユーザ判断 2026-11-20）</summary>
+    [Fact]
+    public void 新着と続きが混ざった履歴は_新着だけを監視フォルダに替える()
+    {
+        var history = ViewModels.ImportViewModel.HistoryWithWatchedSources(
+            [@"D:\監視\a.zip", @"D:\続き", @"D:\監視\b.zip", @"D:\監視\前から.zip"],
+            [@"D:\監視\a.zip", @"D:\監視\B.zip"],
+            [@"D:\監視"]);
+
+        Assert.Equal([@"D:\監視", @"D:\続き", @"D:\監視\前から.zip"], history);
+    }
+
+    private static void AssertHistoryHasOnlyTheFolder(TestApp app, string watched, params string[] files)
+    {
+        var history = app.Services.Settings.ImportFolders;
+        Assert.Single(history, path => Core.Services.PathText.Same(path, watched));
+        Assert.DoesNotContain(history, path => files.Any(file => Core.Services.PathText.Same(path, file)));
+    }
+
+    /// <summary>開いている間の監視の自動の取り込みも、履歴には監視フォルダを1行だけ載せる（ユーザ判断 2026-11-20）</summary>
+    [Fact]
+    public Task 開いている間の自動の取り込みも_履歴には監視フォルダを1行だけ載せる() => TestApp.Run(async app =>
+    {
+        var watched = Path.GetDirectoryName(app.NewFile(@"watched\keep.txt"))!;
+        await app.ChangeSettingsAsync(settings => settings with { WatchedFolders = [watched] });
+        var main = await app.StartAsync();
+        var costume = app.NewFile(@"watched\costume.zip", [1, 2, 3, 4]);
+        var hair = app.NewFile(@"watched\hair.zip", [5, 6, 7, 8]);
+
+        Assert.True(await main.Import.StartWatchedAutoAsync([costume, hair], () => { }));
+
+        await UiThread.Until(
+            () => app.Services.Settings.ImportFolders.Any(path => Core.Services.PathText.Same(path, watched)),
+            "履歴に監視フォルダを載せる");
+        await app.SettleAsync();
+        AssertHistoryHasOnlyTheFolder(app, watched, costume, hair);
+    });
+
+    /// <summary>起動時の自動の取り込みも、履歴には監視フォルダを1行だけ載せる（ユーザ判断 2026-11-20）</summary>
+    [Fact]
+    public Task 起動時の自動の取り込みも_履歴には監視フォルダを1行だけ載せる() => TestApp.Run(async app =>
+    {
+        var watched = Path.GetDirectoryName(app.NewFile(@"watched\keep.txt"))!;
+        var costume = app.NewFile(@"watched\costume.zip", [1, 2, 3, 4]);
+        var hair = app.NewFile(@"watched\hair.zip", [5, 6, 7, 8]);
+        await app.ChangeSettingsAsync(settings => settings with { WatchedFolders = [watched], StartImportOnLaunch = true });
+
+        var main = await app.StartAsync();
+
+        await UiThread.Until(() => main.Import.Summary is not null, "起動時に取り込みが走って終わる");
+        await app.SettleAsync();
+        AssertHistoryHasOnlyTheFolder(app, watched, costume, hair);
+    });
+
+    /// <summary>
+    /// 起動時に見つけた新着を帯から取り込み対象へ積み、後で始めたときも、履歴には監視フォルダを1行だけ載せる（ユーザ判断 2026-11-20）。
+    /// 一緒に積んだほかの物は、そのまま載せる
+    /// </summary>
+    [Fact]
+    public Task 帯の新着を積んで始めても_履歴には監視フォルダを1行だけ載せる() => TestApp.Run(async app =>
+    {
+        var watched = Path.GetDirectoryName(app.NewFile(@"watched\keep.txt"))!;
+        var costume = app.NewFile(@"watched\costume.zip", [1, 2, 3, 4]);
+        var hair = app.NewFile(@"watched\hair.zip", [5, 6, 7, 8]);
+        var other = app.NewFile(@"other\dropped.zip", [9, 9, 9]);
+        await app.ChangeSettingsAsync(settings => settings with { WatchedFolders = [watched] });
+        var main = await app.StartAsync();
+        await UiThread.Until(() => main.HasWatchedNew, "起動時に新着を見つける");
+
+        main.TakeWatchedNew();
+        main.Import.AddDroppedPaths([other]);
+        await UiThread.Until(() => main.Import.Folders.Count == 3, "取り込み対象に積む");
+        Assert.False(main.Import.IsRunning);
+        main.Import.StartCommand.Execute(null);
+
+        await UiThread.Until(() => main.Import.Summary is not null, "取り込みが走って終わる");
+        await app.SettleAsync();
+        AssertHistoryHasOnlyTheFolder(app, watched, costume, hair);
+        Assert.Contains(app.Services.Settings.ImportFolders, path => Core.Services.PathText.Same(path, other));
+    });
+
+    /// <summary>
+    /// 取り込み対象の一覧は取り込みが終わっても残り、後の「開始」は一覧全部で始める。そのときも、新着だったファイルは1つずつ載せない（ユーザ判断 2026-11-20）
+    /// </summary>
+    [Fact]
+    public Task 新着を取り込んだ後に開始で一覧全部を始めても_ファイルは履歴に載せない() => TestApp.Run(async app =>
+    {
+        var watched = Path.GetDirectoryName(app.NewFile(@"watched\keep.txt"))!;
+        await app.ChangeSettingsAsync(settings => settings with { WatchedFolders = [watched] });
+        var main = await app.StartAsync();
+        var costume = app.NewFile(@"watched\costume.zip", [1, 2, 3, 4]);
+        var other = app.NewFile(@"other\dropped.zip", [9, 9, 9]);
+
+        main.Import.ImportWatchedCommand.Execute(null);
+        await UiThread.Until(() => main.Import.Summary is not null, "新着の取り込みが終わる");
+        await app.SettleAsync();
+
+        main.Import.AddDroppedPaths([other]);
+        await UiThread.Until(() => main.Import.Folders.Count == 2, "取り込み対象に積む");
+        main.Import.StartCommand.Execute(null);
+        await UiThread.Until(
+            () => app.Services.Settings.ImportFolders.Any(path => Core.Services.PathText.Same(path, other)),
+            "2回目の取り込みの履歴を書く");
+        await app.SettleAsync();
+
+        AssertHistoryHasOnlyTheFolder(app, watched, costume);
+    });
+
     [Fact]
     public Task 監視していなければ押せない() => TestApp.Run(async app =>
     {

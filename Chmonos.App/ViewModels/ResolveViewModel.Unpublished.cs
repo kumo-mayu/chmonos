@@ -157,10 +157,22 @@ public sealed partial class ResolveViewModel
             if (targets.Count == 1)
             {
                 await NoteSettledAsync(itemId);
-                AfterSettled();
-                if (imagesNote.Length > 0)
+
+                // 次の行へ移るのは、終わったときにまだその行を見ていたときだけ。画像を入れる間に別の行を選んでいると、
+                // AfterSettled はその（登録していない）行を外してしまう（外部の点検20・ユーザ判断 2026-11-20）
+                if (IsStillViewing(targets[0]))
                 {
-                    ListNoticeText = imagesNote;
+                    AfterSettled();
+                    if (imagesNote.Length > 0)
+                    {
+                        ListNoticeText = imagesNote;
+                    }
+                }
+                else
+                {
+                    RemoveRows(targets, keepSelection: true);
+                    ListNoticeText = "1 件を登録しました。" + imagesNote;
+                    HideCoveredContents(targets);
                 }
 
                 return;

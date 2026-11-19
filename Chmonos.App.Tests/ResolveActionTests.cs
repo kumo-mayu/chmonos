@@ -211,6 +211,47 @@ public class ResolveActionTests
     });
 
     /// <summary>
+    /// 登録の途中（画像を入れる間など）に別の行を選ぶと、終わった時に登録した行だけが消え、選んだ行は残って選ばれたまま（外部の点検20）。
+    /// 前は終わった時に選んでいる行を外していた。先頭へ飛ばないことも見るため、3件で先頭以外を選ぶ
+    /// </summary>
+    [Fact]
+    public Task BOOTHに無い商品の登録の間に別の行へ移ると_終わったとき登録した行だけが消え_見ている行はそのまま() => TestApp.Run(async app =>
+    {
+        var (_, resolve) = await OpenResolveAsync(app, @"a\first.zip", @"b\second.zip", @"c\third.zip");
+        resolve.Selected = resolve.Files.Single(row => row.FileName == "first.zip");
+        resolve.LocalNameInput = "作り物の商品";
+        app.Answer = _ => MessageBoxResult.OK;
+
+        resolve.RegisterLocalCommand.Execute(null);
+        resolve.Selected = resolve.Files.Single(row => row.FileName == "third.zip");
+        await app.SettleAsync();
+
+        Assert.Equal(["second.zip", "third.zip"], resolve.Files.Select(row => row.FileName).Order(StringComparer.Ordinal));
+        Assert.Equal("third.zip", resolve.Selected!.FileName);
+        Assert.Equal(2, app.Store.Unresolved.Load().Count);
+    });
+
+    /// <summary>見つからなかった商品IDのまま登録するときも、上と同じ（外部の点検20）</summary>
+    [Fact]
+    public Task 見つからなかったIDのまま登録する間に別の行へ移ると_終わったとき登録した行だけが消え_見ている行はそのまま() => TestApp.Run(async app =>
+    {
+        var (_, resolve) = await OpenResolveAsync(app, @"a\first.zip", @"b\second.zip", @"c\third.zip");
+        resolve.Selected = resolve.Files.Single(row => row.FileName == "first.zip");
+        resolve.ItemIdInput = "1999999";
+        resolve.PreviewCommand.Execute(null);
+        await app.SettleAsync();
+        Assert.True(resolve.IsUnpublishedForm);
+
+        resolve.AssignCommand.Execute(null);
+        resolve.Selected = resolve.Files.Single(row => row.FileName == "third.zip");
+        await app.SettleAsync();
+
+        Assert.Equal(["second.zip", "third.zip"], resolve.Files.Select(row => row.FileName).Order(StringComparer.Ordinal));
+        Assert.Equal("third.zip", resolve.Selected!.FileName);
+        Assert.NotNull(await app.Store.Items.LoadAsync("1999999"));
+    });
+
+    /// <summary>
     /// 登録の命令は記録を裏で読むので、押した直後はまだ走っている。その間に「未確定」を開き直すと、
     /// 新しい画面の均し（商品が持っている物を一覧から外す）と読み直しが重なる。
     /// どちらが先でも、登録した物は保存先の一覧へ戻らず、ほかの物は欠けない。
