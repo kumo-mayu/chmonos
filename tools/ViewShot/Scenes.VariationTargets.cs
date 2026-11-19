@@ -35,6 +35,36 @@ internal static partial class Scenes
             await context.PresentAsync(root);
             return new Shot(root) { Focus = () => Look.View<EditView>(root), FocusMargin = 0 };
         }),
+
+        // バリエーションの対応を足す欄の候補（2026-11-19）。候補の入れ物はポップアップで撮れないので、本物の入力の Suggestions と
+        // 3つの選び手（絵・添え書き・見出し）で並べた中身だけを外して、欄と同じ幅 170 と、広げた幅 240 で並べる。
+        // 絵は、アバター・素体の商品を持っているものだけ付く（持っていないと文字だけ）
+        new Scene("edit-variation-target-suggest", "編集画面：バリエーションの対応を足す欄の候補（絵・見出し付き。幅 170 と 240）", async context =>
+        {
+            var item = await SeedVariationOutfitAsync(context, editStates: true);
+            await context.Fake.ItemAsync("9800301", "作り物のアバター「ミナト」", images: 1);
+            var main = await context.StartAsync();
+            await main.ShowEditAsync([item.Id]);
+            var edit = context.Screen<EditViewModel>();
+            edit.IsPurchasesExpanded = true;
+            await SceneContext.UntilAsync(() => edit.Variations.Any(row => row.HasTargets), "対応の欄が並ぶ");
+            await context.SettleAsync();
+            var input = edit.Variations.First(row => row.HasTargets).Targets!;
+            var withIcon = input.Suggestions.Where(text => input.IconSelector!(text) is not null).ToList();
+            context.Notices.Add($"候補 {input.Suggestions.Count} 件・絵が付く候補 {withIcon.Count} 件（{string.Join("・", withIcon)}）・見出し {string.Join("／", input.GroupHeadings!)}");
+
+            var host = new System.Windows.Controls.StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal };
+            foreach (var width in new[] { 170d, 240d })
+            {
+                host.Children.Add(SuggestPanel($"幅 {width}", [.. input.Suggestions], string.Empty, input.InfoSelector!, input.GroupHeadings, width, icons: input.IconSelector));
+            }
+
+            return new Shot(SceneContext.OnSurface(host, 20));
+        })
+        {
+            Width = null,
+            Height = null,
+        },
     ];
 
     private static async Task<ItemRecord> SeedVariationOutfitAsync(SceneContext context, bool editStates = false)

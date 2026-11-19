@@ -100,6 +100,13 @@ public sealed class VariationTargetsInput : ViewModelBase
 
     public ObservableCollection<string> Suggestions { get; } = [];
 
+    /// <summary>候補の頭の絵・添え書き・群の見出し。商品の対応アバターを足す欄と同じ作り（<c>ItemViewModel.AvatarIconSelector</c> など）。無ければ文字だけ。</summary>
+    public Func<string, System.Windows.Media.ImageSource?>? IconSelector { get; init; }
+
+    public Func<string, Controls.SuggestInfo?>? InfoSelector { get; init; }
+
+    public IReadOnlyList<string>? GroupHeadings { get; init; }
+
     public bool HasChips => Chips.Count > 0;
 
     /// <summary>人が決めた行か（確認済みの札か、外した候補がある）。決めた行では、名前から見つけた札は効かない。</summary>

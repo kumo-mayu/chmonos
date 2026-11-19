@@ -159,6 +159,45 @@ public sealed partial class EditViewModel
             return list;
         }
 
+        // 候補の頭の絵・添え書き・群の見出しは、商品の対応アバターの「＋ 追加」と同じ作り（ユーザ指示 2026-11-18）。
+        // 「対応アバターすべて」は先頭の見出しの無い群、その下に所持アバター・共通素体・未所持アバターの順（見出しの字は商品の欄と同じ）。
+        // 絵は欄を開いた時に引く（左の列の商品ページは組み立てが後なので、組む時には無いことがある）
+        var ownedIds = _main.Search.OwnedItemIds();
+        var entriesById = registry.Entries.ToDictionary(entry => entry.ItemId, StringComparer.Ordinal);
+        var choiceByText = choices.GroupBy(choice => choice.Text, StringComparer.CurrentCultureIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.CurrentCultureIgnoreCase);
+        System.Windows.Media.ImageSource? IconOf(string text) => !choiceByText.TryGetValue(text, out var choice) ? null : choice.Kind switch
+        {
+            VariationTargetKind.Avatar => ItemPage?.AvatarIconOf(choice.Key),
+            VariationTargetKind.Base => ItemPage?.BaseIconOf(choice.Key),
+            _ => null,
+        };
+
+        Controls.SuggestInfo? InfoOf(string text)
+        {
+            if (!choiceByText.TryGetValue(text, out var choice))
+            {
+                return null;
+            }
+
+            switch (choice.Kind)
+            {
+                case VariationTargetKind.Base:
+                    return new Controls.SuggestInfo(VariationGroup(AvatarSuggestionText.BaseGroup), []);
+                case VariationTargetKind.Avatar:
+                    var owned = ownedIds.Contains(choice.Key) || (entriesById.TryGetValue(choice.Key, out var found) && found.IsOwnedManually);
+                    var group = VariationGroup(owned ? AvatarSuggestionText.OwnedGroup : AvatarSuggestionText.OtherGroup);
+                    return entriesById.TryGetValue(choice.Key, out var entry)
+                        ? AvatarSuggestionText.InfoOf(entry, choice.Text, group)
+                        : new Controls.SuggestInfo(group, []);
+                default:
+                    return new Controls.SuggestInfo(0, []);
+            }
+        }
+
+        var headings = new List<string> { string.Empty };
+        headings.AddRange(AvatarSuggestionText.Headings);
+
         var useDetected = _services.Settings.UseDetectedVariationTargets;
         // 「バリエーションを選ばない購入」の行（null）にも付ける（ユーザ指摘 2026-11-07）。名前が無いので検出の札は出ない
         foreach (var row in Variations)
@@ -174,12 +213,18 @@ public sealed partial class EditViewModel
                     : [])
             {
                 ShowsUnpurchased = _services.Settings.ShowVariationTargetsForUnpurchased,
+                IconSelector = IconOf,
+                InfoSelector = InfoOf,
+                GroupHeadings = headings,
             };
             row.Targets.IsPurchased = row.IsPurchased;
         }
 
         BuildTargetsGradually();
     }
+
+    /// <summary>商品の欄の群の番号（所持・共通素体・未所持）を、先頭に「対応アバターすべて」の群を足した番号へ直す。</summary>
+    internal static int VariationGroup(int avatarSuggestionGroup) => avatarSuggestionGroup + 1;
 
     /// <summary>読み直すたびに増やす。前の商品の分の後回しが、次の商品の行に効かないように。</summary>
     private int _targetsGeneration;

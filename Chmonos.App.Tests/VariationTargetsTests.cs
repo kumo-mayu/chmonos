@@ -162,6 +162,37 @@ public class VariationTargetsTests
         Assert.Empty(edit.Variations.Single(row => row.Name == "セット").Targets!.Candidates);
     });
 
+    /// <summary>open.md「バリエーションの対応アバターを足す欄も、アイコン付きの物にする」：商品の欄と同じ群の見出し・添え書きを付ける。</summary>
+    [Fact]
+    public Task 対応を足す欄の候補は_すべてを先頭に置き_所持と素体と未所持の見出しで分ける() => TestApp.Run(async app =>
+    {
+        // ミナトだけ持っている（手で「持っている」にした印。商品を足すと編集の順番が替わるので、この印で持つ側に分ける）
+        var registry = Registry();
+        await app.AddItemAsync(Outfit());
+        await app.Store.Avatars.SaveAsync(new AvatarRegistry
+        {
+            BaseGroups = registry.BaseGroups,
+            Entries = [.. registry.Entries.Select(entry => entry.ItemId == "9800301" ? entry with { IsOwnedManually = true } : entry)],
+        });
+        await app.ChangeSettingsAsync(settings => settings with { ReturnToSearchWhenEditDone = false });
+        var main = await app.StartAsync();
+        var edit = await ShowEditAsync(app, main);
+        var input = edit.Variations.Single(row => row.Name == "セット").Targets!;
+
+        Assert.NotNull(input.IconSelector);
+        var info = input.InfoSelector!;
+        Assert.Equal(0, info("対応アバターすべて")!.Group);
+        Assert.Equal(1, info("ミナト")!.Group);
+        Assert.Equal(2, info("作り物素体（共通素体）")!.Group);
+        Assert.Equal(3, info("ソラ")!.Group);
+        Assert.Equal(["", "所持アバター", "共通素体", "未所持アバター"], input.GroupHeadings);
+
+        // 欄の候補の並びは、群の番号の順になる（先頭は「すべて」・次に所持）
+        var arranged = Controls.SuggestBox.Arrange([.. input.Suggestions], string.Empty, 0, info);
+        Assert.Equal("対応アバターすべて", arranged[0].Entry);
+        Assert.Equal("ミナト", arranged[1].Entry);
+    });
+
     [Fact]
     public Task 編集の画面で積んだ対応と_確認待ちから確認した対応を_保存で書く() => TestApp.Run(async app =>
     {
