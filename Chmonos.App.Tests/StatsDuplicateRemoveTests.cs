@@ -40,7 +40,7 @@ public sealed class StatsDuplicateRemoveTests
     }
 
     [Fact]
-    public void zipと展開したフォルダの組には_ボタンを付けない()
+    public void zipと展開したフォルダの組には_zipの行にだけボタンを付ける()
     {
         var group = new DuplicateGroup
         {
@@ -53,7 +53,9 @@ public sealed class StatsDuplicateRemoveTests
 
         var row = new DuplicateRowViewModel(group, null, (_, _) => Task.CompletedTask);
 
-        Assert.All(row.Places, place => Assert.False(place.HasRemove));
+        Assert.True(row.Places[0].HasRemove);
+        Assert.True(row.Places[0].IsArchiveOfUnpacked);
+        Assert.False(row.Places[1].HasRemove);
     }
 
     [Fact]

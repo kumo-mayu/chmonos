@@ -77,6 +77,8 @@
     <SolidColorBrush x:Key="BadSoft" Color="#fbeaea" />
     <SolidColorBrush x:Key="BadBorder" Color="#eec9c9" />
     <SolidColorBrush x:Key="BadFill" Color="#a33c3c" />
+    <!-- 取り外し中（手元の物が全部、今つながっていないドライブの上。カードの帯）。無くなったのではないので、赤（Bad）でも橙（Warn）でもない灰色の地。白い文字が載る濃さ -->
+    <SolidColorBrush x:Key="DetachedFill" Color="#5f6672" />
     <!--
         商品ページの変わった行の帯の地（メモ17）。札の地（GoodSoft・BadSoft）より薄くする：
         帯は本文の行ごと・見出しごとに付くので、札の地のままだと帯が多い商品で色が強すぎた。

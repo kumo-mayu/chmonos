@@ -108,6 +108,8 @@ public sealed partial class SettingsViewModel
         _showSortDividers = settings.ShowSortDividers;
         _showAcquiredSortDividers = settings.ShowAcquiredSortDividers;
         _shortYenInKanji = settings.ShortYenInKanji;
+        _compactHeaderPercent = CompactHeaderSize.Normalize(settings.CompactHeaderPercent);
+        Controls.CompactHeader.Apply(_compactHeaderPercent);
         _thumbnailRole = settings.ThumbnailRole;
         _gallerySwitchOnHover = settings.GallerySwitchOnHover;
         _fileOrder = settings.FileOrder;

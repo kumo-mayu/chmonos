@@ -18,6 +18,17 @@ public sealed class ThumbnailRoleOption
     public override string ToString() => Label;
 }
 
+/// <summary>1行の見出しの大きさの選択肢の1行（<see cref="SettingsViewModel.CompactHeaderOptions"/>）。</summary>
+public sealed class CompactHeaderOption
+{
+    public required int Percent { get; init; }
+
+    public string Label => CompactHeaderSize.Label(Percent);
+
+    /// <summary>読み上げと自動操作から見える名前。既定だと型名になる</summary>
+    public override string ToString() => Label;
+}
+
 /// <summary>「手元のファイル」の表示順の選択肢（<see cref="SettingsViewModel.FileOrders"/>）。</summary>
 public sealed class FileOrderOption
 {
@@ -709,6 +720,28 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
 
     private bool _showAcquiredSortDividers;
     private bool _shortYenInKanji;
+    private int _compactHeaderPercent;
+
+    public static IReadOnlyList<CompactHeaderOption> CompactHeaderOptions { get; } =
+        CompactHeaderSize.Steps.Select(step => new CompactHeaderOption { Percent = step }).ToList();
+
+    /// <summary>
+    /// 流した時に上へ重ねる1行の見出しの大きさ（ユーザ判断 2026-11-20）。変えるとすぐ当てる
+    /// （ショップ・商品ページ・編集の画面は設定の画面を開いている間は裏に無く、開き直すときに新しい大きさで出る）
+    /// </summary>
+    public int CompactHeaderPercent
+    {
+        get => _compactHeaderPercent;
+        set
+        {
+            var normalized = CompactHeaderSize.Normalize(value);
+            if (SetField(ref _compactHeaderPercent, normalized))
+            {
+                Controls.CompactHeader.Apply(normalized);
+                Save();
+            }
+        }
+    }
 
     /// <summary>統計の金額の短い表記（千・万・億／k・M・B）。統計の画面は開くたびに設定を読むので、読み直しは要らない。</summary>
     public bool ShortYenInKanji
@@ -1694,6 +1727,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             ShowSortDividers = ShowSortDividers,
             ShowAcquiredSortDividers = ShowAcquiredSortDividers,
             ShortYenInKanji = ShortYenInKanji,
+            CompactHeaderPercent = CompactHeaderPercent,
             ThumbnailRole = ThumbnailRole,
             GallerySwitchOnHover = GallerySwitchOnHover,
             FileOrder = FileOrder,

@@ -80,7 +80,7 @@ public sealed class DuplicateRowViewModel(
     /// </summary>
     public string KindText { get; } = group.Kind switch
     {
-        DuplicateKind.ArchiveAndUnpacked => "zipと展開したフォルダの両方があります。空く量は展開した方の分です",
+        DuplicateKind.ArchiveAndUnpacked => "zipと展開したフォルダの両方があります。空く量は展開した方の分です。zipだけをごみ箱へ移すこともできます",
         _ when group.CrossesItems => $"{group.Places.Count} 箇所にあり、別の商品にも紐付いています",
         _ => $"{group.Places.Count} 箇所に同じ中身があります",
     };
@@ -89,11 +89,14 @@ public sealed class DuplicateRowViewModel(
     public IReadOnlyList<DuplicatePlaceViewModel> Places { get; } =
         group.Places.Select(place => new DuplicatePlaceViewModel(
             place.Path, reveal,
-            // ごみ箱へ送れるのは同じ中身のファイルの組だけ。zipと展開したフォルダの組は、展開先の削除（取り込み画面）が
+            // ごみ箱へ送れるのは、同じ中身のファイルの組と、zip と展開したフォルダの組の zip だけ。展開したフォルダは、展開先の削除（取り込み画面）が
             // 商品に登録したフォルダを止める決まりなので、ここには付けない
-            remove: group.Kind == DuplicateKind.SameFile && group.Hash is not null && remove is not null
+            remove: remove is not null
+                && ((group.Kind == DuplicateKind.SameFile && group.Hash is not null)
+                    || (group.Kind == DuplicateKind.ArchiveAndUnpacked && ReferenceEquals(place, group.Places[0])))
                 ? () => remove(group, place)
-                : null)).ToList();
+                : null,
+            isArchiveOfUnpacked: group.Kind == DuplicateKind.ArchiveAndUnpacked)).ToList();
 
     /// <summary>どの商品に紐付いているか。商品をまたぐときだけ意味がある。</summary>
     public string ItemsText { get; } = string.Join(
@@ -108,17 +111,22 @@ public sealed class DuplicateRowViewModel(
 public sealed class DuplicatePlaceViewModel
 {
     public DuplicatePlaceViewModel(
-        string path, Func<string, Task>? reveal, bool? isAvailable = null, Func<Task>? remove = null, bool? hasRecycleBin = null)
+        string path, Func<string, Task>? reveal, bool? isAvailable = null, Func<Task>? remove = null, bool? hasRecycleBin = null,
+        bool isArchiveOfUnpacked = false)
     {
         Path = path;
         IsAvailable = isAvailable ?? DriveIsConnected(path);
         OpenCommand = new RelayCommand(() => reveal?.Invoke(path).Forget());
+        IsArchiveOfUnpacked = isArchiveOfUnpacked;
         HasRemove = remove is not null;
         _hasRecycleBin = hasRecycleBin ?? (HasRemove && Services.RecycleBin.HasRecycleBin(path));
         RemoveCommand = new RelayCommand(() => remove?.Invoke().Forget());
     }
 
     private readonly bool _hasRecycleBin;
+
+    /// <summary>zip と展開したフォルダの組の zip の行（送るのは zip だけ）。</summary>
+    public bool IsArchiveOfUnpacked { get; }
 
     /// <summary>「ごみ箱へ移す…」を出すか（同じ中身のファイルの組だけ）。</summary>
     public bool HasRemove { get; }
@@ -130,7 +138,9 @@ public sealed class DuplicatePlaceViewModel
         ? "ドライブがつながっていません。つなぐと移せます。"
         : !_hasRecycleBin
             ? "ごみ箱の無いドライブなので移せません。"
-            : "同じ中身のファイルがほかにあるのを確かめて、この場所をごみ箱へ移します。";
+            : IsArchiveOfUnpacked
+                ? "展開したフォルダがあるのを確かめて、この zip だけをごみ箱へ移します。フォルダには触りません。"
+                : "同じ中身のファイルがほかにあるのを確かめて、この場所をごみ箱へ移します。";
 
     public RelayCommand RemoveCommand { get; }
 
@@ -1215,17 +1225,22 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
     /// </summary>
     internal async Task RemovePlaceAsync(DuplicateGroup group, DuplicatePlace place)
     {
-        if (group.Hash is not { } hash)
+        // zip と展開したフォルダの組は、zip だけを送る（展開したフォルダには触らない。ユーザ判断 2026-11-20）
+        var isArchive = group.Kind == DuplicateKind.ArchiveAndUnpacked;
+        if (!isArchive && group.Hash is null)
         {
             return;
         }
 
+        var hash = group.Hash ?? string.Empty;
         var others = group.Places.Where(other => !string.Equals(other.Path, place.Path, StringComparison.OrdinalIgnoreCase)).ToList();
-        var text = $"このファイルをごみ箱へ移します。\n\n{place.Path}\n（{Core.Models.DisplayText.Size(group.UnitBytes)}）\n\n"
-            + $"同じ中身のファイルは、ほかの {others.Count} 箇所に残ります。ごみ箱を空にするまでは元に戻せます。";
+        var text = isArchive
+            ? $"この zip をごみ箱へ移します。\n\n{place.Path}\n\n展開したフォルダはそのまま残ります。ごみ箱を空にするまでは元に戻せます。"
+            : $"このファイルをごみ箱へ移します。\n\n{place.Path}\n（{Core.Models.DisplayText.Size(group.UnitBytes)}）\n\n"
+                + $"同じ中身のファイルは、ほかの {others.Count} 箇所に残ります。ごみ箱を空にするまでは元に戻せます。";
 
         // 商品をまたぐ組で、この商品に同じ中身の場所がほかに無いときは、移すとその商品のファイルが見つからなくなる
-        if (group.CrossesItems && group.Places.Count(other => other.ItemId == place.ItemId) == 1)
+        if (!isArchive && group.CrossesItems && group.Places.Count(other => other.ItemId == place.ItemId) == 1)
         {
             text += $"\n\n商品「{place.ItemName}」にはほかの場所が無いので、移すとこの商品のファイルが見つからなくなります。";
         }
@@ -1237,7 +1252,10 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
             return;
         }
 
-        var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.RemoveDuplicatePlace(hash, place.Path));
+        Core.Commands.UiCommand command = isArchive
+            ? new Core.Commands.UiCommand.RemoveArchiveOfUnpacked(place.ItemId, place.Path)
+            : new Core.Commands.UiCommand.RemoveDuplicatePlace(hash, place.Path);
+        var result = await _services.Commands.ExecuteAsync(command);
         if (result is Core.Commands.CommandResult.DuplicatePlaceRemoved { Result: { } removal })
         {
             if (!removal.Removed)

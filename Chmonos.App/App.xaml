@@ -159,6 +159,10 @@
         -->
         <TranslateTransform x:Key="StarNudgeCompact" Y="4" />
 
+        <!-- 1行の見出しの高さと中身の縮尺。起動のときと設定で変えたときに CompactHeader.Apply が置き換える（既定は100%＝高さ52） -->
+        <sys:Double x:Key="CompactHeaderHeight">52</sys:Double>
+        <ScaleTransform x:Key="CompactHeaderTransform" ScaleX="1" ScaleY="1" />
+
         <Style TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource Text}" />
             <Setter Property="FontFamily" Value="Yu Gothic UI, Meiryo, Segoe UI" />

@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:Chmonos.App.Controls"
              xmlns:vm="clr-namespace:Chmonos.App.ViewModels"
-             Height="52" VerticalAlignment="Top" Visibility="Collapsed"
+             Height="{DynamicResource CompactHeaderHeight}" VerticalAlignment="Top" Visibility="Collapsed"
              xmlns:views="clr-namespace:Chmonos.App.Views"
              views:FindInPage.IsSkipped="True">
     <!--
@@ -13,7 +13,7 @@
         値段やボタンは足さない（どの商品を見ているかが分かれば足りる。操作は上の帯にある）
     -->
     <Border x:Name="Root" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
-        <Grid Margin="20,0" VerticalAlignment="Center">
+        <Grid Margin="20,0" VerticalAlignment="Center" LayoutTransform="{DynamicResource CompactHeaderTransform}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />

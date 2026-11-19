@@ -618,6 +618,20 @@ internal static partial class Scenes
             return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, main.MissingAssetsText)), FocusMargin = 24 };
         }),
 
+        // 2026-11-20：ごみ箱の無いドライブに残ったバックアップの書きかけを、起動後の帯で知らせる
+        new("band-backup-left", "下の帯：ごみ箱の無いドライブに前のバックアップの書きかけが残った（場所とエクスプローラで開く）", async context =>
+        {
+            await SeedLibraryAsync(context, count: 3);
+            var main = await context.StartAsync();
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            main.SetLeftBackupWriting(Fake.DetachedDrivePath(@"backup\chmonos-backup-2026-11-19.zip.tmp"));
+            await context.SettleAsync();
+
+            return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, main.LeftBackupWritingText)), FocusMargin = 24 };
+        }),
+
         DroppedRegisteringBand("band-registering-dropped", "下の帯：落とした URL の商品を1件登録している最中（中止は出ない）", done: 0, total: 0),
 
         // 計画 26：まとめての登録は n/N と「中止」。帯の高さが「中止」で変わらないかも見る

@@ -184,6 +184,12 @@ public sealed record AppSettings
     public int DisplayZoomPercent { get; init; } = DisplayZoom.DefaultPercent;
 
     /// <summary>
+    /// 流した時に上へ重ねる1行の見出しの大きさ（%。ユーザ判断 2026-11-20）。高さと字の大きさを同じ倍率で変える。
+    /// 段は <see cref="CompactHeaderSize.Steps"/>。段にない値は使う側が <see cref="CompactHeaderSize.Normalize"/> で丸めて読む
+    /// </summary>
+    public int CompactHeaderPercent { get; init; } = CompactHeaderSize.DefaultPercent;
+
+    /// <summary>
     /// 表示の色（明るい／暗い／Windows に合わせる。ユーザ指示 2026-09-29）。変えるとその場で全体の色が変わる。
     /// 既定を Windows に合わせるにしたのは、暗い色で使っている人は Windows の側で既に選んでいるため
     /// </summary>
