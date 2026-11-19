@@ -211,7 +211,31 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
     public event EventHandler? ListReady;
 
     /// <summary>離れるときの状態。画面の履歴が控えに入れる。</summary>
-    public ShopViewState CaptureState() => new(_ownedOnly, _updatedOnly, AnchorReader?.Invoke());
+    public ShopViewState CaptureState() => new(_ownedOnly, _updatedOnly, AnchorReader?.Invoke(),
+        _sentToEdit.Count == 0 ? null : SelectedCards().Select(card => card.Item.Id).Where(_sentToEdit.Contains).ToList());
+
+    /// <summary>「まとめて編集する」で送った商品。戻った時に選び直すため、離れる時の控えに預ける。</summary>
+    private HashSet<string> _sentToEdit = new(StringComparer.Ordinal);
+
+    /// <summary>戻った時に選び直す商品。一覧を読み終えた所で1回だけ当てる。</summary>
+    private HashSet<string>? _pendingReselect;
+
+    private void ReselectSentToEdit()
+    {
+        if (_pendingReselect is not { } wanted)
+        {
+            return;
+        }
+
+        _pendingReselect = null;
+        ChangeSelectionTogether(() =>
+        {
+            foreach (var card in _all.Where(card => wanted.Contains(card.Item.Id)))
+            {
+                card.IsSelected = true;
+            }
+        });
+    }
 
     /// <summary>
     /// 戻る・進むで開き直したときに、離れたときの状態を預ける。**一覧を読み終える前に呼ぶ**
@@ -222,10 +246,12 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
         _ownedOnly = state.OwnedOnly;
         _updatedOnly = state.UpdatedOnly;
         _pendingAnchor = state.Anchor;
+        _pendingReselect = state.SentToEditIds is { Count: > 0 } sent ? sent.ToHashSet(StringComparer.Ordinal) : null;
         OnPropertyChanged(nameof(OwnedOnly));
         OnPropertyChanged(nameof(UpdatedOnly));
         if (IsListReady)
         {
+            ReselectSentToEdit();
             Rebuild();
         }
     }
@@ -761,7 +787,9 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
         var ids = SelectedCards().Select(card => card.Item.Id).ToList();
         if (ids.Count > 0)
         {
-            ClearSelection();
+            // 選んでいた物は解除しない（検索と同じ・open.md 135 行、ユーザ判断 2026-11-20）。この画面は戻るたびに作り直すので、
+            // 送った組を画面の履歴の控えへ預け、戻ったら選び直す（ShopViewState.SentToEditIds）
+            _sentToEdit = ids.ToHashSet(StringComparer.Ordinal);
             _main.ShowEditAsync(ids).Forget();
         }
     });
@@ -1048,6 +1076,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
 
             OnPropertyChanged(nameof(HasUpdatedItems));
 
+            ReselectSentToEdit();
             OnCardSelectionChanged();
             Rebuild();
             OnPropertyChanged(nameof(SizeText));
@@ -1135,4 +1164,5 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
 
 /// <summary>ショップの画面を離れたときの状態（画面の履歴に預け、戻る・進むで開き直したときに当てる）。</summary>
 /// <param name="Anchor">一覧の位置。先頭にいたときは null。</param>
-public sealed record ShopViewState(bool OwnedOnly, bool UpdatedOnly, ListAnchor? Anchor);
+/// <param name="SentToEditIds">「まとめて編集する」で送り、選んだままだった商品（open.md 135 行）。戻った時に選び直す。</param>
+public sealed record ShopViewState(bool OwnedOnly, bool UpdatedOnly, ListAnchor? Anchor, IReadOnlyList<string>? SentToEditIds = null);

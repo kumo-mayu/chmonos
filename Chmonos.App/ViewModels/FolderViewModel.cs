@@ -158,7 +158,8 @@ internal sealed class FolderViewVolume
 /// 同じファイルを2つの商品が持つと、場所の鍵が同じ行が商品ごとに並ぶので、鍵だけでは1つ目の行に戻ってしまう。商品も合わせて持つ。
 /// </summary>
 /// <param name="RightItemId">右の一覧から右の欄に重ねていた商品（open.md 95 行）。戻った時に重ね直す。</param>
-public sealed record FolderRowRef(string Key, string? ItemId, string? RightItemId = null);
+/// <param name="SentToEditIds">「まとめて編集する」で送り、選んだままだった商品（open.md 135 行）。戻った時に選び直す。</param>
+public sealed record FolderRowRef(string Key, string? ItemId, string? RightItemId = null, IReadOnlyList<string>? SentToEditIds = null);
 
 /// <summary>左の一覧の1行。**見えている行だけを平らに並べる**（1つのフォルダに1000本あっても、仮想化した一覧で重くしない）。</summary>
 public sealed class FolderViewRow : ViewModelBase, IHasItemCard
@@ -494,7 +495,7 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
     private bool _replacingRows;
 
     /// <summary>戻るで戻ったときに、同じ行を選び直すための控え（場所と商品の組）。</summary>
-    public FolderRowRef? SelectedRef => _selected is null ? null : new FolderRowRef(_selected.Key, _selected.Entry?.Item?.Id, RightItem.Page?.Item.Id);
+    public FolderRowRef? SelectedRef => _selected is null ? null : new FolderRowRef(_selected.Key, _selected.Entry?.Item?.Id, RightItem.Page?.Item.Id, (Detail as FolderViewDetail)?.SentToEditIds());
 
     /// <summary>
     /// 右に組み込んだ物（商品ページなど）の待っている保存も拾う。
@@ -913,6 +914,8 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
             // 作り直したときの選び直し（Rebuild）と同じく、場所と商品の組で探す。その商品の行が無くなっていれば場所だけで
             Selected = Rows.FirstOrDefault(row => row.Key == key && row.Entry?.Item?.Id == pending.ItemId)
                 ?? Rows.FirstOrDefault(row => row.Key == key);
+
+            (Detail as FolderViewDetail)?.ReselectSentToEdit(pending.SentToEditIds);
 
             // 右の一覧から商品ページを重ねていたなら重ね直す（「← 一覧に戻る」で、同じフォルダの一覧へ戻れるように）。
             // 一覧はこの画面と一緒に作り直したので、流した位置は一番上からになる。商品が消えていれば重ねない

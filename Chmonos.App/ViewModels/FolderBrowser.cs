@@ -364,6 +364,31 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImages
     // ---- まとめて操作（検索画面と同じ・ユーザ指示 2026-09-14：フォルダも検索と同等の発見手段なので同等にする） ----
 
     private bool _isSendingToUnity;
+
+    /// <summary>「まとめて編集する」で送った商品。画面の履歴の控えに預け、戻った時に選び直す（<see cref="SentToEditIds"/>）。</summary>
+    private HashSet<string> _sentToEdit = new(StringComparer.Ordinal);
+
+    /// <summary>離れる時に預ける、編集へ送って今も選んでいる商品の ID。送っていなければ null（商品ページなどで離れた時は選びを戻さない）。</summary>
+    internal IReadOnlyList<string>? SentToEditIds()
+        => _sentToEdit.Count == 0 ? null : SelectedCards().Select(card => card.Item.Id).Where(_sentToEdit.Contains).ToList();
+
+    /// <summary>戻った時に、編集へ送っていた商品を選び直す。右の一覧に出ているカードだけが対象（出ていない物は選べない）。</summary>
+    internal void ReselectSentToEdit(IReadOnlyList<string>? ids)
+    {
+        if (ids is not { Count: > 0 })
+        {
+            return;
+        }
+
+        var wanted = ids.ToHashSet(StringComparer.Ordinal);
+        ChangeSelectionTogether(() =>
+        {
+            foreach (var card in _cards.Values.Where(card => wanted.Contains(card.Item.Id)))
+            {
+                card.IsSelected = true;
+            }
+        });
+    }
     private string _unityQueueText = string.Empty;
 
     public RelayCommand SelectAllCommand => _selectAll ??= new RelayCommand(SelectAllShown);
@@ -383,7 +408,9 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImages
         var ids = SelectedCards().Select(card => card.Item.Id).ToList();
         if (ids.Count > 0)
         {
-            ClearSelection();
+            // 選んでいた物は解除しない（検索と同じ・open.md 135 行、ユーザ判断 2026-11-20）。この画面は戻るたびに作り直すので、
+            // 送った組を画面の履歴の控えへ預け、戻ったら選び直す（SentToEditIds）
+            _sentToEdit = ids.ToHashSet(StringComparer.Ordinal);
             _main.ShowEditAsync(ids).Forget();
         }
     });
