@@ -230,8 +230,9 @@ public class ImportStateTests : IDisposable
     }
 
     /// <summary>
-    /// 取り込みと見回りが自分で書く値（ファイル・フォルダ・検出した対応アバター・推した変換扱い）は人の手と見ない。
-    /// 見ると取り込んだ商品が全部「残した」になり、何も消えない。人が足した・違うと言った・決めた値は人の手
+    /// 取り込みと見回りが自分で書く値（ファイル・検出した対応アバター・推した変換扱い）は人の手と見ない。
+    /// 見ると取り込んだ商品が全部「残した」になり、何も消えない。人が足した・違うと言った・決めた値は人の手。
+    /// フォルダの登録は取り込みが作らないので人の手（消すと未確定にも戻せず、どこにも出なくなる。open.md 119・ユーザ判断 2026-11-20）
     /// </summary>
     [Fact]
     public void AutomaticValuesAreNotHumanInput()
@@ -239,7 +240,6 @@ public class ImportStateTests : IDisposable
         var automatic = new LocalBlock
         {
             LocalFiles = [new LocalFileRecord { Paths = ["a.zip"], Hash = "h", SizeBytes = 1 }],
-            LocalFolders = [new LocalFolderRecord { Path = "dir" }],
             Avatars = [new AvatarLink { AvatarItemId = "1", Source = AvatarLinkSource.SupportSection, Confirmed = true }],
             AvatarBases = [new AvatarBaseLink { BaseName = "素体", Source = AvatarLinkSource.Tag, Confirmed = true }],
             Conversion = new ConversionSetting { Targets = [new ConversionTarget { AvatarItemId = "1", Slug = "s" }] },
@@ -255,6 +255,7 @@ public class ImportStateTests : IDisposable
         Assert.True(Chmonos.Core.Services.ImportedItemRemoval.HasHumanInput(
             automatic with { Conversion = new ConversionSetting { Targets = [new ConversionTarget { AvatarItemId = "1", Confirmed = true }] } }));
         Assert.True(Chmonos.Core.Services.ImportedItemRemoval.HasHumanInput(automatic with { NotifyOnUpdate = false }));
+        Assert.True(Chmonos.Core.Services.ImportedItemRemoval.HasHumanInput(automatic with { LocalFolders = [new LocalFolderRecord { Path = "dir" }] }));
     }
 
     /// <summary>最後まで終われば記録は残さない。残すと次の起動で「中断した」と嘘をつく。</summary>

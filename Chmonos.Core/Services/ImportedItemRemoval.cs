@@ -116,12 +116,15 @@ public sealed class ImportedItemRemoval(DataStore store)
     /// <summary>
     /// 人が手を入れたか。人が決める欄（<see cref="LocalOwners.EditScreen"/>・画像・お気に入り）のどれかが入っていれば残す。
     /// 取り込みと見回りが自分で書く欄は、自動で書いた値なら見ない——見ると取り込んだ商品が全部「残した」になり、何も消えない：
-    /// ファイルとフォルダ（<see cref="LocalOwners.Import"/>）、検出した対応アバター・素体（<see cref="LocalOwners.Detection"/>。
+    /// ファイル（<see cref="LocalOwners.Import"/>）、検出した対応アバター・素体（<see cref="LocalOwners.Detection"/>。
     /// 検出も「確かめ済み」を付けるので、人の操作が付ける Manual と違うと言った行だけ見る）、変換扱いの推した値（<c>ConversionScan</c>。人が決めた形・確かめた行だけ見る）、
-    /// 取得の記録と中身の更新の控え。手で付けたファイルとフォルダは取り込みの物と見分けられないので見ない
+    /// 取得の記録と中身の更新の控え。手で付けたファイルは取り込みの物と見分けられないので見ない。
+    /// フォルダの登録は見る：取り込みは前からある登録を見回るだけで新しく作らないので、あれば人が付けた物。
+    /// 消すと、未確定はファイルしか持てないのでフォルダはどこにも出なくなる（open.md 119・ユーザ判断 2026-11-20）
     /// </summary>
     public static bool HasHumanInput(LocalBlock local)
-        => !string.IsNullOrEmpty(local.DisplayName)
+        => local.LocalFolders.Count > 0
+            || !string.IsNullOrEmpty(local.DisplayName)
             || local.Shop is not null
             || !string.IsNullOrEmpty(local.Category)
             || local.UserImages?.Count > 0
