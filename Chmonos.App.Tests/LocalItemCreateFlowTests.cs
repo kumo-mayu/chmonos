@@ -55,6 +55,50 @@ public class LocalItemCreateFlowTests
         Assert.Same(before, main.CurrentViewModel);
     });
 
+    /// <summary>
+    /// 作った商品へ、未確定の「商品IDで登録」に仮ID（乱数12桁）を入れて、後からファイルを付けられる（フォルダもこの道で付ける）。
+    /// 欄が受けるのは手元に在る商品の仮IDだけなので、作った後に開いた未確定がその商品を知っているかを確かめる。BOOTH へは問い合わせない
+    /// </summary>
+    [Fact]
+    public Task 作った商品の仮IDを未確定の欄に入れると_そのファイルを付けられる() => TestApp.Run(async app =>
+    {
+        var path = app.NewFile(@"own\手作り.zip");
+        await app.Store.Unresolved.SaveAsync(
+        [
+            new Core.Models.UnresolvedFile
+            {
+                Hash = Make.HashOf(path),
+                Paths = [path],
+                SizeBytes = 3,
+                ModifiedAtUtc = new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.Zero),
+                FirstSeenAt = new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.Zero),
+            },
+        ]);
+        var main = await app.StartAsync();
+        app.NameLocalItem = model =>
+        {
+            model.Name = "手で作った衣装";
+            return true;
+        };
+        await main.CreateLocalItemAsync();
+        var itemId = Assert.IsType<ItemViewModel>(main.CurrentViewModel).Item.Id;
+
+        main.ShowResolveCommand.Execute(null);
+        await app.SettleAsync();
+        var resolve = Assert.IsType<ResolveViewModel>(main.CurrentViewModel);
+        resolve.ItemIdInput = itemId;
+        resolve.PreviewCommand.Execute(null);
+        await app.SettleAsync();
+        Assert.True(resolve.AssignCommand.CanExecute(null));
+        resolve.AssignCommand.Execute(null);
+        await app.SettleAsync();
+
+        var item = await app.Store.Items.LoadAsync(itemId);
+        Assert.True(item!.IsOwned);
+        Assert.Equal("手で作った衣装", item.Local.DisplayName);
+        Assert.Empty(app.Booth.Requests);
+    });
+
     /// <summary>空白だけの名前では窓の「登録」を押せない（作ると画面に local-… しか出ない）。</summary>
     [Fact]
     public void 空白だけの名前では登録を押せない()
