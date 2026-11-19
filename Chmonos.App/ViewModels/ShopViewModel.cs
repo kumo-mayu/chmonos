@@ -1045,6 +1045,18 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
         .Select(record => record.ItemId!)
         .ToHashSet(StringComparer.Ordinal);
 
+    /// <summary>
+    /// 取り外し中の確かめが終わった（ドライブをつなぎ直した時と、この画面を確かめが終わる前に開いた時）。
+    /// カードを作り直さず、帯だけを今の答えに合わせる。
+    /// </summary>
+    internal void ApplyDetached()
+    {
+        foreach (var card in _all)
+        {
+            card.IsDetached = _main.Search.IsDetached(card.Item.Id);
+        }
+    }
+
     public async Task ReloadAsync()
     {
         // 全商品のJSONは読み直さず、検索画面が起動時に読んだ写しから引く（ユーザ指示 2026-09-12）。

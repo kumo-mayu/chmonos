@@ -142,6 +142,9 @@ public sealed partial class MainViewModel : ViewModelBase
         Search.IsUsedItem = item => UsedItems.Current.Of(item, _services.Store.Avatars.Load()).IsUsed;
         UsedItems.Changed += (_, _) => RunOnUiThread(Search.NoteUsedItemsChanged);
 
+        // 取り外し中の帯の確かめが終わったら、開いているショップのカードにも付け直す（先に開いた時・つなぎ直した時）
+        Search.DetachedApplied += (_, _) => (CurrentViewModel as ShopViewModel)?.ApplyDetached();
+
         // 改変を書いたら改変の数だけ数え直す（錠の中から来るので、裏へ回す。プロジェクトは調べ直さない）
         _services.Store.Modifications.Written += () => Task.Run(() => UsedItems.NoteModificationsChangedAsync()).Forget();
 
@@ -641,6 +644,12 @@ public sealed partial class MainViewModel : ViewModelBase
     public ModificationViewModel? CurrentModification
         => CurrentViewModel as ModificationViewModel
             ?? (CurrentViewModel as ModificationHubViewModel)?.Detail as ModificationViewModel;
+
+    /// <summary>
+    /// ドライブの抜き差しが落ち着いた（<c>DriveChangeWatcher</c>）。カードの帯「取り外し中」を付け直す。
+    /// 確かめはドライブの根だけを裏で見る（ファイルは走査しない）。
+    /// </summary>
+    public void NoteDrivesChanged() => Search.RefreshDetached(refreshRemap: true);
 
     public void NoteWindowActivated()
     {

@@ -154,7 +154,16 @@ public partial class MainWindow : Window
         // 置いた後のモニターで読む（前回を別のモニターで閉じていれば、ここで初めてそちらの拡大率になる）
         Services.DisplayScale.SetMonitor(System.Windows.Media.VisualTreeHelper.GetDpi(this).DpiScaleX);
         FitMinimumToWorkArea();
+
+        // ドライブの抜き差しで、カードの帯「取り外し中」を付け直す（確かめは裏で・ドライブの根だけ）
+        _driveWatcher.Changed += (_, _) => (DataContext as MainViewModel)?.NoteDrivesChanged();
+        if (System.Windows.Interop.HwndSource.FromHwnd(new System.Windows.Interop.WindowInteropHelper(this).Handle) is { } source)
+        {
+            _driveWatcher.Attach(source);
+        }
     }
+
+    private readonly Services.DriveChangeWatcher _driveWatcher = new();
 
     /// <summary>
     /// 拡大率の違うモニターへ移った（Per-Monitor V2）。描き直しは WPF がするので、
