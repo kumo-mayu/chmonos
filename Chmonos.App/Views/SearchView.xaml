@@ -2158,6 +2158,7 @@
                           ScrollViewer.ScrollChanged="OnResultsScrollChanged" Loaded="OnResultsLoaded"
                           BorderThickness="0" Background="Transparent" Margin="18,4,18,18"
                           VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                          VirtualizingPanel.ScrollUnit="Pixel"
                           Visibility="{Binding IsListMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <!-- 一覧の余白の右クリック（ユーザ指示 2026-11-06）：区切りの札を出すか。設定と同じ値。行の上は行のメニュー、札の上は札のメニューが先に出る -->
                     <controls:ItemListView.ContextMenu>

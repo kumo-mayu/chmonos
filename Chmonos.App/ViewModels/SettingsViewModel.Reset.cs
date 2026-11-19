@@ -104,6 +104,7 @@ public sealed partial class SettingsViewModel
         _showVariationTargetsForUnpurchased = settings.ShowVariationTargetsForUnpurchased;
         _showHiddenCountInSearch = settings.ShowHiddenCountInSearch;
         _placeNewConditionNearSameKind = settings.PlaceNewConditionNearSameKind;
+        _smoothScrolling = settings.SmoothScrolling;
         _showSortDividers = settings.ShowSortDividers;
         _showAcquiredSortDividers = settings.ShowAcquiredSortDividers;
         _thumbnailRole = settings.ThumbnailRole;

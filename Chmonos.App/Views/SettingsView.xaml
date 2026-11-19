@@ -292,6 +292,11 @@
                                       AutomationProperties.AutomationId="Settings.PlaceNewConditionNearSameKind"
                                       ToolTip="オフのときは、いちばん下に追加します。"
                                       IsChecked="{Binding PlaceNewConditionNearSameKind, Mode=TwoWay}" />
+                            <!-- 検索の一覧をホイールで滑らかに流す（ユーザ判断 2026-11-20：設定の項目にし、試しに入れる） -->
+                            <CheckBox controls:SettingDefault.Key="SmoothScrolling" Content="検索の一覧を滑らかに流す" Style="{StaticResource SettingCheck}"
+                                      AutomationProperties.AutomationId="Settings.SmoothScrolling"
+                                      ToolTip="マウスのホイールで、一覧を少しずつ流します。オフのときは、決まった量ずつ動きます。"
+                                      IsChecked="{Binding SmoothScrolling, Mode=TwoWay}" />
 
                             <!--
                                 検索の履歴。横に並ぶスロットなので、増やすほど端まで送る手間が増える。
