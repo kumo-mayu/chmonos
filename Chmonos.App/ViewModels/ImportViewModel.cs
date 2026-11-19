@@ -1116,8 +1116,11 @@ public sealed partial class ImportViewModel : ViewModelBase
         starting();
         var targets = kinds.Select(kind => kind.Path).ToList();
 
-        // 押していないので展開先のファイルは窓で尋ねない（G2）
-        return _services.Imports.StartIfIdle(new ImportRequest(() => ResolveUnpackedTargets(targets.ToList(), ask: false), targets));
+        // 押していないので展開先のファイルは窓で尋ねない（G2）。
+        // 履歴には見つけたファイルではなく監視フォルダを載せる（「新しいファイルを取り込む」と同じ。ユーザ判断 2026-11-20）
+        return _services.Imports.StartIfIdle(new ImportRequest(
+            () => ResolveUnpackedTargets(targets.ToList(), ask: false),
+            WatchedSources(targets, _services.Settings.WatchedFolders)));
     }
 
     /// <summary>
@@ -1326,6 +1329,42 @@ public sealed partial class ImportViewModel : ViewModelBase
         return sources;
     }
 
+    /// <summary>
+    /// 監視フォルダの新着と、それ以外（前回の続き・人が足した物）が混ざった対象の履歴：新着だけを <see cref="WatchedSources"/> で監視フォルダに替え、
+    /// ほかはそのまま載せる。同じ行は1つにする（ユーザ判断 2026-11-20：起動時・開いている間の自動の取り込みと、帯の件数から積んだ物も、
+    /// ボタンの取り込みと同じく監視フォルダを1行だけ載せる）
+    /// </summary>
+    internal static IReadOnlyList<string> HistoryWithWatchedSources(
+        IReadOnlyList<string> targets, IReadOnlyCollection<string> watchedNew, IReadOnlyList<string> watched)
+    {
+        var sources = new List<string>();
+        foreach (var target in targets)
+        {
+            var source = watchedNew.Any(file => Core.Services.PathText.Same(file, target))
+                ? WatchedSources([target], watched)[0]
+                : target;
+            if (!sources.Any(known => Core.Services.PathText.Same(known, source)))
+            {
+                sources.Add(source);
+            }
+        }
+
+        return sources;
+    }
+
+    /// <summary>
+    /// 帯の件数（起動時に見つけた監視フォルダの新着）から取り込み対象へ積んだ物。取り込みを始める時に、履歴へはファイルではなく監視フォルダを載せる。
+    /// 積んでから始めるまでの間があるので、始める時まで控える
+    /// </summary>
+    private readonly HashSet<string> _watchedNewInList = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>監視フォルダの新着を取り込み対象へ積む（始めない）。始めた時の履歴は監視フォルダの1行（<see cref="HistoryWithWatchedSources"/>）</summary>
+    internal void AddWatchedNew(IReadOnlyList<string> files)
+    {
+        _watchedNewInList.UnionWith(files);
+        AddDroppedPaths(files);
+    }
+
     private async Task RemoveWatchedAsync(string? folder)
     {
         if (folder is null)
@@ -1383,6 +1422,7 @@ public sealed partial class ImportViewModel : ViewModelBase
         }
 
         Folders.Remove(folder);
+        _watchedNewInList.Remove(folder);
         OnPropertyChanged(nameof(HasFolders));
         RelayCommand.RaiseCanExecuteChanged();
 
@@ -1715,7 +1755,12 @@ public sealed partial class ImportViewModel : ViewModelBase
         _notStarted.ExceptWith(targets);
         RaiseNotStarted();
 
-        var added = await _services.Imports.StartOrStackAsync(new ImportRequest(() => ResolveUnpackedTargets(targets.ToList(), ask), history ?? targets));
+        history ??= _watchedNewInList.Count == 0
+            ? targets
+            : HistoryWithWatchedSources(targets, _watchedNewInList, _services.Settings.WatchedFolders);
+        _watchedNewInList.ExceptWith(targets);
+
+        var added = await _services.Imports.StartOrStackAsync(new ImportRequest(() => ResolveUnpackedTargets(targets.ToList(), ask), history));
         if (added is { } count)
         {
             StackNotice = count == 0
