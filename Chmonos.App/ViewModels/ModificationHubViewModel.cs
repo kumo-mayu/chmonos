@@ -252,9 +252,9 @@ public sealed partial class ModificationHubViewModel : ViewModelBase, IPendingWr
 
     public string QueryPlaceholder => Level switch
     {
-        ModificationHubLevel.Project => "プロジェクト名・改変名から探す",
-        ModificationHubLevel.Avatar => "アバター名・改変名から探す",
-        _ => "改変名・アバター名・プロジェクト名から探す",
+        ModificationHubLevel.Project => "プロジェクト名・改変名・メモから探す",
+        ModificationHubLevel.Avatar => "アバター名・改変名・メモから探す",
+        _ => "改変名・アバター名・プロジェクト名・メモから探す",
     };
 
     /// <summary>左の一覧。見方によって、見出しがプロジェクト・アバター・改変になる。</summary>

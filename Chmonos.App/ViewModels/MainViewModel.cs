@@ -890,9 +890,14 @@ public sealed partial class MainViewModel : ViewModelBase
     /// 商品ページを開く。検索画面のインスタンスは保持したままなので、
     /// 戻ったときに絞り込み条件もスクロール位置もそのまま残る。
     /// </summary>
-    /// <summary>改変の詳細を開く。商品ページと同じ格の画面</summary>
+    /// <summary>
+    /// その改変を右に選んだ、改変の画面を開く（ユーザ指示 2026-11-18：左の一覧の無い単独の画面で開かない）。
+    /// 商品ページ・アバターの管理から開いても戻る（Alt+←）で元の画面へ戻れる（画面の差し替えは履歴に積まれる）。
+    /// 見方は改変の見方に決める：プロジェクト・アバターの見方では改変が畳まれた見出しの中に入るが、改変の見方なら左の一覧に選んだ行がそのまま見える
+    /// </summary>
     public void ShowModification(Core.Models.ModificationRecord record)
-        => CurrentViewModel = new ModificationViewModel(record, _services, this, Thumbnails);
+        => ShowModifications(ModificationHubLevel.Modification,
+            new ModificationHubSelection(ModificationHubSelectionKind.Modification, record.Id));
 
     public void ShowItem(Core.Models.ItemRecord item) => ShowItem(item, restoreScrollOffset: null);
 

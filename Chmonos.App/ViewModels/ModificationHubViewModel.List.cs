@@ -186,7 +186,7 @@ public sealed partial class ModificationHubViewModel
         {
             var records = Behind(RecordsOf(candidate.Path));
             var nameHit = query.Length == 0 || Hit(candidate.Name, query);
-            var shown = nameHit ? records : records.Where(record => Hit(record.Name, query)).ToList();
+            var shown = nameHit ? records : records.Where(record => RecordHit(record, query)).ToList();
             if ((!nameHit || OnlyBehind) && shown.Count == 0)
             {
                 continue;
@@ -201,7 +201,7 @@ public sealed partial class ModificationHubViewModel
 
         // 紐付けていない改変も、この見方から辿れるようにする（見方を変えないと見つからない改変を作らない）
         var unlinked = _records
-            .Where(record => !record.HasUnityProject && (query.Length == 0 || Hit(record.Name, query)) && (!OnlyBehind || IsBehind(record)))
+            .Where(record => !record.HasUnityProject && (query.Length == 0 || RecordHit(record, query)) && (!OnlyBehind || IsBehind(record)))
             .OrderByDescending(record => record.UpdatedAt)
             .ToList();
         if (unlinked.Count > 0)
@@ -241,7 +241,7 @@ public sealed partial class ModificationHubViewModel
         {
             var records = Behind(all);
             var nameHit = query.Length == 0 || AvatarHit(id, query);
-            var shown = nameHit ? records : records.Where(record => Hit(record.Name, query)).ToList();
+            var shown = nameHit ? records : records.Where(record => RecordHit(record, query)).ToList();
             if ((!nameHit || OnlyBehind) && shown.Count == 0)
             {
                 continue;
@@ -265,7 +265,7 @@ public sealed partial class ModificationHubViewModel
         foreach (var record in Behind(_records).OrderByDescending(record => record.UpdatedAt))
         {
             if (query.Length > 0
-                && !Hit(record.Name, query)
+                && !RecordHit(record, query)
                 && !Hit(AvatarNameOf(record.AvatarItemId), query)
                 && !Hit(Core.Models.DisplayText.FolderName(record.UnityProject), query))
             {
@@ -293,6 +293,10 @@ public sealed partial class ModificationHubViewModel
         .Where(record => ModificationService.SamePath(record.UnityProject, projectPath))
         .OrderByDescending(record => record.UpdatedAt)
         .ToList();
+
+    /// <summary>改変そのものを引ける語。名前とメモ（ユーザ指示 2026-11-18：メモも探す）。</summary>
+    private static bool RecordHit(ModificationRecord record, string query)
+        => Hit(record.Name, query) || Hit(record.Memo, query);
 
     private static bool Hit(string? text, string query)
         => !string.IsNullOrEmpty(text) && Compare.IndexOf(text, query, Loose) >= 0;

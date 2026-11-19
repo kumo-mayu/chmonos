@@ -12,6 +12,7 @@ public partial class PickMemberFilesDialog : Window
         Title = title;
         TitleText.Text = title;
         HeadingText.Text = headingText;
+        DataContext = model;
         Picker.DataContext = model;
         if (repick)
         {

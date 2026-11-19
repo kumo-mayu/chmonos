@@ -377,7 +377,7 @@
                                                         <TextBlock Text="新しい版あり" FontSize="10" Foreground="{DynamicResource Warn}" />
                                                     </Border>
                                                     <TextBlock Text="{Binding SourceText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
-                                                               TextTrimming="CharacterEllipsis" ToolTip="{Binding SourceText}" />
+                                                               TextTrimming="CharacterEllipsis" ToolTip="{Binding HoverText}" />
                                                 </DockPanel>
 
                                                 <ContentControl Content="{Binding Card}" ContentTemplate="{StaticResource ItemCardTemplate}" Focusable="False"
@@ -388,7 +388,7 @@
                                                 <Border Style="{StaticResource Card}" Width="{DynamicResource CardWidth}" HorizontalAlignment="Left" Padding="12,10"
                                                         Visibility="{Binding HasCard, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                                                     <StackPanel>
-                                                        <RichTextBox Style="{StaticResource SelectableBody}" FontSize="12.5" FontWeight="Medium" Foreground="{DynamicResource Text}" AutomationProperties.Name="{Binding Name}" controls:SelectableText.PlainText="True" controls:SelectableText.Text="{Binding Name}" />
+                                                        <RichTextBox Style="{StaticResource SelectableBody}" FontSize="12.5" FontWeight="Medium" Foreground="{DynamicResource Text}" AutomationProperties.Name="{Binding Name}" ToolTip="{Binding HoverText}" controls:SelectableText.PlainText="True" controls:SelectableText.Text="{Binding Name}" />
                                                         <TextBlock Text="手元にありません。記録は残っています。" FontSize="11" Foreground="{DynamicResource Warn}"
                                                                    Margin="0,6,0,0" />
                                                     </StackPanel>
@@ -535,7 +535,7 @@
                                                         <Border Style="{StaticResource ItemListCellFrame}">
                                                             <StackPanel VerticalAlignment="Center" Style="{StaticResource DetachedMemberDim}">
                                                                 <!-- 名前を押すと商品ページ（「開く」ボタンの代わり） -->
-                                                                <Button AutomationProperties.AutomationId="ModificationMemberLink" AutomationProperties.Name="{Binding Name}" Style="{StaticResource MemberNameLink}" ToolTip="{Binding Name}"
+                                                                <Button AutomationProperties.AutomationId="ModificationMemberLink" AutomationProperties.Name="{Binding Name}" Style="{StaticResource MemberNameLink}" ToolTip="{Binding HoverText}"
                                                                         Command="{Binding DataContext.OpenItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                         CommandParameter="{Binding}"
                                                                         controls:MiddleClick.Command="{Binding DataContext.OpenMemberBoothCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -556,7 +556,7 @@
                                                                 </Button>
                                                                 <!-- 使ったファイル。列にすると狭い左の列からはみ出すので、名前の下に置く（改変の画面の行と同じ形） -->
                                                                 <TextBlock Text="{Binding SourceText}" Style="{StaticResource Caption}" Margin="0,2,0,0"
-                                                                           TextTrimming="CharacterEllipsis" ToolTip="{Binding SourceText}" />
+                                                                           TextTrimming="CharacterEllipsis" ToolTip="{Binding HoverText}" />
                                                                 <WrapPanel Margin="0,3,0,0">
                                                                     <!-- 外した行の印（カードと同じ） -->
                                                                     <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
