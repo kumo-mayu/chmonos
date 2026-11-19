@@ -128,6 +128,41 @@ public class ConversionPairEditorTests
     });
 
     [Fact]
+    public Task メモを打ってすぐ別の組を外しても_打ったメモは画面にもファイルにも残る() => TestApp.Run(async app =>
+    {
+        await app.Store.ConversionPairs.SaveAsync(new ConversionPairFile
+        {
+            Pairs = [Pair(ConversionEnd.Avatar(Aoi), ConversionEnd.Avatar(Momo)), Pair(ConversionEnd.Avatar(Momo), ConversionEnd.Avatar(Aoi))],
+        });
+        var avatars = await OpenAvatarsAsync(app);
+        avatars.ShowConversionModeCommand.Execute(null);
+        var pairs = avatars.ConversionPairs;
+
+        // 0.8 秒の待ちの間に外す（待ちを書き切る前に作り直すと、行が古いメモに戻っていた）
+        pairs.Rows[0].MemoText = "袖は直す";
+        await pairs.RemoveAsync(pairs.Rows[1]);
+
+        Assert.Equal("袖は直す", Assert.Single(pairs.Rows).MemoText);
+        Assert.Equal("袖は直す", Assert.Single(app.Store.ConversionPairs.Load().Pairs).Memo);
+    });
+
+    [Fact]
+    public Task 先の欄で候補を決めると_元が決まっていれば足し_元が空なら何も言わずに待つ() => TestApp.Run(async app =>
+    {
+        var avatars = await OpenAvatarsAsync(app);
+        avatars.ShowConversionModeCommand.Execute(null);
+        var pairs = avatars.ConversionPairs;
+
+        await pairs.CommitToAsync("モモ");
+        Assert.False(pairs.Notice.HasText);
+        Assert.Empty(app.Store.ConversionPairs.Load().Pairs);
+
+        pairs.FromText = "アオイ";
+        await pairs.CommitToAsync("モモ");
+        Assert.Equal(Pair(ConversionEnd.Avatar(Aoi), ConversionEnd.Avatar(Momo)), Assert.Single(app.Store.ConversionPairs.Load().Pairs));
+    });
+
+    [Fact]
     public Task アバターの詳細はそのアバターが元か先にある組だけを読むだけで並べ_変換で編集で変換へ移る() => TestApp.Run(async app =>
     {
         await app.Store.ConversionPairs.SaveAsync(new ConversionPairFile

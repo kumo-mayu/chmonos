@@ -52,7 +52,21 @@ public sealed class ConversionPairEditor : ViewModelBase
         AddCommand = new RelayCommand(() => AddAsync().Forget());
 
         // 先の欄で候補を決めたら、そのまま足す（Enter は入力の確定・ui-input.md）。元の欄は選んだ語を残すだけ
-        CommitToCommand = new RelayCommand(_ => AddAsync().Forget());
+        CommitToCommand = new RelayCommand(parameter => CommitToAsync(parameter as string).Forget());
+    }
+
+    /// <summary>
+    /// 先の欄で候補を決めた。決めた語を先に入れてから足す（欄の文字の結び付けが先に届く事に頼らない）。
+    /// 元がまだ決まっていなければ足さずに待つ（先から埋める人に「選んでください」を出すと、間違えたように見える）
+    /// </summary>
+    internal Task CommitToAsync(string? text)
+    {
+        if (text is not null)
+        {
+            ToText = text;
+        }
+
+        return EndOf(FromText) is null ? Task.CompletedTask : AddAsync();
     }
 
     /// <summary>組の行（足した順）。</summary>
@@ -131,7 +145,17 @@ public sealed class ConversionPairEditor : ViewModelBase
     /// ファイルと登録簿から読み直す（「変換」に入った時・登録簿を読み直した時）。組は素体の改名・削除と商品 ID の変更でも書き換わるので、
     /// 読み直さないと古い行の × が何も外さない
     /// </summary>
-    public void Reload() => _memo.Replace(() => Rebuild(_services.Store.ConversionPairs.Load()));
+    public void Reload() => ReloadAsync().Forget();
+
+    /// <summary>
+    /// 待っているメモを書き切ってからファイルを読む。書き切る前に読むと、打ったばかりのメモが古い文の行で作り直されて画面から消える
+    /// （ファイルには後から書かれるので、次に開くまで食い違う）。待つ物が無ければ同期のまま作り直す
+    /// </summary>
+    internal async Task ReloadAsync()
+    {
+        await _memo.FlushAsync();
+        Rebuild(_services.Store.ConversionPairs.Load());
+    }
 
     private void Rebuild(ConversionPairFile file)
     {
@@ -207,25 +231,31 @@ public sealed class ConversionPairEditor : ViewModelBase
             return;
         }
 
-        if (await RunAsync(file => ConversionPairs.Add(file, pair)) is { } written)
+        if (await WriteThenRebuildAsync(file => ConversionPairs.Add(file, pair)))
         {
             // 同じ元から続けて足せるように、元は残して先だけ空にする
             ToText = string.Empty;
-            Reload(written);
-            _written?.Invoke();
         }
     }
 
     internal async Task RemoveAsync(ConversionPairRow row)
-    {
-        if (await RunAsync(file => ConversionPairs.Remove(file, row.Pair)) is { } written)
-        {
-            Reload(written);
-            _written?.Invoke();
-        }
-    }
+        => await WriteThenRebuildAsync(file => ConversionPairs.Remove(file, row.Pair));
 
-    private void Reload(ConversionPairFile written) => _memo.Replace(() => Rebuild(written));
+    /// <summary>
+    /// 足す・外す。先に待っているメモを書き切る（書き切らずに書いた後の値で作り直すと、打ったばかりのメモが古い文の行に戻る）
+    /// </summary>
+    private async Task<bool> WriteThenRebuildAsync(Func<ConversionPairFile, ConversionPairFile> change)
+    {
+        await _memo.FlushAsync();
+        if (await RunAsync(change) is not { } written)
+        {
+            return false;
+        }
+
+        Rebuild(written);
+        _written?.Invoke();
+        return true;
+    }
 
     /// <summary>行の欄で打った（行から呼ぶ）。</summary>
     internal void MemoEdited(ConversionPairRow row, string text) => _memo.Edited(row, text);
