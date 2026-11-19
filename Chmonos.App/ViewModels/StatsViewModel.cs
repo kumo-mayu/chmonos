@@ -1204,10 +1204,14 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
     }
 
     /// <summary>
-    /// 見つからないファイルは、検索の条件ではなくフォルダビューで見る（ユーザ判断 2026-09-16：管理対象に明確に指定された物ではないので、
-    /// フォルダと未確定で見られれば十分）。フォルダビューは記録上の場所に灰色で残して出す
+    /// 見つからないファイルは、検索の条件「見つからないファイル」で開く（ユーザ判断 2026-11-18：検索に条件ができたので変えた。
+    /// 2026-09-16 はその条件が無く、フォルダビューで見る事にしていた）。検索の画面なら、何が入ったかを見てから編集へ送れる
     /// </summary>
-    private void ShowMissing() => _main.ShowFolders();
+    private void ShowMissing()
+    {
+        _main.Search.ShowOnlyMissingFile();
+        _main.ShowSearch();
+    }
 
     /// <summary>
     /// 軸の上端。半端な最大値をそのまま上端にすると目盛りが読めないので、

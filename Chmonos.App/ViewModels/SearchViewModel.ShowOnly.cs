@@ -113,6 +113,19 @@ public sealed partial class SearchViewModel
     }
 
     /// <summary>
+    /// 記録の上では持っているが置き場が無いファイルがある商品だけを出す。統計の未処理「ファイルが見つからない」からの導線
+    /// （ユーザ判断 2026-11-18。検索に条件「見つからないファイル」ができたので、フォルダの画面から変えた）。
+    /// 「未所持も含める」は既定（含める）のまま：統計の数（全商品のうち <c>HasMissingFile</c>）と合わせる。
+    /// </summary>
+    public void ShowOnlyMissingFile()
+    {
+        RecordBeforeShowOnly();
+        ClearFilters(apply: false);
+        EnsureModule<ChoiceModule>(SearchModuleKind.MissingFile).Select(MissingFileKey);
+        FinishShowOnly();
+    }
+
+    /// <summary>
     /// 条件の値を戻し、最近取り込んだ順に並べる。取り込みの結果から、取り込んだ物を見に来る導線（動線の点検 D1）。
     /// 絞らずに並べるだけにするのは、取り込みの前からあった物も一緒に見えていた方が、何が増えたかが分かるため
     /// </summary>
