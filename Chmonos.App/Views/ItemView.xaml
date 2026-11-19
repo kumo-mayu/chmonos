@@ -1140,7 +1140,7 @@
             <views:ItemCompactBar.Trailing>
                 <StackPanel Orientation="Horizontal">
                     <ToggleButton Tag="UsedUpdate" Height="27" Padding="9,0" FontSize="11.5" Margin="8,0,0,0"
-                                  Checked="OnBarMarkChecked" Unchecked="OnBarMarkUnchecked"
+                                  Checked="OnBarMarkChecked" Unchecked="OnBarMarkUnchecked" PreviewKeyDown="OnBarMarkKeyDown" IsVisibleChanged="OnBarMarkVisibleChanged"
                                   Visibility="{Binding ShowsUsedUpdateBar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                   AutomationProperties.AutomationId="ItemCompactUsedUpdate" AutomationProperties.Name="使っている商品の新しい版"
                                   ToolTip="使っている商品の新しい版の知らせを表示します。">
@@ -1150,7 +1150,7 @@
                         </StackPanel>
                     </ToggleButton>
                     <ToggleButton Tag="Changes" Height="27" Padding="9,0" FontSize="11.5" Margin="6,0,0,0"
-                                  Checked="OnBarMarkChecked" Unchecked="OnBarMarkUnchecked"
+                                  Checked="OnBarMarkChecked" Unchecked="OnBarMarkUnchecked" PreviewKeyDown="OnBarMarkKeyDown" IsVisibleChanged="OnBarMarkVisibleChanged"
                                   Visibility="{Binding ShowsChangesBar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                   AutomationProperties.AutomationId="ItemCompactChanges" AutomationProperties.Name="BOOTHで変わったところ"
                                   ToolTip="BOOTHで変わったところを表示します。">

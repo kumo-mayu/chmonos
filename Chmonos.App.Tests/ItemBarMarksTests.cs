@@ -111,7 +111,7 @@ public class ItemBarMarksTests
                 Id = $"item-updated:{ItemId}",
                 Kind = NotificationKind.ItemUpdated,
                 ItemId = ItemId,
-                Title = item.Booth.Name,
+                Title = item.Booth.Name ?? string.Empty,
                 Detail = BoothChanges.Summarize(diffs),
                 Diffs = diffs,
                 CreatedAt = DateTimeOffset.Now,

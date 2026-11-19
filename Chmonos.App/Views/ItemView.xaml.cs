@@ -395,6 +395,30 @@ public partial class ItemView : UserControl
         }
     }
 
+    /// <summary>
+    /// 印に焦点が残ったままでも Esc で閉じる（既読にした後の中身は押せる物が無く、焦点が小窓へ移らない。実機で確かめて足した）。
+    /// </summary>
+    private void OnBarMarkKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == System.Windows.Input.Key.Escape && sender is ToggleButton { IsChecked: true } mark)
+        {
+            mark.IsChecked = false;
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>
+    /// 印が消えたら（小窓の中の「確認した」で新しい版の帯が無くなった・見出しが引っ込んだ）中身も閉じる。
+    /// 印の無いまま、もう要らない帯の中身が開き残らないように
+    /// </summary>
+    private void OnBarMarkVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (sender is ToggleButton { IsVisible: false, IsChecked: true } mark)
+        {
+            mark.IsChecked = false;
+        }
+    }
+
     /// <summary>見出しが引っ込んだ（上まで戻した）・変わった所へ流した時は、開いた中身を閉じる（帯が本文の頭に見えている）。</summary>
     private void CloseBarPopups()
     {
