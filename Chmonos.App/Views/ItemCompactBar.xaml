@@ -17,6 +17,7 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <!-- 検索のカードと同じ1枚（ItemViewModel.ThumbnailTile）。画像の無い商品は空の枠（星と名前の位置を商品で変えない） -->
@@ -78,6 +79,13 @@
                                Visibility="{Binding HasShopCommand, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
                 </controls:TrailingFollowPanel>
             </DockPanel>
+
+            <!--
+                右端に足す物（商品ページの「更新」「変更」の印。ユーザ判断 2026-11-20）。編集の画面は何も足さない。
+                中身はこの部品ではなく商品ページの持ち主（Page）を見る
+            -->
+            <ContentControl Grid.Column="2" Content="{Binding Trailing, RelativeSource={RelativeSource AncestorType=UserControl}}" DataContext="{Binding Page}"
+                            VerticalAlignment="Center" Focusable="False" IsTabStop="False" />
         </Grid>
     </Border>
 </UserControl>

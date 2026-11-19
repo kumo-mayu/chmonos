@@ -194,7 +194,83 @@ internal static partial class Scenes
         {
             Height = ChangesHeight,
         },
+
+        // 上の帯は本文と一緒に流れ去り、1行の見出しの右端に「変更」の印が出る（ユーザ判断 2026-11-20）
+        new Scene("item-page-changes-compact", "商品ページ：BOOTHで変わった所がある商品を流した所（帯は流れ去り、1行の見出しの右端に「変更」の印）", async context =>
+        {
+            var item = await SeedChangedItemAsync(context, "9900611");
+            var root = await OpenItemAsync(context, item);
+            await ScrollBodyAsync(context, root, OtherOffset);
+            return new Shot(root) { Focus = () => Look.View<ItemView>(root), FocusMargin = 0 };
+        }),
+
+        // 印を押して開く小窓の中身（Popup は別の窓なので、中身を外して撮る。保存した検索の小窓と同じ撮り方）
+        new Scene("item-page-changes-compact-open", "商品ページ：流した後の「変更」の印を押して開く小窓（帯と同じ中身・見出しの幅）", async context =>
+        {
+            var item = await SeedChangedItemAsync(context, "9900612");
+            var root = await OpenItemAsync(context, item);
+            await ScrollBodyAsync(context, root, OtherOffset);
+            var page = Look.View<ItemView>(root) ?? throw new InvalidOperationException("商品ページが出ていません。");
+            var bar = Look.Named<FrameworkElement>(page, "CompactBar") ?? throw new InvalidOperationException("1行の見出しがありません。");
+            var popup = Look.All<System.Windows.Controls.Primitives.Popup>(page).FirstOrDefault(popup => Equals(popup.Tag, "Changes"))
+                ?? throw new InvalidOperationException("「変更」の小窓がありません。");
+            var panel = (FrameworkElement)popup.Child;
+            popup.Child = null;
+            panel.DataContext = context.Screen<ItemViewModel>();
+            panel.Width = bar.ActualWidth;
+            panel.VerticalAlignment = VerticalAlignment.Top;
+            return new Shot(SceneContext.OnSurface(panel));
+        })
+        {
+            Height = 200,
+        },
+
+        ChangeHistoryDialogScene("item-change-history","商品ページの「BOOTHでの変化の履歴」の窓：新しい順の5件（未読・重ねた幅・札）と、いちばん新しい件の差分（足した行と消えた行の帯）", select: 0),
+        ChangeHistoryDialogScene("item-change-history-price", "「BOOTHでの変化の履歴」の窓：値段と商品名の件を選んだ所（バリエーションごとの値段・前と後の帯）", select: 1),
+        ChangeHistoryDialogScene("item-change-history-old", "「BOOTHでの変化の履歴」の窓：差を持たない前の形の知らせ（要約の1文だけ）を選んだ所", select: 4),
     ];
+
+    /// <summary>「BOOTHでの変化の履歴」の窓。作り物の知らせ5件を直に渡す（保管庫を読む道は試験 ChangeHistoryTests で見る）。</summary>
+    private static Scene ChangeHistoryDialogScene(string name, string title, int select)
+        => DialogScene(name, title, async context =>
+        {
+            await context.StartAsync();
+            var id = "9900620";
+            NotificationRecord Note(DateTimeOffset at, params NotificationDiff[] diffs) => new()
+            {
+                Id = $"item-updated:{id}", Kind = NotificationKind.ItemUpdated, ItemId = id, Title = "作り物の衣装セット",
+                Detail = BoothChanges.Summarize(diffs), Diffs = diffs, CreatedAt = at, IsRead = true,
+            };
+            NotificationLine Line(NotificationLineKind kind, string text) => new() { Kind = kind, Text = text };
+            var added = NotificationLineKind.Added;
+            var removed = NotificationLineKind.Removed;
+            var day = new DateTimeOffset(2026, 11, 18, 21, 0, 0, TimeSpan.FromHours(9));
+            var records = new List<NotificationRecord>
+            {
+                Note(day,
+                    new NotificationDiff
+                    {
+                        Field = "★更新履歴★", Before = "v1.1", After = "v1.2",
+                        Lines = [Line(added, "2026/11/18 v1.2 夏の色を追加しました"), Line(added, "・水色・白の2色を足しました"), Line(removed, "次の更新で夏の色を足す予定です")],
+                    },
+                    new NotificationDiff { Field = "注意事項", After = "改変は自由です", Lines = [Line(added, "改変は自由です"), Line(added, "再配布はできません")] }) with { IsRead = false },
+                Note(day.AddDays(-20),
+                    new NotificationDiff
+                    {
+                        Field = BoothChanges.PriceField, Before = "¥ 1,500~", After = "¥ 1,500~",
+                        Prices = [new NotificationPrice { Id = 1, Name = "通常版", Before = 1500, After = 1800 }, new NotificationPrice { Id = 2, Name = "支援版", Before = 3000, After = 3500 }],
+                    },
+                    new NotificationDiff { Field = BoothChanges.NameField, Before = "作り物の衣装", After = "作り物の衣装セット" }) with { UpdatedAt = day.AddDays(-17) },
+                Note(day.AddDays(-45),
+                    new NotificationDiff { Field = BoothChanges.VariationsField, Before = "2 件", After = "3 件", Lines = [Line(added, "支援版")] },
+                    new NotificationDiff { Field = "旧版について", Before = "旧版は配布を終えました", Lines = [Line(removed, "旧版は配布を終えました")] }),
+                Note(day.AddDays(-60), new NotificationDiff { Field = BoothChanges.SaleField, Before = "販売終了", After = "販売中" }),
+                Note(day.AddDays(-90)) with { Detail = "画像" },
+            };
+            var model = new ChangeHistoryViewModel("作り物の衣装セット", new ItemChangeHistoryRead(records, HasDamage: false));
+            model.Selected = model.Entries[select];
+            return new ChangeHistoryDialog(model);
+        }) with { Width = 900, Height = 620 };
 
     /// <summary>
     /// 変わった所を一通り持つ商品（メモ17）。見出しの本文は複数行にし、足した行・消えた行（元の位置）を本文の上の帯で見る。
@@ -335,8 +411,7 @@ internal static partial class Scenes
 
     /// <summary>上の帯（BOOTHで変わったところ）の外枠。</summary>
     private static FrameworkElement? BarOf(FrameworkElement root)
-        => (Look.View<ItemView>(root)?.FindName("ChangeTargetList") as FrameworkElement)?.Parent is FrameworkElement grid
-            && grid.Parent is FrameworkElement inner && inner.Parent is FrameworkElement outer ? outer : null;
+        => Look.View<ItemView>(root)?.FindName("ChangesBar") as FrameworkElement;
 
     /// <summary>部品を囲むカード（型 Card の Border）。</summary>
     private static FrameworkElement? CardOf(FrameworkElement? element)
