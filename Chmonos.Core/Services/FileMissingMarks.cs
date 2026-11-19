@@ -311,6 +311,16 @@ public sealed class FilePresenceProbe
     }
 
     /// <summary>
+    /// 場所がつながっていないドライブ（控えたのと別のディスクを含む）の上か。ファイルは見に行かない（根の答えだけ・ドライブごとに1回）。
+    /// <see cref="PlaceOf"/> が <see cref="FilePresence.OnDetachedDrive"/> を返す条件と同じ
+    /// </summary>
+    public bool IsOnDetachedDrive(string path, string? lookedPath = null, string? volume = null)
+    {
+        var looked = lookedPath ?? path;
+        return !IsReachable(looked) || Volumes.IsForeign(path, looked, volume);
+    }
+
+    /// <summary>
     /// 登録したフォルダ1つが在るか（起動時の見回り・ユーザ判断 2026-10-05）。ファイルと同じく、
     /// つながっていないドライブ（控えたのと別のディスクを含む）の上なら見に行かず <see cref="FilePresence.OnDetachedDrive"/>（書かない側）。
     /// 確かめられなければ <see cref="FilePresence.Unverifiable"/>（書かない側）。

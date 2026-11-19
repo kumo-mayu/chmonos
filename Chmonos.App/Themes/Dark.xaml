@@ -62,6 +62,8 @@
     <SolidColorBrush x:Key="BadSoft" Color="#3d2024" />
     <SolidColorBrush x:Key="BadBorder" Color="#6b363a" />
     <SolidColorBrush x:Key="BadFill" Color="#a33c3c" />
+    <!-- 取り外し中（手元の物が全部、今つながっていないドライブの上。カードの帯）。無くなったのではないので、赤（Bad）でも橙（Warn）でもない灰色の地。白い文字が載る濃さ -->
+    <SolidColorBrush x:Key="DetachedFill" Color="#5f6672" />
     <!-- 商品ページの変わった行の帯の地（メモ17。理由は Light.xaml の同じ鍵）。札の地と面の色（Surface）の間 -->
     <SolidColorBrush x:Key="AddedBand" Color="#1a2d29" />
     <!-- 購入の札（灰色。理由は Light.xaml の同じ鍵） -->

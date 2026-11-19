@@ -94,6 +94,15 @@ internal static partial class Scenes
             return FiltersShot(root);
         }),
 
+        new Scene("search-detached", "検索：手元の物が全部つながっていないドライブの上の商品（1・4番目）のカードの帯「取り外し中」", async context =>
+        {
+            var (search, root) = await StartFiltersAsync(context, detached: index => index is 1 or 4);
+            // 帯の確かめは裏で走るので、カードに入るまで待つ（番号は SeedLibraryAsync の 9900301 + 位置）
+            await SceneContext.UntilAsync(() => search.IsDetached("9900302") && search.IsDetached("9900305"), "取り外し中の確かめ");
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
+
         new Scene("search-not-on-booth", "検索の絞り込み：条件「BOOTHに無い商品」（BOOTHに無い商品だけ）と、絞った結果のカード", async context =>
         {
             var (search, root) = await StartFiltersAsync(context, localOnly: index => index is 2 or 5);
@@ -205,10 +214,13 @@ internal static partial class Scenes
     });
 
     /// <summary>作り物の8件に BOOTH タグとスキ数を散らして検索を開き、既定の条件を外して空から始める。</summary>
-    private static async Task<(SearchViewModel Search, FrameworkElement Root)> StartFiltersAsync(SceneContext context, Func<int, bool>? missing = null, Func<int, bool>? localOnly = null)
+    private static async Task<(SearchViewModel Search, FrameworkElement Root)> StartFiltersAsync(SceneContext context, Func<int, bool>? missing = null, Func<int, bool>? localOnly = null, Func<int, bool>? detached = null)
     {
         // 置き場が無いファイル：記録にはあるが場所の一覧が空（カードの印「見つかりません」と条件「見つからないファイル」が数える物）
-        await SeedLibraryAsync(context, count: 8, (index, item) => (missing?.Invoke(index) == true
+        await SeedLibraryAsync(context, count: 8, (index, item) => (detached?.Invoke(index) == true
+            // つながっていないドライブの上だけにある（カードの帯「取り外し中」）
+            ? item with { Local = item.Local with { LocalFiles = [.. item.Local.LocalFiles.Select(file => file with { Paths = [Fake.DetachedDrivePath($"detached-{index}.zip")] })] } }
+            : missing?.Invoke(index) == true
             ? item with { Local = item.Local with { LocalFiles = [.. item.Local.LocalFiles.Select(file => file with { Paths = [] })] } }
             : item) with
         {

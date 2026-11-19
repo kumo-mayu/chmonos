@@ -1046,6 +1046,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
                 ShopName = AcquiredText(entry),
                 SizeText = entry.IsOwned ? Core.Models.DisplayText.Size(entry.SizeBytes) : "未取得",
                 IsOwned = entry.IsOwned,
+                IsDetached = _main.Search.IsDetached(entry.Item.Id),
                 NeedsEdit = entry.Item.Local.UserTags.Count == 0,
                 InfoContext = _main.Search.PlainCardInfo,
                 HasUpdate = updatedIds.Contains(entry.Item.Id),

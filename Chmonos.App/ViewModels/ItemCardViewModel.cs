@@ -244,6 +244,29 @@ public sealed class ItemCardViewModel : ViewModelBase
 
     public bool HasMissingFile { get; init; }
 
+    private bool _isDetached;
+
+    /// <summary>
+    /// 手元の物が全部、今つながっていないドライブの上にあるか（帯「取り外し中」・ユーザ判断 2026-11-20。<see cref="Chmonos.Core.Services.DetachedItems"/>）。
+    /// ディスクの根を見て決めるので、カードを作った後に裏で確かめて入れる（つなぎ直した・外したときも変わる）
+    /// </summary>
+    public bool IsDetached
+    {
+        get => _isDetached;
+        set
+        {
+            if (SetField(ref _isDetached, value))
+            {
+                OnPropertyChanged(nameof(ShowsSize));
+            }
+        }
+    }
+
+    /// <summary>
+    /// 容量を出すか。未所持と取り外し中は左下の帯が重なるので出さない（帯が同じことを言う）
+    /// </summary>
+    public bool ShowsSize => IsOwned && !_isDetached;
+
     /// <summary>持っている物が全部見つからないか。札の文を分ける（一部だけなら「一部見つからない」。メモ65 の②）。</summary>
     public bool HasAllFilesMissing { get; init; }
 

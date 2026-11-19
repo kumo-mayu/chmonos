@@ -659,6 +659,9 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
                     }
                 }
 
+                // 手元の物が全部取り外し中の商品の帯。ディスクを見るので、カードを作った後に裏で確かめる
+                RefreshDetached();
+
                 // 全件の読み込みと検索対象の文字列作りが出したゴミを、ここでOSへ返させる（#71）
                 Chmonos.App.Services.MemoryTrim.Request();
             });
