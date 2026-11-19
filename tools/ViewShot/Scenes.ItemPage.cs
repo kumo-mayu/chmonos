@@ -39,6 +39,17 @@ internal static partial class Scenes
             Height = TallHeight,
         },
 
+        // 値はまだの属性は値のある物（0 を含む）の後ろに「—」で出る。0 の行と見分けが付くかを見る
+        new Scene("item-page-attributes-pending", "商品ページ：属性の欄。値のある物（80・35・0）の後ろに、値はまだの物が「—」で並ぶ所", async context =>
+        {
+            var (item, _) = await SeedLongItemAsync(context);
+            var root = await OpenItemAsync(context, item);
+            return new Shot(root);
+        })
+        {
+            Height = TallHeight,
+        },
+
         // 操作の結果の知らせを欄の下へ移した（2026-10-04）。出る前と出た後の2枚を diff で比べ、下の物が動かないことを見る
         // （1行ぶんの場所は出ていない間も取ってある）
         new Scene("item-page-notices-none", "商品ページ：欄の下の知らせが出ていない所（出た後の見本）", async context =>
@@ -522,7 +533,8 @@ internal static partial class Scenes
                         new UserTagAssignment { Top = "冬服" },
                         new UserTagAssignment { Top = "お気に入りの作者", Subs = ["コート"] },
                     ],
-                    Attributes = new Dictionary<string, int> { ["かわいい"] = 80, ["かっこいい"] = 35 },
+                    Attributes = new Dictionary<string, int> { ["かわいい"] = 80, ["かっこいい"] = 35, ["ゼロ"] = 0 },
+                    PendingAttributes = ["あざとさ"],
                     Memo = "作り物のメモ。袖のボーンは入れ直した。",
                 },
             },

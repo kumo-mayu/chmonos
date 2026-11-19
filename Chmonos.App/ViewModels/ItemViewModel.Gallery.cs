@@ -289,10 +289,7 @@ public sealed partial class ItemViewModel
         OnPropertyChanged(nameof(HasOrphanedImages));
         OnPropertyChanged(nameof(OrphanedImageText));
 
-        Attributes = Item.Local.Attributes
-            .OrderByDescending(pair => pair.Value)
-            .Select(pair => new AttributeBar { Name = pair.Key, Value = pair.Value })
-            .ToList();
+        Attributes = AttributeBar.Build(Item.Local);
         OnPropertyChanged(nameof(AttributesCountText));
 
         BuildAvatars();
