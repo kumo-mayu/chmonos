@@ -188,6 +188,44 @@ public sealed class NotificationArchivePagesTests : IDisposable
         Assert.Equal(["good"], await PageAsync(index, index.Newest, 0, 100));
     }
 
+    /// <summary>
+    /// 題・ID が null と書かれた行（手で書き換えた時など）も読めない行に数える。目録に入れると、商品・種類の見方で
+    /// 候補を作るところで例外になり、読み込み中のまま止まった（2026-11-19 の Codex の点検 3回目の 3）。
+    /// </summary>
+    [Fact]
+    public async Task 題やIDがnullの行は読めない行に数え_候補と種類も作れる()
+    {
+        var good = JsonSerializer.Serialize(Record("good", At(1)), JsonStore.Options).Replace("\r", string.Empty).Replace("\n", string.Empty);
+        var titleNull = JsonSerializer.Serialize(Record("no-title", At(2)), JsonStore.Options).Replace("\r", string.Empty).Replace("\n", string.Empty)
+            .Replace("\"作り物の衣装\"", "null");
+        var idNull = JsonSerializer.Serialize(Record("no-id", At(3)), JsonStore.Options).Replace("\r", string.Empty).Replace("\n", string.Empty)
+            .Replace("\"no-id\"", "null");
+        Assert.Contains("\"title\":null", titleNull.Replace(" ", string.Empty));
+        Assert.Contains("\"id\":null", idNull.Replace(" ", string.Empty));
+        var text = new StringBuilder()
+            .Append($"{{\"formatVersion\":{StoreFormat.Current}}}\n")
+            .Append(good).Append('\n')
+            .Append(titleNull).Append('\n')
+            .Append(idNull).Append('\n')
+            .ToString();
+        await using (var file = File.Create(_archive.FileFor("2026-10")))
+        await using (var gzip = new GZipStream(file, CompressionLevel.Fastest))
+        {
+            await gzip.WriteAsync(Encoding.UTF8.GetBytes(text));
+        }
+
+        var index = await _archive.IndexAsync("2026-10");
+
+        Assert.Equal(["good"], index.Newest.Select(entry => entry.Id));
+        Assert.Equal(2, index.UnreadableLines);
+
+        var catalog = await _archive.CatalogAsync();
+        Assert.Equal(["作り物の衣装"], catalog.ItemChoices().Keys);
+        Assert.Equal([(NotificationKind.ItemUpdated, 1)], catalog.Kinds());
+        Assert.Single(catalog.Matching(name: "衣装"));
+        Assert.True(catalog.HasDamage);
+    }
+
     [Fact]
     public async Task 商品名で絞ると_大文字小文字とかなの種類と全角半角を区別せず_新しい順のまま()
     {

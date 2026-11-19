@@ -175,7 +175,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 
 | 状態 | 場面 |
 |---|---|
-| 通知：空・束と行・読めない商品・知らせ・行の差分・指して開く | `empty-inbox`（900）・`inbox-rows`（900）・`inbox-unreadable`・`inbox-notices(-none)`・`inbox-lines`・`inbox-target`・止まった操作 `inbox-unfinished`（ボタンは乗せたときだけ出るので台では出ない）・保管した通知の切り替え `inbox-archive-kind`・`inbox-archive-item` |
+| 通知：空・束と行・読めない商品・知らせ・行の差分・指して開く | `empty-inbox`（900）・`inbox-rows`（900）・`inbox-unreadable`・`inbox-notices(-none)`・`inbox-lines`・`inbox-target`・止まった操作 `inbox-unfinished`（ボタンは乗せたときだけ出るので台では出ない）・保管した通知の切り替え `inbox-archive-kind`・`inbox-archive-item`・商品の見方から戻った所 `inbox-archive-item-back` |
 | 統計：空・8件 | `empty-stats`（900）・`stats`（900）・期間を選んだ所 `stats-period`・`stats-period-custom` |
 | 統計：60件・12店 | `catalog-stats-many` |
 | 設定：全体（除外 0・3・5000件）・欄を開いた形 | `settings-excluded-*` |

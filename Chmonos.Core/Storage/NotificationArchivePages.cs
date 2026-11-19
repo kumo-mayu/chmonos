@@ -149,14 +149,17 @@ public sealed partial class NotificationArchive
         return (entries, unreadable);
     }
 
-    /// <summary>今の版の行は控える欄だけを読む。前の版の行は中身を読む口と同じ移し替えを通してから取る（欄の名前が変わっていても同じ値になる）。</summary>
+    /// <summary>
+    /// 今の版の行は控える欄だけを読む。前の版の行は中身を読む口と同じ移し替えを通してから取る（欄の名前が変わっていても同じ値になる）。
+    /// ID と題が null の行は読めない行にする（<see cref="Usable"/>）。
+    /// </summary>
     private static EntryHead? Head(string line, int version, string path)
     {
         if (version == StoreFormat.Current || StoreFormat.LeavesAsIs(version))
         {
             try
             {
-                return JsonSerializer.Deserialize<EntryHead>(line, JsonStore.Options);
+                return Usable(JsonSerializer.Deserialize<EntryHead>(line, JsonStore.Options));
             }
             catch (JsonException)
             {
@@ -165,9 +168,17 @@ public sealed partial class NotificationArchive
         }
 
         return Parse(line, version, path) is { } record
-            ? new EntryHead { Id = record.Id, Kind = record.Kind, Title = record.Title, CreatedAt = record.CreatedAt, UpdatedAt = record.UpdatedAt, ItemId = record.ItemId }
+            ? Usable(new EntryHead { Id = record.Id, Kind = record.Kind, Title = record.Title, CreatedAt = record.CreatedAt, UpdatedAt = record.UpdatedAt, ItemId = record.ItemId })
             : null;
     }
+
+    /// <summary>
+    /// required は欄があることしか求めず、`"title": null` と書かれた行は null のまま通る（2026-11-19 の Codex の点検 3回目の 3）。
+    /// 目録に入ると、商品の候補の辞書の鍵や題で絞るところで例外になり、商品・種類の見方が読み込み中のまま止まる。
+    /// 手で書き換えた行などは1行のために全部を止めず、ほかの読めない行と同じく飛ばして数える
+    /// </summary>
+    private static EntryHead? Usable(EntryHead? head)
+        => head is { Id: not null, Title: not null } ? head : null;
 
     /// <summary>
     /// 目録の中の何件か（ふつうは画面が次に出す100件）の中身を読む。返す順は <paramref name="entries"/> の順。

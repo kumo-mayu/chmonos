@@ -335,8 +335,9 @@ public sealed partial class MainViewModel
         StatsViewModel => new HistoryEntry("統計", ShowStats),
         ImportViewModel => new HistoryEntry("取り込み", ShowImport),
         ResolveViewModel => new HistoryEntry("未確定", ShowResolve),
-        // 保管した通知を見ていたなら、その月と絞りで戻す（商品ページを開いて戻ると、今の通知へ落ちないように）
-        InboxViewModel { Archive: { } archive } => ArchiveEntry(archive.SelectedMonth?.Month, archive.NameFilter),
+        // 保管した通知を見ていたなら、その見方（年月・商品・種類と選んでいた物）と絞りで戻す（商品ページを開いて戻ると、今の通知へ落ちないように。
+        // 見方を控えずに、商品・種類で見ていても年月に戻っていた。open 146 の続き・ユーザ判断 2026-11-20）
+        InboxViewModel { Archive: { } archive } => ArchiveEntry(archive.Opening),
         InboxViewModel => new HistoryEntry("通知", ShowInbox),
         // 選んでいた名前は各画面が覚えている。右の欄に重ねていた商品ページだけ控え、戻ったら重ね直す（open.md 95 行）
         TagManageViewModel tags => TagManageEntry(tags.RightItem.Page?.Item.Id),
@@ -379,11 +380,11 @@ public sealed partial class MainViewModel
         rightItemId is null ? ShowAttributeManage : () => CurrentViewModel = new AttributeManageViewModel(_services, this, rightItemId));
 
     /// <summary>
-    /// 保管した通知の見方を、月と「商品名で絞る」の中身だけで控える。見方そのもの（月の目録と読んだ行）を抱えると、
-    /// 履歴に残る間ずっと目録（50MB の月で約10MB）を持ち続ける。戻ったら目録は作り直す
+    /// 保管した通知の見方を、選んでいた物（見方・月・商品・種類）と「商品名で絞る」の中身だけで控える。見方そのもの（目録と読んだ行）を抱えると、
+    /// 履歴に残る間ずっと目録（50MB の月で約10MB）を持ち続ける。戻ったら目録は作り直す（全部の月の目録は、変わっていない月の控えを使う）
     /// </summary>
-    private HistoryEntry ArchiveEntry(string? month, string nameFilter)
-        => new("保管した通知", () => CurrentViewModel = new InboxViewModel(_services, this, archive: (month, nameFilter)));
+    private HistoryEntry ArchiveEntry(ArchiveOpening opening)
+        => new("保管した通知", () => CurrentViewModel = new InboxViewModel(_services, this, archive: opening));
 
     /// <summary>
     /// 編集画面の中で商品を移るとき、今の商品を履歴に積む（ユーザ指示 2026-09-12：
