@@ -1678,7 +1678,9 @@ public sealed partial class ImportViewModel : ViewModelBase
     {
         var targets = only?.ToList() ?? Folders.ToList();
 
-        // 始めると頼んだ時点で「まだ始めていない」から外す。展開フォルダの問いでやめても、人が始めると決めて押した物なので帯に戻さない
+        // 始めると頼んだ時点で「まだ始めていない」から外す。展開先のファイルの窓（ResolveUnpackedTargets）は「はい・いいえ」だけで、
+        // Esc も × も効かない（NoticeLayout）。どちらを選んでも取り込みは始まるので、窓の答えを待たずに外してよい
+        // （open 122 の「問いでやめると帯が戻らない」は、やめる道が無いので起きない。2026-11-20 に確かめた）
         _notStarted.ExceptWith(targets);
         RaiseNotStarted();
 
