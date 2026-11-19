@@ -186,10 +186,12 @@
         <DataTemplate x:Key="BaseCard" DataType="{x:Type vm:AvatarBaseRowViewModel}">
             <Border Style="{StaticResource Card}" Padding="22,18">
                 <Grid>
-                    <DockPanel>
+                    <DockPanel SizeChanged="BaseCardBody_SizeChanged">
                     <!--
                         素体の画像（ユーザ判断 2026-11-20・152 の案A）。付けた画像 → 素体の商品の1枚目 → 頭の字。
-                        付ける・外すは絵のすぐ下に置く（ほかの欄と同じく、触る物のそばに操作を置く）。「外す」は付けた画像があるときだけ
+                        付ける・外すは絵のすぐ下に置く（ほかの欄と同じく、触る物のそばに操作を置く）。「外す」は付けた画像があるときだけ。
+                        絵の分（132）だけ右が狭くなり、窓の幅 900 では名前が「削除」の下に潜り、欄が切れた。狭いときは絵を上に置き（BaseCardBody_SizeChanged）、右の行も折り返す（WrapPanel）。
+                        名前の行の右の 56 は「削除」の幅
                     -->
                     <StackPanel DockPanel.Dock="Left" Width="112" Margin="0,0,20,0">
                         <Border Width="112" Height="112" CornerRadius="8" Background="{DynamicResource AccentSoft}" ClipToBounds="True"
@@ -217,15 +219,15 @@
                             枠の無い欄を常に出していたら、名前を変えられることが分からなかった。
                             言い方と作法はタグの管理の「名前を変更」の窓に揃える：Enter で確定・Esc で取り消し
                         -->
-                        <StackPanel Orientation="Horizontal"
+                        <WrapPanel Margin="0,0,56,0"
                                     Visibility="{Binding IsEditingName, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                             <TextBlock Text="{Binding Name}" FontSize="19" FontWeight="Bold" Margin="6,3"
                                        VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="460" />
                             <Button AutomationProperties.AutomationId="AvatarBaseRename" Content="名前を変更" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                     VerticalAlignment="Center" Command="{Binding StartRenameCommand}" Click="StartRename_Click"
                                     ToolTip="この素体の名前を使っている商品も一緒に書き換えます。" />
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal"
+                        </WrapPanel>
+                        <WrapPanel
                                     Visibility="{Binding IsEditingName, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <TextBox AutomationProperties.AutomationId="AvatarBaseNameInput" MaxLength="60" Text="{Binding NameInput, UpdateSourceTrigger=PropertyChanged}"
                                      FontSize="19" FontWeight="Bold" MinWidth="240" MaxWidth="460"
@@ -243,13 +245,13 @@
                                     ToolTip="今と違う名前を入れると押せます。" />
                             <Button Content="キャンセル" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
                                     VerticalAlignment="Center" Command="{Binding CancelRenameCommand}" />
-                        </StackPanel>
+                        </WrapPanel>
                         <TextBlock DataContext="{Binding NameNote}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" Margin="6,2,0,0" />
-                        <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                            <TextBlock Text="{Binding MemberText}" Style="{StaticResource Caption}" />
-                            <TextBlock Text="{Binding ItemText}" Style="{StaticResource Caption}" Margin="14,0,0,0" />
-                            <TextBlock Text="{Binding ItemIdText}" Style="{StaticResource Caption}" Margin="14,0,0,0" />
-                        </StackPanel>
+                        <WrapPanel Margin="0,2,0,0">
+                            <TextBlock Text="{Binding MemberText}" Style="{StaticResource Caption}" Margin="0,0,14,0" />
+                            <TextBlock Text="{Binding ItemText}" Style="{StaticResource Caption}" Margin="0,0,14,0" />
+                            <TextBlock Text="{Binding ItemIdText}" Style="{StaticResource Caption}" Margin="0,0,14,0" />
+                        </WrapPanel>
                         <!-- 素体そのものの商品の候補。自動では結ばず、押したら結ぶ（ユーザ指摘 2026-09-17：素体単体の配布を検知できていなかった） -->
                         <StackPanel Margin="0,10,0,0"
                                     Visibility="{Binding ShowsItemCandidates, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
@@ -270,9 +272,9 @@
                             配布されている素体は商品に結べる。
                             結ぶと素体のページへ行けるようになり、所有の判定にも使える。
                         -->
-                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                        <WrapPanel Margin="0,12,0,0">
                             <!-- 空のままだと何を入れる欄か分からないので、内側に案内を出す（ユーザ指示 2026-09-17） -->
-                            <Grid Width="230" VerticalAlignment="Center">
+                            <Grid Width="230" VerticalAlignment="Center" Margin="0,0,8,4">
                                 <TextBox AutomationProperties.AutomationId="AvatarBaseItemId" AutomationProperties.Name="素体の商品のIDかURL" Padding="7,4"
                                          Text="{Binding ItemIdInput, UpdateSourceTrigger=PropertyChanged}"
                                          ToolTip="商品IDかURLを入れます。空にすると紐付けが外れます。">
@@ -284,9 +286,9 @@
                                 <TextBlock Text="素体の商品のIDかURL" Margin="10,0,0,0" Style="{StaticResource InputPlaceholder}"
                                            Visibility="{Binding ItemIdInput, Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
                             </Grid>
-                            <Button AutomationProperties.AutomationId="AvatarBaseSetItemId" Content="素体の商品を設定" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                            <Button AutomationProperties.AutomationId="AvatarBaseSetItemId" Content="素体の商品を設定" Style="{StaticResource SmallButton}" Margin="0,0,0,4"
                                     VerticalAlignment="Center" Command="{Binding SetItemIdCommand}" />
-                        </StackPanel>
+                        </WrapPanel>
                         <TextBlock DataContext="{Binding ItemIdNote}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" Margin="2,4,0,0" />
                         <!-- 説明が無く何のことか分からず、実例も無いので隠す（ユーザ判断 2026-09-17）。仕組み（inferClothing）は残す -->
                         <CheckBox Content="衣装の互換を広げる" IsChecked="{Binding InferClothing, Mode=OneWay}" Visibility="Collapsed"
