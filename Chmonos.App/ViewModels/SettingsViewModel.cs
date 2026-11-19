@@ -2077,7 +2077,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         => result.SourceRemoved
             ? string.Empty
             : result.OnlyEmptyFoldersLeft
-                ? $"元の場所「{source}」に中身の無いフォルダが残りました。不要なら手で削除してください。\n\n"
+                ? $"元の場所「{source}」に空のフォルダが残りました。不要なら手で削除してください。\n\n"
                 : $"元の場所「{source}」に消せなかったファイルが残っています。\n\n";
 
     private async Task<Core.Storage.StoreMoveResult> MoveStoreAsync(string source, string destination, bool replace)

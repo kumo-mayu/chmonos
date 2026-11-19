@@ -246,7 +246,7 @@ public class SettingsBackupJobTests
         Assert.Equal(string.Empty, SettingsViewModel.LeftInSourceNote(removed, source));
         Assert.Contains("消せなかったファイルが残っています", SettingsViewModel.LeftInSourceNote(filesLeft, source));
         var note = SettingsViewModel.LeftInSourceNote(foldersLeft, source);
-        Assert.Contains("中身の無いフォルダが残りました", note);
+        Assert.Contains("空のフォルダが残りました", note);
         Assert.Contains("手で削除", note);
         Assert.DoesNotContain("ファイルが残っています", note);
     }
