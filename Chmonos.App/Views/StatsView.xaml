@@ -90,10 +90,28 @@
                                 <DataTrigger Binding="{Binding IsResidual}" Value="True">
                                     <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
                                 </DataTrigger>
+                                <!-- 印の点の分だけ、長い名前を左で切る -->
+                                <DataTrigger Binding="{Binding Badge}" Value="持っている">
+                                    <Setter Property="Margin" Value="12,0,0,0" />
+                                </DataTrigger>
                             </Style.Triggers>
                         </Style>
                     </TextBlock.Style>
                 </TextBlock>
+                <!-- 印（アバターの「持っている」）。名前の左の小さい点 -->
+                <Ellipse Grid.Column="0" Width="7" Height="7" HorizontalAlignment="Left" VerticalAlignment="Center"
+                         Fill="{DynamicResource Accent}" ToolTip="持っている">
+                    <Ellipse.Style>
+                        <Style TargetType="Ellipse">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Badge}" Value="持っている">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Ellipse.Style>
+                </Ellipse>
 
                 <Border Grid.Column="1" Height="9" CornerRadius="4" Margin="11,0" ClipToBounds="True"
                         Background="{DynamicResource BarTrack}" VerticalAlignment="Center">
@@ -433,18 +451,36 @@
                                     </StackPanel>
                                 </Expander.Header>
                                 <DockPanel>
+                                    <!-- 前の「所有アバターに着られるもの」はこの欄に合わせた（ユーザ判断 2026-11-20）。点の付いた行が持っているアバター -->
+                                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,10,0,0">
+                                        <CheckBox Content="持っているアバターだけ" IsChecked="{Binding OwnedAvatarsOnly, Mode=TwoWay}"
+                                                  VerticalAlignment="Center" Foreground="{DynamicResource Text}"
+                                                  AutomationProperties.AutomationId="StatsOwnedAvatarsOnly" />
+                                        <Ellipse Width="7" Height="7" Fill="{DynamicResource Accent}" Margin="14,0,5,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="持っている" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                    </StackPanel>
 
                                     <!-- 棒と空表示を同じ場所に重ねる。DockPanelに直に並べると横に割れる -->
                                     <Grid>
                                         <controls:ContentItemsControl ItemsSource="{Binding Avatars}" Margin="0,14,0,0"
                                                       VerticalAlignment="Top"
-                                                      ItemTemplate="{StaticResource BarRow}"
-                                                      Visibility="{Binding HasAvatars, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                      Visibility="{Binding HasAvatars, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="{x:Type vm:StatsRowViewModel}">
+                                                    <Button Style="{StaticResource RowButton}" Command="{Binding OpenCommand}"
+                                                            AutomationProperties.AutomationId="StatsAvatarRow"
+                                                            AutomationProperties.Name="{Binding Label, StringFormat={}{0}を開く}"
+                                                            ToolTip="{Binding Tooltip}"
+                                                            ContentTemplate="{StaticResource BarRow}"
+                                                            Content="{Binding}" />
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </controls:ContentItemsControl>
 
                                         <!-- 紐付けが無いうちは0の棒を並べても読めないので、次にやることだけ出す -->
                                         <TextBlock TextWrapping="Wrap" Style="{StaticResource Caption}" MaxWidth="360"
                                                    HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center"
-                                                   Text="対応アバターがまだ1件も紐付いていません。商品ページか編集画面で対応アバターを入れると、ここに集計が表示されます。"
+                                                   Text="{Binding AvatarsEmptyText}"
                                                    Visibility="{Binding HasAvatars, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
                                     </Grid>
                                 </DockPanel>
@@ -948,27 +984,7 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
 
-                        <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,8,0" Padding="20,18">
-                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding Panels[wearables], Mode=TwoWay}" AutomationProperties.Name="所有アバターに着られるもの">
-                                <Expander.Header>
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="所有アバターに着られるもの" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
-                                        <TextBlock Text="素体経由は推定" Style="{StaticResource Caption}"
-                                                   Margin="10,0,0,0" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                </Expander.Header>
-                                <StackPanel>
-                                    <controls:ContentItemsControl ItemsSource="{Binding Wearables}" Margin="0,12,0,0"
-                                                  ItemTemplate="{StaticResource BarRow}"
-                                                  Visibility="{Binding HasWearables, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                    <TextBlock Style="{StaticResource Caption}" Margin="0,10,0,0" TextWrapping="Wrap"
-                                               Text="所有しているアバターがまだ分かっていません。アバターの管理から検出できます。"
-                                               Visibility="{Binding HasWearables, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
-                                </StackPanel>
-                            </Expander>
-                        </Border>
-
-                        <Border Grid.Column="1" Style="{StaticResource Card}" Margin="8,0,0,0" Padding="20,18">
+                        <Border Grid.Column="0" Grid.ColumnSpan="2" Style="{StaticResource Card}" Padding="20,18">
                             <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding Panels[state], Mode=TwoWay}" AutomationProperties.Name="手元の状態">
                                 <Expander.Header>
                                     <TextBlock Text="手元の状態" Style="{StaticResource PanelTitle}" />

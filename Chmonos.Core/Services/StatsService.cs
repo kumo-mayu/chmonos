@@ -70,6 +70,9 @@ public sealed record StatsCountBar
 
     public required int ItemCount { get; init; }
 
+    /// <summary>そのうち、アバターに直接対応している商品の数。残りは共通素体経由（推定）。<see cref="ItemCount"/> は直接と素体経由の合計</summary>
+    public int DirectCount { get; init; }
+
     /// <summary>「対応アバター未設定」のような、集計の外側を示す行。控えめに出す。</summary>
     public bool IsResidual { get; init; }
 }
@@ -445,6 +448,7 @@ public sealed class StatsService : IStatsService
         var shops = new Dictionary<string, (string Name, long Spent, int Count)>(StringComparer.OrdinalIgnoreCase);
         var categories = new Dictionary<string, List<ItemRecord>>(StringComparer.CurrentCulture);
         var avatars = new Dictionary<string, int>(StringComparer.Ordinal);
+        var avatarDirect = new Dictionary<string, int>(StringComparer.Ordinal);
 
         // 素体経由の展開は相性の索引に任せる（検索・商品ページと同じ規則で数えるため）
         var compatibility = AvatarCompatibilityIndex.Build(registry);
@@ -522,10 +526,10 @@ public sealed class StatsService : IStatsService
 
             members.Add(item);
 
-            CountAvatars(item, compatibility, useDetectedVariationTargets, avatars, ref withoutAvatar);
+            CountAvatars(item, compatibility, useDetectedVariationTargets, avatars, avatarDirect, ref withoutAvatar);
         }
 
-        var avatarBars = BuildAvatarBars(owned, registry, avatars, withoutAvatar);
+        var avatarBars = BuildAvatarBars(owned, registry, avatars, avatarDirect, withoutAvatar);
 
         var snapshot = new StatsSnapshot
         {
@@ -584,6 +588,7 @@ public sealed class StatsService : IStatsService
         IReadOnlyList<ItemRecord> owned,
         AvatarRegistry registry,
         Dictionary<string, int> counts,
+        Dictionary<string, int> direct,
         int withoutAvatar)
     {
         var names = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -608,6 +613,7 @@ public sealed class StatsService : IStatsService
                 Key = pair.Key,
                 Label = names.TryGetValue(pair.Key, out var name) ? name : pair.Key,
                 ItemCount = pair.Value,
+                DirectCount = direct.TryGetValue(pair.Key, out var d) ? d : 0,
             })
             .ToList();
 
@@ -643,6 +649,7 @@ public sealed class StatsService : IStatsService
         AvatarCompatibilityIndex compatibility,
         bool useDetectedVariationTargets,
         Dictionary<string, int> counts,
+        Dictionary<string, int> direct,
         ref int withoutAvatar)
     {
         var reached = compatibility.Resolve(item.Local);
@@ -656,9 +663,13 @@ public sealed class StatsService : IStatsService
         var unowned = compatibility.UnownedVariationAvatars(item.Local, useDetectedVariationTargets);
 
         // 直接対応も素体経由も同じ1件として数える（見出しに「素体経由を含む」と断る）
-        foreach (var id in reached.Keys.Where(id => !unowned.Contains(id)))
+        foreach (var (id, match) in reached.Where(pair => !unowned.Contains(pair.Key)))
         {
             counts[id] = counts.TryGetValue(id, out var current) ? current + 1 : 1;
+            if (match == AvatarMatch.Direct)
+            {
+                direct[id] = direct.TryGetValue(id, out var d) ? d + 1 : 1;
+            }
         }
     }
 

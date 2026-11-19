@@ -54,6 +54,20 @@ public sealed partial class SearchViewModel
     }
 
     /// <summary>
+    /// 対応アバターの指定が無い商品だけを出す（統計の「対応アバター未設定」の行から）。
+    /// 条件「対応アバター」の「対応の指定が無い商品」だけを入れ、アバターは選ばない
+    /// </summary>
+    public void ShowOnlyUnspecifiedAvatar()
+    {
+        RecordBeforeShowOnly();
+        ClearFilters(apply: false);
+        var module = EnsureModule<ListModule>(SearchModuleKind.Avatar);
+        module.ShowUnspecified = true;
+        module.ShowMatched = false;
+        FinishShowOnly();
+    }
+
+    /// <summary>
     /// このアバターに関連するプロファイルの商品だけを出す（ユーザ判断 2026-11-09：アバターの管理の詳細と、アバターの商品ページからの導線）。
     /// 条件「プロファイル」の変換元と変換先の両方に、このアバターを入れる：このアバターの逆方向（このアバター用の衣装を持っていく）と
     /// 順方向（このアバターに着せる）の両方が出る。素体経由・確認待ちは条件の既定（どちらも入）のまま

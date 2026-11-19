@@ -51,6 +51,9 @@ public sealed class StatsRowViewModel : ViewModelBase
 
     public GridLength RestLength => new(Math.Max(1 - Ratio, 0), GridUnitType.Star);
 
+    /// <summary>名前の横に添える小さい印（アバターの行の「持っている」）。無ければ空</summary>
+    public string Badge { get; init; } = string.Empty;
+
     /// <summary>集計の外側を示す行（「未設定」など）。控えめに出す。</summary>
     public bool IsResidual { get; init; }
 
@@ -558,7 +561,6 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
 
     public ObservableCollection<StatsRowViewModel> HeavyItems { get; } = [];
 
-    public ObservableCollection<StatsRowViewModel> Wearables { get; } = [];
 
     public ObservableCollection<PriceChangeRowViewModel> PriceChanges { get; } = [];
 
@@ -757,6 +759,11 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
 
     /// <summary>アバターの紐付けがまだ無いとき。数字ではなく次にやることを出す。</summary>
     public bool HasAvatars => Avatars.Count > 0;
+
+    /// <summary>行が無い時の文。持っているアバターだけの時は、見つからない理由が違う</summary>
+    public string AvatarsEmptyText => _ownedAvatarsOnly
+        ? "持っているアバターがまだ分かっていません。アバターの管理から検出できます。"
+        : "対応アバターがまだ1件も紐付いていません。商品ページか編集画面で対応アバターを入れると、ここに集計が表示されます。";
 
     public bool HasBacklog => Backlog.Count > 0;
 
@@ -983,19 +990,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
             return;
         }
 
-        Avatars.Clear();
-        var avatarMax = _snapshot.Avatars.Count == 0 ? 0 : _snapshot.Avatars.Max(bar => bar.ItemCount);
-        foreach (var bar in _snapshot.Avatars)
-        {
-            Avatars.Add(new StatsRowViewModel
-            {
-                Label = bar.Label,
-                ValueText = $"{bar.ItemCount:N0}",
-                Ratio = avatarMax == 0 ? 0 : bar.ItemCount / (double)avatarMax,
-                IsResidual = bar.IsResidual,
-            });
-        }
-
+        RebuildAvatars();
         RebuildShops();
 
         Categories.Clear();
@@ -1021,6 +1016,116 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         OnPropertyChanged(nameof(HasBacklog));
     }
 
+    /// <summary>
+    /// 持っているアバターだけを出すか（ユーザ判断 2026-11-20）。前の「所有アバターに着られるもの」の欄をこの欄に合わせた。
+    /// 画面を出ると戻る（既定は全アバター）。「対応アバター未設定」の行は、全アバターの時だけ出す
+    /// </summary>
+    public bool OwnedAvatarsOnly
+    {
+        get => _ownedAvatarsOnly;
+        set
+        {
+            if (SetField(ref _ownedAvatarsOnly, value))
+            {
+                RebuildAvatars();
+                OnPropertyChanged(nameof(HasAvatars));
+                OnPropertyChanged(nameof(AvatarsEmptyText));
+            }
+        }
+    }
+
+    private bool _ownedAvatarsOnly;
+
+    /// <summary>
+    /// アバター別の所持数の行を組む。数は「直接 + 素体経由」で、持っているアバターには印を付ける。
+    /// 持っているのに対応する商品が0のアバターも出す（前の「着られるもの」の欄がそうだった）。
+    /// 行を押すと、そのアバターに対応する商品の検索へ（素体経由も含める。数に素体経由を含めているのと合わせる）
+    /// </summary>
+    internal void RebuildAvatars()
+    {
+        Avatars.Clear();
+        if (_snapshot is null)
+        {
+            return;
+        }
+
+        foreach (var row in AvatarRows(_snapshot, _ownedAvatarsOnly, ShowAvatar, ShowUnspecifiedAvatar))
+        {
+            Avatars.Add(row);
+        }
+    }
+
+    /// <summary>行の組み立て（画面から切り離してあるので試験から直に呼べる）。</summary>
+    internal static List<StatsRowViewModel> AvatarRows(
+        StatsSnapshot snapshot, bool ownedOnly, Action<string, string> showAvatar, Action showUnspecified)
+    {
+        var result = new List<StatsRowViewModel>();
+        var owned = snapshot.Wearables.ToDictionary(w => w.AvatarItemId, StringComparer.Ordinal);
+        var rows = new List<(string Key, string Label, int Total, int Direct, bool IsOwned)>();
+        foreach (var bar in snapshot.Avatars.Where(bar => !bar.IsResidual))
+        {
+            var isOwned = owned.ContainsKey(bar.Key);
+            if (!ownedOnly || isOwned)
+            {
+                rows.Add((bar.Key, bar.Label, bar.ItemCount, bar.DirectCount, isOwned));
+            }
+        }
+
+        var shown = rows.Select(row => row.Key).ToHashSet(StringComparer.Ordinal);
+        foreach (var wearable in snapshot.Wearables.Where(w => !shown.Contains(w.AvatarItemId)))
+        {
+            rows.Add((wearable.AvatarItemId, wearable.Name, wearable.Total, wearable.DirectCount, true));
+        }
+
+        rows = rows.OrderByDescending(row => row.Total).ThenBy(row => row.Label, StringComparer.CurrentCulture).ToList();
+
+        // 未設定は商品の数（アバターの数ではない）なので、棒の長さの基準には入れない
+        var residual = snapshot.Avatars.FirstOrDefault(bar => bar.IsResidual);
+        var max = rows.Count == 0 ? 0 : rows.Max(row => row.Total);
+        foreach (var row in rows)
+        {
+            var key = row.Key;
+            var name = row.Label;
+            var via = row.Total - row.Direct;
+            result.Add(new StatsRowViewModel
+            {
+                Label = row.Label,
+                ValueText = via > 0 ? $"{row.Direct:N0} + 素体経由 {via:N0}" : $"{row.Total:N0}",
+                Ratio = max == 0 ? 0 : row.Total / (double)max,
+                Badge = row.IsOwned ? "持っている" : string.Empty,
+                OpenCommand = new RelayCommand(() => showAvatar(key, name)),
+                Tooltip = row.IsOwned ? "持っているアバターです。対応する商品を検索画面で開きます。" : "このアバターに対応する商品を検索画面で開きます。",
+            });
+        }
+
+        if (residual is not null && !ownedOnly && rows.Count > 0)
+        {
+            result.Add(new StatsRowViewModel
+            {
+                Label = residual.Label,
+                ValueText = $"{residual.ItemCount:N0}",
+                Ratio = max == 0 ? 0 : Math.Min(1, residual.ItemCount / (double)max),
+                IsResidual = true,
+                OpenCommand = new RelayCommand(showUnspecified),
+                Tooltip = "対応アバターの指定が無い商品を検索画面で開きます。",
+            });
+        }
+
+        return result;
+    }
+
+    private void ShowAvatar(string avatarItemId, string name)
+    {
+        _main.Search.ShowOnlyAvatar(avatarItemId, name, includeViaBase: true);
+        _main.ShowSearch();
+    }
+
+    private void ShowUnspecifiedAvatar()
+    {
+        _main.Search.ShowOnlyUnspecifiedAvatar();
+        _main.ShowSearch();
+    }
+
     /// <summary>選んで足した項目を組み立てる。</summary>
     private void RebuildExtras()
     {
@@ -1036,10 +1141,6 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         Fill(CategoryCounts, Period!.CategoryCounts.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
         Fill(UserTagCounts, Period!.UserTagCounts.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
         Fill(HeavyItems, _snapshot.HeavyItems.Select(b => (b.Name, b.Bytes, Core.Models.DisplayText.Size(b.Bytes))));
-
-        // 素体経由は推定なので、直接対応と分けたまま出す
-        Fill(Wearables, _snapshot.Wearables.Select(w =>
-            (w.Name, (long)w.Total, w.ViaBaseCount > 0 ? $"{w.DirectCount} + 素体経由 {w.ViaBaseCount}" : $"{w.DirectCount}")));
 
         PriceChanges.Clear();
         foreach (var change in _snapshot.PriceChanges.Take(10))
@@ -1064,7 +1165,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         foreach (var name in new[]
         {
             nameof(HasPriceChanges), nameof(HasAttributeDistributions), nameof(HasCorrelations),
-            nameof(HasWearables), nameof(CorrelationNote), nameof(GiftText), nameof(FreeText),
+            nameof(CorrelationNote), nameof(GiftText), nameof(FreeText),
             nameof(RepeatText), nameof(EndOfSaleText), nameof(UnsortedText), nameof(HiddenText),
             nameof(HasLocalOnly), nameof(LocalOnlyText),
             nameof(UserTagSpendNote),
@@ -1246,7 +1347,6 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
 
     public bool HasCorrelations => AttributeCorrelations.Count > 0;
 
-    public bool HasWearables => Wearables.Count > 0;
 
     /// <summary>相関が出ない理由をその場に書く。空欄のまま置かない。</summary>
     public string CorrelationNote => _snapshot is null || HasCorrelations
