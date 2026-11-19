@@ -103,7 +103,36 @@ internal static partial class Scenes
             Height = 330,
         },
 
-        new Scene("resolve-bundles", "未確定：展開元のzipでまとまった束が2つと、束でない行（束の見出し・間の線・字下げ）", async context =>
+        new Scene("resolve-undo-exclude", "未確定：1件を外した直後（一覧の上に「除外の解除…」と「外した 1 件を戻す」が並ぶ。open.md 132）", async context =>
+        {
+            await context.Seed.Unresolved.SaveAsync(
+            [
+                Fake.Unresolved(Fake.Zip(@"ダウンロード\hair_ribbon_v1.0.zip"), contents: ["readme.txt"]),
+                Fake.Unresolved(Fake.Zip(@"ダウンロード\costume_set_v2.zip"), contents: ["costume.unitypackage"]),
+                Fake.Unresolved(Fake.Zip(@"ダウンロード\memo.zip"), contents: ["memo.txt"]),
+            ]);
+
+            var main = await context.StartAsync();
+            main.ShowResolveCommand.Execute(null);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            var screen = context.Screen<ResolveViewModel>();
+            await SceneContext.UntilAsync(() => screen.Files.Count == 3, "未確定の一覧が並ぶ");
+
+            // 確かめの窓は、既定が「キャンセル」なので、場面の間だけ「OK」で答える
+            var before = Chmonos.App.Services.Notice.Intercept;
+            Chmonos.App.Services.Notice.Intercept = _ => System.Windows.MessageBoxResult.OK;
+            screen.Selected = screen.Files.First(row => row.FileName == "memo.zip");
+            screen.ExcludeCommand.Execute(null);
+            await SceneContext.UntilAsync(() => screen.HasUndoExclude, "外した直後の「戻す」が出る");
+            Chmonos.App.Services.Notice.Intercept = before;
+            await context.SettleAsync();
+
+            return new Shot(root) { Focus = () => Look.View<ResolveView>(root) };
+        }),
+
+        new Scene("resolve-bundles","未確定：展開元のzipでまとまった束が2つと、束でない行（束の見出し・間の線・字下げ）", async context =>
         {
             var first = Fake.MissingPath(@"ダウンロード\costume_set_v2.zip");
             var second = Fake.MissingPath(@"ダウンロード\accessory_pack_とても長い名前のまとめ買いセット_2026年夏.zip");
