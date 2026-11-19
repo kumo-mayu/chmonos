@@ -1020,7 +1020,7 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
         return unreadable.Count == 0
             ? string.Empty
             : $"{string.Join("・", unreadable)}は読めなかったので、空のまま保存しました。"
-                + "日付は「2026-09-20」「2026/9/20」、金額は「1200」「¥1,200」のように入れられます。";
+                + "日付は「2026-9-1」「2026/9/1」「2026年9月1日」、金額は「1200」「¥1,200」のように入れられます。";
     }
 
     private async Task SaveAndAdvanceAsync()
