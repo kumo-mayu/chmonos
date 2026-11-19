@@ -56,9 +56,18 @@ public partial class ItemGalleryPanel : UserControl
     /// 前は高さが 420 に決まっていて、幅を広げても縦長・正方形の絵は大きくならなかった
     /// </summary>
     internal static double BigImageHeight(double width)
-        => double.IsFinite(width) && width > 0
-            ? Math.Clamp(Math.Round(width * 3 / 4), BigImageMinHeight, BigImageMaxHeight)
-            : BigImageMinHeight;
+    {
+        if (!double.IsFinite(width) || width <= 0)
+        {
+            return BigImageMinHeight;
+        }
+
+        // 左の列は 260 まで狭められる。幅が下限より狭いのに高さを 420 に保つと、細長い灰色の枠が残る
+        // （ユーザ判断 2026-11-20）ので、その間は高さを幅に合わせる（正方形）
+        return width < BigImageMinHeight
+            ? Math.Round(width)
+            : Math.Clamp(Math.Round(width * 3 / 4), BigImageMinHeight, BigImageMaxHeight);
+    }
 
     /// <summary>
     /// 欄の幅が変わったら大きな絵の高さを合わせる。高さを変えても幅は変わらないので、ここへ戻って来ても同じ値で止まる

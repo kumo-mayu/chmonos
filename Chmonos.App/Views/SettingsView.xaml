@@ -647,13 +647,22 @@
 
                     <!--
                         監視フォルダ。取り込み元（履歴）とは意味が違うので小見出しで分ける。
-                        足すのは取り込み画面でフォルダを選んだ／落としたときと、取り込み画面の監視の欄の「フォルダを追加…」（ここにも置くかは未定・2026-11-20）。
+                        足すのは取り込み画面でフォルダを選んだ／落としたときと、取り込み画面の監視の欄・この欄の「フォルダを追加…」
+                        （ユーザ判断 2026-11-20。同じ命令）。まだ1件も無い時にも足せるよう、欄は常に出す。
                     -->
-                    <StackPanel Margin="0,14,0,0"
-                                Visibility="{Binding HasWatched, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                        <TextBlock Text="監視フォルダ" Style="{StaticResource SubTitle}" Margin="0,0,0,6" />
+                    <StackPanel Margin="0,14,0,0">
+                        <DockPanel Margin="0,0,0,6">
+                            <Button DockPanel.Dock="Right" Content="フォルダを追加…" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
+                                    AutomationProperties.AutomationId="Settings.AddWatchedFolder"
+                                    Command="{Binding AddWatchedFolderCommand}"
+                                    ToolTip="選んだフォルダを監視フォルダに追加します。取り込みはしません。" />
+                            <TextBlock Text="監視フォルダ" Style="{StaticResource SubTitle}" VerticalAlignment="Center" />
+                        </DockPanel>
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
                                        Text="起動したときに、この中に新しいファイルが増えていないかを確認します。" />
+                            <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,12"
+                                       Text="{Binding WatchAddText}"
+                                       Visibility="{Binding HasWatchAddText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                             <controls:ContentItemsControl ItemsSource="{Binding Watched}" controls:ArrowGroup.IsEnabled="True">
                                 <ItemsControl.ItemTemplate>

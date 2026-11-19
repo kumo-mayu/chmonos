@@ -468,8 +468,51 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
 
     public bool HasWatched => Watched.Count > 0;
 
+    private RelayCommand? _addWatchedFolder;
 
+    /// <summary>
+    /// 監視フォルダの欄の「フォルダを追加…」（open.md・ユーザ判断 2026-11-20）。取り込み画面の同じボタンと同じ命令
+    /// （<see cref="ImportViewModel.AddWatchedFoldersAsync"/>）で、取り込まずに監視フォルダへ足すだけ。
+    /// </summary>
+    public RelayCommand AddWatchedFolderCommand => _addWatchedFolder ??= new RelayCommand(() =>
+    {
+        var dialog = new Microsoft.Win32.OpenFolderDialog
+        {
+            Title = "監視するフォルダを選択",
+            Multiselect = true,
+        };
 
+        if (dialog.ShowDialog() == true)
+        {
+            AddWatchedFoldersAsync(dialog.FolderNames).Forget();
+        }
+    });
+
+    private string _watchAddText = string.Empty;
+
+    /// <summary>足した結果（取り込み画面の監視の欄と同じ文）。何も足していなければ空。</summary>
+    public string WatchAddText
+    {
+        get => _watchAddText;
+        private set
+        {
+            if (SetField(ref _watchAddText, value))
+            {
+                OnPropertyChanged(nameof(HasWatchAddText));
+            }
+        }
+    }
+
+    public bool HasWatchAddText => _watchAddText.Length > 0;
+
+    internal async Task AddWatchedFoldersAsync(IReadOnlyList<string> folders)
+    {
+        await _main.Import.AddWatchedFoldersAsync(folders);
+
+        // 足したのは取り込み画面の側の一覧と設定。こちらの行は保存してある設定に合わせ直す（行は使い回し、新しい行だけ作る）
+        SyncFolderRows(_services.Settings);
+        WatchAddText = _main.Import.WatchImportText;
+    }
 
     public bool IsLoading
     {
