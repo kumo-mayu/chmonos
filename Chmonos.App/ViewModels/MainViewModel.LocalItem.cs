@@ -48,13 +48,24 @@ public sealed partial class MainViewModel
                 return;
             }
 
+            // 商品ができてから画像を入れる（未確定の登録と同じ順）。入らなかった分があっても登録は取り消さない
+            var imagesFailed = result is CommandResult.ItemSaved withImages && model.LocalImages.Count > 0
+                ? await LocalImageImport.AddAsync(_services.Commands, withImages.ItemId, model.LocalImages.Select(image => image.Path))
+                : 0;
+
             // 自分が押して、作った物を見に行く操作なので、その場で商品ページへ移る（落とした URL の登録と違い、待ち時間が無い）。
-            // 全件を読み直さず、検索の写しへ1件だけ足す（未確定の登録・落とした URL と同じ足し方）
+            // 全件を読み直さず、検索の写しへ1件だけ足す（未確定の登録・落とした URL と同じ足し方）。画像を入れた後に読むのは、カードに画像を出すため
             if (result is CommandResult.ItemSaved saved && await _services.Store.Items.LoadAsync(saved.ItemId) is { } added)
             {
                 Search.NoteItemSaved(added);
                 RefreshCounts();
                 ShowItem(added);
+            }
+
+            if (imagesFailed > 0)
+            {
+                Notice.Show($"画像 {imagesFailed} 枚を追加できませんでした。商品ページの「＋」から追加してください。", "BOOTHに無い商品を登録",
+                    System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
             }
         }
         finally
