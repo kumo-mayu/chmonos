@@ -112,6 +112,9 @@ public class CommandHandlerTests
             CancellationToken cancellationToken = default)
             => Task.FromResult<string?>(LocalItemId.For(hashes[0]));
 
+        public Task<string?> CreateLocalItemAsync(string displayName, CancellationToken cancellationToken = default)
+            => Task.FromResult<string?>(LocalItemId.NewUnique());
+
         public Task<string?> AddUserImageAsync(
             string itemId,
             byte[] bytes,

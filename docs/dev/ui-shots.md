@@ -82,6 +82,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 |---|---|
 | 全体（絵3枚・ファイル1つ） | `item-page`（900） |
 | BOOTHに無い商品 | `catalog-item-local-only`（900） |
+| 名前だけで作ったBOOTHに無い商品（ファイル・絵が無い） | `catalog-item-local-no-files` |
 | 絵が無い・持っていない・BOOTHから消えた・隠した（メモあり） | `catalog-item-no-images`・`catalog-item-not-owned`・`catalog-item-delisted`・`catalog-item-hidden` |
 | 対応アバター29体・共通素体 | `item-page-avatars` |
 | 確認待ちの対応アバター（見出しの［すべて確認済みにする］・札にフォーカスして ✓） | `item-page-avatars-unconfirmed`・`item-page-avatars-unconfirmed-focus` |
@@ -195,6 +196,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | 知らせの窓（OK/キャンセル・はい/いいえ・エラー） | `notice-okcancel-long`・`notice-yesno-warning`・`notice-error-short` |
 | 2択・3択の窓 | `catalog-dialog-choice-two`・`catalog-dialog-choice-three`・ボタンの名前が長い2択（取り込みの中断）`catalog-dialog-import-cancel` |
 | 検索の保存・名前を変える（今ある名前） | `catalog-dialog-saved-search-save`・`-taken`・`-rename` |
+| BOOTHに無い商品を名前だけで登録する窓（検索の件数の帯から） | `catalog-dialog-local-item-name` |
 | 商品IDを変える窓（確かめる前） | `catalog-dialog-change-item-id` |
 | 初回の窓（長いパス・短いパス・環境変数） | `first-run-*` |
 | 名前の「_」 | `underscore-in-names` |

@@ -1995,6 +1995,14 @@
                         <TextBlock DockPanel.Dock="Left" Text="読み込み中…" Style="{StaticResource Caption}" Margin="12,0,0,0" VerticalAlignment="Center"
                                    Visibility="{Binding IsLoading, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                         <!--
+                            ファイルを持たない「BOOTHに無い商品」を名前だけで作る入口（2026-11-20 のメモ「ファイルの無いlocalItemが作成できない気がする」）。
+                            前は未確定のファイルを選ばないと作れなかった。商品を並べる画面の件数の隣に置き、作った商品はこの一覧にも足す
+                        -->
+                        <Button DockPanel.Dock="Left" Content="BOOTHに無い商品を登録…" Style="{StaticResource SmallButton}" Height="24" Margin="12,0,0,0"
+                                VerticalAlignment="Center" Command="{Binding Main.CreateLocalItemCommand}"
+                                ToolTip="ファイルを持たない商品を、名前だけで登録します。"
+                                AutomationProperties.AutomationId="SearchCreateLocalItem" AutomationProperties.Name="BOOTHに無い商品を登録" />
+                        <!--
                             表記をまたいで探したときは、何で当たったかを必ず出す。
                             辞書は引いた結果を説明できるのが取り柄なので、説明を捨てない。
                         -->
