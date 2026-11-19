@@ -310,6 +310,61 @@ public sealed class AvatarBaseRowViewModel : ViewModelBase
 
     public RelayCommand? SetItemIdCommand { get; set; }
 
+    // ---- 素体の画像（ユーザ判断 2026-11-20・152 の案A） ----
+
+    /// <summary>絵を読むもの。一覧は見えている行しか作らないので、絵も見えた行だけで読む（アバターの行と同じ）。</summary>
+    public Chmonos.App.Services.ThumbnailLoader? Thumbnails { get; init; }
+
+    /// <summary>絵の場所を探すもの（<see cref="Core.Services.AvatarBaseImage.IconPath"/>：付けた画像 → 素体の商品の1枚目）。</summary>
+    public Func<string?>? IconPathFactory { get; init; }
+
+    private string? _iconPath;
+    private bool _iconPathLoaded;
+
+    /// <summary>絵の場所。見えた行で初めて探す（アバターの行と同じ理由。一覧を組むときに全部を探さない）</summary>
+    private string? IconPath
+    {
+        get
+        {
+            if (!_iconPathLoaded)
+            {
+                _iconPathLoaded = true;
+                _iconPath = IconPathFactory?.Invoke();
+            }
+
+            return _iconPath;
+        }
+    }
+
+    /// <summary>絵を出すか。無ければ頭の字を出す。</summary>
+    public bool HasIcon => IconPath is not null;
+
+    /// <summary>一覧の行の頭の小さな絵。裏で読み、届いたら描き直す（アバターの行と同じ）。</summary>
+    public System.Windows.Media.Imaging.BitmapSource? Icon => IconPath is { } path
+        ? Thumbnails?.PeekForTile(path, () => OnPropertyChanged(nameof(Icon)))
+        : null;
+
+    /// <summary>
+    /// 素体の詳細の大きな絵。一覧の頭の絵（タイル用の小ささ）を引き伸ばすとぼやけるので、カードの大きさで読む。
+    /// 詳細は選んだ1つにしか出ないので、その場で読んでよい
+    /// </summary>
+    public System.Windows.Media.Imaging.BitmapSource? Picture => IconPath is { } path ? Thumbnails?.LoadForCard(path) : null;
+
+    /// <summary>飾り記号を飛ばした頭の字（アバターの行と同じ）。</summary>
+    public string Initial => Core.Services.AvatarText.InitialOf(Name);
+
+    /// <summary>人が画像を付けているか。「画像を外す」はこのときだけ出す（素体の商品の絵は外せない）</summary>
+    public bool HasOwnImage => Summary.Group.Image is not null;
+
+    public string PickImageText => HasOwnImage ? "画像を変更…" : "画像を設定…";
+
+    public RelayCommand? PickImageCommand { get; set; }
+
+    public RelayCommand? RemoveImageCommand { get; set; }
+
+    /// <summary>画像の欄のすぐ下の知らせ（読めなかった・外した）</summary>
+    public AreaNotice ImageNote { get; } = new();
+
     /// <summary>素体そのものの商品の候補（名前に素体名を含み、アバターではない登録簿の商品）。押すと結ぶ（自動では結ばない）。</summary>
     public IReadOnlyList<BaseItemCandidate> ItemCandidates { get; init; } = [];
 
@@ -1747,6 +1802,11 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
                     NameInput = name,
                     ToggleInferCommand = new RelayCommand(() => ToggleInferAsync(name, !summary.Group.InferClothing).Forget()),
                     DeleteCommand = new RelayCommand(() => ConfirmDeleteBaseAsync(name).Forget()),
+                    Thumbnails = _main.Thumbnails,
+                    IconPathFactory = () => Core.Services.AvatarBaseImage.IconPath(
+                        _services.Paths, summary.Group, _main.Search.FindItem, _services.Settings.ShowRemovedBoothImages),
+                    PickImageCommand = new RelayCommand(() => PickBaseImageAsync(name).Forget()),
+                    RemoveImageCommand = new RelayCommand(() => RemoveBaseImageAsync(name).Forget()),
                 };
                 baseRow.SetItemIdCommand = new RelayCommand(() => SetBaseItemIdAsync(name, baseRow.ItemIdInput).Forget());
                 baseRow.RenameCommand = new RelayCommand(() => RenameBase(name, baseRow.NameInput));
@@ -2034,6 +2094,66 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
         await LoadAsync();
         ShowOnBase(name, row => row.ItemIdNote, $"商品 {itemId} に紐付けました。", warn: false);
+    }
+
+    /// <summary>素体の画像を選ぶ窓。選んだ1枚を付ける（1つの素体に1枚なので、まとめては選ばせない）</summary>
+    private async Task PickBaseImageAsync(string name)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = $"「{name}」の画像を選ぶ",
+            Filter = "画像 (*.png;*.jpg;*.jpeg;*.webp;*.gif;*.bmp)|*.png;*.jpg;*.jpeg;*.webp;*.gif;*.bmp",
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        await SetBaseImageFromFileAsync(name, dialog.FileName);
+    }
+
+    /// <summary>
+    /// ファイルを読んで素体に付ける（ユーザ判断 2026-11-20・152 の案A）。前に付けた画像とは差し替える。
+    /// 読み直すと行が作り直されるので、知らせは読み直した後の行に出す（素体の商品の欄と同じ）
+    /// </summary>
+    public async Task SetBaseImageFromFileAsync(string name, string path)
+    {
+        Action<string> warn = text => ShowOnBase(name, row => row.ImageNote, text, warn: true);
+
+        byte[] bytes;
+        try
+        {
+            bytes = await System.IO.File.ReadAllBytesAsync(path);
+        }
+        catch (Exception exception) when (exception is System.IO.IOException or UnauthorizedAccessException)
+        {
+            warn($"{System.IO.Path.GetFileName(path)} を読めませんでした。");
+            return;
+        }
+
+        if (await WriteAsync(new UiCommand.SetBaseImage(name, bytes), "画像を設定できませんでした。", warn) is null)
+        {
+            return;
+        }
+
+        await LoadAsync();
+    }
+
+    /// <summary>
+    /// 付けた画像を外す。絵は素体の商品の1枚目（無ければ頭の字）に戻る。
+    /// 確かめの窓は出さない：選んだ元のファイルは手元に残るので、選び直せば戻せる
+    /// </summary>
+    public async Task RemoveBaseImageAsync(string name)
+    {
+        if (await WriteAsync(new UiCommand.RemoveBaseImage(name), "画像を外せませんでした。",
+                text => ShowOnBase(name, row => row.ImageNote, text, warn: true)) is null)
+        {
+            return;
+        }
+
+        await LoadAsync();
+        ShowOnBase(name, row => row.ImageNote, "画像を外しました。", warn: false);
     }
 
     private async Task ToggleInferAsync(string name, bool infer)

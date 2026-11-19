@@ -186,6 +186,31 @@
         <DataTemplate x:Key="BaseCard" DataType="{x:Type vm:AvatarBaseRowViewModel}">
             <Border Style="{StaticResource Card}" Padding="22,18">
                 <Grid>
+                    <DockPanel>
+                    <!--
+                        素体の画像（ユーザ判断 2026-11-20・152 の案A）。付けた画像 → 素体の商品の1枚目 → 頭の字。
+                        付ける・外すは絵のすぐ下に置く（ほかの欄と同じく、触る物のそばに操作を置く）。「外す」は付けた画像があるときだけ
+                    -->
+                    <StackPanel DockPanel.Dock="Left" Width="112" Margin="0,0,20,0">
+                        <Border Width="112" Height="112" CornerRadius="8" Background="{DynamicResource AccentSoft}" ClipToBounds="True"
+                                AutomationProperties.AutomationId="AvatarBaseImage">
+                            <Grid>
+                                <TextBlock Text="{Binding Initial}" FontSize="40" FontWeight="Bold" Foreground="{DynamicResource AccentSoftText}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <Image Source="{Binding Picture}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality"
+                                       Visibility="{Binding HasIcon, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            </Grid>
+                        </Border>
+                        <Button AutomationProperties.AutomationId="AvatarBasePickImage" Content="{Binding PickImageText}" Style="{StaticResource SmallButton}"
+                                Margin="0,8,0,0" HorizontalAlignment="Stretch" Command="{Binding PickImageCommand}"
+                                ToolTip="一覧とこの欄に表示する画像を選びます。" />
+                        <Button AutomationProperties.AutomationId="AvatarBaseRemoveImage" Content="画像を外す" Style="{StaticResource DangerButton}"
+                                Margin="0,6,0,0" HorizontalAlignment="Stretch" Command="{Binding RemoveImageCommand}"
+                                ToolTip="素体の商品の画像に戻します。"
+                                Visibility="{Binding HasOwnImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                        <TextBlock DataContext="{Binding ImageNote}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" Margin="0,4,0,0"
+                                   TextWrapping="Wrap" AutomationProperties.AutomationId="AvatarBaseImageNote" />
+                    </StackPanel>
                     <StackPanel>
                         <!--
                             名前は普段は文字で出し、「名前を変更」で欄にする（ユーザ判断 2026-09-29。アバターの名前と同じ形）。
@@ -269,6 +294,7 @@
                                   Foreground="{DynamicResource Text}"
                                   ToolTip="衣装が合わない組だけ外してください。外すと素体経由の衣装が表示されなくなります。" />
                     </StackPanel>
+                    </DockPanel>
 
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
                         <!-- 取り返しがつかないので、そうと分かる顔にする（V4） -->
@@ -559,10 +585,28 @@
                                      Visibility="{Binding IsBaseMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate DataType="{x:Type vm:AvatarBaseRowViewModel}">
-                                        <StackPanel Margin="0,3,0,5">
-                                            <TextBlock Text="{Binding Name}" FontSize="12.5" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="{Binding MemberText}" Style="{StaticResource Caption}" Margin="0,2,0,0" />
-                                        </StackPanel>
+                                        <!-- 頭に絵を出す（152：配布されていない素体は名前だけで見分けにくかった）。大きさと形はアバターの行に揃える -->
+                                        <Grid Margin="0,3,0,5">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Grid.Column="0" CornerRadius="8" Margin="0,0,10,0" VerticalAlignment="Center"
+                                                    Width="{Binding ListIconSize, Source={x:Static vm:ItemViewSize.Current}}"
+                                                    Height="{Binding ListIconSize, Source={x:Static vm:ItemViewSize.Current}}"
+                                                    Background="{DynamicResource AccentSoft}" ClipToBounds="True">
+                                                <Grid>
+                                                    <TextBlock Text="{Binding Initial}" FontWeight="Bold" Foreground="{DynamicResource AccentSoftText}"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    <Image Source="{Binding Icon}" Stretch="UniformToFill"
+                                                           Visibility="{Binding HasIcon, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                </Grid>
+                                            </Border>
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Name}" FontSize="12.5" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding MemberText}" Style="{StaticResource Caption}" Margin="0,2,0,0" />
+                                            </StackPanel>
+                                        </Grid>
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>
