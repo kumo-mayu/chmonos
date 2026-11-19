@@ -266,6 +266,12 @@ public abstract record UiCommand
     public record RemoveDuplicatePlace(string Hash, string Path) : UiCommand;
 
     /// <summary>
+    /// zip と展開したフォルダの組で、zip だけをごみ箱へ送る（統計の「空けられる場所」。ユーザ判断 2026-11-20。展開したフォルダには触らない）。
+    /// 展開したフォルダが今も在ると確かめてから送る
+    /// </summary>
+    public record RemoveArchiveOfUnpacked(string ItemId, string Path) : UiCommand;
+
+    /// <summary>
     /// 画面の入力を保存する。<c>local</c> のうち <paramref name="Owns"/> で名指しした項目だけを書く。
     /// 名指ししなかった項目は、保存の直前に読み直したものが残る。
     /// </summary>

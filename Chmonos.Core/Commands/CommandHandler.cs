@@ -651,6 +651,15 @@ public sealed class CommandHandler
                 return new CommandResult.DuplicatePlaceRemoved(
                     await DuplicateRemover.RemoveAsync(duplicate.Hash, duplicate.Path, cancellationToken));
 
+            case UiCommand.RemoveArchiveOfUnpacked archive:
+                if (DuplicateRemover is null)
+                {
+                    return MissingService("削除の実行");
+                }
+
+                return new CommandResult.DuplicatePlaceRemoved(
+                    await DuplicateRemover.RemoveArchiveAsync(archive.ItemId, archive.Path, cancellationToken));
+
             case UiCommand.SaveItemLocal save:
                 if (_edit is null)
                 {
