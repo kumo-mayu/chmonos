@@ -11,6 +11,9 @@ public sealed record AttributeUsage
     /// <summary>評価が入っているitem数。未評価は数えない。</summary>
     public required int ItemCount { get; init; }
 
+    /// <summary>付いているが値はまだの item 数（<see cref="ItemCount"/> とは重ならない。ユーザ判断 2026-11-20）。</summary>
+    public int PendingCount { get; init; }
+
     /// <summary>入っている値の平均。1件も無ければ null。</summary>
     public double? Average { get; init; }
 }
@@ -113,6 +116,7 @@ public sealed class AttributeService : IAttributeService
             {
                 Name = definition.Name,
                 ItemCount = values.Count,
+                PendingCount = loaded.Items.Count(item => ItemAttributes.IsPending(item.Local, definition.Name)),
                 Average = values.Count == 0 ? null : values.Average(),
             };
         }).ToList();
