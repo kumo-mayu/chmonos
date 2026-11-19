@@ -21,8 +21,20 @@
         </controls:CardRowsListBox.ItemTemplate>
     </controls:CardRowsListBox>
     <!-- リスト -->
-    <controls:ItemListView ItemsSource="{Binding ListItems}" View="{StaticResource ItemListGridView}"
-                           ItemContainerStyle="{StaticResource ItemListRowStyle}" Height="200" />
+    <!-- アプリは列を ItemListColumnsView で組む（列を選べる・2026-11-20）。ここは作り物の幅で前の既定の列を置く -->
+    <controls:ItemListView ItemsSource="{Binding ListItems}"
+                           ItemContainerStyle="{StaticResource ItemListRowStyle}" Height="200">
+        <controls:ItemListView.View>
+            <GridView>
+                <GridViewColumn Width="{Binding ListColumns.SelectWidth}" CellTemplate="{StaticResource ItemListSelectCell}" />
+                <GridViewColumn Width="{Binding ListColumns.IconWidth}" CellTemplate="{StaticResource ItemListIconCell}" />
+                <GridViewColumn Header="★" Width="{Binding ListColumns.FavWidth}" CellTemplate="{StaticResource ItemListFavCell}" />
+                <GridViewColumn Header="名前" Width="{Binding ListColumns.NameWidth}" CellTemplate="{StaticResource ItemListNameCell}" />
+                <GridViewColumn Header="{Binding ListColumns.ShopHeader}" Width="{Binding ListColumns.ShopWidth}" CellTemplate="{StaticResource ItemListShopCell}" />
+                <GridViewColumn Header="状態" Width="{Binding ListColumns.ChipsWidth}" CellTemplate="{StaticResource ItemListChipsCell}" />
+            </GridView>
+        </controls:ItemListView.View>
+    </controls:ItemListView>
     <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ItemSelectionBar}" />
     <ListView Height="20" />
 </StackPanel>

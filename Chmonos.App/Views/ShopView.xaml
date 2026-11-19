@@ -279,7 +279,7 @@
                 リスト。列の幅は見出しの境目をドラッグで変え、全部の行で共通（ショップ画面として覚える）。
                 商品（ItemsSource）はリストが出たときに渡し、隠れている間に商品が替わったら外す（ShopView.xaml.cs の UpdateListSource）。仮想化しない一覧は、隠れていても項目が来るたびに全部の行を作った
             -->
-            <controls:ItemListView x:Name="ItemList" View="{StaticResource ItemListGridView}"
+            <controls:ItemListView x:Name="ItemList" controls:ItemListColumnsView.Columns="{Binding ListColumns}"
                       ItemContainerStyle="{StaticResource ItemListRowStyle}"
                       BorderThickness="0" Background="Transparent" Margin="24,2,24,18"
                       ScrollViewer.VerticalScrollBarVisibility="Disabled" controls:ForwardWheel.IsEnabled="True"

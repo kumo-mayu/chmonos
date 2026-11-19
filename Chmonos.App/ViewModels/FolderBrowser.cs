@@ -55,6 +55,16 @@ public sealed class FolderBrowserFolderCard
 
     /// <summary>名前の列は商品の行と同じ型を使うので、R-18 の印の欄も持つ（フォルダには付かない）。</summary>
     public string AdultMark => string.Empty;
+
+    /// <summary>
+    /// 商品の列（ユーザータグ・文字の列など。ユーザ判断 2026-11-20 で選べるようになった）にも同じ型を使うので、空の中身を持つ。
+    /// 持たないと、行ごとに結び付けが失敗して、そのたびに記録を書く（流すのが重くなる）
+    /// </summary>
+    public ItemListRow ListRow => ItemListRow.Empty;
+
+    public CardInfo ListInfo => s_emptyInfo;
+
+    private static readonly CardInfo s_emptyInfo = new();
 }
 
 /// <summary>

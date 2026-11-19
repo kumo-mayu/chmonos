@@ -43,7 +43,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | 乗せたときの札（ViewModel で乗せた状態） | `card-info-peek`・`card-info-peek-small` |
 | カードの下の段（幅 160・200・228） | `card-badges-160`・`card-badges-200`・`card-badges-228` |
 | R-18 の名前の頭の印（カード・リスト） | `search-cards-adult`・`search-list-adult` |
-| リスト | `card-info-list`・`search-sort-name-list`・`search-updated-list` |
+| リスト（`card-info-list-columns` は選んで足した文字の列） | `card-info-list`・`card-info-list-columns`・`search-sort-name-list`・`search-updated-list` |
 | 並べ替えの区切り（カテゴリ・ショップ・入手日・名前） | `search-sort-category(-list)`・`search-sort-shop(-list)`・`search-sort-acquired(-list)` |
 | カードの大きさ最小・最大 | `search-sort-shop-small`・`search-sort-shop-large` |
 | フォーカスの枠 | `search-sort-shop-focus`・`search-sort-name-focus` |

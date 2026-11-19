@@ -36,6 +36,7 @@ internal static class ItemListMode
 /// 見出しの境目をドラッグすると幅が変わり、全部の行が同じ幅になる（GridView の列）。
 /// 幅は画面ごと（<c>"search"</c>・<c>"folder"</c>）に <see cref="PaneWidths"/> へ覚え、範囲に収める
 /// （画面の幅と同じ所。設定画面の「全部を元の幅に戻す」でこれも戻る）。
+/// 出す列と並び（ユーザ判断 2026-11-20）も画面ごとに覚える（<see cref="Order"/>。戻す操作では消さない——幅ではないので）。
 /// </summary>
 public sealed class ItemListColumns : ViewModelBase
 {
@@ -97,9 +98,15 @@ public sealed class ItemListColumns : ViewModelBase
         {
             OnPropertyChanged(nameof(IconWidth));
             OnPropertyChanged(nameof(IconSize));
+            if (_columnWidths.TryGetValue("icon", out var icon))
+            {
+                icon.Refresh();
+            }
         }
     }
 
+    // 改変の「使ったもの」のリスト（ModificationView.xaml）は自分の列を XAML に持ち、この名前の付いた幅に結ぶ。
+    // 検索・ショップ・フォルダの列は WidthOf で列ごとに結ぶ（列を選べるので、名前の付いた値では足りない）
     public double FavWidth
     {
         get => Get("fav");
@@ -112,42 +119,77 @@ public sealed class ItemListColumns : ViewModelBase
         set => Set("name", value);
     }
 
-    public double ShopWidth
+    // ---- 出す列と並び（ユーザ判断 2026-11-20：検索・ショップ・フォルダの右で、見出しの右クリックで選び、ドラッグで並べ替える） ----
+
+    /// <summary>出す列（左からの並び。左端はいつも選ぶ列）。画面ごとに覚える。</summary>
+    public IReadOnlyList<string> Order => _widths.ListColumns(_screen);
+
+    /// <summary>出す列か並びが変わった。リストの見出しの側（<see cref="Controls.ItemListColumnsView"/>）が列を足し引きする。</summary>
+    public event EventHandler? OrderChanged;
+
+    public bool IsShown(string key) => Order.Contains(key, StringComparer.Ordinal);
+
+    /// <summary>
+    /// 外せるか。最後の1列（選ぶ列のほか）は外せない——列が1本も無いと、行に押す所も読む物も無くなる。
+    /// </summary>
+    public bool CanHide(string key)
+        => IsShown(key) && Order.Count(column => column != ItemListColumnCatalog.Select) > 1;
+
+    /// <summary>
+    /// 列を出す・外す。出すときは <paramref name="after"/>（右クリックした見出しの列）の右に置く——
+    /// 見出しの上で選んだので、そこに出れば目で追える。無ければ右端
+    /// </summary>
+    public void SetShown(string key, bool shown, string? after = null)
     {
-        get => Get("shop");
-        set => Set("shop", value);
+        if (key == ItemListColumnCatalog.Select || ItemListColumnCatalog.Find(key) is null || shown == IsShown(key) || (!shown && !CanHide(key)))
+        {
+            return;
+        }
+
+        var order = Order.ToList();
+        if (shown)
+        {
+            var index = after is null ? -1 : order.IndexOf(after);
+            order.Insert(index < 0 ? order.Count : index + 1, key);
+        }
+        else
+        {
+            order.Remove(key);
+        }
+
+        Save(order);
     }
 
-    public double ChipsWidth
+    /// <summary>見出しのドラッグで並べ替えた後の並び。選ぶ列は左端に置き直す（<see cref="ItemListColumnCatalog.Normalize"/>）。</summary>
+    public void Reorder(IEnumerable<string> order) => Save(ItemListColumnCatalog.Normalize(_screen, order));
+
+    private void Save(IReadOnlyList<string> order)
     {
-        get => Get("chips");
-        set => Set("chips", value);
+        _widths.SetListColumns(_screen, order);
+        OrderChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    // ---- 検索だけの列（ユーザ判断 2026-10-04・案C：ユーザータグ・属性・払った額・対応）。ほかの画面は列ごと持たない（SearchItemListGridView） ----
+    /// <summary>見出しの文字。ショップの列だけ画面ごとに言い方が違う（フォルダの行は場所を出す）。</summary>
+    public string HeaderOf(string key)
+        => key == "shop" ? ShopHeader : ItemListColumnCatalog.Find(key)?.Header ?? string.Empty;
 
-    public double TagsWidth
-    {
-        get => Get("tags");
-        set => Set("tags", value);
-    }
+    private readonly Dictionary<string, ItemListColumnWidth> _columnWidths = new(StringComparer.Ordinal);
 
-    public double AttributesWidth
+    /// <summary>列の幅（見出しの境目のドラッグと結ぶ）。列ごとに1つを使い回す。</summary>
+    public ItemListColumnWidth WidthOf(string key)
     {
-        get => Get("attrs");
-        set => Set("attrs", value);
-    }
+        if (!_columnWidths.TryGetValue(key, out var width))
+        {
+            width = key switch
+            {
+                "icon" => new ItemListColumnWidth(() => IconWidth, value => IconWidth = value),
+                ItemListColumnCatalog.Select => new ItemListColumnWidth(() => SelectWidth, value => SelectWidth = value),
+                _ => new ItemListColumnWidth(() => Get(key), value => _widths.Set($"{_screen}.col.{key}", value)),
+            };
+            _columnWidths[key] = width;
+        }
 
-    public double PaidWidth
-    {
-        get => Get("paid");
-        set => Set("paid", value);
-    }
-
-    public double AvatarsWidth
-    {
-        get => Get("avatars");
-        set => Set("avatars", value);
+        return width;
     }
 
     private double Get(string column) => _widths.Get($"{_screen}.col.{column}");
@@ -164,4 +206,29 @@ public sealed class ItemListColumns : ViewModelBase
         // 範囲の外まで引かれたら、範囲の端へ戻して見せる
         OnPropertyChanged(property);
     }
+}
+
+/// <summary>
+/// リストの1列の幅。見出しの境目のドラッグ（GridViewColumn.Width と両向きに結ぶ）で変わり、範囲の外まで引かれたら端へ戻して見せる。
+/// 列は画面がコードで組む（<see cref="Controls.ItemListColumnsView"/>）ので、列ごとの名前の付いた値ではなくこの形で渡す
+/// </summary>
+public sealed class ItemListColumnWidth(Func<double> get, Action<double> set) : ViewModelBase
+{
+    public double Width
+    {
+        get => get();
+        set
+        {
+            if (double.IsNaN(value) || value < 0)
+            {
+                return;
+            }
+
+            set(value);
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>外で変わった（絵の列は行の高さのスライダーで変わる）。</summary>
+    public void Refresh() => OnPropertyChanged(nameof(Width));
 }

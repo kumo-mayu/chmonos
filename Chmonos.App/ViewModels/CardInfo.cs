@@ -57,6 +57,9 @@ public sealed class CardInfoContext
     /// <summary>札に乗せてから重ねを出すまでの待ち。設定のギャラリーの待ちと同じ値（画面が合わせる）。作り置きの札には効かないので、変わっても知らせない。</summary>
     public int PeekDelayMs { get; set; }
 
+    /// <summary>リストの列（<see cref="ItemListRow"/>）が記録の外から引く材料。画面が1回入れ、全部の行が同じ物を指す。</summary>
+    public ItemListRowSources RowSources { get; set; } = ItemListRowSources.None;
+
     /// <summary>替わった回数。カードはこれで作り置きの札が古いかを見る。</summary>
     public int Version { get; private set; }
 
