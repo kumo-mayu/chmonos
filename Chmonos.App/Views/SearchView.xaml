@@ -926,7 +926,7 @@
                                             <TextBlock Text="持っているバリエーションの分だけ" FontSize="12" Foreground="{DynamicResource Text}" />
                                         </CheckBox>
                                         <!-- 結果はアプリを閉じるまで覚えるので、入れ直した後に押す。文字だけではボタンに見えなかった（ユーザ指摘 2026-11-01） -->
-                                        <Button Content="読み直す" Command="{Binding ReloadCommand}" HorizontalAlignment="Left"
+                                        <Button Content="プロジェクトを読み直す" Command="{Binding ReloadCommand}" HorizontalAlignment="Left"
                                                 Style="{StaticResource SmallButton}" Margin="0,8,0,0"
                                                 AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Reload'}"
                                                 AutomationProperties.Name="{Binding SpokenLabel, StringFormat={}{0}を読み直す}"
