@@ -74,6 +74,24 @@ public sealed record LocalBlock
         init => field = AttributeNames.Table(value);
     } = AttributeNames.Table(null);
 
+    /// <summary>
+    /// 付いているが値はまだの属性（名前。検索の選択の帯で「足した」物。ユーザ判断 2026-11-20・`docs/spec/data-model.md`「属性」）。
+    /// 編集の画面では「未評価」の行として並び、値を付けるとここから外れて <see cref="Attributes"/> へ移る。
+    /// 値の無い属性（キーが無い＝付いていない）とも、0% とも別の状態。
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Attributes"/> の意味（値がある物だけ）を変えないため、別の欄に持つ（値の表に null を入れる形にすると、
+    /// 表を読む約100か所がすべて null を値の無い物として扱い直す必要がある）。
+    /// 空なら null で、書き出さない（常に <c>[]</c> を書くと、版 2 の記録を書き直しただけで中身の形が変わり、
+    /// 途中の操作の指紋が合わなくなる）。値のある名前は返さない（手で両方に書いても値が勝つ。こちらからは直さない）。
+    /// 足す・値を付ける・外すは <see cref="ItemAttributes"/> 1か所で決める。
+    /// </remarks>
+    public IReadOnlyList<string>? PendingAttributes
+    {
+        get => ItemAttributes.Visible(field, Attributes);
+        init => field = ItemAttributes.Distinct(value);
+    }
+
     public string? Memo { get; init; }
 
     /// <summary>

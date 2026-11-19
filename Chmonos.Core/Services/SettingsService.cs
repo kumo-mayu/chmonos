@@ -348,7 +348,7 @@ public sealed class SettingsService : ISettingsService
             return outcomes;
         }
 
-        // 取り込みも同じファイルへ書くので、読み直してから消す（`docs/spec/data-model.md`）。
+        // 取り込みも同じファイルへ書くので、読み直してから消す（`docs/spec/data-writing.md`）。
         // 錠の外で読むと、解除の最中に取り込みが足した除外が消える
         var lifted = new List<ExcludedEntry>();
         await _store.Excluded.TryUpdateAsync(

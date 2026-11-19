@@ -127,7 +127,8 @@ public sealed class AttributeService : IAttributeService
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
 
         return loaded.Items
-            .SelectMany(item => item.Local.Attributes.Keys)
+            // 値はまだの名前も参照（改名・削除で直せるように並べる）
+            .SelectMany(item => item.Local.Attributes.Keys.Concat(ItemAttributes.Pending(item.Local)))
             .Where(name => !known.Contains(name))
             .GroupBy(name => name, StringComparer.CurrentCultureIgnoreCase)
             .Select(group => new OrphanAttribute { Name = group.Key, ItemCount = group.Count() })
@@ -150,10 +151,17 @@ public sealed class AttributeService : IAttributeService
         var count = 0;
         var conflicts = 0;
 
-        foreach (var attributes in loaded.Items.Select(item => item.Local.Attributes))
+        foreach (var local in loaded.Items.Select(item => item.Local))
         {
+            var attributes = local.Attributes;
             if (!TryGet(attributes, from, out var source))
             {
+                // 値はまだの商品も書き換わる数に入れる（値がぶつかる事は無いので衝突には数えない）
+                if (ItemAttributes.IsPending(local, from))
+                {
+                    count++;
+                }
+
                 continue;
             }
 
@@ -228,8 +236,21 @@ public sealed class AttributeService : IAttributeService
             },
             cancellationToken);
 
+        // 値はまだの名前も付け替える（付けた名前が古いまま残ると、どこにも出ない参照になる）。
+        // 寄せ先に値があれば値が勝つ（PendingAttributes の読み口が値のある名前を返さない）
         var rewritten = await RewriteItemsAsync(
-            attributes => RenameIn(attributes, oldName, target, keep),
+            local =>
+            {
+                var values = RenameIn(local.Attributes, oldName, target, keep);
+                var pending = ItemAttributes.RenamePending(local.PendingAttributes, oldName, target);
+                return values is null && pending is null
+                    ? null
+                    : local with
+                    {
+                        Attributes = values ?? local.Attributes,
+                        PendingAttributes = pending ?? local.PendingAttributes,
+                    };
+            },
             cancellationToken);
 
         return new AttributeEditResult { Master = updated, ItemsUpdated = rewritten, WasMerged = merged };
@@ -248,10 +269,9 @@ public sealed class AttributeService : IAttributeService
             },
             cancellationToken);
 
+        // 値はまだの名前も外す（マスタに無い名前を指したまま残さない）
         var rewritten = await RewriteItemsAsync(
-            attributes => TryGet(attributes, name, out _)
-                ? attributes.Where(entry => !Same(entry.Key, name)).ToDictionary(entry => entry.Key, entry => entry.Value)
-                : null,
+            local => ItemAttributes.Without(local, name),
             cancellationToken);
 
         return new AttributeEditResult { Master = updated, ItemsUpdated = rewritten };
@@ -352,7 +372,7 @@ public sealed class AttributeService : IAttributeService
 
     /// <summary>
     /// マスタを読み直してから書き換える。<c>attributes.json</c> は書き手が2つ（管理画面・編集画面）あるので、
-    /// **読んでから書くまでを錠の中に入れる**（`docs/spec/data-model.md`）。
+    /// **読んでから書くまでを錠の中に入れる**（`docs/spec/data-writing.md`）。
     /// <paramref name="change"/> が null を返したら書かない。
     /// </summary>
     private async Task<AttributeMaster> ChangeMasterAsync(
@@ -373,11 +393,11 @@ public sealed class AttributeService : IAttributeService
     }
 
     /// <summary>
-    /// 全itemを見て、変換関数が新しい辞書を返したものだけ保存する。
+    /// 全itemを見て、変換関数が新しい <c>local</c> を返したものだけ保存する（変えてよいのは属性の2つの欄だけ。持ち主の宣言で他は捨てられる）。
     /// 1件ずつ書くので、途中で落ちてもそこまでは反映されている。
     /// </summary>
     private async Task<int> RewriteItemsAsync(
-        Func<IReadOnlyDictionary<string, int>, Dictionary<string, int>?> transform,
+        Func<LocalBlock, LocalBlock?> transform,
         CancellationToken cancellationToken)
     {
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
@@ -389,9 +409,7 @@ public sealed class AttributeService : IAttributeService
             // （名指しは他の項目を守るだけで、属性そのものは守らない）。触る物が無ければ書かない
             var written = await _store.Items.ChangeLocalAsync(
                 item.Id,
-                current => transform(current.Attributes) is { } attributes
-                    ? current with { Attributes = attributes }
-                    : null,
+                transform,
                 LocalOwners.Attributes,
                 cancellationToken);
 

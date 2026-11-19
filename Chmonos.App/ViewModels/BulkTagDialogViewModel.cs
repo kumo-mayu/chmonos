@@ -4,12 +4,12 @@ using Chmonos.Core.Models;
 namespace Chmonos.App.ViewModels;
 
 /// <summary>
-/// 選択の帯の「タグ・属性 ▾」の窓（ユーザ判断 2026-11-20）。足すときはタグを、外すときはタグか属性を1つ選ぶ。
+/// 選択の帯の「タグ・属性 ▾」の窓（ユーザ判断 2026-11-20）。足すときはタグか属性を、外すときはタグか属性を1つ選ぶ。
 /// 書くのは窓を閉じた後で、呼ぶ側（<see cref="SelectionBulkActions"/>）が命令で行う。
 /// </summary>
 /// <remarks>
-/// **足す窓に属性は入れていない。**付けた属性は「未評価で値なし」にする決め事だが、記録の形（名前→値の表）では
-/// 「付いているが未評価」を書けない（キーが無い＝未評価＝付いていない）。形を変えるかは判断待ち。
+/// 属性は**値を付けずに**足す（付いているが値はまだ。ユーザ判断 2026-11-20 の (a)）。スライダーは出さない——
+/// 選んだ商品に同じ値を入れると、付けただけか評価したかが分からなくなる。値は編集の画面の「未評価」の行から付ける。
 /// 外す候補は選んだ商品に付いている物だけ（付いていない物を選ばせても何も起きない）。
 /// </remarks>
 public sealed class BulkTagDialogViewModel : ViewModelBase
@@ -17,35 +17,95 @@ public sealed class BulkTagDialogViewModel : ViewModelBase
     /// <summary>候補の小分類の並びの区切り（タグの管理の表示と同じ）。</summary>
     public const string SubSeparator = "／";
 
+    private enum Mode
+    {
+        AddTag,
+        AddAttribute,
+        Remove,
+    }
+
+    private readonly Mode _mode;
     private readonly UserTagMaster _master;
+    private readonly AttributeMaster _attributeMaster;
     private readonly IReadOnlyList<ItemRecord> _items;
 
-    private BulkTagDialogViewModel(bool removing, UserTagMaster master, IReadOnlyList<ItemRecord> items)
+    private BulkTagDialogViewModel(Mode mode, UserTagMaster master, AttributeMaster attributeMaster, IReadOnlyList<ItemRecord> items)
     {
-        IsRemoving = removing;
+        _mode = mode;
         _master = master;
+        _attributeMaster = attributeMaster;
         _items = items;
         PickTopCommand = new RelayCommand(parameter => PickTop(parameter as string));
         PickSubCommand = new RelayCommand(parameter => PickSub(parameter as string));
+        PickAttributeCommand = new RelayCommand(parameter => PickAttribute(parameter as string));
         PickRemovalCommand = new RelayCommand(parameter => PickRemoval(parameter as string));
         RefreshCandidates();
     }
 
-    /// <summary>足す窓。候補はタグの一覧（マスタ）の大分類・小分類。</summary>
-    public static BulkTagDialogViewModel ForAdding(UserTagMaster master, IReadOnlyList<ItemRecord> items) => new(false, master, items);
+    /// <summary>タグを足す窓。候補はタグの一覧（マスタ）の大分類・小分類。</summary>
+    public static BulkTagDialogViewModel ForAdding(UserTagMaster master, IReadOnlyList<ItemRecord> items)
+        => new(Mode.AddTag, master, new AttributeMaster(), items);
 
-    /// <summary>外す窓。候補は選んだ商品に付いているタグ・属性だけ。</summary>
-    public static BulkTagDialogViewModel ForRemoving(IReadOnlyList<ItemRecord> items) => new(true, new UserTagMaster(), items);
+    /// <summary>属性を足す窓。候補は属性の一覧（マスタ）。</summary>
+    public static BulkTagDialogViewModel ForAddingAttribute(AttributeMaster master, IReadOnlyList<ItemRecord> items)
+        => new(Mode.AddAttribute, new UserTagMaster(), master, items);
 
-    public bool IsRemoving { get; }
+    /// <summary>外す窓。候補は選んだ商品に付いているタグ・属性だけ（属性は値はまだの物も）。</summary>
+    public static BulkTagDialogViewModel ForRemoving(IReadOnlyList<ItemRecord> items)
+        => new(Mode.Remove, new UserTagMaster(), new AttributeMaster(), items);
 
+    public bool IsRemoving => _mode == Mode.Remove;
+
+    /// <summary>足す窓か（タグ・属性のどちらも。ボタンの形が同じ）。</summary>
     public bool IsAdding => !IsRemoving;
 
-    public string DialogTitle => IsRemoving ? "タグ・属性を削除" : "タグを追加";
+    public bool IsAddingTag => _mode == Mode.AddTag;
 
-    public string HeadingText => IsRemoving
-        ? $"選んだ {_items.Count} 件から外すタグか属性を選んでください。"
-        : $"選んだ {_items.Count} 件に追加するタグを選んでください。";
+    public bool IsAddingAttribute => _mode == Mode.AddAttribute;
+
+    public string DialogTitle => _mode switch
+    {
+        Mode.Remove => "タグ・属性を削除",
+        Mode.AddAttribute => "属性を追加",
+        _ => "タグを追加",
+    };
+
+    public string HeadingText => _mode switch
+    {
+        Mode.Remove => $"選んだ {_items.Count} 件から外すタグか属性を選んでください。",
+        Mode.AddAttribute => $"選んだ {_items.Count} 件に追加する属性を選んでください。",
+        _ => $"選んだ {_items.Count} 件に追加するタグを選んでください。",
+    };
+
+    // ---- 属性を足す ----
+
+    public ObservableCollection<string> AttributeCandidates { get; } = [];
+
+    public RelayCommand PickAttributeCommand { get; }
+
+    private string? _attribute;
+
+    /// <summary>選んだ属性。候補に無い語は、追加するときに属性の一覧へも足す（編集画面の欄と同じ）。</summary>
+    public string? Attribute
+    {
+        get => _attribute;
+        private set
+        {
+            if (SetField(ref _attribute, value))
+            {
+                RaiseChoice();
+            }
+        }
+    }
+
+    /// <summary>候補に無い属性か（追加の前に属性の一覧へ足す）。</summary>
+    public bool IsNewAttribute => Attribute is not null && MasterAttributeName(Attribute) is null;
+
+    private void PickAttribute(string? name)
+        => Attribute = string.IsNullOrWhiteSpace(name) ? null : MasterAttributeName(name.Trim()) ?? name.Trim();
+
+    private string? MasterAttributeName(string name)
+        => _attributeMaster.Attributes.FirstOrDefault(entry => Same(entry.Name, name))?.Name;
 
     // ---- 足す ----
 
@@ -146,22 +206,33 @@ public sealed class BulkTagDialogViewModel : ViewModelBase
     // ---- 決めた物 ----
 
     /// <summary>選び終えたか（「追加」「削除…」を押せるか）。</summary>
-    public bool HasChoice => IsRemoving ? Removal is not null : Top is not null;
+    public bool HasChoice => _mode switch
+    {
+        Mode.Remove => Removal is not null,
+        Mode.AddAttribute => Attribute is not null,
+        _ => Top is not null,
+    };
 
     /// <summary>選んだ物の表示（窓の中の確かめ）。</summary>
-    public string ChoiceText => IsRemoving
-        ? Removal ?? string.Empty
-        : Top is null ? string.Empty : Sub is null ? Top : $"{Top}{SubSeparator}{Sub}";
+    public string ChoiceText => _mode switch
+    {
+        Mode.Remove => Removal ?? string.Empty,
+        Mode.AddAttribute => Attribute ?? string.Empty,
+        _ => Top is null ? string.Empty : Sub is null ? Top : $"{Top}{SubSeparator}{Sub}",
+    };
 
     public string CommitText => IsRemoving ? "削除…" : "追加";
 
     /// <summary>押せないときの理由（E9）。</summary>
     public string CommitHint => HasChoice ? string.Empty
-        : IsRemoving
-            ? RemovalCandidates.Count == 0
+        : _mode switch
+        {
+            Mode.Remove => RemovalCandidates.Count == 0
                 ? RemovesAttribute ? "選んだ商品に属性は付いていません。" : "選んだ商品にタグは付いていません。"
-                : "外す物を候補から選んでください。"
-            : "大分類を入力して Enter を押してください。";
+                : "外す物を候補から選んでください。",
+            Mode.AddAttribute => "属性を入力して Enter を押してください。",
+            _ => "大分類を入力して Enter を押してください。",
+        };
 
     /// <summary>窓で決めた変更。決めていなければ null。</summary>
     public Core.Services.BulkItemChange? Change
@@ -173,7 +244,12 @@ public sealed class BulkTagDialogViewModel : ViewModelBase
                 return null;
             }
 
-            if (IsAdding)
+            if (IsAddingAttribute)
+            {
+                return new Core.Services.BulkItemChange.AddAttribute(Attribute!);
+            }
+
+            if (IsAddingTag)
             {
                 return new Core.Services.BulkItemChange.AddUserTag(Top!, Sub);
             }
@@ -200,7 +276,8 @@ public sealed class BulkTagDialogViewModel : ViewModelBase
     {
         if (RemovesAttribute)
         {
-            return item.Local.Attributes.Keys.Any(name => Same(name, removal));
+            // 値はまだの物も付いている（外すと消える）
+            return ItemAttributes.IsAttached(item.Local, removal.Trim());
         }
 
         var (top, sub) = _tagTargets[removal];
@@ -218,6 +295,12 @@ public sealed class BulkTagDialogViewModel : ViewModelBase
         foreach (var top in _master.Tops)
         {
             TopCandidates.Add(top.Name);
+        }
+
+        AttributeCandidates.Clear();
+        foreach (var attribute in _attributeMaster.Attributes)
+        {
+            AttributeCandidates.Add(attribute.Name);
         }
 
         RemovalCandidates.Clear();
@@ -238,7 +321,7 @@ public sealed class BulkTagDialogViewModel : ViewModelBase
 
         // 付いている商品の多い順にすると、よく使う物が先に出る。同じ数なら名前の順
         var names = RemovesAttribute
-            ? _items.SelectMany(item => item.Local.Attributes.Keys)
+            ? _items.SelectMany(item => item.Local.Attributes.Keys.Concat(ItemAttributes.Pending(item.Local)))
             : _items.SelectMany(item => item.Local.UserTags.SelectMany(tag => (IEnumerable<string>)[tag.Top, .. tag.Subs.Select(sub => $"{tag.Top.Trim()}{SubSeparator}{sub.Trim()}")]));
         foreach (var name in names
             .GroupBy(name => name.Trim(), StringComparer.CurrentCultureIgnoreCase)
@@ -291,8 +374,13 @@ public sealed class BulkTagDialogViewModel : ViewModelBase
             : new Views.BulkTagDialog(model).ShowDialog() == true;
 
     /// <summary>試験と ViewShot から、欄に打って Enter を押したのと同じにする。</summary>
-    internal void Type(string? top = null, string? sub = null, string? removal = null)
+    internal void Type(string? top = null, string? sub = null, string? removal = null, string? attribute = null)
     {
+        if (attribute is not null)
+        {
+            PickAttribute(attribute);
+        }
+
         if (top is not null)
         {
             PickTop(top);

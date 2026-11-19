@@ -78,9 +78,14 @@ public static class OperationFingerprint
         var holders = new SortedDictionary<string, string>(StringComparer.Ordinal);
         foreach (var item in items)
         {
-            if (item.Local.Attributes.Keys.Any(key => IsOld(key, oldName, target)))
+            // 値はまだの名前も改名で書き換わるので、持つ商品に数える。
+            // 値はまだを持たない商品の指紋は前と同じ形のまま（版 2 のうちに記録した途中の操作を、版を上げた後も続けられるように）
+            var pending = ItemAttributes.Pending(item.Local);
+            if (item.Local.Attributes.Keys.Concat(pending).Any(key => IsOld(key, oldName, target)))
             {
-                holders[item.Id] = Hash(item.Local.Attributes);
+                holders[item.Id] = pending.Count == 0
+                    ? Hash(item.Local.Attributes)
+                    : Hash(new { attributes = item.Local.Attributes, pending });
             }
         }
 

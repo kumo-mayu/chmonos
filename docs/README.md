@@ -48,7 +48,8 @@
 
 | ファイル | 話題 |
 |---|---|
-| [data-model.md](spec/data-model.md) | 保存するファイルの一覧、商品の `booth`／`local`、手元のファイル、書き方、所持の数え方 |
+| [data-model.md](spec/data-model.md) | 保存するファイルの一覧、商品の `booth`／`local`、手元のファイル、所持の数え方 |
+| [data-writing.md](spec/data-writing.md) | 書き方（持ち主の項目だけを錠の中で重ねる・書き手が複数いるファイル・計算で出せる値を書かない・手で直した JSON・やりかけの記録・JSON から来た値の形） |
 | [data-format.md](spec/data-format.md) | 保存データの形式の版（ファイルごと・保存先ごと）、起動したときの確かめ、形式を上げる前の控え、新しい版の確認 |
 | [local-api.md](spec/local-api.md) | 外から使う API：アプリと同じプロセスがローカルの HTTP で答える（設定でオン）、読むだけ、同期・守り・ブラウザから・共通の決まり |
 | [local-api-shapes.md](spec/local-api-shapes.md) | 外から使う API の URL の一覧（広めの案）・商品1件の形・検索の式（AND・OR・NOT）・SSE の出来事 |

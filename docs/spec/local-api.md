@@ -96,7 +96,7 @@
     消す・名前を変える・使った物を完全に消す・画像は画面に残す
   - 対応アバターと改変の**書く前の確かめは保存先の今の記録で行う**（写しは取り込みの間は古く、202 で受けた書き込みを続く要求が知らなかった。点検38）。同じ名前の確かめと作るのは、API の作る要求どうしで1つずつ
   - **分類**（3b）：`PUT /v1/items/{id}/user-tags`（丸ごと置き換え）・`POST /v1/items/{id}/user-tags`・`…/user-tags/remove`（1つ足す・外す。小分類を省くと大分類ごと）・
-    `PATCH /v1/items/{id}/attributes`（`{"values": {"名前": 0〜100 | null}}`。名指しした物だけ。null は外して未評価に戻す＝キーが無いのと 0 を分ける）・
+    `PATCH /v1/items/{id}/attributes`（`{"values": {"名前": 0〜100 | null}}`。名指しした物だけ。null は外して未評価に戻す＝キーが無いのと 0 を分ける。値を書けば「値はまだ」から外れ、null は「値はまだ」も外す。答えの `attributes` は値のある物だけ）・
     `PUT /v1/items/{id}/memo`（null か空で消す）・`POST /v1/user-tags`・`POST /v1/attributes`（一覧に足す。既にあれば足さない）。
     名前は一覧の綴りに寄せる（大文字小文字・前後の空白）。一覧に無い名前は既定で 400（`unknownUserTag`・`unknownAttribute`）、`?createMissing=true` なら一覧に足してから付ける。
     足す・外す・属性は錠の中で今の値に当てる（`UiCommand.ChangeItemLocal`。読んでから丸ごと書くと、間に書かれた分を消す）

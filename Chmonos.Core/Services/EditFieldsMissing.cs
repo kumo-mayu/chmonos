@@ -41,7 +41,7 @@ public static class EditFieldsMissing
     {
         EditField.UserTags => item.Local.UserTags.Count == 0,
 
-        // 属性は評価した物だけが記録に入る（未評価は記録に無い）
+        // 値のある属性だけを見る。選択の帯で足した「値はまだ」だけの商品も未入力に数える（値を付けに編集で探せるように。2026-11-20）
         EditField.Attributes => item.Local.Attributes.Count == 0,
 
         // 自分用・貰った・贈ったのどれも記録が無い。バリエーションの無い商品でも「バリエーションを選ばない購入」を記録できるので、記録の有無で見る

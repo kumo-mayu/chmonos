@@ -260,7 +260,7 @@ public sealed class EditService : IEditService
         }
 
         // マスタは管理画面も書く。読み直してから足さないと、
-        // 管理画面が並べ替え・改名している最中に足した分が消える（`docs/spec/data-model.md`）
+        // 管理画面が並べ替え・改名している最中に足した分が消える（`docs/spec/data-writing.md`）
         var subName = sub?.Trim();
         var written = new UserTagMaster();
         await _store.UserTags.TryUpdateAsync(

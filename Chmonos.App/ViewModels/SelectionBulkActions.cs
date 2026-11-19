@@ -48,7 +48,8 @@ public sealed class SelectionBulkActions : ViewModelBase
         AddFavoritesCommand = Command(() => ChangeAsync(new BulkItemChange.SetFavorite(true)), () => Selected().Any(card => !card.IsFavorite));
         RemoveFavoritesCommand = Command(() => ChangeAsync(new BulkItemChange.SetFavorite(false)), () => Selected().Any(card => card.IsFavorite));
         AddTagCommand = Command(AddTagAsync, () => Selected().Count > 0);
-        RemoveTagCommand = Command(RemoveTagAsync, () => Items().Any(item => item.Local.UserTags.Count > 0 || item.Local.Attributes.Count > 0));
+        AddAttributeCommand = Command(AddAttributeAsync, () => Selected().Count > 0);
+        RemoveTagCommand = Command(RemoveTagAsync, () => Items().Any(item => item.Local.UserTags.Count > 0 || item.Local.Attributes.Count > 0 || item.Local.PendingAttributes is { Count: > 0 }));
         HideCommand = Command(() => ChangeAsync(new BulkItemChange.SetHidden(true)), () => Items().Any(item => !item.Local.IsHidden));
         UnhideCommand = Command(() => ChangeAsync(new BulkItemChange.SetHidden(false)), () => Items().Any(item => item.Local.IsHidden));
         NotifyOnCommand = Command(() => ChangeAsync(new BulkItemChange.SetNotifyOnUpdate(true)), () => Items().Any(item => !item.IsLocalOnly && !item.Local.NotifyOnUpdate));
@@ -67,6 +68,9 @@ public sealed class SelectionBulkActions : ViewModelBase
 
     /// <summary>「タグ・属性 ▾」の「追加…」。</summary>
     public RelayCommand AddTagCommand { get; }
+
+    /// <summary>「タグ・属性 ▾」の「属性を追加…」。値は付けずに足す（付いているが値はまだ）。</summary>
+    public RelayCommand AddAttributeCommand { get; }
 
     /// <summary>「タグ・属性 ▾」の「削除…」。</summary>
     public RelayCommand RemoveTagCommand { get; }
@@ -227,7 +231,7 @@ public sealed class SelectionBulkActions : ViewModelBase
     {
         var (done, already) = change switch
         {
-            BulkItemChange.AddUserTag => ("に追加しました", "は既に付いていました"),
+            BulkItemChange.AddUserTag or BulkItemChange.AddAttribute => ("に追加しました", "は既に付いていました"),
             BulkItemChange.RemoveUserTag or BulkItemChange.RemoveAttribute => ("から外しました", "には付いていませんでした"),
             BulkItemChange.SetFavorite { Value: true } => ("をお気に入りに追加しました", "は既に入っていました"),
             BulkItemChange.SetFavorite => ("をお気に入りから外しました", "は入っていませんでした"),
@@ -269,6 +273,27 @@ public sealed class SelectionBulkActions : ViewModelBase
         }
 
         // 追加は確かめない（ユーザ判断 2026-11-20：既に付いている物には何もしないので、取り返しのつかない事が起きない）
+        await ChangeAsync(change);
+    }
+
+    /// <summary>
+    /// 属性を値を付けずに足す（ユーザ判断 2026-11-20 の (a)）。値は編集の画面の「未評価」の行から付ける。
+    /// 足すのは確かめない（タグと同じ。既に付いている物には何もしないので、取り返しのつかない事が起きない）
+    /// </summary>
+    private async Task AddAttributeAsync()
+    {
+        var model = BulkTagDialogViewModel.ForAddingAttribute(_services.CachedAttributes.Load(), [.. Items()]);
+        if (!BulkTagDialogViewModel.Ask(model) || model.Change is not { } change || model.Attribute is not { } name)
+        {
+            return;
+        }
+
+        // 候補に無い語は属性の一覧へも足す（編集画面の欄と同じ。足さないと、属性の管理と検索の条件の候補に出ず、参照切れとして知らされる）
+        if (model.IsNewAttribute)
+        {
+            await _services.Commands.ExecuteAsync(new UiCommand.AddAttribute(name));
+        }
+
         await ChangeAsync(change);
     }
 

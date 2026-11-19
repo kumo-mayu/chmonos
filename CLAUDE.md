@@ -35,7 +35,7 @@ App・Core を触ると `.claude/rules/` の画面と文言の決め事・前提
 
 ## 作りの決め事
 
-詳しくは `docs/spec/architecture.md`・`data-model.md`。
+詳しくは `docs/spec/architecture.md`・`data-model.md`・`data-writing.md`。
 
 - 画面からの書き込みと BOOTH への問い合わせは `UiCommand`（`CommandHandler` の switch）1本。新しい操作は `UiCommand` に足す。読むだけなら画面から直に呼んでよい。
   UiCommand を通さない例外は、起動時の裏の作業と取り込み画面の「足りない情報を取得」だけ（人の操作ではないので、入口の「人が押した」優先度を掛けない）

@@ -168,7 +168,8 @@ public sealed class NotificationService : INotificationService
                 .Select(orphan => orphan.IsSub ? $"{orphan.Top}／{orphan.Sub}" : orphan.Top)
                 .ToList();
 
-            var missingAttributes = item.Local.Attributes.Keys
+            // 値はまだの名前も参照（マスタに無ければ、編集の画面に出ないまま残る）
+            var missingAttributes = item.Local.Attributes.Keys.Concat(ItemAttributes.Pending(item.Local))
                 .Where(name => !attributes.Contains(name))
                 .Distinct(StringComparer.CurrentCultureIgnoreCase)
                 .ToList();
@@ -413,7 +414,7 @@ public sealed class NotificationService : INotificationService
     /// 手で直した JSON の食い違いを要確認に出す（ユーザ判断 2026-09-21・J2/L6）。
     ///
     /// **こちらから直さない。**合っていないデータの方を問題にして直し方を聞く決まり
-    /// （`docs/spec/data-model.md`）。ここは「どこの何がどう食い違っているか」を伝えるだけ。
+    /// （`docs/spec/data-writing.md`）。ここは「どこの何がどう食い違っているか」を伝えるだけ。
     /// 食い違いが無くなったら解消済みにする（直したのに残り続けない）。
     /// </summary>
     public async Task<int> DetectHandEditIssuesAsync(CancellationToken cancellationToken = default)

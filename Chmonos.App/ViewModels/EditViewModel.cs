@@ -885,6 +885,15 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
             Attributes.Add(CreateAttributeRow(pair.Key, pair.Value));
         }
 
+        // 付いているが値はまだの属性は「未評価」の行で出し、ここで値を付けられるようにする（ユーザ判断 2026-11-20 の (a)）。
+        // 値のある行の下に置く（値の多い順の並びに、値の無い物を割り込ませない）
+        foreach (var name in ItemAttributes.Pending(record.Local))
+        {
+            var row = CreateAttributeRow(name, 50, pending: true);
+            row.IsSuggested = true;
+            Attributes.Add(row);
+        }
+
         // 既定に指定した属性を、まだ付いていない分だけ並べておく（ユーザ指示）。
         // **並べるだけで保存はしない。**触られた行だけが書き出される
         foreach (var definition in _attributeMaster.Attributes.Where(entry => entry.IsDefault))
@@ -928,10 +937,17 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
 
         // **並べてあるだけの行は書き出さない**（ユーザ指示）。全itemに同じ値の行が並ぶと、
         // 付けていないのかそう評価したのかが区別できなくなる。
-        // 「未評価は行が無いことで表す」という決め方を崩さない
+        // 未評価を値の表に書かない（付いているだけの物は下の値はまだの欄に持つ）
         var attributes = Attributes
             .Where(row => !row.IsSuggested)
             .ToDictionary(row => row.Name, row => row.Value);
+
+        // 付いているが値はまだの行は、触らなければそのまま残す（落とすと、帯で足した属性が保存のたびに消える）。
+        // 動かした行は上の値へ移り、外した行はどちらにも残らない
+        var pending = Attributes
+            .Where(row => row is { IsSuggested: true, IsPendingOnItem: true })
+            .Select(row => row.Name)
+            .ToList();
 
         // 買った1回が1レコード。版の行が1件目、その下にぶら下げたものが2件目以降。
         // ExistsOnBooth は保存側で計算し直されるので、ここでの値は目安にすぎない
@@ -965,6 +981,7 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
         {
             UserTags = userTags,
             Attributes = attributes,
+            PendingAttributes = pending,
             DisplayName = string.IsNullOrWhiteSpace(DisplayName) ? null : DisplayName.Trim(),
             Shop = BuildShop(),
             Category = string.IsNullOrWhiteSpace(CategoryInput) ? null : CategoryInput.Trim(),

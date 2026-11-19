@@ -416,7 +416,9 @@ public static class ItemIdChange
             Category = target.Category ?? source.Category,
 
             UserTags = target.UserTags.Count > 0 ? target.UserTags : source.UserTags,
-            Attributes = target.Attributes.Count > 0 ? target.Attributes : source.Attributes,
+            // 値と値はまだは1組で選ぶ（混ぜると、片方で値を付けた属性が、もう片方の値はまだに隠れて残る）
+            Attributes = KeepTargetAttributes(target) ? target.Attributes : source.Attributes,
+            PendingAttributes = KeepTargetAttributes(target) ? target.PendingAttributes : source.PendingAttributes,
             Memo = JoinMemo(target.Memo, source.Memo),
             AcquiredAt = target.AcquiredAt ?? source.AcquiredAt,
 
@@ -472,6 +474,10 @@ public static class ItemIdChange
         };
         return merged.IsDefault ? null : merged;
     }
+
+    /// <summary>移す先に属性が1つでも付いていれば（値はまだも含む）、移す先の付け方を残す。ユーザータグと同じ「先が勝つ」。</summary>
+    private static bool KeepTargetAttributes(LocalBlock target)
+        => target.Attributes.Count > 0 || target.PendingAttributes is { Count: > 0 };
 
     /// <summary>
     /// メモは**どちらも捨てない**。片方だけ残すと、書いたことが黙って消える。
