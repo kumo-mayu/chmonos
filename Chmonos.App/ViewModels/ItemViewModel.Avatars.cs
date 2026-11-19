@@ -621,6 +621,7 @@ public sealed partial class ItemViewModel
             {
                 Name = link.BaseName,
                 RejectCommand = new RelayCommand(() => RejectBaseAsync(link.BaseName).Forget(), () => !IsEditLocked),
+                IconFactory = () => AvatarBaseIcons.Load(_services, link.BaseName, _main.Search.FindItem, _thumbnails.LoadForCard),
             })
             .ToList();
 

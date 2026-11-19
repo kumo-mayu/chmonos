@@ -64,4 +64,29 @@ public class SearchAvatarBaseCandidatesTests
             .Select(AvatarSuggestionText.NameOf);
         Assert.Equal(expected, string.Join(",", avatars));
     });
+
+    /// <summary>素体の候補の頭は素体の絵（付けた画像）。登録簿にグループの無い素体名（アバターの記録だけにある物）は頭の字</summary>
+    [Fact]
+    public Task 素体の候補には付けた画像を出し_グループの無い素体名は頭の字() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item("1000001", "作り物の衣装"));
+        await app.Store.Avatars.SaveAsync(new AvatarRegistry
+        {
+            Entries =
+            [
+                new AvatarRegistryEntry { ItemId = "2000001", BoothName = "作り物のアバター", AvatarOverride = true, BaseName = "作り物の記録だけの素体" },
+            ],
+            BaseGroups = [new AvatarBaseGroup { Name = "作り物の甲素体", IsManual = true }],
+        });
+        await app.Services.Avatars.SetBaseImageAsync("作り物の甲素体", Convert.FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="));
+        var search = (await app.StartAsync()).Search;
+
+        var module = (ListModule)SearchModules.Add(search, SearchModuleKind.Avatar);
+
+        Assert.Contains("作り物の甲素体（共通素体）", module.Suggestions);
+        Assert.NotNull(search.AvatarIconSelector("作り物の甲素体（共通素体）"));
+        Assert.Contains("作り物の記録だけの素体（共通素体）", module.Suggestions);
+        Assert.Null(search.AvatarIconSelector("作り物の記録だけの素体（共通素体）"));
+    });
 }

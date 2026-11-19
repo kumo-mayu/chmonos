@@ -716,4 +716,25 @@ public sealed class AvatarBaseRow
 
     /// <summary>この対応は違う、として消す。次の検出でも復活しない。</summary>
     public RelayCommand? RejectCommand { get; init; }
+
+    private System.Windows.Media.Imaging.BitmapSource? _icon;
+    private bool _iconLoaded;
+
+    /// <summary>乗せたときに出す素体の絵を作るもの（対応アバターの札と同じ形。<see cref="AvatarBaseIcons"/>）。</summary>
+    public Func<System.Windows.Media.Imaging.BitmapSource?>? IconFactory { get; init; }
+
+    /// <summary>乗せたときの絵。乗せたときに初めて読む（対応アバターの札と同じ。開くたびに全部の絵を読まない）。</summary>
+    public System.Windows.Media.Imaging.BitmapSource? Icon
+    {
+        get
+        {
+            if (!_iconLoaded)
+            {
+                _iconLoaded = true;
+                _icon = IconFactory?.Invoke();
+            }
+
+            return _icon;
+        }
+    }
 }

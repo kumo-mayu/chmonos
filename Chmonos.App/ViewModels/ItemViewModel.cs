@@ -330,10 +330,13 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
 
     /// <summary>
     /// 「対応アバターを足す」の候補の頭に出す絵（U18）。持っていれば商品の1枚目、持っていなければ控えの1枚。
-    /// 似た名前のアバターを名前だけで選ぶと取り違える
+    /// 似た名前のアバターを名前だけで選ぶと取り違える。
+    /// 共通素体の行は素体の絵（<see cref="AvatarBaseIcons"/>）。素体かは確定の時と同じ表で先に見る（同じ名前のアバターと取り違えない）
     /// </summary>
     public Func<string, System.Windows.Media.ImageSource?> AvatarIconSelector => name =>
-        _avatarIdsByName.TryGetValue(name, out var id) ? AvatarIcon(id, _thumbnails.LoadForTile) : null;
+        _baseNamesBySuggestion.TryGetValue(name, out var baseName)
+            ? AvatarBaseIcons.Load(_services, baseName, _main.Search.FindItem, _thumbnails.LoadForTile)
+            : _avatarIdsByName.TryGetValue(name, out var id) ? AvatarIcon(id, _thumbnails.LoadForTile) : null;
 
     private System.Windows.Media.Imaging.BitmapSource? AvatarIcon(
         string avatarItemId,

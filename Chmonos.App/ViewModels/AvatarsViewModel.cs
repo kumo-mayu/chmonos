@@ -626,6 +626,13 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
     public ObservableCollection<string> BaseNames { get; } = [];
 
+    /// <summary>
+    /// アバターの詳細の「共通素体」の欄の候補の頭の絵（素体の一覧の行と同じ決め方。<see cref="AvatarBaseIcons"/>）。
+    /// 候補はどれも素体なので、群と見出しは付けない
+    /// </summary>
+    public Func<string, System.Windows.Media.ImageSource?> BaseIconSelector => name =>
+        AvatarBaseIcons.Load(_services, name, _main.Search.FindItem, _main.Thumbnails.LoadForTile);
+
     public RelayCommand DetectCommand { get; }
 
     /// <summary>候補付きの欄から共通素体を決める（I6）。</summary>

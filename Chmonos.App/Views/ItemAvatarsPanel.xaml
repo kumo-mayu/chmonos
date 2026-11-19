@@ -322,8 +322,14 @@
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
+                                            <!--
+                                                乗せたときに素体の絵を出す（共通素体の画像・152 の続き。対応アバターの札と同じ大きさ・同じく乗せたときに読む）。
+                                                吹き出しの字は札と同じ名前なので、絵を作る印として置くだけ。絵が無い素体は吹き出しを出さない
+                                            -->
                                             <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource Border}"
-                                                    BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6">
+                                                    BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6"
+                                                    AutomationProperties.AutomationId="ItemAvatarBaseChip"
+                                                    ToolTip="{Binding Name}" ToolTipOpening="OnBaseChipToolTipOpening">
                                                 <StackPanel Orientation="Horizontal">
                                                     <TextBlock Text="{Binding Name}" FontSize="11.5" VerticalAlignment="Center" />
                                                     <TextBlock Text="共通素体" FontSize="10" Margin="7,0,0,0"

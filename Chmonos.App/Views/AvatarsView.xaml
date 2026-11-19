@@ -868,6 +868,8 @@
                                 <StackPanel Orientation="Horizontal">
                                     <Grid Width="240">
                                         <controls:SuggestBox Source="{Binding BaseNames}" CommitCommand="{Binding PickBaseCommand}"
+                                                             IconSelector="{Binding BaseIconSelector}"
+                                                             AutomationProperties.AutomationId="AvatarBaseInput"
                                                              Text="{Binding BaseInput, Mode=TwoWay}"
                                                              AllowNew="True" KeepsCommittedText="True"
                                                              MaxLength="60"

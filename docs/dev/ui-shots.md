@@ -146,6 +146,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | アバター：選んだ右の欄・知らせ・検出の結果の長い文 | `avatars-detail`（900）・`avatars-notice-off`・`avatars-notice-on`・`avatars-status` |
 | 共通素体：一覧・詳細・足す欄・推定・知らせ | `avatars-bases`・`avatars-base-members`・`avatars-inferred-base`・`avatars-base-notice-*` |
 | 共通素体の画像（付けた所・無い所） | `avatars-base-image`・`avatars-base-image-none` |
+| 素体の候補の絵（商品ページの対応アバターを追加・変換のつなぎ先・アバターの詳細の共通素体） | `suggest-base-icons` |
 | 候補（アバター・改変の呼び方） | `suggest-avatar-groups`・`suggest-avatar-divider`・`suggest-modification-alias` |
 | 改変：空（プロジェクト・アバター・改変の見方） | `empty-hub-project`・`empty-hub-avatar`・`empty-hub-modification`（900） |
 | 改変：最小の幅・選んだ・縦長・帯の知らせ・複製・逆順 | `modification-hub-narrow`・`modification-selected-*`・`modification-duplicate`・`modification-members-reversed` |

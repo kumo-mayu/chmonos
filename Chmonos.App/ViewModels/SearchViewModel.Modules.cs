@@ -548,6 +548,7 @@ public sealed partial class SearchViewModel
     private IEnumerable<(string Text, string Key)> AvatarCandidates()
     {
         _avatarSuggestInfo.Clear();
+        _baseNamesBySuggestion.Clear();
         var registry = _services.Store.Avatars.Load();
         var names = AvatarNames.Map(registry.Entries);
         var owned = OwnedItemIds();
@@ -629,6 +630,7 @@ public sealed partial class SearchViewModel
         {
             var text = $"{baseName}（共通素体）";
             _avatarSuggestInfo[text] = new Controls.SuggestInfo(AvatarSuggestionText.BaseGroup, []);
+            _baseNamesBySuggestion[text] = baseName;
             yield return (text, BaseKey + baseName);
         }
 
@@ -639,6 +641,9 @@ public sealed partial class SearchViewModel
     }
 
     private readonly Dictionary<string, Controls.SuggestInfo> _avatarSuggestInfo = new(StringComparer.CurrentCultureIgnoreCase);
+
+    /// <summary>候補に出した共通素体の行から素体の名前を引く表（絵を引くため。末尾の「（共通素体）」を切って読まない）。</summary>
+    private readonly Dictionary<string, string> _baseNamesBySuggestion = new(StringComparer.CurrentCultureIgnoreCase);
 
     /// <summary>
     /// 条件「改変」に改変の一覧を入れる（2段の形・ユーザ判断 2026-10-06）。アバターの名前は登録簿の名前、呼び方・正式名でも当たる
@@ -980,10 +985,13 @@ public sealed partial class SearchViewModel
 
     /// <summary>
     /// 「対応アバター」の候補の頭に出す絵（U18）。候補の行（名前（ID））からIDを取り出し、
-    /// 持っていれば商品の1枚目、持っていなければ控えの1枚。候補は見えた行だけで読む
+    /// 持っていれば商品の1枚目、持っていなければ控えの1枚。候補は見えた行だけで読む。
+    /// 共通素体の行は素体の絵（<see cref="AvatarBaseIcons"/>。登録簿にグループの無い素体名は頭の字）
     /// </summary>
     public Func<string, System.Windows.Media.ImageSource?> AvatarIconSelector => entry =>
-        AvatarSuggestionText.IdOf(entry) is { } id
+        _baseNamesBySuggestion.TryGetValue(entry, out var baseName)
+            ? AvatarBaseIcons.Load(_services, baseName, FindItem, _thumbnails.LoadForTile)
+            : AvatarSuggestionText.IdOf(entry) is { } id
         && Core.Services.AvatarImageSync.IconPath(_services.Paths, id, FindItem(id), _services.Settings.ShowRemovedBoothImages) is { } path
             ? _thumbnails.LoadForTile(path)
             : null;

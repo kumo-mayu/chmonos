@@ -270,4 +270,20 @@ public sealed class AvatarBaseImageTests : IDisposable
 
         Assert.Null(AvatarBaseImage.IconPath(_paths, new AvatarBaseGroup { Name = "素体B" }, _ => null, showRemoved: false));
     }
+
+    /// <summary>候補・札は名前しか持たない。名前（大文字小文字は問わない）からグループを引き、消した素体と登録簿に無い名前は頭の字（null）</summary>
+    [Fact]
+    public async Task 名前から引くと消した素体と登録簿に無い名前は絵が無い()
+    {
+        await SaveGroupsAsync(
+            new AvatarBaseGroup { Name = "Base", Rejected = true },
+            new AvatarBaseGroup { Name = "素体A" });
+        await _service.SetBaseImageAsync("素体A", MakePng(10));
+        var own = AvatarBaseImage.OwnFile(_paths, Group("素体A")!);
+
+        var registry = _store.Avatars.Load();
+        Assert.Equal(own, AvatarBaseImage.IconPath(_paths, registry, "素体a", _ => null, showRemoved: false));
+        Assert.Null(AvatarBaseImage.IconPath(_paths, registry, "Base", _ => null, showRemoved: false));
+        Assert.Null(AvatarBaseImage.IconPath(_paths, registry, "記録だけの素体", _ => null, showRemoved: false));
+    }
 }

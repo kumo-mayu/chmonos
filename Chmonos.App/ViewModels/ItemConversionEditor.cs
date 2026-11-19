@@ -15,26 +15,29 @@ public sealed class ItemConversionEditor : ViewModelBase
     private readonly AppServiceContainer _services;
     private readonly Func<UiCommand, Task<bool>> _run;
     private readonly Func<bool> _isLocked;
-    private readonly Func<string, System.Windows.Media.ImageSource?>? _iconOf;
+    private readonly Services.ThumbnailLoader? _thumbnails;
 
-    /// <summary>商品 ID から手元の商品（推した理由の (b) で、持っているアバターの中身を引く）。</summary>
+    /// <summary>
+    /// 商品 ID から手元の商品。絵を引く（持っていれば商品の絵）・候補の所持の群を分ける・推した理由の (b) で持っているアバターの中身を引く。
+    /// 無ければどれも「持っていない」として扱う
+    /// </summary>
     private readonly Func<string, ItemRecord?>? _findItem;
     private ItemRecord? _item;
 
     /// <param name="run">命令を通して、書いた後に <see cref="Show"/> で今の記録を渡し直す道（持ち主が持つ）。</param>
     /// <param name="isLocked">書き込めない間（商品ページの編集の錠）。</param>
-    /// <param name="iconOf">商品 ID から、その商品の1枚目の絵（つなぎ先の札に乗せたときに出す。読むのは乗せたときだけ）。</param>
+    /// <param name="thumbnails">絵を読むもの（つなぎ先の札に乗せたときと、選ぶ欄の候補の頭。読むのは乗せたとき・見えた行だけ）。無ければ絵を出さない。</param>
     public ItemConversionEditor(
         AppServiceContainer services,
         Func<UiCommand, Task<bool>> run,
         Func<bool> isLocked,
-        Func<string, System.Windows.Media.ImageSource?>? iconOf = null,
+        Services.ThumbnailLoader? thumbnails = null,
         Func<string, ItemRecord?>? findItem = null)
     {
         _services = services;
         _run = run;
         _isLocked = isLocked;
-        _iconOf = iconOf;
+        _thumbnails = thumbnails;
         _findItem = findItem;
         SetModeCommand = new RelayCommand(
             parameter =>
@@ -112,6 +115,35 @@ public sealed class ItemConversionEditor : ViewModelBase
     /// <summary>候補に出した共通素体の行から素体の名前を引く表（アバターと同じ名前の素体を取り違えない）。</summary>
     private Dictionary<string, string> _basesBySuggestion = new(StringComparer.CurrentCultureIgnoreCase);
 
+    /// <summary>候補に出したアバターの名前から商品 ID を引く表（候補の頭の絵）。</summary>
+    private Dictionary<string, string> _avatarIdsBySuggestion = new(StringComparer.CurrentCultureIgnoreCase);
+
+    private Dictionary<string, Controls.SuggestInfo> _targetInfo = new(StringComparer.CurrentCultureIgnoreCase);
+
+    /// <summary>つなぎ先の候補の群と、名前以外で当たる語（呼び方・正式名）。</summary>
+    public Func<string, Controls.SuggestInfo?> TargetInfoSelector => text => _targetInfo.GetValueOrDefault(text);
+
+    public IReadOnlyList<string> TargetGroupHeadings => AvatarSuggestionText.Headings;
+
+    /// <summary>
+    /// つなぎ先の候補の頭の絵（商品ページの「対応アバターを追加」の欄と同じ大きさ）。素体かは確定の時と同じ表で先に見る
+    /// （同じ名前のアバターと取り違えない）
+    /// </summary>
+    public Func<string, System.Windows.Media.ImageSource?> TargetIconSelector => text =>
+        _thumbnails is not { } thumbnails ? null
+        : _basesBySuggestion.TryGetValue(text, out var baseName) ? AvatarBaseIcons.Load(_services, baseName, FindItem, thumbnails.LoadForTile)
+        : _avatarIdsBySuggestion.TryGetValue(text, out var id) ? AvatarIcon(id, thumbnails.LoadForTile)
+        : null;
+
+    private ItemRecord? FindItem(string itemId) => _findItem?.Invoke(itemId);
+
+    /// <summary>アバターの絵（持っていれば商品の1枚目、持っていなければ控えの1枚。ほかのアバターの候補と同じ）。</summary>
+    private System.Windows.Media.Imaging.BitmapSource? AvatarIcon(
+        string avatarItemId, Func<string, System.Windows.Media.Imaging.BitmapSource?> load)
+        => AvatarImageSync.IconPath(_services.Paths, avatarItemId, FindItem(avatarItemId), _services.Settings.ShowRemovedBoothImages) is { } path
+            ? load(path)
+            : null;
+
     private string? ItemId => _item?.Id;
 
     /// <summary>
@@ -148,18 +180,18 @@ public sealed class ItemConversionEditor : ViewModelBase
                 ? $"{baseName}（共通素体）"
                 : target.AvatarItemId is { } id ? names.TryGetValue(id, out var name) ? name : id : string.Empty;
 
-        // 札に乗せたときの絵：アバターはその商品の絵、共通素体は素体の商品（無ければ仲間のアバターの1体目）の絵
+        // 札に乗せたときの絵：アバターはその商品の絵、共通素体は素体の絵（付けた画像 → 素体の商品の1枚目。AvatarBaseIcons）。
+        // 前は素体の商品が無いと仲間のアバターの1体目を出していたが、素体の絵の決め方は1つにする（152 の続き）。どちらも無ければ絵は出さない
         Func<System.Windows.Media.ImageSource?>? IconFactory(ConversionTarget target)
         {
-            if (_iconOf is not { } iconOf)
+            if (_thumbnails is not { } thumbnails)
             {
                 return null;
             }
 
-            var itemId = target.AvatarItemId
-                ?? registry.BaseGroups.FirstOrDefault(group => AvatarBaseNames.Same(group.Name, target.BaseName))?.ItemId
-                ?? registry.Entries.FirstOrDefault(entry => AvatarBaseNames.Same(entry.BaseName, target.BaseName))?.ItemId;
-            return itemId is null ? null : () => iconOf(itemId);
+            return target.BaseName is { } baseName
+                ? () => AvatarBaseIcons.Load(_services, baseName, FindItem, thumbnails.LoadForCard)
+                : target.AvatarItemId is { } id ? () => AvatarIcon(id, thumbnails.LoadForCard) : null;
         }
 
         // 入っているファイル（slug ごと）。控えを読むのは、プロファイルを持つかもしれない商品だけ（ProfilesOf と同じふるい）
@@ -271,9 +303,29 @@ public sealed class ItemConversionEditor : ViewModelBase
             .Select(group => group.Name)
             .Distinct(StringComparer.CurrentCultureIgnoreCase)
             .ToDictionary(name => $"{name}（共通素体）", name => name, StringComparer.CurrentCultureIgnoreCase);
-        TargetSuggestions = registry.Entries
-            .Where(AvatarService.IsAvatar)
-            .Select(entry => names[entry.ItemId])
+
+        // 候補の群（所持アバター／共通素体／未所持アバター）・呼び方・絵は、商品ページの「対応アバターを追加」の欄と同じ作り
+        // （ユーザ指示 2026-11-18「変換のアバターや共通素体を探す入力欄もそれぞれのアイコンを表示する形が良い」）。並びは欄が群の順に寄せる
+        _avatarIdsBySuggestion = new Dictionary<string, string>(StringComparer.CurrentCultureIgnoreCase);
+        _targetInfo = new Dictionary<string, Controls.SuggestInfo>(StringComparer.CurrentCultureIgnoreCase);
+        foreach (var entry in registry.Entries.Where(AvatarService.IsAvatar))
+        {
+            var name = names[entry.ItemId];
+            if (_avatarIdsBySuggestion.TryAdd(name, entry.ItemId))
+            {
+                var group = entry.IsOwnedManually || FindItem(entry.ItemId)?.IsOwned == true
+                    ? AvatarSuggestionText.OwnedGroup
+                    : AvatarSuggestionText.OtherGroup;
+                _targetInfo[name] = AvatarSuggestionText.InfoOf(entry, name, group);
+            }
+        }
+
+        foreach (var baseText in _basesBySuggestion.Keys)
+        {
+            _targetInfo[baseText] = new Controls.SuggestInfo(AvatarSuggestionText.BaseGroup, []);
+        }
+
+        TargetSuggestions = _avatarIdsBySuggestion.Keys
             .Concat(_basesBySuggestion.Keys)
             .Distinct(StringComparer.CurrentCultureIgnoreCase)
             .OrderBy(name => name, StringComparer.CurrentCulture)

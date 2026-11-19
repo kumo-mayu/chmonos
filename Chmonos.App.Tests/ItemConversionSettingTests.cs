@@ -109,6 +109,31 @@ public class ItemConversionSettingTests
         Assert.Contains("作り物の素体（共通素体）", page.Conversion.TargetSuggestions);
     });
 
+    /// <summary>
+    /// つなぎ先を選ぶ欄は、商品ページの「対応アバターを追加」の欄と同じ作り（群・絵。ユーザ指示 2026-11-18）。
+    /// 共通素体の絵は素体の絵（付けた画像）で、札に乗せた時も同じ絵。仲間のアバターの絵には代えない
+    /// </summary>
+    [Fact]
+    public Task つなぎ先の候補は群に分かれ_共通素体の候補と札には素体の絵を出す() => TestApp.Run(async app =>
+    {
+        var page = await OpenAsync(app, new ConversionSetting { Targets = [SuggestedBase] });
+        const string BaseText = "作り物の素体（共通素体）";
+
+        Assert.Equal(AvatarSuggestionText.BaseGroup, page.Conversion.TargetInfoSelector(BaseText)!.Group);
+        Assert.Equal(AvatarSuggestionText.OtherGroup, page.Conversion.TargetInfoSelector("アオイ")!.Group);
+        Assert.Equal(AvatarSuggestionText.Headings, page.Conversion.TargetGroupHeadings);
+
+        // 画像も素体の商品も無い素体は頭の字（仲間のアバター「アオイ」の絵にもしない）
+        Assert.Null(page.Conversion.TargetIconSelector(BaseText));
+        Assert.Null(page.Conversion.Rows.Single(row => row.ProfileText == "fakebase").IconFactory!());
+
+        await app.Services.Avatars.SetBaseImageAsync("作り物の素体", Convert.FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="));
+
+        Assert.NotNull(page.Conversion.TargetIconSelector(BaseText));
+        Assert.NotNull(page.Conversion.Rows.Single(row => row.ProfileText == "fakebase").IconFactory!());
+    });
+
     [Fact]
     public Task 確認済みにすると_確認したつなぎ先として保存する() => TestApp.Run(async app =>
     {

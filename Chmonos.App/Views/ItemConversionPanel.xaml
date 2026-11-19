@@ -142,6 +142,12 @@
                                                  Source="{Binding DataContext.TargetSuggestions,
                                                           RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                  CommitCommand="{Binding ChooseCommand}"
+                                                 IconSelector="{Binding DataContext.TargetIconSelector,
+                                                                RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                 InfoSelector="{Binding DataContext.TargetInfoSelector,
+                                                                RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                 GroupHeadings="{Binding DataContext.TargetGroupHeadings,
+                                                                 RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                  AllowNew="False" Placeholder="つなぎ先のアバターか共通素体"
                                                  AutomationProperties.AutomationId="ItemConversionChoose"
                                                  Visibility="{Binding HasTarget, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
