@@ -21,7 +21,7 @@ internal static class ItemSelectionActions
         Action<string> setQueueText,
         Action<ItemRecord>? presenceChanged = null)
     {
-        const string title = "全てUnityへ送る";
+        const string title = "Unityへ送る";
 
         // **送信中なら押した直後に断る**（ユーザ判断 2026-09-21・N8）。
         // 判定が zip を開いて数え・送る物を選ばせ・確かめの窓を出した後にあったので、
