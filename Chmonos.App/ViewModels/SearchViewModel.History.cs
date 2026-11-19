@@ -32,7 +32,8 @@ public sealed partial class SearchViewModel
             .Where(module => module.IsActive || (module.Kind == SearchModuleKind.Hidden && module.IsEnabled))
             .Select(module => module.Save())
             .ToList(),
-        Sort = _sort.Label == DefaultSort.Label ? null : _sort.Label,
+        // null と書くのは入手日が新しい順のまま（RecordedNullSortLabel。既定をカテゴリにした後も、前に書いた記録と意味を揃える）
+        Sort = _sort.Label == RecordedNullSortLabel ? null : _sort.Label,
         UsedAt = DateTimeOffset.Now,
     };
 
@@ -126,7 +127,7 @@ public sealed partial class SearchViewModel
 
     /// <summary>
     /// 記録した検索に戻す（履歴・画面の履歴の控え・保存した検索の共通）。
-    /// <paramref name="replaceSort"/> は表示順も置き換えるか：保存した検索は表示順も保存した物なので、既定の順（記録では null）にも戻す。
+    /// <paramref name="replaceSort"/> は表示順も置き換えるか：保存した検索は表示順も保存した物なので、記録が null（入手日が新しい順）でもその順に戻す。
     /// 履歴は今までどおり、記録に表示順が無ければ今の順のまま。<paramref name="view"/> はカードかリストか（null なら変えない）。
     /// 返り値は、記録の表示順が今の項目に見つかったか（消した属性で並べていた、などで見つからなければ false）
     /// </summary>
@@ -180,10 +181,19 @@ public sealed partial class SearchViewModel
             }
         }
 
-        if (replaceSort && (entry.Sort is null || !sortFound) && SortFields.Count > 0)
+        if (replaceSort && SortFields.Count > 0)
         {
-            _sortField = SortFields.FirstOrDefault(field => field.Kind == DefaultSort.Kind && field.AttributeName is null) ?? SortFields[0];
-            _sort = _sortField.ToOption(DefaultSort.Descending);
+            if (entry.Sort is null)
+            {
+                // 記録の null は入手日が新しい順（RecordedNullSortLabel）。画面の既定（カテゴリ）に戻すと、入手日で並べて保存した検索が別の順で開く
+                _sortField = SortFields.FirstOrDefault(field => field.Kind == SortKind.AcquiredAt) ?? SortFields[0];
+                _sort = _sortField.ToOption(descending: true);
+            }
+            else if (!sortFound)
+            {
+                _sortField = SortFields.FirstOrDefault(field => field.Kind == DefaultSort.Kind && field.AttributeName is null) ?? SortFields[0];
+                _sort = _sortField.ToOption(DefaultSort.Descending);
+            }
         }
 
         foreach (var name in new[] { nameof(QueryText), nameof(SearchAlternates), nameof(Sort), nameof(SortField), nameof(SortsDescending), nameof(SortsAscending), nameof(AscendingLabel), nameof(DescendingLabel) })

@@ -66,21 +66,33 @@ public sealed partial class SearchViewModel
         ChooseCommand = new RelayCommand(() => SortField = field),
     };
 
+    /// <summary>
+    /// 既定の表示順の項目（ユーザ指示 2026-11-04：カテゴリ・BOOTHの並び。前は入手日が新しい順）。
+    /// 引き継ぐ表示順が無いとき（初めて・壊れた控え）と、選べない表示順を戻す先に使う。定義は <see cref="BuildFacets"/> のカテゴリと揃える
+    /// </summary>
     public static SortField DefaultSortField => new()
     {
-        Label = "入手日",
-        Kind = SortKind.AcquiredAt,
-        DescendingLabel = "新しい順",
-        AscendingLabel = "古い順",
-        FullLabel = descending => descending ? "入手日が新しい順" : "入手日が古い順",
+        Label = "カテゴリ",
+        Kind = SortKind.Category,
+        DescendingLabel = "逆順",
+        AscendingLabel = "BOOTHの並び",
+        DefaultDescending = false,
+        FullLabel = descending => descending ? "カテゴリがBOOTHの逆順" : "カテゴリがBOOTHの並び順",
     };
 
     public static SortOption DefaultSort => new()
     {
-        Label = "入手日が新しい順",
-        Kind = SortKind.AcquiredAt,
-        Descending = true,
+        Label = "カテゴリがBOOTHの並び順",
+        Kind = SortKind.Category,
+        Descending = false,
     };
+
+    /// <summary>
+    /// 検索の記録（履歴・保存した検索）で表示順を null と書く順。**画面の既定（<see cref="DefaultSort"/>）とは分けて、入手日が新しい順に留める。**
+    /// 既定がこの順だった間（〜2026-11）に書いた記録は、入手日が新しい順を null で持つ。null の意味を既定に従わせると、
+    /// 入手日で並べて保存した検索がカテゴリの順で開く（使う人が選んだ順が消える）。形式の版を上げずに済むよう、null の意味の方を据え置く
+    /// </summary>
+    internal const string RecordedNullSortLabel = "入手日が新しい順";
 
     /// <summary>
     /// 表示順。絞り込みとは別に持つ。
@@ -104,7 +116,7 @@ public sealed partial class SearchViewModel
     /// <summary>
     /// 前回の表示順を戻す（ユーザ指示 2026-11-03。前は起動のたびに入手日が新しい順へ戻った）。
     /// 項目の一覧はまだ組んでいないので、項目と向きだけ置く。組んだとき（<see cref="BuildFacets"/>）に同じ意味の項目へ繋ぎ直し、
-    /// 消した属性・知らない項目なら入手日に戻る
+    /// 消した属性・知らない項目なら既定（<see cref="DefaultSort"/>）に戻る
     /// </summary>
     private void RestoreSort(Core.Models.SearchSortState? saved)
     {
@@ -121,7 +133,11 @@ public sealed partial class SearchViewModel
     private void SaveSortIfChanged()
     {
         var now = new Core.Models.SearchSortState { Kind = _sort.Kind.ToString(), AttributeName = _sort.AttributeName, Descending = _sort.Descending };
-        if (now == (_savedSort ?? new Core.Models.SearchSortState()))
+
+        // 書いた物が無ければ、比べる先は画面の既定。Core の SearchSortState の既定（入手日・新しい順）と比べると、
+        // 起動しただけでカテゴリの順を書き、人が選んだ入手日の新しい順は書かずに次の起動でカテゴリへ戻る
+        var baseline = _savedSort ?? new Core.Models.SearchSortState { Kind = DefaultSort.Kind.ToString(), Descending = DefaultSort.Descending };
+        if (now == baseline)
         {
             return;
         }
@@ -348,11 +364,12 @@ public sealed partial class SearchViewModel
             SortFields.Add(field);
         }
 
-        // 組み直しで参照が変わるので、同じ意味の項目に繋ぎ直す。見つからなければ既定（入手日）——並べ直したので先頭は名前になった
-        _sortField = SortFields.FirstOrDefault(field =>
-            field.Kind == _sort.Kind && field.AttributeName == _sort.AttributeName)
-            ?? SortFields.First(field => field.Kind == SortKind.AcquiredAt);
-        _sort = _sortField.ToOption(_sort.Descending);
+        // 組み直しで参照が変わるので、同じ意味の項目に繋ぎ直す。見つからなければ既定（カテゴリ）——並べ直したので先頭は名前になった。
+        // 既定に戻すときは向きも既定にする（消した属性の「高い順」を引き継ぐと「BOOTHの逆順」になる）
+        var same = SortFields.FirstOrDefault(field =>
+            field.Kind == _sort.Kind && field.AttributeName == _sort.AttributeName);
+        _sortField = same ?? SortFields.First(field => field.Kind == DefaultSort.Kind && field.AttributeName is null);
+        _sort = _sortField.ToOption(same is null ? DefaultSort.Descending : _sort.Descending);
 
         OnPropertyChanged(nameof(Sort));
         OnPropertyChanged(nameof(SortField));

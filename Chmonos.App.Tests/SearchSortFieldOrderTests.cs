@@ -86,14 +86,14 @@ public sealed class SearchSortFieldOrderTests
     });
 
     [Fact]
-    public Task 既定は入手日に印が付き_ほかには付かない() => TestApp.Run(async app =>
+    public Task 既定はカテゴリに印が付き_ほかには付かない() => TestApp.Run(async app =>
     {
         await SaveAttributesAsync(app, "質感");
         var search = (await app.StartAsync()).Search;
 
         // 並べ直したので先頭は名前になった。繋ぎ直しで見つからないときの戻り先を先頭にすると、既定が名前に変わってしまう
-        Assert.Equal(SortKind.AcquiredAt, search.SortField.Kind);
-        Assert.Equal(["入手日"], Checked(search));
+        Assert.Equal(SortKind.Category, search.SortField.Kind);
+        Assert.Equal(["カテゴリ"], Checked(search));
     });
 
     [Fact]
