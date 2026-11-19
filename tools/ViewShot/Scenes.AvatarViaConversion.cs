@@ -71,12 +71,28 @@ internal static partial class Scenes
             await context.SettleAsync();
             return FiltersShot(root);
         }),
-        new Scene("avatars-conversion","アバターの管理：変換（プロファイルの商品を決めていない／決めた／扱わないの群で並べ、右に変換扱いの欄と次へ進むボタン）", AvatarsConversionAsync),
+        new Scene("avatars-conversion","アバターの管理：変換（プロファイルの商品を決めていない／決めた／扱わないの群で並べ、右に変換扱いの欄と次へ進むボタン）", context => AvatarsConversionAsync(context)),
+        new Scene("avatars-conversion-pair-detail", "アバターの管理：「変換」で追加した組を選んだ右の欄（元・先のリンク・ツールの名前・メモ・この組を外す）と、プロファイルの商品の行に並ぶ組の行", context => AvatarsConversionAsync(context, selectPair: true)),
     ];
 
-    /// <summary>アバターの管理の「変換」。プロファイルの商品4つ（推した・つなぎ先が無い・決めた・扱わない）。最初の決めていない商品を選んだ所。</summary>
-    private static async Task<Shot> AvatarsConversionAsync(SceneContext context)
+    /// <summary>
+    /// アバターの管理の「変換」。プロファイルの商品4つ（推した・つなぎ先が無い・決めた・扱わない）。最初の決めていない商品を選んだ所。
+    /// <paramref name="selectPair"/> のときは、追加した組2つ（メモ付き・ツールの名前付き）を足して、ツールの名前付きの組を選んだ所（組の行とプロファイルの商品の行を並べて見る）
+    /// </summary>
+    private static async Task<Shot> AvatarsConversionAsync(SceneContext context, bool selectPair = false)
     {
+        if (selectPair)
+        {
+            await context.Seed.ConversionPairs.SaveAsync(new ConversionPairFile
+            {
+                Pairs =
+                [
+                    new ConversionPair { From = ConversionEnd.Avatar("9800401"), To = ConversionEnd.Base("作り物の素体"), Memo = "袖の長さを直す\n2行目は行に出さない" },
+                    new ConversionPair { From = ConversionEnd.Base("作り物の素体"), To = ConversionEnd.Avatar("9800401"), Tool = "作り物のツール", Memo = "裾を詰める" },
+                ],
+            });
+        }
+
         await context.Seed.Avatars.SaveAsync(new AvatarRegistry
         {
             Entries =
@@ -137,6 +153,19 @@ internal static partial class Scenes
         var avatars = context.Screen<Chmonos.App.ViewModels.AvatarsViewModel>();
         await SceneContext.UntilAsync(() => !avatars.IsLoading && avatars.HasConversionItems, "変換の一覧ができる");
         avatars.ShowConversionModeCommand.Execute(null);
+
+        if (selectPair)
+        {
+            await context.SettleAsync();
+            avatars.ConversionPairs.SelectedRow = avatars.ConversionPairs.Rows[1];
+            await context.SettleAsync();
+            if (!avatars.ShowsConversionPairDetail || avatars.SelectedConversion is not null)
+            {
+                throw new InvalidOperationException("右に組の中身が出ない");
+            }
+
+            return new Shot(root);
+        }
 
         // 推した理由と絵が出る商品を選んでおく
         avatars.SelectedConversion = avatars.ConversionItems.Cast<ConversionItemRowViewModel>().First(row => row.ItemId == "9900221");

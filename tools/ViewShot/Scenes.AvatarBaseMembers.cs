@@ -113,7 +113,7 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
-        new Scene("avatars-conversion-pairs-edit", "アバターの管理：変換の一覧の上の「追加した組」（元 → 先・メモ・×と、組を追加の行。共通素体を元にした組を含む）", async context =>
+        new Scene("avatars-conversion-pairs-edit", "アバターの管理：変換の一覧の上の「追加した組」（プロファイルの商品と同じ形の行・元 → 先と短いメモと、組を追加の行と「追加」。共通素体を元にした組を含む）", async context =>
         {
             await SeedConversionPairsAsync(context);
             var (avatars, root) = await OpenBaseMembersAsync(context);

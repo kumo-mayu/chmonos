@@ -326,7 +326,7 @@ public sealed partial class MainViewModel
         // 変換を見ていたなら、変換の見方と選んでいた商品で戻す（ユーザ指示 2026-11-09。控えずに、アバターの見方で開き直していた）
         // 右の欄に重ねていた商品ページも控え、戻ったら重ね直す（open.md 95 行。フォルダ・改変の画面と同じ）
         AvatarsViewModel { IsConversionMode: true } avatars => new HistoryEntry("アバターの管理",
-            RestoreConversion(avatars.SelectedConversion?.ItemId, avatars.RightItem.Page?.Item.Id)),
+            RestoreConversion(avatars.SelectedConversion?.ItemId, avatars.RightItem.Page?.Item.Id, avatars.SelectedConversionPair)),
         AvatarsViewModel avatars => new HistoryEntry("アバターの管理",
             RestoreAvatars(avatars.Selected?.ItemId, avatars.IsBaseMode ? avatars.SelectedBase?.Name : null, avatars.RightItem.Page?.Item.Id)),
         ModificationHubViewModel hub => HubEntry(hub.Level, hub.Selection),
@@ -601,10 +601,10 @@ public sealed partial class MainViewModel
             : rightItemId is null ? () => ShowAvatarAt(selectedId, baseName)
             : () => CurrentViewModel = new AvatarsViewModel(_services, this, selectedId, baseName, rightItemId: rightItemId);
 
-    /// <summary>アバター画面の「変換」は、選んでいた商品を選んだ状態で戻す。</summary>
-    private Action RestoreConversion(string? selectedId, string? rightItemId)
+    /// <summary>アバター画面の「変換」は、選んでいた商品か追加した組を選んだ状態で戻す（組の元・先から移って戻った時に、組へ戻る）。</summary>
+    private Action RestoreConversion(string? selectedId, string? rightItemId, Core.Models.ConversionPair? pair)
         => () => CurrentViewModel = new AvatarsViewModel(
-            _services, this, openConversion: true, selectConversionItemId: selectedId, rightItemId: rightItemId);
+            _services, this, openConversion: true, selectConversionItemId: selectedId, rightItemId: rightItemId, selectConversionPair: pair);
 
     /// <summary>
     /// 商品ページは開き直した時点の中身で出す（覚えた時の中身は、その後の編集で古くなっている）。

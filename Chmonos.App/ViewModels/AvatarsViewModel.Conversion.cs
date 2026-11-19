@@ -35,7 +35,12 @@ public sealed partial class AvatarsViewModel
                 if (value)
                 {
                     IsBaseMode = false;
-                    SelectedConversion ??= FirstUndecided();
+
+                    // 組を選んで離れた（元・先へ移った）なら、戻った時に組の選びを残す（右はどちらか1つ）
+                    if (_conversionPairs?.SelectedRow is null)
+                    {
+                        SelectedConversion ??= FirstUndecided();
+                    }
 
                     // 組はアバターの詳細の札・素体の改名・ID の変更でも変わるので、入るたびに読み直す
                     ConversionPairs.Reload();
@@ -68,6 +73,12 @@ public sealed partial class AvatarsViewModel
 
     public bool ShowsConversionDetail => IsConversionMode && SelectedConversion is not null;
 
+    /// <summary>選んでいる追加した組（履歴に控える。選んでいなければ null）。</summary>
+    internal ConversionPair? SelectedConversionPair => _conversionPairs?.SelectedRow?.Pair;
+
+    /// <summary>右に、選んだ追加した組の中身を出すか（プロファイルの商品とはどちらか1つ）。</summary>
+    public bool ShowsConversionPairDetail => IsConversionMode && _conversionPairs?.SelectedRow is not null;
+
     public ConversionItemRowViewModel? SelectedConversion
     {
         get => _selectedConversion;
@@ -75,6 +86,12 @@ public sealed partial class AvatarsViewModel
         {
             if (SetField(ref _selectedConversion, value))
             {
+                // 右に出すのはプロファイルの商品か追加した組のどちらか1つ（ユーザ判断 2026-11-20：組もプロファイルと同じに右で見る）
+                if (value is not null && _conversionPairs is { } pairs)
+                {
+                    pairs.SelectedRow = null;
+                }
+
                 ConversionEditor.Show(value?.Item);
                 SelectedConversionImage = value is null ? null : ItemConversionEditor.IconsFrom(_services, _main)(value.ItemId);
                 OnPropertyChanged(nameof(SelectedConversionImage));
@@ -110,7 +127,68 @@ public sealed partial class AvatarsViewModel
             _main.Search.NoteConversionPairsChanged();
             ConversionPairSummary.Refresh();
         },
-        () => ConversionPairSummary.Refresh());
+        () => ConversionPairSummary.Refresh(),
+        ConversionPairSelected,
+        CanOpenConversionEnd,
+        OpenConversionEnd);
+
+    /// <summary>
+    /// 組の選びが替わった。組を選んだらプロファイルの商品の選びを外す（右はどちらか1つ）。
+    /// 組の選びが無くなった（外して組が尽きた・読み替えで消えた）ら、右を空にせずプロファイルの決めていない商品へ戻す
+    /// </summary>
+    private void ConversionPairSelected(ConversionPairRow? row)
+    {
+        if (row is not null)
+        {
+            SelectedConversion = null;
+        }
+        else if (IsConversionMode && SelectedConversion is null)
+        {
+            SelectedConversion = FirstUndecided();
+        }
+
+        OnPropertyChanged(nameof(ShowsConversionPairDetail));
+        RelayCommand.RaiseCanExecuteChanged();
+        CloseRightItemIfLeftMoved();
+    }
+
+    /// <summary>組の端へ移れるか。アバターは登録簿にある物、共通素体は一覧にある物だけ（消えた物は押せない）。</summary>
+    private bool CanOpenConversionEnd(ConversionEnd end)
+        => end.AvatarItemId is { } id ? _all.Any(row => row.ItemId == id)
+        : end.BaseName is { } name && Bases.Any(row => AvatarBaseNames.Same(row.Name, name));
+
+    /// <summary>
+    /// 組の元・先を押した：アバターならアバターの見方でそれを選び、共通素体なら共通素体の見方でそれを選ぶ。
+    /// 移る前の「変換」（選んでいた組）を履歴に積み、戻る（Alt+←）でその組へ戻れるようにする（素体の中のアバターを開くのと同じ・メモ68）
+    /// </summary>
+    private void OpenConversionEnd(ConversionEnd end)
+    {
+        if (!CanOpenConversionEnd(end))
+        {
+            return;
+        }
+
+        _main.RememberAvatarsStep(this);
+        if (end.AvatarItemId is { } id)
+        {
+            var row = _all.First(other => other.ItemId == id);
+
+            // 絞り込みで外れていると選べないので、そのときだけ絞り込みを外す
+            if (!Rows.Contains(row))
+            {
+                Query = string.Empty;
+            }
+
+            IsBaseMode = false;
+            IsConversionMode = false;
+            Selected = row;
+        }
+        else if (end.BaseName is { } name)
+        {
+            IsBaseMode = true;
+            SelectedBase = Bases.First(row => AvatarBaseNames.Same(row.Name, name));
+        }
+    }
 
     private ConversionPairEditor? _conversionPairs;
 
@@ -432,8 +510,9 @@ public sealed partial class AvatarsViewModel
                         _conversionItems = task.Result.Select(pair => ConversionItemRowViewModel.Create(pair.Item, pair.Profiles)).ToList();
                         ArrangeConversionItems(keep: null);
                         _selectedConversion = null;
+                        // 組を選んでいる間は、読み直しで商品へ選びを奪わない（右はどちらか1つ）
                         SelectedConversion = _conversionItems.FirstOrDefault(row => row.ItemId == keepId)
-                            ?? (IsConversionMode ? FirstUndecided() : null);
+                            ?? (IsConversionMode && _conversionPairs?.SelectedRow is null ? FirstUndecided() : null);
                         OnPropertyChanged(nameof(ConversionModeText));
                         OnPropertyChanged(nameof(HasConversionItems));
                         RaiseBulk();
