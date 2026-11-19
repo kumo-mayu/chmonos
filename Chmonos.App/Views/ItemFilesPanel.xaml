@@ -277,6 +277,7 @@
                                                         <!-- 開く操作は名前のすぐ横に（ファイルの行と同じ形。ユーザ判断 2026-09-19） -->
                                                         <Button Content="開く ▾" Style="{StaticResource SmallButton}" Margin="2,0,8,0"
                                                                 VerticalAlignment="Center" Click="OnMenuButtonClick"
+                                                                Visibility="{Binding IsMissing, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}"
                                                                 Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                 AutomationProperties.AutomationId="ItemFolderOpenMenu"
                                                                 AutomationProperties.Name="{Binding Name, StringFormat={}{0}を開く}"
@@ -286,21 +287,23 @@
                                                             </Button.ContextMenu>
                                                         </Button>
                                                         <!--
-                                                            見つからないファイル。直し方を言う（動線の点検 D7）。取り込みで読み直せば
-                                                            置き場所を付け直す仕組みはあるのに、札が「見つかりません」だけで伝わっていなかった
+                                                            見つからないフォルダは開く先が無いので、「開く ▾」の代わりに「探す…」を出す（ユーザ判断 2026-11-20）。
+                                                            前は「取り込みを開く」で取り込み画面へ移るだけだった。範囲を選ぶ窓（取り込み画面と同じ）を開き、
+                                                            この商品の分だけを探して、合うフォルダを欄の下に候補で出す
                                                         -->
+                                                        <Button Content="探す…" Style="{StaticResource SmallButton}" Margin="2,0,8,0" VerticalAlignment="Center"
+                                                                Command="{Binding DataContext.FindMissingCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                AutomationProperties.AutomationId="ItemFolderFindMissing"
+                                                                AutomationProperties.Name="{Binding Name, StringFormat={}{0}を探す}"
+                                                                Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                                ToolTip="移した先のフォルダを選んで探します。" />
+                                                        <!-- 見つからないフォルダ（動線の点検 D7）。直し方は横の「探す…」が言う -->
                                                         <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
                                                                 BorderThickness="1" CornerRadius="4" Padding="6,1" VerticalAlignment="Center" Margin="0,0,8,0"
                                                                 Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                                                                ToolTip="移した場合は、移した先のフォルダを取り込むと、この商品に付け直します。">
+                                                                ToolTip="移した場合は、「探す…」で移した先から探せます。">
                                                             <TextBlock Text="見つかりません" FontSize="10" Foreground="{DynamicResource Warn}" />
                                                         </Border>
-                                                        <!-- 文字リンクの見た目のボタン。行の並びの中の物として止まる（Hyperlink は並びに数えられず、行ごとに Tab が止まっていた） -->
-                                                        <Button Content="取り込みを開く" Style="{StaticResource HyperlinkButton}" Margin="0,0,8,0" FontSize="11" VerticalAlignment="Center"
-                                                                Command="{Binding DataContext.ShowImportCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                AutomationProperties.AutomationId="ItemFolderImportLink"
-                                                                AutomationProperties.Name="{Binding Name, StringFormat={}{0}を付け直す取り込みを開く}"
-                                                                Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" ToolTip="移した先のフォルダを取り込むと、この商品に付け直します。" />
                                                     </WrapPanel>
                                                     <!-- zipが入ったら教える。放っておくと容量が二重に数えられる -->
                                                     <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
@@ -337,6 +340,54 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </controls:ContentItemsControl>
+
+                            <!--
+                                「探す…」で見つけた、見つからない登録フォルダの移った先の候補（ユーザ判断 2026-11-20。取り込み画面の結果の欄と同じ形）。
+                                フォルダはハッシュを持たないので同じ物と言い切れない。候補として並べ、押した物だけ差し替える（1つの登録フォルダに5つまで）
+                            -->
+                            <ItemsControl ItemsSource="{Binding MissingFolderCandidates}" Focusable="False"
+                                          AutomationProperties.AutomationId="ItemMissingFolderCandidates"
+                                          Visibility="{Binding HasMissingFolderCandidates, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="18,10">
+                                            <StackPanel>
+                                                <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap">
+                                                    <Run Text="「" /><Run Text="{Binding Path, Mode=OneWay}" FontFamily="Consolas, Cascadia Mono" /><Run Text="」の移った先の候補" />
+                                                </TextBlock>
+                                                <ItemsControl ItemsSource="{Binding Candidates}" Margin="14,6,0,0" Focusable="False">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Grid Margin="0,0,0,5">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <StackPanel VerticalAlignment="Center">
+                                                                    <RichTextBox Style="{StaticResource SelectableBody}" FontFamily="Consolas, Cascadia Mono" FontSize="12" Foreground="{DynamicResource TextMuted}" controls:SelectableText.LineHeight="17" AutomationProperties.Name="{Binding Path}" controls:SelectableText.PlainText="True" controls:SelectableText.Text="{Binding Path}" />
+                                                                    <TextBlock Style="{StaticResource Caption}" Margin="0,2,0,0">
+                                                                        <Run Text="{Binding KindText, Mode=OneWay}" /><Run Text="  " /><Run Text="{Binding CountText, Mode=OneWay}" />
+                                                                    </TextBlock>
+                                                                </StackPanel>
+                                                                <Button Grid.Column="1" Content="この場所にする" Style="{StaticResource SmallButton}"
+                                                                        Margin="10,0,0,0" VerticalAlignment="Center"
+                                                                        AutomationProperties.AutomationId="ItemUseFolderCandidate"
+                                                                        AutomationProperties.Name="{Binding Path, StringFormat={}{0}を登録の場所にする}"
+                                                                        Command="{Binding DataContext.UseFolderCandidateCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        ToolTip="登録の場所をここに変えます。ファイルは動かしません。" />
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                                <TextBlock Text="{Binding StatusText}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                                                           AutomationProperties.AutomationId="ItemMissingFolderStatus"
+                                                           Visibility="{Binding HasStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
 
                             <controls:ContentItemsControl controls:ProgressiveItems.Source="{Binding LocalFiles}" controls:ArrowGroup.IsEnabled="True">
                                 <ItemsControl.ItemTemplate>
@@ -398,25 +449,9 @@
                                                     <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
                                                             BorderThickness="1" CornerRadius="4" Padding="6,1" VerticalAlignment="Center" Style="{StaticResource DetachedDim}" Margin="0,0,8,0"
                                                             Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                                                            ToolTip="移した場合は、移した先のフォルダを取り込むと、この商品に付け直します。">
+                                                            ToolTip="{Binding MissingTip}">
                                                         <TextBlock Text="見つかりません" FontSize="10" Foreground="{DynamicResource Warn}" />
                                                     </Border>
-                                                    <!-- 文字リンクの見た目のボタン。行の並びの中の物として止まる（Hyperlink は並びに数えられず、行ごとに Tab が止まっていた） -->
-                                                    <Button Content="取り込みを開く" Margin="0,0,8,0" FontSize="11" VerticalAlignment="Center"
-                                                            Command="{Binding DataContext.ShowImportCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                            AutomationProperties.AutomationId="ItemFileImportLink"
-                                                            AutomationProperties.Name="{Binding FileName, StringFormat={}{0}を付け直す取り込みを開く}"
-                                                            Visibility="{Binding IsMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" ToolTip="移した先のフォルダを取り込むと、この商品に付け直します。">
-                                                        <Button.Style>
-                                                            <Style TargetType="Button" BasedOn="{StaticResource HyperlinkButton}">
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding IsDetached}" Value="True">
-                                                                        <Setter Property="Opacity" Value="0.45" />
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </Button.Style>
-                                                    </Button>
                                                     <!--
                                                         つながっていないドライブの上にしか場所が無いファイル。取り込みがそこのパスを残すのと同じく、
                                                         無くなったとは言わない。次の一手は取り込みではなく、つなぐこと（フォルダの表示と同じ語）
@@ -455,8 +490,20 @@
                                                         見つからないファイル・取り外しているドライブの上のファイルは開く先が無いので押せなくし、吹き出しで理由を言う
                                                         （ユーザ判断 2026-10-04。右クリックのメニューと同じ形。前は出さず、その行だけ形が変わっていた）
                                                     -->
+                                                    <!--
+                                                        見つからないファイルは「開く ▾」の代わりに「探す…」（ユーザ判断 2026-11-20）。前は横の「取り込みを開く」で
+                                                        取り込み画面へ移るだけだった。範囲を選ぶ窓（取り込み画面と同じ）を開き、この商品の分だけを中身で探す。
+                                                        外した行は探す相手に入らないので、今までどおり押せない「開く ▾」のまま
+                                                    -->
+                                                    <Button Content="探す…" Style="{StaticResource SmallButton}" Margin="2,0,0,0" VerticalAlignment="Center"
+                                                            Command="{Binding DataContext.FindMissingCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            AutomationProperties.AutomationId="ItemFileFindMissing"
+                                                            AutomationProperties.Name="{Binding FileName, StringFormat={}{0}を探す}"
+                                                            Visibility="{Binding CanSearchMissing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                            ToolTip="移した先のフォルダを選んで、中身で探します。" />
                                                     <Button Content="開く ▾" Style="{StaticResource SmallButton}" Margin="2,0,0,0"
                                                             VerticalAlignment="Center" Click="OnMenuButtonClick"
+                                                            Visibility="{Binding CanSearchMissing, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}"
                                                             IsEnabled="{Binding CanReveal}"
                                                             Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             AutomationProperties.AutomationId="ItemFileOpenMenu"

@@ -719,9 +719,14 @@ public abstract record UiCommand
     /// <summary>新しい版の確認の記録を変える（新しい版の帯を × で閉じた版を覚える。ユーザ判断 2026-10-08）。</summary>
     public record ChangeUpdateCheck(Func<Services.UpdateCheckRecord, Services.UpdateCheckRecord> Change) : UiCommand;
 
+    /// <summary>
+    /// 見つからないファイル・登録フォルダを、選んだフォルダの中から探して結び直す（取り込み画面・商品ページ・検索の選択の帯）。
+    /// <paramref name="ItemIds"/> を渡すとその商品の分だけを探す（null は全商品。ユーザ判断 2026-11-20）。
+    /// </summary>
     public record FindMissingFiles(
         IProgress<(int Hashed, string? Detail)>? Progress = null,
-        IReadOnlyList<string>? Folders = null) : UiCommand;
+        IReadOnlyList<string>? Folders = null,
+        IReadOnlyList<string>? ItemIds = null) : UiCommand;
 
     /// <summary>
     /// 見つからない登録フォルダの場所を、探した結果の候補から人が選んだ場所に差し替える（見つからない・移動の点検 10-A）。

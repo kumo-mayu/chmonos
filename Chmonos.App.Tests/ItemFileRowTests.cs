@@ -376,18 +376,20 @@ public class ItemFileRowTests
     /// <summary>
     /// 「開く ▾」は押せないときも消さない（行の形がいつも同じ）。押せるかは IsEnabled、理由は押せなくても出る吹き出し。
     /// 部品を組んで測るには商品ページの見た目の資源が要るので、原文を読む（見た目は ViewShot の item-files-states）。
+    /// 見つからない行（外していない物）だけは、同じ場所に「開く ▾」の代わりに「探す…」を出す（ユーザ判断 2026-11-20）。行の形は変わらない
     /// </summary>
     [Theory]
-    [InlineData("ItemFileOpenMenu", "{Binding CanReveal}", "{Binding OpenMenuTip}")]
-    [InlineData("ItemPackageUnityMenu", "{Binding FileRow.CanReveal}", "{Binding FileRow.UnityMenuTip}")]
-    public void 開くとUnityのボタンは_隠さずに押せなくし_押せなくても吹き出しを出す(string automationId, string enabled, string tip)
+    [InlineData("ItemFileOpenMenu", "{Binding CanReveal}", "{Binding OpenMenuTip}",
+        "{Binding CanSearchMissing, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}")]
+    [InlineData("ItemPackageUnityMenu", "{Binding FileRow.CanReveal}", "{Binding FileRow.UnityMenuTip}", null)]
+    public void 開くとUnityのボタンは_隠さずに押せなくし_押せなくても吹き出しを出す(string automationId, string enabled, string tip, string? visibility)
     {
         var panel = System.Xml.Linq.XDocument.Load(FilesPanelPath());
         var button = Assert.Single(panel.Descendants(), element =>
             element.Name.LocalName == "Button"
             && element.Attributes().Any(attribute => attribute.Name.LocalName == "AutomationProperties.AutomationId" && attribute.Value == automationId));
 
-        Assert.Null(button.Attribute("Visibility"));
+        Assert.Equal(visibility, button.Attribute("Visibility")?.Value);
         Assert.Equal(enabled, button.Attribute("IsEnabled")?.Value);
         Assert.Equal(tip, button.Attribute("ToolTip")?.Value);
         Assert.Equal("True", button.Attributes().SingleOrDefault(attribute => attribute.Name.LocalName == "ToolTipService.ShowOnDisabled")?.Value);

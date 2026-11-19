@@ -391,6 +391,7 @@ public sealed class LocalFileRow : ViewModelBase, IUnityPackageHost
             if (SetField(ref _presence, value))
             {
                 OnPropertyChanged(nameof(IsMissing));
+                OnPropertyChanged(nameof(CanSearchMissing));
                 OnPropertyChanged(nameof(IsUnverifiable));
                 OnPropertyChanged(nameof(IsOnDetachedDrive));
                 OnPropertyChanged(nameof(CanReveal));
@@ -424,6 +425,15 @@ public sealed class LocalFileRow : ViewModelBase, IUnityPackageHost
     // 確かめられない（親のフォルダを読む権限が無い・ドライブが答えない。点検の13）は「見つかりません」と分ける（2026-10-05・MB-B）。
     // 記録には「無い」と書かない（カードの印も出ない）のに、ここだけ「見つかりません」と出ていて食い違っていた。次の手も取り込みではなく権限を見ること
     public bool IsMissing => !IsOldVersion && (Paths.Count == 0 || Presence == Core.Services.FilePresence.Missing);
+
+    /// <summary>
+    /// 「開く ▾」の代わりに「探す…」を出すか（ユーザ判断 2026-11-20）。外したファイルは探す相手に入らない（<c>MissingFileFinder</c>）ので、
+    /// 外した行は今までどおり押せない「開く ▾」のまま
+    /// </summary>
+    public bool CanSearchMissing => IsMissing && !IsDetached;
+
+    /// <summary>札「見つかりません」の吹き出し。外した行には「探す…」が無いので、直し方を言わない。</summary>
+    public string MissingTip => IsDetached ? "ファイルが見つかりません。" : "移した場合は、「探す…」で移した先から探せます。";
 
     /// <summary>どの場所にも在ると言えず、確かめられない場所がある（権限が無い等）。</summary>
     public bool IsUnverifiable => Paths.Count > 0 && Presence == Core.Services.FilePresence.Unverifiable;

@@ -1328,7 +1328,7 @@ public sealed class CommandHandler
 
                 return new CommandResult.MissingFilesSearched(
                     await _missingFiles.FindAsync(
-                        find.Folders ?? _settings.Current.WatchedFolders, find.Progress, cancellationToken));
+                        find.Folders ?? _settings.Current.WatchedFolders, find.Progress, cancellationToken, find.ItemIds));
 
             case UiCommand.DetectUnreadableItems:
                 if (_notifications is null)
