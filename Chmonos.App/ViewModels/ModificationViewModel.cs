@@ -39,6 +39,12 @@ public sealed class ModificationMemberRowViewModel : IHasItemCard
     /// </summary>
     public required string SourceText { get; init; }
 
+    /// <summary>
+    /// 名前とファイルを1つにまとめた吹き出し（ユーザ指示 2026-11-18）。名前もファイルも長いと切れるので、どこに乗せても全文が読めるようにする。
+    /// 名前とファイルに別々の吹き出しを付けると、乗せた場所で出る物が変わり、片方の吹き出しが出ない部品（文字を選べる欄）が出る
+    /// </summary>
+    public string HoverText => SourceText.Length > 0 ? $"{Name}\n{SourceText}" : Name;
+
     public bool HasFile => Member.HasFile;
 
     /// <summary>
