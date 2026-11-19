@@ -27,11 +27,17 @@ public sealed class ModificationMemberRowViewModel : IHasItemCard
     public required string Name { get; init; }
 
     /// <summary>
-    /// 導入の順。1から数える（人が読む番号）。
-    /// **逆の順で見せているときも入れた順の番号のまま**（メモ26-①）：番号は「何番目に入れたか」で、
-    /// 送る順と同じ数を指していないと読み違える
+    /// 送る順の中の位置（0から。外した行も数える）。設定の「使ったものを送る順」で決まる（<see cref="ModificationSendPlan.InSendOrder{T}"/>）。
+    /// 記録の順で送るなら <see cref="Index"/> と同じ
     /// </summary>
-    public string OrderText => $"{Index + 1}";
+    public int SendPosition { get; init; }
+
+    /// <summary>
+    /// 送る順の番号。1から数える（人が読む番号）。
+    /// **逆の順で見せているときも送る順の番号のまま**（メモ26-①）：番号は送る順と同じ数を指していないと読み違える。
+    /// 欄を商品でまとめたので、記録の順で送る設定では1つの欄に離れた番号（1 と 4）が並ぶ（ユーザ判断 2026-11-20）
+    /// </summary>
+    public string OrderText => $"{SendPosition + 1}";
 
     /// <summary>
     /// 使ったファイルの状態（<see cref="ModificationRowBuilder.FileTextOf"/>。改変の画面の行と同じ）。
@@ -82,14 +88,23 @@ public sealed class ModificationMemberRowViewModel : IHasItemCard
     /// <summary>使ったファイルより新しい版が出ている行（<see cref="Core.Services.UsedUpdates.IsMemberBehind"/>）。</summary>
     public bool IsBehind { get; init; }
 
+    /// <summary>
+    /// 1行ずつの「移動 ▾」が、同じ商品の欄の中で動かすか（送る順が商品ごとのとき）。偽なら記録の並びの上で1つずつ動かす（記録の順のとき）。
+    /// 商品ごとのときに記録の上で動かすと、ほかの商品の行を越えても送る順が変わらず、押しても何も起きないように見える
+    /// </summary>
+    public bool MovesInItem { get; init; }
+
+    /// <summary>1行ずつの「移動 ▾」を出すか。欄の中で動かすときは、同じ商品の行が2つ以上ある欄だけ。</summary>
+    public bool ShowsMove { get; init; } = true;
+
     // **端では矢印を押せなくする。**押せるのに何も起きないボタンは嘘になる。
-    // 前・後ろは見えている並びの向き（逆の順なら、見えている前＝記録の後ろ）
-    public bool CanMoveBack => Reversed ? Index < Total - 1 : Index > 0;
+    // 前・後ろは見えている並びの向き（逆の順なら、見えている前＝記録の後ろ）。端かどうかは並べるときに決める（欄の中か、記録の全体か）
+    public bool CanMoveBack { get; init; }
 
-    public bool CanMoveForward => Reversed ? Index > 0 : Index < Total - 1;
+    public bool CanMoveForward { get; init; }
 
-    /// <summary>見せる向きだけを変えた写し（カードは使い回す）。</summary>
-    internal ModificationMemberRowViewModel WithReversed(bool reversed) => new()
+    /// <summary>見せ方（向き・送る順の位置・動かし方）だけを変えた写し（カードは使い回す）。</summary>
+    internal ModificationMemberRowViewModel Arranged(bool reversed, int sendPosition, bool movesInItem, bool showsMove, bool canMoveBack, bool canMoveForward) => new()
     {
         Index = Index,
         Total = Total,
@@ -103,6 +118,11 @@ public sealed class ModificationMemberRowViewModel : IHasItemCard
         // 写し漏らすと、逆の順にした途端に新しい版の札と「更新 ▾」が消えた
         IsBehind = IsBehind,
         Reversed = reversed,
+        SendPosition = sendPosition,
+        MovesInItem = movesInItem,
+        ShowsMove = showsMove,
+        CanMoveBack = canMoveBack,
+        CanMoveForward = canMoveForward,
     };
 
     /// <summary>見えている前へ動かすとき、記録の並びの上で動かす向き。</summary>
@@ -115,6 +135,52 @@ public sealed class ModificationMemberRowViewModel : IHasItemCard
 
     public string MoveForwardHint => CanMoveForward
         ? Reversed ? "後ろへ移動します。先に送られます。" : "後ろへ移動します。後に送られます。"
+        : "いちばん後ろにあります。";
+}
+
+/// <summary>
+/// 使ったものの1つの欄＝1つの商品（ユーザ判断 2026-11-20「一つの商品が一つの欄を持つべき」）。中に、その商品の行（ファイル）を並べる。
+/// 記録の形は変えず、画面でまとめるだけ（記録の1行は商品とファイル1つの組のまま）。欄の順は商品が記録に初めて出る順
+/// </summary>
+public sealed class ModificationMemberGroupViewModel : IHasItemCard
+{
+    /// <summary>欄の中の行。見せている向きの順（逆の順なら欄の中も逆）。</summary>
+    public required IReadOnlyList<ModificationMemberRowViewModel> Rows { get; init; }
+
+    /// <summary>見せている向きの先頭の行。カード・名前・商品ページへ行く口はこの行で指す（どの行でも同じ商品）。</summary>
+    public ModificationMemberRowViewModel Head => Rows[0];
+
+    public string ItemId => Head.Member.ItemId;
+
+    public string Name => Head.Name;
+
+    public ItemCardViewModel? Card => Head.Card;
+
+    public bool HasCard => Head.HasCard;
+
+    public bool IsMissing => Head.IsMissing;
+
+    /// <summary>全部の行を外した欄。カードを薄くする（1行でも使っていれば薄くしない）。</summary>
+    public bool IsDetached => Rows.All(row => row.IsDetached);
+
+    /// <summary>欄ごとの「移動 ▾」を出すか。送る順が商品ごとで、欄が2つ以上あるときだけ（記録の順なら行ごとに動かす）。</summary>
+    public bool ShowsMove { get; init; }
+
+    public bool Reversed { get; init; }
+
+    public bool CanMoveBack { get; init; }
+
+    public bool CanMoveForward { get; init; }
+
+    /// <summary>見えている前へ動かすとき、欄の並びの上で動かす向き。</summary>
+    public int BackDelta => Reversed ? 1 : -1;
+
+    public string MoveBackHint => CanMoveBack
+        ? Reversed ? "この商品を前へ移動します。後に送られます。" : "この商品を前へ移動します。先に送られます。"
+        : "いちばん前にあります。";
+
+    public string MoveForwardHint => CanMoveForward
+        ? Reversed ? "この商品を後ろへ移動します。先に送られます。" : "この商品を後ろへ移動します。後に送られます。"
         : "いちばん後ろにあります。";
 }
 
@@ -280,6 +346,12 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         MoveMemberForwardCommand = new RelayCommand(
             parameter => MoveMemberAsync(parameter as ModificationMemberRowViewModel, back: false).Forget(),
             parameter => parameter is ModificationMemberRowViewModel { CanMoveForward: true });
+        MoveGroupBackCommand = new RelayCommand(
+            parameter => MoveGroupAsync(parameter as ModificationMemberGroupViewModel, back: true).Forget(),
+            parameter => parameter is ModificationMemberGroupViewModel { CanMoveBack: true });
+        MoveGroupForwardCommand = new RelayCommand(
+            parameter => MoveGroupAsync(parameter as ModificationMemberGroupViewModel, back: false).Forget(),
+            parameter => parameter is ModificationMemberGroupViewModel { CanMoveForward: true });
         OpenItemCommand = new RelayCommand(
             parameter => OpenItemAsync(parameter as ModificationMemberRowViewModel).Forget(),
             parameter => parameter is ModificationMemberRowViewModel);
@@ -294,7 +366,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         OpenProjectFolderCommand = new RelayCommand(
             () => ExplorerReveal.RevealAsync(Record.UnityProject).Forget(), () => HasProject);
         SendAllToUnityCommand = new RelayCommand(
-            // 外した行は送らない（今は使っていない物）。**入れた順に送る**——逆の順で見せていても、見えている順では送らない（メモ26-①）
+            // 外した行は送らない（今は使っていない物）。順は設定の「使ったものを送る順」——逆の順で見せていても、見えている順では送らない（メモ26-①）
             () => SendToUnityAsync(RowsToSendAll(), "使ったものを順にUnityへ送る").Forget(),
             () => HasMembers && !IsSendingToUnity);
 
@@ -414,6 +486,11 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     public RelayCommand MoveMemberBackCommand { get; }
 
     public RelayCommand MoveMemberForwardCommand { get; }
+
+    /// <summary>商品の欄ごと動かす（送る順が商品ごとのとき）。</summary>
+    public RelayCommand MoveGroupBackCommand { get; }
+
+    public RelayCommand MoveGroupForwardCommand { get; }
 
     public RelayCommand OpenItemCommand { get; }
 
@@ -676,7 +753,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     private RelayCommand? _stopUnity;
 
     /// <summary>
-    /// 使ったものを**並びの順に**（＝導入の順、依存物が先）Unity へ1件ずつ送る（#69・ユーザ判断）。
+    /// 使ったものを**渡された順に**（設定の送る順。商品ごとか記録の順で、どちらも依存物が先）Unity へ1件ずつ送る（#69・ユーザ判断）。
     /// 改変を作り直すとき、記録した順に入れ直せば同じものが組める。
     ///
     /// 送り先は、紐付けたプロジェクトが開いていればそこ。開いていなければ選ばせ、
@@ -766,7 +843,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         {
             // 数えているのは unitypackage の数（使ったものの数ではない。1つの商品から2つ送ることがある）
             var text = where + "\n\n"
-                + $"unitypackage {fixedCount} 件を入れた順に送ります。"
+                + $"unitypackage {fixedCount} 件を番号の順に送ります。"
                 + "Unityの取り込み画面で「Import」か「Cancel」を押すと、次の1件が表示されます。"
                 + (nothing.Count > 0 ? $"\n\n手元に送れるものが無い {nothing.Count} 件は飛ばします。" : string.Empty);
 
@@ -864,13 +941,20 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     /// <summary>入れた順（記録の並び）の行。送る・数えるのはこちら——見せている順で送ると、依存物より先に本体が入る。</summary>
     internal IReadOnlyList<ModificationMemberRowViewModel> RowsInRecordOrder() => [.. Members.OrderBy(row => row.Index)];
 
-    /// <summary>「使ったものを順にUnityへ送る」で送る行（入れた順・外した行を除く）。</summary>
-    internal IReadOnlyList<ModificationMemberRowViewModel> RowsToSendAll() => [.. RowsInRecordOrder().Where(row => ModificationSendPlan.Sends(row.Member))];
+    /// <summary>
+    /// 「使ったものを順にUnityへ送る」で送る行（外した行を除く）。順は設定の「使ったものを送る順」で、外から使う API と同じ決め方
+    /// （<see cref="ModificationSendPlan.InSendOrder{T}"/>：商品ごとか記録の順）
+    /// </summary>
+    internal IReadOnlyList<ModificationMemberRowViewModel> RowsToSendAll() => [.. ModificationSendPlan.InSendOrder(
+        RowsInRecordOrder(), row => row.Member.ItemId, SendsByItem).Where(row => ModificationSendPlan.Sends(row.Member))];
+
+    /// <summary>送る順が商品ごとか（設定の <see cref="AppSettings.SendModificationInRecordOrder"/> の逆）。</summary>
+    private bool SendsByItem => !_services.Settings.SendModificationInRecordOrder;
 
     // ---- 使ったものを見せる順（メモ26-①・ユーザ判断 2026-10-04） ----
     //
     // 依存される物（シェーダー・ライブラリ）が上に来て、人が「使った」と思っている衣装が下に沈むので、逆の順でも見せる。
-    // **見せる順だけ**を変え、記録の並び・番号・「順にUnityへ送る」の順は入れた順のまま。どちらで見せるかはアプリを閉じても覚える（全部の改変で同じ）
+    // **見せる順だけ**を変え、記録の並び・番号・「順にUnityへ送る」の順は変えない。どちらで見せるかはアプリを閉じても覚える（全部の改変で同じ）
 
     private bool _isReversed;
 
@@ -882,10 +966,18 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
     public RelayCommand ShowReverseOrderCommand { get; }
 
-    /// <summary>並びの上の説明。逆の順のときは、送る順が見えている順と違うことを言う。</summary>
+    /// <summary>
+    /// 並びの上の説明。逆の順のときは、送る順が見えている順と違うことを言う。
+    /// 記録の順で送るときは欄の中の番号が離れ得る（1 と 4）ので、上からではなく番号の順だと言う
+    /// </summary>
     public string MembersOrderText => _isReversed
-        ? "入れた順の逆に並べています。Unityへは入れた順に送ります。"
-        : "上から順に入れた記録です。依存するものが先に来るように並べ替えられます。";
+        ? "逆の順に並べています。Unityへは番号の順に送ります。"
+        : SendsByItem
+            ? "上の商品から順に送ります。依存するものが先に来るように並べ替えられます。"
+            : "番号の順に送ります。依存するものが先に来るように並べ替えられます。";
+
+    /// <summary>使ったものの欄（1商品1欄・見せている順）。行は <see cref="Members"/> にも同じ順で並ぶ。</summary>
+    public ObservableCollection<ModificationMemberGroupViewModel> MemberGroups { get; } = [];
 
     private void SetReversed(bool reversed)
     {
@@ -901,11 +993,74 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         _services.Commands.ExecuteAsync(new UiCommand.ChangeUiState(state => state with { ModificationMembersReversed = reversed })).Forget();
 
         // 並べ直すだけなので読み直さない（読み直すとプロジェクトの候補まで探し直す）。矢印の向きが変わるので行は作り直す
-        var rows = RowsInRecordOrder().Select(row => row.WithReversed(reversed)).ToList();
-        Members.Clear();
-        foreach (var row in reversed ? Enumerable.Reverse(rows) : rows)
+        ShowRows(RowsInRecordOrder());
+    }
+
+    /// <summary>
+    /// 記録の順の行を、商品の欄にまとめて見せる（ユーザ判断 2026-11-20）。欄は商品が記録に初めて出る順、欄の中は記録の順。
+    /// 番号は送る順（設定で商品ごとか記録の順）。逆の順なら欄の並びも欄の中も逆にする。
+    /// 動かし方：商品ごとに送るときは欄ごと（欄の「移動 ▾」）と欄の中（行の「移動 ▾」）、記録の順で送るときは行を記録の上で1つずつ
+    /// </summary>
+    private void ShowRows(IReadOnlyList<ModificationMemberRowViewModel> recordOrder)
+    {
+        var byItem = SendsByItem;
+        var reversed = _isReversed;
+        var sendPositions = ModificationSendPlan.InSendOrder(recordOrder, row => row.Member.ItemId, byItem: byItem)
+            .Select((row, position) => (row.Index, position))
+            .ToDictionary(pair => pair.Index, pair => pair.position);
+        var groups = recordOrder.GroupBy(row => row.Member.ItemId, StringComparer.Ordinal).Select(group => group.ToList()).ToList();
+
+        var shown = new List<ModificationMemberGroupViewModel>();
+        for (var groupIndex = 0; groupIndex < groups.Count; groupIndex++)
         {
-            Members.Add(row);
+            var group = groups[groupIndex];
+            var rows = new List<ModificationMemberRowViewModel>();
+            for (var inGroup = 0; inGroup < group.Count; inGroup++)
+            {
+                var row = group[inGroup];
+
+                // 見えている前・後ろの端か。欄の中で動かすなら欄の中の位置、記録の上で動かすなら記録の全体の位置で見る
+                var (position, count) = byItem ? (inGroup, group.Count) : (row.Index, recordOrder.Count);
+                var atStart = position == 0;
+                var atEnd = position == count - 1;
+                rows.Add(row.Arranged(
+                    reversed,
+                    sendPositions[row.Index],
+                    movesInItem: byItem,
+                    showsMove: !byItem || group.Count > 1,
+                    canMoveBack: reversed ? !atEnd : !atStart,
+                    canMoveForward: reversed ? !atStart : !atEnd));
+            }
+
+            if (reversed)
+            {
+                rows.Reverse();
+            }
+
+            shown.Add(new ModificationMemberGroupViewModel
+            {
+                Rows = rows,
+                Reversed = reversed,
+                ShowsMove = byItem && groups.Count > 1,
+                CanMoveBack = reversed ? groupIndex < groups.Count - 1 : groupIndex > 0,
+                CanMoveForward = reversed ? groupIndex > 0 : groupIndex < groups.Count - 1,
+            });
+        }
+
+        if (reversed)
+        {
+            shown.Reverse();
+        }
+
+        MemberGroups.Clear();
+        Members.Clear();
+        foreach (var group in shown)
+        {
+            MemberGroups.Add(group);
+            foreach (var row in group.Rows)
+            {
+                Members.Add(row);
+            }
         }
     }
 
@@ -1544,11 +1699,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             });
         }
 
-        Members.Clear();
-        foreach (var row in IsReversed ? Enumerable.Reverse(rows) : rows)
-        {
-            Members.Add(row);
-        }
+        ShowRows(rows);
 
         Images.Clear();
         var directory = _services.Paths.ModificationImagesDir(Record.Id);
@@ -2074,8 +2225,24 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
             return;
         }
 
+        var delta = back ? row.BackDelta : -row.BackDelta;
+        await _services.Commands.ExecuteAsync(row.MovesInItem
+            ? new UiCommand.MoveModificationMemberInItem(Record.Id, row.Member, delta)
+            : new UiCommand.MoveModificationMember(Record.Id, row.Member, delta));
+
+        await ReloadAsync();
+    }
+
+    /// <param name="back">見えている並びの前へ動かすか。逆の順で見せているときは、記録の上では後ろへ動く。</param>
+    private async Task MoveGroupAsync(ModificationMemberGroupViewModel? group, bool back)
+    {
+        if (group is null)
+        {
+            return;
+        }
+
         await _services.Commands.ExecuteAsync(
-            new UiCommand.MoveModificationMember(Record.Id, row.Member, back ? row.BackDelta : -row.BackDelta));
+            new UiCommand.MoveModificationItem(Record.Id, group.ItemId, back ? group.BackDelta : -group.BackDelta));
 
         await ReloadAsync();
     }

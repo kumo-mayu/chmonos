@@ -75,12 +75,12 @@ public class ModificationMemberOrderAndFilesTests
         // 記録の並びは変えない
         var stored = await app.Services.Modifications.LoadAsync(detail.Record.Id);
         Assert.Equal([Shader, Costume, Hair], stored!.Members.Select(member => member.ItemId));
-        Assert.Equal("入れた順の逆に並べています。Unityへは入れた順に送ります。", detail.MembersOrderText);
+        Assert.Equal("逆の順に並べています。Unityへは番号の順に送ります。", detail.MembersOrderText);
 
         detail.ShowInsertOrderCommand.Execute(null);
         await app.SettleAsync();
         Assert.Equal([Shader, Costume, Hair], detail.Members.Select(row => row.Member.ItemId));
-        Assert.Equal("上から順に入れた記録です。依存するものが先に来るように並べ替えられます。", detail.MembersOrderText);
+        Assert.Equal("上の商品から順に送ります。依存するものが先に来るように並べ替えられます。", detail.MembersOrderText);
     });
 
     [Fact]
@@ -106,9 +106,39 @@ public class ModificationMemberOrderAndFilesTests
         var reopened = new ModificationViewModel(record, app.Services, main, main.Thumbnails);
         await UiThread.Until(() => reopened.Members.Count == 3, "使ったものが並ぶ");
 
-        var planned = Core.Services.ModificationSendPlan.RowsOf(record, _ => null);
+        var planned = Core.Services.ModificationSendPlan.RowsOf(record, _ => null, byItem: true);
         Assert.Equal([0, 2], reopened.RowsToSendAll().Select(row => row.Index));
         Assert.Equal(reopened.RowsToSendAll().Select(row => row.Index), planned.Select(row => row.Index));
+    });
+
+    /// <summary>
+    /// 送る順は設定で選ぶ（ユーザ判断 2026-11-20）。商品ごと（既定）は、商品が記録に初めて出る順・同じ商品の中は記録の順。
+    /// 記録の順は記録のまま。どちらも外した行は送らず、外から使う API と同じ行を同じ順で送る
+    /// </summary>
+    [Theory]
+    [InlineData(false, new[] { 0, 3, 1 })]
+    [InlineData(true, new[] { 0, 1, 3 })]
+    public Task 送る順は設定で_商品ごとか記録の順を選べる(bool recordOrder, int[] expected) => TestApp.Run(async app =>
+    {
+        var (main, detail) = await OpenAsync(app,
+            Make.Item(Shader, "作り物のシェーダー"), Make.Item(Costume, "作り物の衣装"), Make.Item(Hair, "作り物の髪"));
+
+        // 同じ商品を離して2回入れた記録（シェーダー・衣装・髪（外す）・シェーダー）
+        await app.Services.Commands.ExecuteAsync(new UiCommand.AddModificationMember(
+            detail.Record.Id, new ModificationMember { ItemId = Shader, Package = "Second.unitypackage" }));
+        var added = (await app.Services.Modifications.LoadAsync(detail.Record.Id))!;
+        await app.Services.Commands.ExecuteAsync(new UiCommand.SetModificationMemberDetached(added.Id, added.Members[2], true));
+        if (recordOrder)
+        {
+            await app.ChangeSettingsAsync(settings => settings with { SendModificationInRecordOrder = true });
+        }
+
+        var record = (await app.Services.Modifications.LoadAsync(detail.Record.Id))!;
+        var reopened = new ModificationViewModel(record, app.Services, main, main.Thumbnails);
+        await UiThread.Until(() => reopened.Members.Count == 4, "使ったものが並ぶ");
+
+        Assert.Equal(expected, reopened.RowsToSendAll().Select(row => row.Index));
+        Assert.Equal(expected, Core.Services.ModificationSendPlan.RowsOf(record, _ => null, byItem: !recordOrder).Select(row => row.Index));
     });
 
     [Fact]
@@ -135,39 +165,162 @@ public class ModificationMemberOrderAndFilesTests
         detail.ShowReverseOrderCommand.Execute(null);
         await app.SettleAsync();
 
-        // 見えている並び：髪・衣装・シェーダー。いちばん上（髪＝最後に入れた物）は前へ動かせない
-        var top = detail.Members[0];
+        // 見えている欄：髪・衣装・シェーダー。いちばん上（髪＝最後に入れた物）は前へ動かせない
+        var top = detail.MemberGroups[0];
         Assert.False(top.CanMoveBack);
         Assert.True(top.CanMoveForward);
         Assert.Equal("いちばん前にあります。", top.MoveBackHint);
 
         // 衣装を見えている前（上）へ → 記録では後ろへ（シェーダー・髪・衣装）
-        var costume = detail.Members.Single(row => row.Member.ItemId == Costume);
-        Assert.Equal("前へ移動します。後に送られます。", costume.MoveBackHint);
-        detail.MoveMemberBackCommand.Execute(costume);
-        await UiThread.Until(() => detail.Members[0].Member.ItemId == Costume, "上へ動く");
+        var costume = detail.MemberGroups.Single(group => group.ItemId == Costume);
+        Assert.Equal("この商品を前へ移動します。後に送られます。", costume.MoveBackHint);
+        detail.MoveGroupBackCommand.Execute(costume);
+        await UiThread.Until(() => detail.MemberGroups[0].ItemId == Costume, "上へ動く");
 
         var stored = await app.Services.Modifications.LoadAsync(detail.Record.Id);
         Assert.Equal([Shader, Hair, Costume], stored!.Members.Select(member => member.ItemId));
         Assert.Equal([Costume, Hair, Shader], detail.Members.Select(row => row.Member.ItemId));
     });
 
-    /// <summary>「移動 ▾」（feedback 2026-11-18）の項目は命令の可否で灰色になる。端の行では動けない方だけ押せない</summary>
+    /// <summary>「移動 ▾」（feedback 2026-11-18）の項目は命令の可否で灰色になる。端の欄では動けない方だけ押せない</summary>
     [Fact]
-    public Task 移動のメニューは_端の行では動けない方だけ押せない() => TestApp.Run(async app =>
+    public Task 移動のメニューは_端の欄では動けない方だけ押せない() => TestApp.Run(async app =>
     {
         var (_, detail) = await OpenAsync(app,
             Make.Item(Shader, "作り物のシェーダー"), Make.Item(Costume, "作り物の衣装"), Make.Item(Hair, "作り物の髪"));
 
-        var (first, middle, last) = (detail.Members[0], detail.Members[1], detail.Members[2]);
-        Assert.False(detail.MoveMemberBackCommand.CanExecute(first));
-        Assert.True(detail.MoveMemberForwardCommand.CanExecute(first));
-        Assert.True(detail.MoveMemberBackCommand.CanExecute(middle));
-        Assert.True(detail.MoveMemberForwardCommand.CanExecute(middle));
-        Assert.True(detail.MoveMemberBackCommand.CanExecute(last));
-        Assert.False(detail.MoveMemberForwardCommand.CanExecute(last));
-        Assert.False(detail.MoveMemberBackCommand.CanExecute(null));
+        var (first, middle, last) = (detail.MemberGroups[0], detail.MemberGroups[1], detail.MemberGroups[2]);
+        Assert.False(detail.MoveGroupBackCommand.CanExecute(first));
+        Assert.True(detail.MoveGroupForwardCommand.CanExecute(first));
+        Assert.True(detail.MoveGroupBackCommand.CanExecute(middle));
+        Assert.True(detail.MoveGroupForwardCommand.CanExecute(middle));
+        Assert.True(detail.MoveGroupBackCommand.CanExecute(last));
+        Assert.False(detail.MoveGroupForwardCommand.CanExecute(last));
+        Assert.False(detail.MoveGroupBackCommand.CanExecute(null));
+
+        // ファイルが1つの欄には、欄の中で動かす「移動 ▾」を出さない（動かせる相手が無い）
+        Assert.All(detail.MemberGroups, group => Assert.True(group.ShowsMove));
+        Assert.All(detail.Members, row => Assert.False(row.ShowsMove));
     });
+
+    /// <summary>
+    /// 1商品1欄（ユーザ判断 2026-11-20）。同じ商品を離して入れた記録でも、画面では1つの欄にまとめ、欄の中は記録の順。
+    /// 番号は送る順。記録の形は変えない
+    /// </summary>
+    [Fact]
+    public Task 同じ商品の行は1つの欄にまとめ_番号は商品ごとに送る順() => TestApp.Run(async app =>
+    {
+        var (main, detail) = await OpenAsync(app, Make.Item(Shader, "作り物のシェーダー"), Make.Item(Costume, "作り物の衣装"));
+        var record = await AddSecondShaderAsync(app, detail);
+        var reopened = new ModificationViewModel(record, app.Services, main, main.Thumbnails);
+        await UiThread.Until(() => reopened.Members.Count == 3, "使ったものが並ぶ");
+
+        Assert.Equal([Shader, Costume], reopened.MemberGroups.Select(group => group.ItemId));
+        var shader = reopened.MemberGroups[0];
+        Assert.Equal([0, 2], shader.Rows.Select(row => row.Index));
+        Assert.Equal(["1", "2"], shader.Rows.Select(row => row.OrderText));
+        Assert.Equal("3", reopened.MemberGroups[1].Rows.Single().OrderText);
+
+        // ファイルが2つの欄だけ、欄の中で動かす「移動 ▾」を出す
+        Assert.All(shader.Rows, row => Assert.True(row.ShowsMove));
+        Assert.False(reopened.MemberGroups[1].Rows.Single().ShowsMove);
+
+        // 記録の形は変わらない（シェーダー・衣装・シェーダー）
+        var stored = await app.Services.Modifications.LoadAsync(record.Id);
+        Assert.Equal([Shader, Costume, Shader], stored!.Members.Select(member => member.ItemId));
+    });
+
+    /// <summary>記録の順で送る設定でも欄はまとめるが、番号は記録の順（欄の中で離れ得る）。欄ごとの移動は出さず、行を記録の上で動かす</summary>
+    [Fact]
+    public Task 記録の順で送るときは_番号が記録の順で_行を記録の上で動かす() => TestApp.Run(async app =>
+    {
+        var (main, detail) = await OpenAsync(app, Make.Item(Shader, "作り物のシェーダー"), Make.Item(Costume, "作り物の衣装"));
+        var record = await AddSecondShaderAsync(app, detail);
+        await app.ChangeSettingsAsync(settings => settings with { SendModificationInRecordOrder = true });
+        var reopened = new ModificationViewModel(record, app.Services, main, main.Thumbnails);
+        await UiThread.Until(() => reopened.Members.Count == 3, "使ったものが並ぶ");
+
+        Assert.Equal(["1", "3"], reopened.MemberGroups[0].Rows.Select(row => row.OrderText));
+        Assert.Equal("2", reopened.MemberGroups[1].Rows.Single().OrderText);
+        Assert.All(reopened.MemberGroups, group => Assert.False(group.ShowsMove));
+        Assert.All(reopened.Members, row => Assert.True(row.ShowsMove));
+        Assert.Equal("番号の順に送ります。依存するものが先に来るように並べ替えられます。", reopened.MembersOrderText);
+
+        // 衣装の行を前へ → 記録の上で1つ前へ（衣装・シェーダー・シェーダー）
+        var costume = reopened.Members.Single(row => row.Member.ItemId == Costume);
+        reopened.MoveMemberBackCommand.Execute(costume);
+        await UiThread.Until(() => reopened.MemberGroups[0].ItemId == Costume, "衣装の欄が先になる");
+        var stored = await app.Services.Modifications.LoadAsync(record.Id);
+        Assert.Equal([Costume, Shader, Shader], stored!.Members.Select(member => member.ItemId));
+    });
+
+    /// <summary>商品ごとに送るとき、欄の中の「移動 ▾」は同じ商品のファイルの順だけを替える（間のほかの商品の行は動かない）</summary>
+    [Fact]
+    public Task 欄の中でファイルを動かすと_同じ商品の中の順だけが替わる() => TestApp.Run(async app =>
+    {
+        var (main, detail) = await OpenAsync(app, Make.Item(Shader, "作り物のシェーダー"), Make.Item(Costume, "作り物の衣装"));
+        var record = await AddSecondShaderAsync(app, detail);
+        var reopened = new ModificationViewModel(record, app.Services, main, main.Thumbnails);
+        await UiThread.Until(() => reopened.Members.Count == 3, "使ったものが並ぶ");
+
+        var second = reopened.MemberGroups[0].Rows[1];
+        Assert.False(reopened.MoveMemberForwardCommand.CanExecute(second));
+        reopened.MoveMemberBackCommand.Execute(second);
+        await UiThread.Until(() => reopened.MemberGroups[0].Rows[0].Member.Package == "Second.unitypackage", "欄の中で上へ動く");
+
+        var stored = await app.Services.Modifications.LoadAsync(record.Id);
+        Assert.Equal([Shader, Costume, Shader], stored!.Members.Select(member => member.ItemId));
+        Assert.Equal("Second.unitypackage", stored.Members[0].Package);
+        Assert.Equal([0, 2, 1], reopened.RowsToSendAll().Select(row => row.Index));
+    });
+
+    /// <summary>
+    /// 欄は外した行も入れて決める。先頭の行を外しても、残りの同じ商品の行は欄の位置（その商品が初めて出た所）で送る。
+    /// 外した行を抜いてから並べると、画面の欄の順と送る順が食い違う
+    /// </summary>
+    [Fact]
+    public Task 先頭の行を外しても_送る順は画面の欄の順() => TestApp.Run(async app =>
+    {
+        var (main, detail) = await OpenAsync(app,
+            Make.Item(Shader, "作り物のシェーダー"), Make.Item(Costume, "作り物の衣装"), Make.Item(Hair, "作り物の髪"));
+        await app.Services.Commands.ExecuteAsync(new UiCommand.AddModificationMember(
+            detail.Record.Id, new ModificationMember { ItemId = Shader, Package = "Second.unitypackage" }));
+        var added = (await app.Services.Modifications.LoadAsync(detail.Record.Id))!;
+        await app.Services.Commands.ExecuteAsync(new UiCommand.SetModificationMemberDetached(added.Id, added.Members[0], true));
+
+        var record = (await app.Services.Modifications.LoadAsync(detail.Record.Id))!;
+        var reopened = new ModificationViewModel(record, app.Services, main, main.Thumbnails);
+        await UiThread.Until(() => reopened.Members.Count == 4, "使ったものが並ぶ");
+
+        Assert.Equal([Shader, Costume, Hair], reopened.MemberGroups.Select(group => group.ItemId));
+        Assert.False(reopened.MemberGroups[0].IsDetached);
+        Assert.Equal([3, 1, 2], reopened.RowsToSendAll().Select(row => row.Index));
+        Assert.Equal([3, 1, 2], Core.Services.ModificationSendPlan.RowsOf(record, _ => null, byItem: true).Select(row => row.Index));
+    });
+
+    /// <summary>送る順の設定を変えたら、次に開いた改変の番号に効く（改変の画面は開くたびに作り直す）</summary>
+    [Fact]
+    public Task 送る順の設定を変えると_開き直した改変の番号が替わる() => TestApp.Run(async app =>
+    {
+        var (main, detail) = await OpenAsync(app, Make.Item(Shader, "作り物のシェーダー"), Make.Item(Costume, "作り物の衣装"));
+        var record = await AddSecondShaderAsync(app, detail);
+        var before = new ModificationViewModel(record, app.Services, main, main.Thumbnails);
+        await UiThread.Until(() => before.Members.Count == 3, "使ったものが並ぶ");
+        Assert.Equal(["1", "2"], before.MemberGroups[0].Rows.Select(row => row.OrderText));
+
+        await app.ChangeSettingsAsync(settings => settings with { SendModificationInRecordOrder = true });
+        var after = new ModificationViewModel(record, app.Services, main, main.Thumbnails);
+        await UiThread.Until(() => after.Members.Count == 3, "使ったものが並ぶ");
+        Assert.Equal(["1", "3"], after.MemberGroups[0].Rows.Select(row => row.OrderText));
+    });
+
+    /// <summary>シェーダーの2つ目のファイルを最後に足す（記録：シェーダー・衣装・シェーダー）。</summary>
+    private static async Task<ModificationRecord> AddSecondShaderAsync(TestApp app, ModificationViewModel detail)
+    {
+        await app.Services.Commands.ExecuteAsync(new UiCommand.AddModificationMember(
+            detail.Record.Id, new ModificationMember { ItemId = Shader, Package = "Second.unitypackage" }));
+        return (await app.Services.Modifications.LoadAsync(detail.Record.Id))!;
+    }
 
     /// <summary>使ったものの欄の畳み方（feedback 2026-11-18）は、開き直した改変でも続く（アプリを閉じるまで覚える）</summary>
     [Fact]

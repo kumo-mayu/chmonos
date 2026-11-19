@@ -247,7 +247,17 @@
                     <StackPanel>
                         <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1" Padding="18,13">
                             <StackPanel>
-                                <TextBlock Text="監視フォルダ" FontWeight="Bold" FontSize="13" />
+                                <!--
+                                    取り込み対象を通さずに監視フォルダに足す口（ユーザ判断 2026-11-20）。前は上の枠でフォルダを取り込み対象に入れた後に
+                                    「監視フォルダにしますか」と聞く道しか無く、取り込まずに監視だけしたいときに足せなかった。押すと窓でフォルダを選ぶので「…」を付ける
+                                -->
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Content="フォルダを追加…" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
+                                            AutomationProperties.AutomationId="ImportAddWatchedFolder"
+                                            Command="{Binding AddWatchedFolderCommand}"
+                                            ToolTip="選んだフォルダを監視フォルダに追加します。取り込みはしません。" />
+                                    <TextBlock Text="監視フォルダ" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" />
+                                </DockPanel>
                                 <!--
                                     起動時に自動で取り込む設定で出し分ける（U7）。以前の「次に開いたとき」は
                                     取り込み画面を開くことにも読め、設定を入にした人には「勝手には取り込みません」が嘘になっていた
@@ -285,7 +295,7 @@
                                 </WrapPanel>
                                 <TextBlock Text="{Binding WatchImportText}"
                                            AutomationProperties.AutomationId="ImportWatchedNowText"
-                                           Margin="0,6,0,0" TextTrimming="CharacterEllipsis">
+                                           Margin="0,6,0,0" TextWrapping="Wrap">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
                                             <Style.Triggers>
@@ -312,7 +322,7 @@
                             </StackPanel>
                         </Border>
                         <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="18,12,18,14"
-                                   Text="まだ監視しているフォルダはありません。フォルダを上の枠にドロップすると、監視するかどうかを聞きます。"
+                                   Text="まだ監視しているフォルダはありません。「フォルダを追加…」で選ぶか、フォルダを上の枠にドロップしてください。"
                                    Visibility="{Binding HasWatched, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
 
                         <controls:ContentItemsControl ItemsSource="{Binding Watched}" controls:ArrowGroup.IsEnabled="True">

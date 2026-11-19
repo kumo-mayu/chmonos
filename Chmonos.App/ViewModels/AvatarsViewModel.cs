@@ -1521,6 +1521,8 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
                 // 名前を変えた後の読み直しは入力を伴わないので、押せないまま残っていた
                 RelayCommand.RaiseCanExecuteChanged();
 
+                ConversionPairs.ShowFor(value?.ItemId);
+
                 // 選んだアバターの改変を読み直す。待たせないので投げっぱなしにする
                 ModificationNameInput = string.Empty;
                 LoadModificationsAsync().Forget();

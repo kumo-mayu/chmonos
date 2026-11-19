@@ -619,6 +619,58 @@ public sealed class ModificationServiceTests : IDisposable
     }
 
     /// <summary>
+    /// 商品の欄ごと動かす（ユーザ判断 2026-11-20：1商品1欄）。動かす商品の行だけを行き先の欄の前へ固め、
+    /// ほかの商品の行の並び（記録の順で送る人が手で挟んだ物）は崩さない
+    /// </summary>
+    [Fact]
+    public async Task 商品の欄ごと動かすと_その商品の行だけが固まって動く()
+    {
+        var id = await NewAsync();
+        foreach (var member in new[] { Member("A", "a1"), Member("B", "b1"), Member("A", "a2"), Member("C", "c1"), Member("B", "b2") })
+        {
+            await _service.AddMemberAsync(id, member);
+        }
+
+        // 欄の順は A・B・C。C を前へ → C は B の最初の行の前へ。A と B が交互に挟まった所はそのまま
+        await _service.MoveItemAsync(id, "C", -1);
+        Assert.Equal(
+            ["a1", "c1", "b1", "a2", "b2"],
+            (await _service.LoadAsync(id))!.Members.Select(member => member.FileHash));
+
+        // A を後ろへ → 欄の順は C・A・B。A の2行は C の後ろ・B の最初の行の前へ固まる
+        await _service.MoveItemAsync(id, "A", 1);
+        Assert.Equal(
+            ["c1", "a1", "a2", "b1", "b2"],
+            (await _service.LoadAsync(id))!.Members.Select(member => member.FileHash));
+
+        // 端では動かない
+        await _service.MoveItemAsync(id, "C", -1);
+        await _service.MoveItemAsync(id, "B", 1);
+        Assert.Equal(
+            ["c1", "a1", "a2", "b1", "b2"],
+            (await _service.LoadAsync(id))!.Members.Select(member => member.FileHash));
+    }
+
+    /// <summary>欄の中のファイルの順は、同じ商品の行どうしで場所を入れ替える。間にあるほかの商品の行は動かない（欄の順が変わらない）</summary>
+    [Fact]
+    public async Task 欄の中でファイルを動かしても_ほかの商品の行は動かない()
+    {
+        var id = await NewAsync();
+        foreach (var member in new[] { Member("A", "a1"), Member("B", "b1"), Member("A", "a2") })
+        {
+            await _service.AddMemberAsync(id, member);
+        }
+
+        await _service.MoveMemberInItemAsync(id, await MemberAtAsync(id, 2), -1);
+        Assert.Equal(["a2", "b1", "a1"], (await _service.LoadAsync(id))!.Members.Select(member => member.FileHash));
+
+        // 同じ商品の中の端では動かない（B は1行だけ）
+        await _service.MoveMemberInItemAsync(id, await MemberAtAsync(id, 0), -1);
+        await _service.MoveMemberInItemAsync(id, await MemberAtAsync(id, 1), 1);
+        Assert.Equal(["a2", "b1", "a1"], (await _service.LoadAsync(id))!.Members.Select(member => member.FileHash));
+    }
+
+    /// <summary>
     /// **並びが変わっても、指した行に当たる**（ユーザ判断 2026-09-21・J5）。
     /// 画面は読み込んだ時点の位置を送るので、位置で指していると別の行を外していた。
     /// </summary>

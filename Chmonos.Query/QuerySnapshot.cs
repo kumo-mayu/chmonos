@@ -69,6 +69,9 @@ public sealed class QuerySnapshot
 
     public required IReadOnlyList<ShopNoteRecord> ShopNotes { get; init; }
 
+    /// <summary>人が足した変換の組（画面と同じ変換経由を答えるため）。</summary>
+    public required IReadOnlyList<ConversionPair> ConversionPairs { get; init; }
+
     public required IReadOnlySet<string> FavoriteShops { get; init; }
 
     public required AppSettings Settings { get; init; }
@@ -101,6 +104,7 @@ public sealed class QuerySnapshot
         UnreadUpdateKinds = itemId => UnreadUpdates.TryGetValue(itemId, out var unread) ? unread.Kinds : BoothChangeKind.None,
         UseDetectedVariationTargets = Settings.UseDetectedVariationTargets,
         IncludeUnconfirmedConversion = Settings.IncludeUnconfirmedConversion,
+        ConversionPairs = ConversionPairs,
     };
 
     /// <summary>検索用の文字列を照らす間に取る錠（文字列は対象を初めて探すときに畳んで覚えるので、同時に畳み合わない）。</summary>
@@ -270,6 +274,7 @@ public sealed class QuerySnapshot
             IncompleteParts = incomplete,
             Recent = recent,
             ShopNotes = shopNotes,
+            ConversionPairs = Need(StorePart.ConversionPairs) ? store.ConversionPairs.Load().Pairs : previous!.ConversionPairs,
             FavoriteShops = Chmonos.Core.Services.ShopNotes.FavoriteKeys(shopNotes),
             Settings = Need(StorePart.Settings) ? store.Settings.Load() : previous!.Settings,
             UserTagMaster = Need(StorePart.UserTags) ? store.UserTags.Load() : previous!.UserTagMaster,

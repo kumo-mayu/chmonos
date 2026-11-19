@@ -1132,6 +1132,32 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         set { if (SetField(ref _confirmUnitySend, value)) { Save(); } }
     }
 
+    private bool _sendModificationInRecordOrder;
+
+    /// <summary>
+    /// 改変の使ったものを送る順の繋がったボタンの右（記録の順）。左は商品ごと（既定。ユーザ判断 2026-11-20）。
+    /// 外れる側の知らせ（false）では何もしない（左の側が書く）
+    /// </summary>
+    public bool SendModificationInRecordOrder
+    {
+        get => _sendModificationInRecordOrder;
+        set
+        {
+            if (SetField(ref _sendModificationInRecordOrder, value))
+            {
+                OnPropertyChanged(nameof(SendModificationByItem));
+                Save();
+            }
+        }
+    }
+
+    /// <summary>繋がったボタンの左（商品ごと）。</summary>
+    public bool SendModificationByItem
+    {
+        get => !_sendModificationInRecordOrder;
+        set { if (value) { SendModificationInRecordOrder = false; } }
+    }
+
     private int _oscPort;
 
     /// <summary>着替えで VRChat の OSC へ送るポート。ポートとして使える 1〜65535 に丸める。</summary>
@@ -1745,6 +1771,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             NotifyUnitySendResult = NotifyUnitySendResult,
             UnitySendResultToast = UnitySendResultToast,
             ConfirmUnitySend = ConfirmUnitySend,
+            SendModificationInRecordOrder = SendModificationInRecordOrder,
             NotificationRetentionCount = NotificationRetentionCount,
             NotificationArchiveMegabytes = NotificationArchiveMegabytes,
             SearchHistoryCount = SearchHistoryCount,

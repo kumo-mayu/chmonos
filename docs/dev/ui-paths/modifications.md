@@ -165,10 +165,10 @@ flowchart LR
 | 窓への落とし込み／Ctrl+V | 窓全体 | ドラッグ・キー | 写真を足す | いつも | ModificationView.xaml:10・ModificationView.xaml.cs:93 |
 | カード／リスト | 使ったものの見出しの右 | 押す | 形を替える | 使ったものがある時 | ModificationView.xaml:168 |
 | 入れた順／逆の順 | 同上 | 押す | 見せる順だけ替える | 同上 | MemberOrder.Insert・MemberOrder.Reverse・ModificationView.xaml:179・187 |
-| 使ったものを順にUnityへ送る | 同上 | 押す | 入れた順に1件ずつ取り込み画面を出す | いつも | ModificationView.xaml:200 |
+| 使ったものを順にUnityへ送る | 同上 | 押す | 番号の順に1件ずつ取り込み画面を出す | いつも | ModificationView.xaml:200 |
 | 中止 | 使ったものの見出しの下 | 押す | 送るのをやめる | 送っている間 | ModificationView.xaml:209 |
 | 使ったもののカード・名前 | 改変の左の列 | 押す・中クリック（リスト表示の名前と絵。BOOTH に無い商品は何もしない）・右クリック | 商品ページ（右の改変では右の欄に重ねる）・BOOTH・検索と同じメニュー | いつも | ModificationMemberLink・ModificationView.xaml:240・423 |
-| 移動 ▾（カードは前へ移動・後ろへ移動、リストは上へ移動・下へ移動） | 改変の左の列 | 押す | 入れた順を動かす（端では押せない方が灰色） | 使ったものがある時 | ModificationMemberMoveMenu・MemberMoveBack・MemberMoveForward |
+| 移動 ▾（カードは前へ移動・後ろへ移動、リストは上へ移動・下へ移動） | 改変の左の列 | 押す | 送る順を動かす（端では押せない方が灰色）。商品ごとに送るときは欄ごとの「移動 ▾」で商品を、ファイルの「移動 ▾」で欄の中を動かす | 使ったものがある時（欄のは欄が2つ以上、ファイルのは同じ商品のファイルが2つ以上か記録の順） | ModificationGroupMoveMenu・GroupMoveBack・GroupMoveForward・ModificationMemberMoveMenu・MemberMoveBack・MemberMoveForward |
 | Unity ▾（Unityへ送る・Unityで選択・使ったファイルを選び直す…） | 改変の左の列 | 押す | 送る・示す・選び直す（外した行は選び直しだけ） | いつも | ModificationMemberUnityMenu.*・ModificationView.xaml:315-328・490-503 |
 | 外す／戻す／削除（使ったもの） | 改変の左の列 | 押す | 外す（戻せる）／戻す／窓で確かめて消す | 外すは使っている行、戻す・削除は外した行 | ModificationMemberRemove・ModificationMemberRestore・ModificationMemberDelete・ModificationView.xaml:332-345・507-519 |
 | 更新 ▾（新しい版を送る…・新しい版を確認した） | 改変の左の列 | 押す | 新しい版を確認して送り、入った時だけ記録を替える／今の版のまま使う | 新しい版がある行（カード・リスト） | ModificationMemberUpdateMenu・ModificationMemberSendNewVersion・ModificationMemberCheckUpdate |

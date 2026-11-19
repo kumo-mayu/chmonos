@@ -23,16 +23,28 @@ public static class ModificationSendPlan
     }
 
     /// <summary>
-    /// 送る行か。外した行は送らない（使った数・送る・絞り込みには数えない決め事）。並びは記録の順（＝入れた順）のまま送る——
-    /// 見えている順で送ると、依存物より先に本体が入る
+    /// 送る行か。外した行は送らない（使った数・送る・絞り込みには数えない決め事）。並びは記録の順（＝入れた順）から決める——
+    /// 逆の順で見せていても、見えている順で送ると依存物より先に本体が入る
     /// </summary>
     public static bool Sends(ModificationMember member) => !member.Detached;
 
-    /// <summary>改変の送る行を、記録の順に決める。</summary>
+    /// <summary>
+    /// 送る順に並べ替える（設定の <see cref="AppSettings.SendModificationInRecordOrder"/>）。<paramref name="rows"/> は記録の順で渡す。
+    /// **商品ごと**（<paramref name="byItem"/>）：商品はその商品が記録に初めて出る順、同じ商品の中は記録の順（ユーザ判断 2026-11-20）。
+    /// 初めて出る順にするのは、記録を書き換えずに決まる順で、依存物（先に入れた物）が先に来るのを崩さないため。
+    /// 記録の順なら、渡した順のまま。
+    /// **外した行も入れて並べ、送らない行は並べた後に落とす**：画面の欄は外した行も自分の商品の欄に入れるので、外した行を先に除くと
+    /// 「A（外した）・B・A」の記録で画面は A→B、送るのは B→A と食い違い、外す・戻すだけで商品の順が動く
+    /// </summary>
+    public static IReadOnlyList<T> InSendOrder<T>(IEnumerable<T> rows, Func<T, string> itemIdOf, bool byItem)
+        // GroupBy は群を初めて出た順に返し、群の中は元の順を保つ（.NET の決まり）
+        => byItem ? [.. rows.GroupBy(itemIdOf, StringComparer.Ordinal).SelectMany(group => group)] : [.. rows];
+
+    /// <summary>改変の送る行を、送る順に決める。</summary>
     /// <param name="itemOf">商品の記録を引く（無ければ null）。</param>
-    public static IReadOnlyList<Row> RowsOf(ModificationRecord record, Func<string, ItemRecord?> itemOf)
-        => record.Members
-            .Select((member, index) => (member, index))
+    /// <param name="byItem">商品ごとに送るか（設定の <see cref="AppSettings.SendModificationInRecordOrder"/> の逆）。</param>
+    public static IReadOnlyList<Row> RowsOf(ModificationRecord record, Func<string, ItemRecord?> itemOf, bool byItem)
+        => InSendOrder(record.Members.Select((member, index) => (member, index)), pair => pair.member.ItemId, byItem)
             .Where(pair => Sends(pair.member))
             .Select(pair => Decide(pair.index, pair.member, itemOf(pair.member.ItemId)))
             .ToList();

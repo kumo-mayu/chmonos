@@ -1331,6 +1331,70 @@ public sealed partial class ImportViewModel : ViewModelBase
         return sources;
     }
 
+    private RelayCommand? _addWatchedFolder;
+
+    /// <summary>
+    /// 監視の欄の見出しの「フォルダを追加…」（open.md・ユーザ判断 2026-11-20）。取り込み対象を通さずに、選んだフォルダを監視フォルダに足すだけ。
+    /// 前は取り込み画面でフォルダを取り込み対象に入れた後の「監視フォルダにしますか」か、フォルダの画面（既に手元のファイルがある場所だけ）しか口が無かった
+    /// </summary>
+    public RelayCommand AddWatchedFolderCommand => _addWatchedFolder ??= new RelayCommand(() =>
+    {
+        var dialog = new Microsoft.Win32.OpenFolderDialog
+        {
+            Title = "監視するフォルダを選択",
+            Multiselect = true,
+        };
+
+        if (dialog.ShowDialog() == true)
+        {
+            AddWatchedFoldersAsync(dialog.FolderNames).Forget();
+        }
+    });
+
+    /// <summary>
+    /// 選んだフォルダを監視フォルダに足し、中のまだ取り込んでいないファイルの数を言う。取り込みはしない（取り込み対象にも入れない）。
+    /// 足した直後は中の今のファイルが全部「新しいファイル」になるので、足した時に数を言っておく（言わないと、次の起動で急に大量に見つかる）。
+    /// 数えるのは「新しいファイルを取り込む」と同じ探し方（手元のフォルダだけ。BOOTH へは聞かない）。フォルダを読むので裏で数える
+    /// </summary>
+    internal async Task AddWatchedFoldersAsync(IReadOnlyList<string> folders)
+    {
+        var added = folders.Where(folder => !Watched.Any(known => Core.Services.PathText.Same(known, folder))).ToList();
+        _watchTextVersion++;
+        if (added.Count == 0)
+        {
+            WatchImportText = folders.Count == 1 ? $"「{folders[0]}」は既に監視フォルダです。" : "選んだフォルダは、すべて既に監視フォルダです。";
+            return;
+        }
+
+        foreach (var folder in added)
+        {
+            await SetWatchedAsync(folder, watch: true);
+        }
+
+        RelayCommand.RaiseCanExecuteChanged();
+        var head = added.Count == 1 ? $"「{added[0]}」を監視フォルダに追加しました。" : $"監視フォルダを {added.Count} 件追加しました。";
+        WatchImportText = head;
+        var version = _watchTextVersion;
+        try
+        {
+            var result = await Task.Run(() => _services.Watch.FindNewAsync(added));
+
+            // 数えている間に押した結果を、古い数で上書きしない
+            if (version != _watchTextVersion)
+            {
+                return;
+            }
+
+            WatchImportText = result.NewFiles.Count > 0
+                ? $"{head}中のファイル {result.NewFiles.Count} 件はまだ取り込んでいません。"
+                : head;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // 足すのは済んでいる。数は目安なので、読めなくても足した事だけを言う
+        }
+    }
+
     /// <summary>
     /// 監視フォルダの新着と、それ以外（前回の続き・人が足した物）が混ざった対象の履歴：新着だけを <see cref="WatchedSources"/> で監視フォルダに替え、
     /// ほかはそのまま載せる。同じ行は1つにする（ユーザ判断 2026-11-20：起動時・開いている間の自動の取り込みと、帯の件数から積んだ物も、

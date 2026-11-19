@@ -123,6 +123,7 @@ public sealed partial class SettingsViewModel
         _saveImages = settings.SaveImages;
         _refreshIntervalDays = settings.RefreshIntervalDays;
         _oscPort = settings.OscPort;
+        _sendModificationInRecordOrder = settings.SendModificationInRecordOrder;
         // 前の版の設定（3つの欄が無い）は、古い欄から読み替えた値を出す（AppSettings の読み口）
         _notifyUnitySendResult = settings.NotifiesUnitySendResult;
         _unitySendResultToast = settings.UnitySendResultByToast;

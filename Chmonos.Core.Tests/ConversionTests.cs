@@ -170,7 +170,7 @@ public class ConversionTests
             Item("9200001", conversion: Profile(new ConversionTarget { AvatarItemId = "9000001", Reverse = true, Confirmed = true })),
             Item("9200002", conversion: Profile(new ConversionTarget { AvatarItemId = "9000002", Forward = true, Confirmed = true })),
         };
-        var index = ConversionIndex.Build(Compat, items, includeUnconfirmed: false, includeDetectedVariations: true);
+        var index = ConversionIndex.Build(Compat, items, includeUnconfirmed: false, includeDetectedVariations: true, pairs: []);
         var clothing = Item("9300001", avatars: ["9000001"]).Local;
 
         var routes = index.Resolve(clothing);
@@ -188,7 +188,7 @@ public class ConversionTests
             Item("9200002", conversion: Profile(new ConversionTarget { AvatarItemId = "9000002", Forward = true, Confirmed = true, Rejected = true })),
         };
 
-        var routes = ConversionIndex.Build(Compat, items, includeUnconfirmed: true, includeDetectedVariations: true)
+        var routes = ConversionIndex.Build(Compat, items, includeUnconfirmed: true, includeDetectedVariations: true, pairs: [])
             .Resolve(Item("9300001", avatars: ["9000001"]).Local);
 
         Assert.Empty(routes);
@@ -202,14 +202,14 @@ public class ConversionTests
             Item("9200001", conversion: Profile(new ConversionTarget { AvatarItemId = "9000001", Reverse = true, Confirmed = true })),
             Item("9200003", conversion: Profile(new ConversionTarget { BaseName = "作り物素体", Forward = true, Confirmed = true })),
         };
-        var viaBase = ConversionIndex.Build(Compat, items, false, true).Resolve(Item("9300001", avatars: ["9000001"]).Local);
+        var viaBase = ConversionIndex.Build(Compat, items, false, true, []).Resolve(Item("9300001", avatars: ["9000001"]).Local);
         Assert.Equal(["9000003", "9000004"], viaBase.Keys.Order());
 
         var avatarOnly = ConversionIndex.Build(
             Compat,
             [items[0], Item("9200004", conversion: Profile(new ConversionTarget { AvatarItemId = "9000003", Forward = true, Confirmed = true }))],
             false,
-            true).Resolve(Item("9300001", avatars: ["9000001"]).Local);
+            true, []).Resolve(Item("9300001", avatars: ["9000001"]).Local);
         Assert.Equal(["9000003"], avatarOnly.Keys);
     }
 
@@ -222,7 +222,7 @@ public class ConversionTests
         };
 
         // 衣装は素体の仲間の1体に対応：素体経由で仲間全員に並ぶので、変換経由は空
-        var routes = ConversionIndex.Build(Compat, items, false, true).Resolve(Item("9300002", avatars: ["9000003"]).Local);
+        var routes = ConversionIndex.Build(Compat, items, false, true, []).Resolve(Item("9300002", avatars: ["9000003"]).Local);
 
         Assert.Empty(routes);
     }
@@ -237,8 +237,8 @@ public class ConversionTests
         };
         var clothing = Item("9300001", avatars: ["9000001"]).Local;
 
-        Assert.Empty(ConversionIndex.Build(Compat, items, includeUnconfirmed: false, true).Resolve(clothing));
-        Assert.Equal(["9000002"], ConversionIndex.Build(Compat, items, includeUnconfirmed: true, true).Resolve(clothing).Keys);
+        Assert.Empty(ConversionIndex.Build(Compat, items, includeUnconfirmed: false, true, []).Resolve(clothing));
+        Assert.Equal(["9000002"], ConversionIndex.Build(Compat, items, includeUnconfirmed: true, true, []).Resolve(clothing).Keys);
     }
 
     [Fact]
@@ -250,7 +250,7 @@ public class ConversionTests
             Item("9200002", conversion: Profile(new ConversionTarget { AvatarItemId = "9000002", Forward = true, Confirmed = true }) with { Mode = ConversionMode.NotProfile }),
         };
 
-        Assert.Empty(ConversionIndex.Build(Compat, items, false, true).Resolve(Item("9300001", avatars: ["9000001"]).Local));
+        Assert.Empty(ConversionIndex.Build(Compat, items, false, true, []).Resolve(Item("9300001", avatars: ["9000001"]).Local));
     }
 
     [Fact]
@@ -264,7 +264,7 @@ public class ConversionTests
                 new ConversionTarget { AvatarItemId = "9000005", Forward = true, Confirmed = true })),
         };
 
-        var routes = ConversionIndex.Build(Compat, items, false, true).Resolve(Item("9300003", avatars: ["9000001", "9000002"]).Local);
+        var routes = ConversionIndex.Build(Compat, items, false, true, []).Resolve(Item("9300003", avatars: ["9000001", "9000002"]).Local);
 
         Assert.Equal(new ConversionRoute("9000001", 1), routes["9000005"]);
     }

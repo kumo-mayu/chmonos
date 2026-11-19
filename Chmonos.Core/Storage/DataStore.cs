@@ -285,6 +285,8 @@ public sealed class DataStore
         Modifications = new ModificationRepository(paths);
         ShopBanners = new JsonFileStore<List<ShopBannerRecord>>(paths.ShopBannersFile);
         ShopNotes = new JsonFileStore<List<ShopNoteRecord>>(paths.ShopNotesFile);
+        // 商品ページを開くたび・検索の条件を組むたびに読む。中身は init だけの型なので共有する
+        ConversionPairs = new JsonFileStore<ConversionPairFile>(paths.ConversionPairsFile, shareLoaded: true);
         ApiSettings = new JsonFileStore<ApiSettings>(paths.ApiSettingsFile);
         ApiClients = new JsonFileStore<ApiClientList>(paths.ApiClientsFile);
         VideoTitles = new JsonFileStore<List<VideoTitleRecord>>(paths.VideoTitlesFile);
@@ -350,6 +352,9 @@ public sealed class DataStore
 
     /// <summary>ショップに人が付けた星とメモ（<see cref="ShopNoteRecord"/>）。</summary>
     public JsonFileStore<List<ShopNoteRecord>> ShopNotes { get; }
+
+    /// <summary>人が足した変換の組（<c>conversion-pairs.json</c>）。書くのは <c>UiCommand.ChangeConversionPairs</c> と、ID の変更・素体の改名と削除の読み替え。</summary>
+    public JsonFileStore<ConversionPairFile> ConversionPairs { get; }
 
     /// <summary>外から使う API の設定（ポート・許可する Web ページ。設定画面と、手で書いたファイルの両方から変わる）。</summary>
     public JsonFileStore<ApiSettings> ApiSettings { get; }

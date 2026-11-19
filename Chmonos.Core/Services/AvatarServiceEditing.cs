@@ -785,6 +785,9 @@ public sealed partial class AvatarService
         string? newName,
         CancellationToken cancellationToken)
     {
+        // 人が足した変換の組も素体を名前で指す。数えるのは商品の数なので、組の書き換えは数に入れない
+        await _store.ConversionPairs.TryUpdateAsync(file => ConversionPairs.RenameBase(file, oldName, newName), cancellationToken);
+
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
         var matches = LocalReferences.SameBaseName(oldName);
         var updated = 0;

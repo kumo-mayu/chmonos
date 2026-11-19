@@ -43,7 +43,8 @@ internal static partial class Scenes
         SettingsHiddenItems("settings-hidden-cards", "設定の「隠したもの」：非表示にした商品を検索と同じカードで出した形（右下に大きさのつまみ）", list: false),
         SettingsHiddenItems("settings-hidden-list", "設定の「隠したもの」：非表示にした商品をリストで出した形", list: true),
         SettingsSection("settings-display-groups", "設定の「表示」：共通（色・大きさ・幅 ─ R-18・消えた画像）と、小見出し「対応アバター」", "表示"),
-        SettingsSection("settings-about-links", "設定の「Chmonos（クモノス）について」：GitHub・マニュアル・辞書の出典のリンク", "Chmonos（クモノス）について"),
+        SettingsModification(),
+        SettingsSection("settings-about-links","設定の「Chmonos（クモノス）について」：GitHub・マニュアル・辞書の出典のリンク", "Chmonos（クモノス）について"),
         SettingsSection("settings-folders-collapsed", "設定の「取り込みと取得」：取り込み元の履歴は既定で畳み、「フォルダを追加」は見出しのすぐ右", "取り込み元の履歴"),
     ];
 
@@ -105,6 +106,26 @@ internal static partial class Scenes
             await context.SettleAsync();
 
             return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, "Unityへ送った結果を知らせる")) };
+        });
+
+    /// <summary>
+    /// 設定の「改変」の「使ったものを送る順」（ユーザ判断 2026-11-20）。「操作」の欄の下の方にあり、既定の高さでは枠の外になるので、
+    /// 欄の中を送ってその行を見える所へ出してから撮る
+    /// </summary>
+    private static Scene SettingsModification()
+        => new("settings-modification", "設定の「改変」：使ったものを送る順［商品ごと｜記録の順］（既定の商品ごと）", async context =>
+        {
+            var main = await context.StartAsync();
+            main.ShowSettings();
+            var settings = context.Screen<SettingsViewModel>();
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+            await SceneContext.UntilAsync(() => !settings.IsLoading, "設定を読み終わる");
+            await context.SettleAsync();
+            Look.Text(root, "使ったものを送る順")!.BringIntoView();
+            await context.SettleAsync();
+
+            return new Shot(root);
         });
 
     /// <summary>設定の「商品ページと編集」：ファイルの表示順のプルダウンと向きの繋がったボタン（2026-11-11）。「バージョンを考えた名前順」の降順を選んだ形</summary>

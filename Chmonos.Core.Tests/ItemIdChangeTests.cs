@@ -141,6 +141,21 @@ public class ItemIdChangeTests : IDisposable
         Assert.Null(await _store.Items.LoadAsync(LocalId));
     }
 
+    /// <summary>人が足した変換の組（conversion-pairs.json）も ID で指すので、移した先の ID へ追う。追わないと組が黙って効かなくなる。</summary>
+    [Fact]
+    public async Task 変換の組が指すIDも移す()
+    {
+        await SaveLocalItemAsync(new LocalBlock { LocalFiles = [File("aaa")] });
+        await _store.ConversionPairs.SaveAsync(new ConversionPairFile
+        {
+            Pairs = [new ConversionPair { From = ConversionEnd.Avatar(LocalId), To = ConversionEnd.Avatar("9000002") }],
+        });
+
+        Assert.Equal(ItemIdChangeOutcome.Moved, await _service.ChangeItemIdAsync(LocalId, RealId));
+
+        Assert.Equal(ConversionEnd.Avatar(RealId), Assert.Single(_store.ConversionPairs.Load().Pairs).From);
+    }
+
     /// <summary>移した先の情報はBOOTHから取る。仮IDのままでは名前も画像も増えない。</summary>
     [Fact]
     public async Task FetchesTheTargetFromBooth()

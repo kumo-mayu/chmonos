@@ -40,6 +40,9 @@ public sealed class CommandHandler
     /// <summary>未確定の自動検索の控え（unresolved-searches.json。ユーザ判断 2026-11-11）。無ければ控えを読み書きしない（試験の一部の組み立て）。</summary>
     public Resolution.CandidateSearchCache? CandidateSearches { private get; init; }
 
+    /// <summary>人が足した変換の組（conversion-pairs.json。ユーザ判断 2026-11-20）。<see cref="UiCommand.ChangeConversionPairs"/> が書く。</summary>
+    public Storage.JsonFileStore<Models.ConversionPairFile>? ConversionPairs { private get; init; }
+
     /// <summary>外から使う API の設定の置き場（<see cref="UiCommand.ChangeApiSettings"/>）。</summary>
     public Storage.JsonFileStore<Models.ApiSettings>? ApiSettings { private get; init; }
 
@@ -455,6 +458,11 @@ public sealed class CommandHandler
                     cancellationToken);
                 return new CommandResult.ShopNotesChanged(notes);
             }
+
+            case UiCommand.ChangeConversionPairs pairs:
+                return new CommandResult.ConversionPairsChanged(
+                    await (ConversionPairs ?? throw new InvalidOperationException("変換の組の保存先が渡されていません。"))
+                        .UpdateAsync(pairs.Change, cancellationToken));
 
             case UiCommand.RememberVideoTitle remember:
                 await (_videoTitles ?? throw new InvalidOperationException("動画のタイトルの控えの保存先が渡されていません。"))
@@ -1011,6 +1019,14 @@ public sealed class CommandHandler
                 return await RunModificationAsync(
                     () => _modifications!.MoveMemberAsync(
                         moveMember.Id, moveMember.Member, moveMember.Delta, cancellationToken));
+
+            case UiCommand.MoveModificationItem moveItem:
+                return await RunModificationAsync(
+                    () => _modifications!.MoveItemAsync(moveItem.Id, moveItem.ItemId, moveItem.Delta, cancellationToken));
+
+            case UiCommand.MoveModificationMemberInItem moveInItem:
+                return await RunModificationAsync(
+                    () => _modifications!.MoveMemberInItemAsync(moveInItem.Id, moveInItem.Member, moveInItem.Delta, cancellationToken));
 
             case UiCommand.RecordModificationMemberFiles recordFiles:
                 return await RunModificationAsync(

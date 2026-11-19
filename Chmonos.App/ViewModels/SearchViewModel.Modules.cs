@@ -367,6 +367,8 @@ public sealed partial class SearchViewModel
         HasOpenProject = _openProjects.Count > 0,
         UseDetectedVariationTargets = _services.Settings.UseDetectedVariationTargets,
         IncludeUnconfirmedConversion = _services.Settings.IncludeUnconfirmedConversion,
+        // 変わっていなければ読み直さない（共有の写し）ので、条件を組むたびに読んでよい
+        ConversionPairs = _services.Store.ConversionPairs.Load().Pairs,
     };
 
     /// <summary>種類ごとの照らし方（Core の一覧表。API と同じ物）を、選ぶ条件の形で渡す。選ぶ条件の照らし方は材料を使わない。</summary>
@@ -934,6 +936,12 @@ public sealed partial class SearchViewModel
     /// 1商品ごとにファイルを読まないよう、ここに持つ。
     /// </summary>
     private IReadOnlySet<string> _favoriteShops = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 人が足す変換の組を変えたことを知る。条件を組むたびに組を読むので、絞り直すだけでよい
+    /// （対応アバターの条件の「変換で使える物も含める」の結果が変わりうる）
+    /// </summary>
+    public void NoteConversionPairsChanged() => ApplyFilters();
 
     /// <summary>ショップ画面で星やメモを変えたことを知る。ショップの条件を足していれば絞り直す（件数も変わる）。</summary>
     public void NoteShopNotesChanged(IReadOnlyList<ShopNoteRecord> notes)

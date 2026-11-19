@@ -80,6 +80,7 @@
 | [avatar-bases.md](spec/avatar-bases.md) | 共通素体、相性の3段階、商品ページの素体経由の札と素体ごとのまとめ・素体の中の並び |
 | [conversion.md](spec/conversion.md) | **下書き（v1.3.0・全部［案］）**：変換ツール（もちふぃった～）のプロファイルで使える対応アバター。変換扱い・判定の段・画面 |
 | [modifications.md](spec/modifications.md) | 改変の記録（構成物・画像・Unity プロジェクト）、改変の画面、「Unityで選択」 |
+| [modification-members.md](spec/modification-members.md) | 改変の詳細の「使ったもの」（1商品1欄・番号と送る順・並べ替え・見せる順） |
 | [unity.md](spec/unity.md) | Unity への受け渡し（窓を名指しして送る・連続送り・入り先・プロジェクトタブ・VCC） |
 | [unity-vpm.md](spec/unity-vpm.md) | Unity プロジェクトの VPM（読むだけで控える・改変の画面に並べる・同じ GUID の物を送る前に言う） |
 | [folder-view.md](spec/folder-view.md) | フォルダビューの根の決め方、右に出す物、ドライブ文字の読み替え、速さ |

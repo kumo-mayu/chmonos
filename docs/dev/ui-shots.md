@@ -123,6 +123,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | 取り込み：空 | `empty-import`（900） |
 | 取り込み：結果（読めない・OneDrive・壊れたzip・長い名前） | `import-result-unreadable`（900）・`import-result-one-broken` |
 | 取り込み：取り込んでいる最中（段・件数・棒・中断・残りの見込み・下の1行）・スキャン（棒なし）・減速 | `import-running`（900）・`import-running-scanning`・`import-running-throttled`・まだ始めていない対象 `import-not-started` |
+| 取り込み：監視の欄の「フォルダを追加…」で足した所（まだ取り込んでいない数の1行） | `import-watch-added` |
 | 取り込み：「探す」の窓と候補 | F3 の担当が足す |
 | 未確定：空 | `empty-resolve`（900） |
 | 未確定：一覧（壊れたzip・束・行の札・順番待ち） | `resolve-broken-zip`（900）・`resolve-row-badges`・`resolve-bundles`・`resolve-queue` |
@@ -147,6 +148,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | アバター：空・カード・リスト・持っていない・探す | `empty-avatars`（900）・`avatars-cards`・`avatars-list`・`avatars-cards-unowned`・`avatars-match-note` |
 | アバター：選んだ右の欄・知らせ・検出の結果の長い文 | `avatars-detail`（900）・`avatars-notice-off`・`avatars-notice-on`・`avatars-status` |
 | 共通素体：一覧・詳細・足す欄・推定・知らせ | `avatars-bases`・`avatars-base-members`・`avatars-inferred-base`・`avatars-base-notice-*` |
+| アバターの詳細の「このアバターの衣装を着せられるアバター」（人が足す変換の組の札と欄） | `avatars-conversion-pairs` |
 | 共通素体の画像（付けた所・無い所） | `avatars-base-image`・`avatars-base-image-none` |
 | 素体の候補の絵（商品ページの対応アバターを追加・変換のつなぎ先・検索の対応アバター・アバターの詳細の共通素体） | `suggest-base-icons` |
 | 候補（アバター・改変の呼び方） | `suggest-avatar-groups`・`suggest-avatar-divider`・`suggest-modification-alias` |
@@ -159,6 +161,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | 送る前の VPM との重なりの窓（1件・連続で2つの VPM に重なり場所を1行ずつ並べる。plan 40） | `catalog-dialog-vpm-overlap`・`-many` |
 | 改変：窓（使ったものを足す・改変に追加・探す・絵） | `pick-member-files-dialog`・`pick-modification-*-dialog` |
 | 改変：使ったファイルを選び直す窓（欄を足した・上限まで足した）と、詳細の「Unity ▾」（外した行を含む・カード・リスト） | `repick-member-files-dialog`・`repick-member-files-dialog-full`・`modification-member-repick`・`modification-member-repick-list` |
+| 改変：使ったものの1商品1欄（同じ商品の2つのファイル・番号は送る順・欄と欄の中の「移動 ▾」・カード・リスト） | `modification-members-grouped`・`modification-members-grouped-list` |
 | 送る unitypackage を選ぶ窓（改変・カードの右クリック・複数選択） | `catalog-dialog-pick-packages`・`-filtered`（探して選んだ・飛ばすボタン）・`-none`（0件で送るが押せない）・`-single-zip`（1つだけ入った zip は畳まず直に並ぶ） |
 | コピーした商品をまとめて登録する窓（計画 26） | `catalog-dialog-register-pasted`（ライブラリにある行・外した行・長い名前）・`-all-known`（すべてある・登録が押せない） |
 | ファイルの割り振り（サブ画面・計画 30） | `file-pool`（付ける先を選び組を広げてチェック・左は一部を畳む）・`-set-selected`（付いているファイルと「外す」・消えた商品の1行・押せない行）・`-nothing-shown`（絞りで何も出ない・左をすべて畳む）・`-filtered`／`-filtered-none`（左右の探す欄）・`-many`（40件・絵と頭文字・左は見えている行だけ作る）・`-wide-left`（境目で変えた比率で開き直す）・`-drag-left-min`／`-drag-right-min`（境目をドラッグして左右の最小で止まる）・`-after-changes`（表示した後の付け外しと読み直し） |
@@ -185,6 +188,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | 設定：全体（除外 0・3・5000件）・欄を開いた形 | `settings-excluded-*` |
 | 設定：長いパス・区切り・保存先の作業中・書き出し・既定に戻す・知らせ | `settings-long-paths`（900）・`settings-sort-dividers-*`・`settings-store-blocked`・`settings-backup-exported`・`settings-reset-all(-done)`・`settings-notes-*` |
 | 設定：API の節・フォルダの置き方（当てはまりの行・効かない段の行） | `settings-api`・`settings-folder-layouts` |
+| 設定：改変の「使ったものを送る順」（商品ごと・記録の順） | `settings-modification` |
 | 設定：カードに出す属性 | `card-info-settings` |
 
 ## ナビと下の帯（16-nav-bands）・小窓（17-dialogs）・部品（18-parts）

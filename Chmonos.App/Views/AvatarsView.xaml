@@ -875,6 +875,49 @@
                                            Visibility="{Binding HasNewBaseHint, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
 
                                 <!--
+                                    人が足す変換の組（ユーザ判断 2026-11-20・avatar2avatar）。このアバター用の衣装を、変換して着せられるアバターか共通素体。
+                                    プロファイルの無いツールでも足せるように、変換扱い（プロファイル）とは別に持つ。札は対応アバターの札と同じ形で、× で外す
+                                -->
+                                <StackPanel DataContext="{Binding ConversionPairs}" Margin="0,20,0,0">
+                                    <TextBlock Text="このアバターの衣装を着せられるアバター" Style="{StaticResource SectionLabel}" Margin="0,0,0,6" />
+                                    <ItemsControl ItemsSource="{Binding Rows}" AutomationProperties.AutomationId="AvatarConversionPairs"
+                                                  Visibility="{Binding HasRows, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6"
+                                                        Background="{DynamicResource AccentSoft}" BorderBrush="{DynamicResource AccentBorder}"
+                                                        Focusable="True" FocusVisualStyle="{StaticResource ChipFocusVisual}"
+                                                        AutomationProperties.AutomationId="AvatarConversionPair"
+                                                        AutomationProperties.Name="{Binding Name}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="{Binding Name}" FontSize="11.5" VerticalAlignment="Center" />
+                                                        <TextBlock Text="{Binding Tool, StringFormat={}・{0}}" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                                                                   Visibility="{Binding HasTool, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                        <Button Command="{Binding RemoveCommand}"
+                                                                AutomationProperties.AutomationId="AvatarConversionPairRemove"
+                                                                AutomationProperties.Name="{Binding Name, StringFormat={}{0}を外す}"
+                                                                ToolTip="外します。" Style="{StaticResource RejectMarkButton}" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <Grid Width="240" HorizontalAlignment="Left">
+                                        <controls:SuggestBox Source="{Binding Suggestions}" CommitCommand="{Binding AddCommand}"
+                                                             IconSelector="{Binding IconSelector}" InfoSelector="{Binding InfoSelector}"
+                                                             GroupHeadings="{Binding GroupHeadings}"
+                                                             AllowNew="False" Placeholder="アバターか共通素体を追加"
+                                                             AutomationProperties.AutomationId="AvatarConversionPairInput" />
+                                    </Grid>
+                                    <TextBlock DataContext="{Binding Notice}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" Margin="2,4,0,0" />
+                                </StackPanel>
+
+                                <!--
                                     呼び方の履歴。普段は畳む（ユーザ指示 2026-09-17）。検出に使うので、明らかに間違っている物以外は消さなくてよいと書く。
                                     消した表記は、商品の対応アバターと同じく末尾に出して1件ずつ戻せるようにする
                                 -->

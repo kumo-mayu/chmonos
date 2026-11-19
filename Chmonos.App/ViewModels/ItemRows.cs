@@ -675,8 +675,11 @@ public sealed class ViaConversionAvatarRow : AvatarRow
     /// <summary>ほかに元にできる対応アバターの数。</summary>
     public int OtherSources { get; init; }
 
+    /// <summary>人が足した変換の組から来たか（アバターの管理で足した組。プロファイルと両方なら偽＝プロファイルの言い方）。</summary>
+    public bool FromPair { get; init; }
+
     public string ViaTooltip => VariationNote + (IsOwned ? "持っているアバターです。" : string.Empty)
-        + $"「{SourceName}」用を、プロファイルで変換できる見込みです。"
+        + (FromPair ? $"「{SourceName}」用を、追加した組で変換できる見込みです。" : $"「{SourceName}」用を、プロファイルで変換できる見込みです。")
         + (OtherSources > 0 ? $"ほかに {OtherSources} 体のアバター用からも変換できます。" : string.Empty)
         + "押すとこのアバターを開きます";
 
