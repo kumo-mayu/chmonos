@@ -149,27 +149,48 @@ public class ItemViewSizePerScreenTests
     });
 
     [Fact]
-    public Task 設定を既定に戻すと_画面ごとの大きさも消す() => TestApp.Run(async app =>
+    public Task 設定を既定に戻しても_画面ごとに合わせた大きさは残し_1つの値だけ既定に戻す() => TestApp.Run(async app =>
     {
         var main = await StartAsync(app, settings => settings with
         {
             ItemViewSizePerScreen = false,
+            CardWidth = 260,
             ItemViewSizes = new Dictionary<string, ItemViewSizeEntry>
             {
                 ["search"] = new() { CardWidth = 300, ListRowHeight = 80 },
             },
         });
 
-        // 1つの値だけ戻すと、覚えた画面が戻らず「戻したのに大きいまま」になる
+        // 画面ごとの値は使う人が手で合わせた調整なので、一括の既定に戻すで消さない（open.md 84・ユーザ判断 2026-11-20）
         ItemViewSize.Current.ResetToDefaults(new AppSettings());
         await app.SettleAsync();
 
         Assert.True(ItemViewSize.Current.PerScreen);
-        Assert.Null(app.Services.Settings.ItemViewSizes);
+        Assert.Equal(300, app.Services.Settings.ItemViewSizes!["search"].CardWidth);
         main.ShowSettingsCommand.Execute(null);
         await app.SettleAsync();
         main.ShowSearchCommand.Execute(null);
         await app.SettleAsync();
+        Assert.Equal(300, CardMetrics.Width);
+
+        // 覚えた値の無い画面は、既定に戻した1つの値で開く
+        main.ShowFoldersCommand.Execute(null);
+        await app.SettleAsync();
         Assert.Equal(228, CardMetrics.Width);
     });
+
+    [Fact]
+    public void すべての設定を既定に戻すは_画面ごとの大きさを残す()
+    {
+        var settings = new AppSettings
+        {
+            CardWidth = 260,
+            ItemViewSizes = new Dictionary<string, ItemViewSizeEntry> { ["search"] = new() { CardWidth = 300, ListRowHeight = 80 } },
+        };
+
+        var reset = settings.ResetToDefaults();
+
+        Assert.Equal(new AppSettings().CardWidth, reset.CardWidth);
+        Assert.Equal(300, reset.ItemViewSizes!["search"].CardWidth);
+    }
 }

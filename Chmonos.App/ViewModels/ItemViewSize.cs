@@ -169,7 +169,8 @@ public sealed class ItemViewSize : ViewModelBase
     public void ResetToDefaults(AppSettings defaults)
     {
         _save?.Cancel();
-        _sizes.Clear();
+        // 画面ごとの値は消さない（使う人が手で合わせた調整。AppSettings.ResetToDefaults も残す。open.md 84・ユーザ判断 2026-11-20）。
+        // 戻すのは、覚えた値の無い画面とすべての画面で同じにした時に使う1つの値だけ
         _sharedCardWidth = (int)CardMetrics.Clamp(defaults.CardWidth);
         _sharedRowHeight = (int)ClampRow(defaults.ListRowHeight);
         if (_perScreen != defaults.ItemViewSizePerScreen)
@@ -178,7 +179,8 @@ public sealed class ItemViewSize : ViewModelBase
             OnPropertyChanged(nameof(PerScreen));
         }
 
-        Show(_sharedCardWidth, _sharedRowHeight);
+        var entry = _perScreen && _screen is { } screen ? _sizes.GetValueOrDefault(screen) : null;
+        Show(entry?.CardWidth ?? _sharedCardWidth, entry?.ListRowHeight ?? _sharedRowHeight);
         SaveAsync().Forget();
     }
 

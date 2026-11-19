@@ -6,6 +6,8 @@ namespace Chmonos.Core.Tests;
 public class AppSettingsResetTests
 {
     private static readonly string[] Kept = [nameof(AppSettings.ImportFolders), nameof(AppSettings.WatchedFolders), nameof(AppSettings.FolderLayouts),
+        // 画面ごとに手で合わせた大きさ（open.md 84・ユーザ判断 2026-11-20）
+        nameof(AppSettings.ItemViewSizes),
         nameof(AppSettings.AvatarSupportHeadings), nameof(AppSettings.AvatarIgnoredHeadings),
         // 画面に出していない欄（settings.json を手で書いて調整する値）
         nameof(AppSettings.GalleryHoverDelayMs),

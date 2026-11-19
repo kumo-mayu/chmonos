@@ -451,6 +451,9 @@ public sealed record AppSettings
         ImportFolders = ImportFolders,
         WatchedFolders = WatchedFolders,
         FolderLayouts = FolderLayouts,
+        // 画面ごとに覚えたカードの大きさ・行の高さは、使う人がその画面で手で合わせた調整なので、一括の既定に戻すでは消さない。
+        // 戻すのは全部の画面で使う1つの値（CardWidth・ListRowHeight）だけ（open.md 84・ユーザ判断 2026-11-20）
+        ItemViewSizes = ItemViewSizes,
         AvatarSupportHeadings = AvatarSupportHeadings,
         AvatarIgnoredHeadings = AvatarIgnoredHeadings,
         GalleryHoverDelayMs = GalleryHoverDelayMs,
