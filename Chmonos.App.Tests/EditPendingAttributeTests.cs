@@ -63,6 +63,41 @@ public class EditPendingAttributeTests
         Assert.Equal(new Dictionary<string, int> { ["露出"] = 40 }, saved.Attributes);
     });
 
+    /// <summary>属性の欄が書かれる保存（ほかの属性の値を変えた）でも、触っていない値はまだの行は残す</summary>
+    [Fact]
+    public Task ほかの属性を変えて保存しても_値はまだは残る() => TestApp.Run(async app =>
+    {
+        var (_, edit) = await OpenAsync(app, Pending("かわいさ"));
+
+        edit.Attributes.Single(row => row.Name == "露出").Value = 60;
+        var saved = await SaveAndLoadAsync(app, edit);
+
+        Assert.Equal(60, saved.Attributes["露出"]);
+        Assert.Equal(["かわいさ"], saved.PendingAttributes!);
+        Assert.False(saved.Attributes.ContainsKey("既定の属性"));
+    });
+
+    /// <summary>書きかけを控えて離れ、戻ってから保存しても、値はまだの行は「未評価」のまま残る</summary>
+    [Fact]
+    public Task 書きかけから戻っても値はまだの行が残る() => TestApp.Run(async app =>
+    {
+        var (main, edit) = await OpenAsync(app, Pending("かわいさ"));
+        edit.Attributes.Single(row => row.Name == "露出").Value = 70;
+        main.ShowStatsCommand.Execute(null);
+        await app.SettleAsync();
+        Assert.True(main.HasDraftNotice);
+
+        await main.ShowEditAsync([Id]);
+        await app.SettleAsync();
+        var back = Assert.IsType<EditViewModel>(main.CurrentViewModel);
+        Assert.Equal(70, back.Attributes.Single(row => row.Name == "露出").Value);
+        Assert.True(back.Attributes.Single(row => row.Name == "かわいさ").IsPendingOnItem);
+
+        var saved = await SaveAndLoadAsync(app, back);
+        Assert.Equal(70, saved.Attributes["露出"]);
+        Assert.Equal(["かわいさ"], saved.PendingAttributes!);
+    });
+
     [Fact]
     public Task 動かすと値が付き_値はまだから外れる() => TestApp.Run(async app =>
     {

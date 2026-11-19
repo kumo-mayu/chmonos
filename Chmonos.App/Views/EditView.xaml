@@ -847,7 +847,7 @@
 
                         <Border Height="1" Background="{DynamicResource Divider}" Margin="0,18,0,16" />
 
-                        <!-- 属性：評価したものだけを積む。未評価は行が無いことで表す。ユーザータグと同じく既定は開いた折りたたみ -->
+                        <!-- 属性：評価したものを積み、付いているが値はまだの物と既定で並べるだけの物は「—」の行で出す（値は書かない）。ユーザータグと同じく既定は開いた折りたたみ -->
                         <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding IsAttributesExpanded, Mode=TwoWay}"
                                   AutomationProperties.AutomationId="EditAttributesExpander" AutomationProperties.Name="属性">
                         <Expander.Header>

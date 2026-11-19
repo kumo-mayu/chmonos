@@ -937,7 +937,7 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
 
         // **並べてあるだけの行は書き出さない**（ユーザ指示）。全itemに同じ値の行が並ぶと、
         // 付けていないのかそう評価したのかが区別できなくなる。
-        // 「未評価は行が無いことで表す」という決め方を崩さない
+        // 未評価を値の表に書かない（付いているだけの物は下の値はまだの欄に持つ）
         var attributes = Attributes
             .Where(row => !row.IsSuggested)
             .ToDictionary(row => row.Name, row => row.Value);
