@@ -625,7 +625,7 @@
 
                     <!--
                         監視フォルダ。取り込み元（履歴）とは意味が違うので小見出しで分ける。
-                        足すのは取り込み画面でフォルダを選んだ／落としたとき。
+                        足すのは取り込み画面でフォルダを選んだ／落としたときと、取り込み画面の監視の欄の「フォルダを追加…」（ここにも置くかは未定・2026-11-20）。
                     -->
                     <StackPanel Margin="0,14,0,0"
                                 Visibility="{Binding HasWatched, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">

@@ -122,6 +122,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | 取り込み：空 | `empty-import`（900） |
 | 取り込み：結果（読めない・OneDrive・壊れたzip・長い名前） | `import-result-unreadable`（900）・`import-result-one-broken` |
 | 取り込み：取り込んでいる最中（段・件数・棒・中断・残りの見込み・下の1行）・スキャン（棒なし）・減速 | `import-running`（900）・`import-running-scanning`・`import-running-throttled`・まだ始めていない対象 `import-not-started` |
+| 取り込み：監視の欄の「フォルダを追加…」で足した所（まだ取り込んでいない数の1行） | `import-watch-added` |
 | 取り込み：「探す」の窓と候補 | F3 の担当が足す |
 | 未確定：空 | `empty-resolve`（900） |
 | 未確定：一覧（壊れたzip・束・行の札・順番待ち） | `resolve-broken-zip`（900）・`resolve-row-badges`・`resolve-bundles`・`resolve-queue` |

@@ -99,6 +99,21 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
+        new Scene("import-watch-added", "取り込み画面：監視の欄の見出しの「フォルダを追加…」で、取り込まずに監視フォルダに足した所（まだ取り込んでいない数の1行）", async context =>
+        {
+            var folder = Fake.Folder(@"作り物\ダウンロード");
+            Fake.Zip(@"作り物\ダウンロード\作り物の衣装_v1.zip", "costume.unitypackage");
+            Fake.Zip(@"作り物\ダウンロード\作り物の髪型_v2.zip", "hair.unitypackage");
+            var main = await context.StartAsync();
+            main.ShowImportCommand.Execute(null);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+            await main.Import.AddWatchedFoldersAsync([folder]);
+            await context.SettleAsync();
+
+            return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, "監視フォルダ")) };
+        }),
+
         new Scene("import-running-scanning","取り込んでいる最中：ファイルをスキャン（総数が無いので棒は出ず件数だけ）", async context =>
         {
             var main = await context.StartAsync();
