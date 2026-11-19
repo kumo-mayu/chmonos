@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Windows.Media.Imaging;
 using Chmonos.App.Services;
 using Chmonos.Core.Models;
+using Chmonos.Core.Services;
 
 namespace Chmonos.App.ViewModels;
 
@@ -303,6 +304,32 @@ public sealed class ItemCardViewModel : ViewModelBase
 
     /// <summary>リストの列の中身（幅で変えない）。</summary>
     public CardInfo ListInfo => InfoFor(narrow: false);
+
+    private ItemListRow? _listRow;
+    private UsedItems? _listRowUsed;
+
+    /// <summary>
+    /// リストの文字の列の中身（ユーザ判断 2026-11-20：列を自分で選ぶ）。初めて読まれたときに作って持ち、値は列ごとに1回だけ作る。
+    /// 使っている所（改変の数・新しい版）の答えが替わっていたら作り直す（見張りの答えは丸ごと替わるので、同じ物かで見る）
+    /// </summary>
+    public ItemListRow ListRow
+    {
+        get
+        {
+            var sources = InfoContext?.RowSources ?? ItemListRowSources.None;
+            var used = sources.UsedItems();
+            if (_listRow is null || !ReferenceEquals(used, _listRowUsed))
+            {
+                _listRowUsed = used;
+                _listRow = new ItemListRow(Item, sources, IsAwaitingDetection);
+            }
+
+            return _listRow;
+        }
+    }
+
+    /// <summary>使っている所の答えが替わった。描いている行だけが読み直す（作り直すのは <see cref="ListRow"/> を読んだとき）。</summary>
+    public void NoteListRowChanged() => OnPropertyChanged(nameof(ListRow));
 
     /// <summary>出す属性の決め方が変わった。描いているカードと行だけが読み直す（ほかは誰も聞いていない）。</summary>
     public void NoteInfoChanged()

@@ -21,7 +21,7 @@ public sealed class PaneWidths(SettingsService settings, CommandHandler commands
     /// 最小：一覧は名前が「…」だけにならない幅、商品ページの左は絵と説明が読める幅、編集の右は入力欄のラベルと値が1行に並ぶ幅。
     /// 最大：一覧は反対側に詳細が読める幅を残す、商品ページの左は右の列（最小320）を残す。
     /// </summary>
-    public static readonly IReadOnlyDictionary<string, Pane> All = new Dictionary<string, Pane>(StringComparer.Ordinal)
+    public static readonly IReadOnlyDictionary<string, Pane> All = WithListColumns(new Dictionary<string, Pane>(StringComparer.Ordinal)
     {
         ["nav"] = new(208, 180, 320),
         ["search.filter"] = new(286, 240, 480),
@@ -82,7 +82,27 @@ public sealed class PaneWidths(SettingsService settings, CommandHandler commands
         ["shop.col.name"] = new(420, 160, 1000),
         ["shop.col.shop"] = new(200, 80, 600),
         ["shop.col.chips"] = new(220, 100, 420),
-    };
+        // ショップの入手日の列（前はショップの列の場所に入手日を入れていた）。前のショップの列と同じ幅から始める
+        ["shop.col.acquired"] = new(200, 80, 600),
+    });
+
+    /// <summary>
+    /// リストの列を選べる画面（<see cref="ViewModels.ItemListColumnCatalog.Screens"/>）の、上に書いていない列の幅を列の一覧から足す
+    /// （ユーザ判断 2026-11-20：列を自分で選ぶ）。上に書いた画面ごとの値（検索の名前を狭くするなど）が先。
+    /// 鍵が無いと <see cref="Get"/> が落ちるので、列を足したらここで必ず入る形にする
+    /// </summary>
+    private static Dictionary<string, Pane> WithListColumns(Dictionary<string, Pane> panes)
+    {
+        foreach (var screen in ViewModels.ItemListColumnCatalog.Screens)
+        {
+            foreach (var column in ViewModels.ItemListColumnCatalog.All)
+            {
+                panes.TryAdd($"{screen}.col.{column.Key}", new Pane(column.Width, column.MinWidth, column.MaxWidth));
+            }
+        }
+
+        return panes;
+    }
 
     private readonly object _gate = new();
     private Dictionary<string, double>? _current;
@@ -139,6 +159,50 @@ public sealed class PaneWidths(SettingsService settings, CommandHandler commands
                 : [.. (state.CollapsedPanes ?? []).Where(name => name != key)],
         })).Forget();
     }
+
+    private Dictionary<string, IReadOnlyList<string>>? _listColumns;
+
+    /// <summary>
+    /// その画面のリストに出す列（左からの並び。ui-state.json の <c>itemListColumns</c>・ユーザ判断 2026-11-20）。
+    /// 畳んだ欄と同じく、画面は開くたびに作り直すが、ここは起動の間ずっと居るので手元に持つ
+    /// （書くのは裏なので、変えてすぐ別の画面へ行って戻ると、ファイルから読み直す形では古い並びを読み得る）
+    /// </summary>
+    public IReadOnlyList<string> ListColumns(string screen)
+    {
+        lock (_gate)
+        {
+            return ListColumnsMap().GetValueOrDefault(screen) ?? ViewModels.ItemListColumnCatalog.DefaultsOf(screen);
+        }
+    }
+
+    /// <summary>出す列と並びを覚える。幅（<see cref="Set"/>）とは別に持つので、列を外しても幅は消えない。</summary>
+    public void SetListColumns(string screen, IReadOnlyList<string> columns)
+    {
+        IReadOnlyList<string> keys = [.. columns];
+        lock (_gate)
+        {
+            if (ListColumnsMap().TryGetValue(screen, out var before) && before.SequenceEqual(keys, StringComparer.Ordinal))
+            {
+                return;
+            }
+
+            ListColumnsMap()[screen] = keys;
+        }
+
+        // 書くときは今のファイルの値に当てる（ほかの画面の並びを、手元の控えで潰さない）
+        commands.ExecuteAsync(new UiCommand.ChangeUiState(state =>
+        {
+            var map = new Dictionary<string, IReadOnlyList<string>>(state.ItemListColumns ?? new Dictionary<string, IReadOnlyList<string>>(), StringComparer.Ordinal)
+            {
+                [screen] = keys,
+            };
+            return state with { ItemListColumns = map };
+        })).Forget();
+    }
+
+    private Dictionary<string, IReadOnlyList<string>> ListColumnsMap()
+        => _listColumns ??= (settings.UiState.ItemListColumns ?? new Dictionary<string, IReadOnlyList<string>>())
+            .ToDictionary(pair => pair.Key, pair => ViewModels.ItemListColumnCatalog.Normalize(pair.Key, pair.Value), StringComparer.Ordinal);
 
     private HashSet<string> Collapsed()
         => _collapsed ??= new HashSet<string>(settings.UiState.CollapsedPanes ?? [], StringComparer.Ordinal);

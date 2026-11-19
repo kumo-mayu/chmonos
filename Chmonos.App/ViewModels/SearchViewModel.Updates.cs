@@ -49,6 +49,15 @@ public sealed partial class SearchViewModel
     /// <summary>使っている商品の答えが変わった。条件「更新通知あり」があれば絞り直す。</summary>
     internal void NoteUsedItemsChanged()
     {
+        // リストの「使った改変の数」「新しい版」の列。描いている行だけが読み直す（聞いていないカードには何も起きない）
+        if (IsListMode)
+        {
+            foreach (var card in _cards.Values)
+            {
+                card.NoteListRowChanged();
+            }
+        }
+
         if (Modules.Any(module => module is UpdateNoticeModule))
         {
             ApplyFilters();
