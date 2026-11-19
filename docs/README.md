@@ -36,6 +36,7 @@
   [ui-paths/](dev/ui-paths/README.md) は画面ごとの操作の経路（目的ごとの手順・手数・画面の間の行き来・部品の一覧。2026-11-15 にコードから。頻度はユーザが付ける）。
   [release-handoff-2026-10-07.md](dev/release-handoff-2026-10-07.md) は公開の準備への申し送り（配る形・コード署名・データの置き場の説明・実機で確かめた動き・配ってはいけない物）。
   [build.md](dev/build.md) はビルドとテスト、配る物（実行ファイル1つ＋`assets`）の組み方（2026-10-07 に直下の README から移した。直下の README は使う人向け）。
+  [large-classes.md](dev/large-classes.md) は大きなクラスを分ける決め事（触るときにその分だけ分ける・分ける前に試験を足す）と残り（2026-11-20 に open.md から移した）。
   [signing.md](dev/signing.md) はコード署名をしない判断（2026-10-07）と、配る zip の手順（tag から GitHub Actions で1回だけ組む）。SignPath の調べも残してある。
 - **`booth/`** — BOOTH の商品ページの原稿（[item-page.md](booth/item-page.md)。BOOTH は Markdown が効かないので本文は素の文字）と、配る zip に入れる [zip-README.txt](booth/zip-README.txt)、書き足す候補の一覧 [additions-2026-10-07.md](booth/additions-2026-10-07.md)。書き方と点検は `public-docs` スキル。
 - **`history/`** — 決めたときの経緯（grill・当時の数字・訂正）。書かれた時点の記録なので、今の決め事と食い違う所がある（そのときは spec が正）。
