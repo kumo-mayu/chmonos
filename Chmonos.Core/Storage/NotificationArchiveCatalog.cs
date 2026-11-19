@@ -126,16 +126,44 @@ public sealed partial class NotificationArchive
     private readonly ConcurrentDictionary<string, (long Length, DateTime WrittenAt, NotificationArchiveIndex Index)> _indexCache =
         new(StringComparer.Ordinal);
 
+    private readonly object _catalogGate = new();
+    private Task<NotificationArchiveCatalog>? _catalogBuilding;
+
+    /// <summary>月の目録を作り直した回数（試験用。同時に頼まれても同じ月を2回流さないことを見る）。</summary>
+    internal int IndexBuildsForTests => _indexBuilds;
+
+    private int _indexBuilds;
+
     /// <summary>
     /// 全部の月をまたぐ目録を作る（open 146）。前に作った月で、ファイルが変わっていない物は控えを使う。
-    /// 目録の後で月が書き直されても、中身を読む口が位置の ID を照らすので、別の知らせは出さない
+    /// 目録の後で月が書き直されても、中身を読む口が位置の ID を照らすので、別の知らせは出さない。
+    ///
+    /// **作っている途中にもう一度頼まれたら、同じ作業の終わりを待つ**（商品ページの「BOOTHでの変化の履歴」と通知の画面の保管した通知が
+    /// 同時に頼むことがある）。控えは作り終えた月にしか付かないので、別々に走らせると冷えた月を2本が同時に流し、50MB の月で約1秒ずつ無駄になる。
+    /// 途中で足された月は、終わった後の次の頼みで作り直す（大きさと書いた日時で見る）。
+    /// <paramref name="cancellationToken"/> は待つのをやめるだけで、作業は止めない（ほかの頼み手が待っている）
     /// </summary>
-    public async Task<NotificationArchiveCatalog> CatalogAsync(CancellationToken cancellationToken = default)
+    public Task<NotificationArchiveCatalog> CatalogAsync(CancellationToken cancellationToken = default)
+    {
+        Task<NotificationArchiveCatalog> building;
+        lock (_catalogGate)
+        {
+            if (_catalogBuilding is not { IsCompleted: false })
+            {
+                _catalogBuilding = Task.Run(BuildCatalogAsync);
+            }
+
+            building = _catalogBuilding;
+        }
+
+        return building.WaitAsync(cancellationToken);
+    }
+
+    private async Task<NotificationArchiveCatalog> BuildCatalogAsync()
     {
         var months = new Dictionary<string, NotificationArchiveIndex>(StringComparer.Ordinal);
         foreach (var month in Months())
         {
-            cancellationToken.ThrowIfCancellationRequested();
             var file = new FileInfo(FileFor(month));
             if (!file.Exists)
             {
@@ -150,7 +178,8 @@ public sealed partial class NotificationArchive
                 continue;
             }
 
-            var index = await IndexAsync(month, cancellationToken);
+            var index = await IndexAsync(month);
+            Interlocked.Increment(ref _indexBuilds);
             _indexCache[month] = (file.Length, file.LastWriteTimeUtc, index);
             months[month] = index;
         }

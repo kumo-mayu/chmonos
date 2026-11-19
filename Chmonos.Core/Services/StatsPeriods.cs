@@ -201,8 +201,8 @@ public static class StatsPeriods
 
     /// <summary>期間の集計。贈った分は <see cref="Narrow"/> が贈った日で数えた値に差し替える</summary>
     public static StatsSnapshot Build(
-        StatsNarrowed narrowed, AvatarRegistry registry, int unresolvedCount, bool useDetectedVariationTargets)
-        => StatsService.Build(narrowed.Items, registry, unresolvedCount, useDetectedVariationTargets) with
+        StatsNarrowed narrowed, AvatarRegistry registry, int unresolvedCount, bool useDetectedVariationTargets, StatsScope? scope = null)
+        => StatsService.Build(narrowed.Items, registry, unresolvedCount, useDetectedVariationTargets, scope) with
         {
             GivenCount = narrowed.GivenCount,
             GivenSpentYen = narrowed.GivenSpentYen,

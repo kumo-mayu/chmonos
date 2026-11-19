@@ -1,0 +1,69 @@
+<Window x:Class="Chmonos.App.Views.BulkTagDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Chmonos.App.ViewModels"
+        xmlns:controls="clr-namespace:Chmonos.App.Controls"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=vm:BulkTagDialogViewModel}"
+        Title="{Binding DialogTitle}"
+        Width="460" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource Surface}">
+    <!--
+        選択の帯の「タグ・属性 ▾」から開く窓（ユーザ判断 2026-11-20）。窓の形はタグの管理の「小分類を移す」に揃える
+        （欄で選び、選んだ物を下に出し、押せない理由をボタンの上に出す）
+    -->
+    <StackPanel Margin="22,20">
+
+        <TextBlock Text="{Binding DialogTitle}" FontWeight="Bold" FontSize="14" />
+        <TextBlock Text="{Binding HeadingText}" Style="{StaticResource Caption}"
+                   TextWrapping="Wrap" Margin="0,7,0,0" />
+
+        <!-- 足す：大分類と、続けて小分類（どちらも候補に無い語はタグの一覧へも追加する） -->
+        <StackPanel Visibility="{Binding IsAdding, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+            <TextBlock Text="大分類" Style="{StaticResource SectionLabel}" Margin="0,18,0,6" />
+            <controls:SuggestBox x:Name="TopBox" Source="{Binding TopCandidates}" CommitCommand="{Binding PickTopCommand}"
+                                 AllowNew="True" KeepsCommittedText="True" Placeholder="大分類を入力"
+                                 AutomationProperties.AutomationId="BulkTag.Top" />
+            <TextBlock Text="小分類" Style="{StaticResource SectionLabel}" Margin="0,14,0,6" />
+            <controls:SuggestBox Source="{Binding SubCandidates}" CommitCommand="{Binding PickSubCommand}"
+                                 AllowNew="True" KeepsCommittedText="True" Placeholder="小分類を入力"
+                                 IsEnabled="{Binding HasTop}"
+                                 AutomationProperties.AutomationId="BulkTag.Sub" />
+        </StackPanel>
+
+        <!-- 外す：タグか属性か。候補は選んだ商品に付いている物だけ -->
+        <StackPanel Visibility="{Binding IsRemoving, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+            <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
+                <RadioButton Content="タグ" IsChecked="{Binding RemovesTag, Mode=TwoWay}" Foreground="{DynamicResource Text}"
+                             AutomationProperties.AutomationId="BulkTag.KindTag" />
+                <RadioButton Content="属性" IsChecked="{Binding RemovesAttribute, Mode=TwoWay}" Foreground="{DynamicResource Text}"
+                             Margin="18,0,0,0" AutomationProperties.AutomationId="BulkTag.KindAttribute" />
+            </StackPanel>
+            <controls:SuggestBox x:Name="RemovalBox" Source="{Binding RemovalCandidates}" CommitCommand="{Binding PickRemovalCommand}"
+                                 AllowNew="False" KeepsCommittedText="True" Placeholder="外す物を選ぶ" Margin="0,10,0,0"
+                                 AutomationProperties.AutomationId="BulkTag.Removal" />
+        </StackPanel>
+
+        <TextBlock Text="{Binding ChoiceText}" Style="{StaticResource Mono}" FontSize="11.5" Margin="0,8,0,0" />
+
+        <!-- 押せないときは理由を出す（E9）。ボタンの列に混ぜると窓の幅からはみ出すので、1行上に置く -->
+        <TextBlock Text="{Binding CommitHint}" Style="{StaticResource Caption}" TextWrapping="Wrap"
+                   TextAlignment="Right" Margin="0,14,0,0" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+            <!-- 外す側は赤（消す操作は赤にそろえる・V4）。押した後に件数を出して1回確かめる -->
+            <Button Content="{Binding CommitText}" Style="{StaticResource PrimaryButton}"
+                    Visibility="{Binding IsAdding, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                    AutomationProperties.AutomationId="BulkTag.Commit"
+                    IsDefault="{Binding IsAdding}" IsEnabled="{Binding HasChoice}" Click="OnCommit" />
+            <Button Content="{Binding CommitText}" Style="{StaticResource DangerButton}"
+                    Visibility="{Binding IsRemoving, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                    AutomationProperties.AutomationId="BulkTag.CommitRemoval"
+                    IsDefault="{Binding IsRemoving}" IsEnabled="{Binding HasChoice}" Click="OnCommit" />
+            <Button Content="キャンセル" Margin="8,0,0,0" IsCancel="True" Click="OnCancel" />
+        </StackPanel>
+    </StackPanel>
+</Window>

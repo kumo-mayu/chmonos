@@ -130,9 +130,13 @@ public sealed partial class ItemViewModel
     private void LoadChanges()
     {
         var itemId = Item.Id;
+        var records = _services.Notifications.Load();
         ApplyChanges(ItemChanges.From(
-            _services.Notifications.Load().Where(record => ItemChanges.IsUnreadUpdateOf(record, itemId)),
+            records.Where(record => ItemChanges.IsUnreadUpdateOf(record, itemId)),
             _pageSections.Select(section => section.Key)));
+
+        // 「BOOTHでの変化の履歴」を押せるか。今の知らせは読んだ物を使い、保管庫は裏で確かめる
+        CheckChangeHistory(records);
     }
 
     private void ApplyChanges(ItemChanges changes)

@@ -18,6 +18,17 @@ public sealed class ThumbnailRoleOption
     public override string ToString() => Label;
 }
 
+/// <summary>1行の見出しの大きさの選択肢の1行（<see cref="SettingsViewModel.CompactHeaderOptions"/>）。</summary>
+public sealed class CompactHeaderOption
+{
+    public required int Percent { get; init; }
+
+    public string Label => CompactHeaderSize.Label(Percent);
+
+    /// <summary>読み上げと自動操作から見える名前。既定だと型名になる</summary>
+    public override string ToString() => Label;
+}
+
 /// <summary>「手元のファイル」の表示順の選択肢（<see cref="SettingsViewModel.FileOrders"/>）。</summary>
 public sealed class FileOrderOption
 {
@@ -680,6 +691,15 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         set { if (SetField(ref _showHiddenCountInSearch, value)) { Save(_main.ReloadLibraryAsync); } }
     }
 
+    private bool _smoothScrolling;
+
+    /// <summary>検索の一覧のホイールの滑らかな流れ。回すたびに今の値を読むので、知らせは要らない。</summary>
+    public bool SmoothScrolling
+    {
+        get => _smoothScrolling;
+        set { if (SetField(ref _smoothScrolling, value)) { Save(); } }
+    }
+
     private bool _placeNewConditionNearSameKind;
 
     /// <summary>検索で追加する条件を、同じ種類の条件のすぐ下に置くか。検索は足すたびに今の値を読むので、知らせは要らない。</summary>
@@ -699,6 +719,36 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
     }
 
     private bool _showAcquiredSortDividers;
+    private bool _shortYenInKanji;
+    private int _compactHeaderPercent;
+
+    public static IReadOnlyList<CompactHeaderOption> CompactHeaderOptions { get; } =
+        CompactHeaderSize.Steps.Select(step => new CompactHeaderOption { Percent = step }).ToList();
+
+    /// <summary>
+    /// 流した時に上へ重ねる1行の見出しの大きさ（ユーザ判断 2026-11-20）。変えるとすぐ当てる
+    /// （ショップ・商品ページ・編集の画面は設定の画面を開いている間は裏に無く、開き直すときに新しい大きさで出る）
+    /// </summary>
+    public int CompactHeaderPercent
+    {
+        get => _compactHeaderPercent;
+        set
+        {
+            var normalized = CompactHeaderSize.Normalize(value);
+            if (SetField(ref _compactHeaderPercent, normalized))
+            {
+                Controls.CompactHeader.Apply(normalized);
+                Save();
+            }
+        }
+    }
+
+    /// <summary>統計の金額の短い表記（千・万・億／k・M・B）。統計の画面は開くたびに設定を読むので、読み直しは要らない。</summary>
+    public bool ShortYenInKanji
+    {
+        get => _shortYenInKanji;
+        set { if (SetField(ref _shortYenInKanji, value)) { Save(); } }
+    }
 
     /// <summary>
     /// 入手日で並べたときの札（ユーザ判断 2026-10-01）。親（<see cref="ShowSortDividers"/>）に従う子で、親が切れている間は押せないだけで値は残す
@@ -1699,8 +1749,11 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             ShowVariationTargetsForUnpurchased = ShowVariationTargetsForUnpurchased,
             ShowHiddenCountInSearch = ShowHiddenCountInSearch,
             PlaceNewConditionNearSameKind = PlaceNewConditionNearSameKind,
+            SmoothScrolling = SmoothScrolling,
             ShowSortDividers = ShowSortDividers,
             ShowAcquiredSortDividers = ShowAcquiredSortDividers,
+            ShortYenInKanji = ShortYenInKanji,
+            CompactHeaderPercent = CompactHeaderPercent,
             ThumbnailRole = ThumbnailRole,
             GallerySwitchOnHover = GallerySwitchOnHover,
             FileOrder = FileOrder,
@@ -2096,6 +2149,17 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             ? string.Empty
             : $"\n\n移動先「{result.LeftoverAt}」に、途中までコピーしたファイルが残っています。不要なら削除してください。";
 
+    /// <summary>
+    /// 移し終えた後、元の場所に残った物を添える。中身の無いフォルダだけなら、そう言う（ユーザ判断 2026-11-20）。
+    /// OneDrive の中から引っ越すと、同期のアプリが掴んだ空のフォルダが残り、「ファイルが残っています」で移しそこねたと読めた
+    /// </summary>
+    internal static string LeftInSourceNote(Core.Storage.StoreMoveResult result, string source)
+        => result.SourceRemoved
+            ? string.Empty
+            : result.OnlyEmptyFoldersLeft
+                ? $"元の場所「{source}」に空のフォルダが残りました。不要なら手で削除してください。\n\n"
+                : $"元の場所「{source}」に消せなかったファイルが残っています。\n\n";
+
     private async Task<Core.Storage.StoreMoveResult> MoveStoreAsync(string source, string destination, bool replace)
     {
         // **どの画面からでも止められるようにする**（ユーザ判断 2026-09-21・C3）。
@@ -2336,7 +2400,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         }
 
         // 場所の書き換えは運ぶ命令が元を消す前に済ませている（書けなければ上の失敗で返る）
-        var leftInSource = result.SourceRemoved ? string.Empty : $"元の場所「{source}」に消せなかったファイルが残っています。\n\n";
+        var leftInSource = LeftInSourceNote(result, source);
         RestartIntoNewRoot(
             replace
                 ? $"{result.Copied:N0} ファイルを「{picked}」へ移して置き換えました。\n\n"

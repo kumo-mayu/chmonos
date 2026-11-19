@@ -18,6 +18,12 @@ public sealed record StoreMoveResult
     /// <summary>元の場所を消せたか。消せていなければ、そこに残っている。</summary>
     public bool SourceRemoved { get; init; }
 
+    /// <summary>
+    /// 元を消しきれなかったが、残ったのは中身の無いフォルダだけ（ファイルは全部移した）。
+    /// 同期のアプリが掴んだフォルダが残った時に「ファイルが残っています」と言うと、移しそこねたように読める（ユーザ判断 2026-11-20）。
+    /// </summary>
+    public bool OnlyEmptyFoldersLeft { get; init; }
+
     /// <summary>置き換えたとき、元々あったライブラリを退けた場所。消していないので後から戻せる。</summary>
     public string? ParkedAt { get; init; }
 
@@ -392,12 +398,14 @@ public static class StoreMover
             }
         }
 
+        var (removed, filesLeft) = TryRemoveSource(source, files, snapshots);
         return new StoreMoveResult
         {
             Succeeded = true,
             Copied = copied,
             Bytes = bytes,
-            SourceRemoved = TryRemoveSource(source, files, snapshots),
+            SourceRemoved = removed,
+            OnlyEmptyFoldersLeft = !removed && !filesLeft,
         };
     }
 
@@ -592,11 +600,13 @@ public static class StoreMover
     /// 元を消す。運んだファイルだけを消し、空になったフォルダも畳む。
     /// **運んだ時から変わった物は消さない**（ほかの書き手が突き合わせの後に書いた入力。消すとどこにも残らない）。
     /// <c>app.lock</c> は実行中のこのプロセスが握っているので運ばず、消さない（プロセスが閉じると OS が消す）。
+    /// 返すのは、消しきれたかと、ファイルが残ったか（残ったかを確かめられなかった時も、残ったとみなす）。
     /// </summary>
-    private static bool TryRemoveSource(
+    private static (bool Removed, bool FilesLeft) TryRemoveSource(
         string source, IReadOnlyList<string> files, IReadOnlyDictionary<string, FileStamp> snapshots)
     {
         var allRemoved = true;
+        var filesLeft = false;
 
         foreach (var file in files)
         {
@@ -606,6 +616,7 @@ public static class StoreMover
                 if (!IsUnverified(relative) && snapshots.TryGetValue(file, out var stamp) && FileStamp.Of(file) != stamp)
                 {
                     allRemoved = false;
+                    filesLeft = true;
                     continue;
                 }
 
@@ -614,6 +625,7 @@ public static class StoreMover
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
                 allRemoved = false;
+                filesLeft = true;
             }
         }
 
@@ -642,14 +654,16 @@ public static class StoreMover
             if (StoreTree.Files(source).Any(file => !Skipped.Contains(Path.GetFileName(file), StringComparer.OrdinalIgnoreCase)))
             {
                 allRemoved = false;
+                filesLeft = true;
             }
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             allRemoved = false;
+            filesLeft = true;
         }
 
-        return allRemoved;
+        return (allRemoved, filesLeft);
     }
 
     /// <summary>

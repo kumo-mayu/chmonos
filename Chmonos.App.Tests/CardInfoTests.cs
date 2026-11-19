@@ -402,18 +402,5 @@ public class CardInfoTests
         Assert.Empty(app.Services.Settings.CardAttributes);
     });
 
-    [Fact]
-    public Task 検索のリストの足した列は幅を覚え_範囲に収める() => TestApp.Run(async app =>
-    {
-        var search = (await app.StartAsync()).Search;
-        var columns = search.ListColumns;
-
-        Assert.Equal(160, columns.TagsWidth);
-        Assert.Equal(160, columns.AttributesWidth);
-        Assert.Equal(76, columns.PaidWidth);
-        Assert.Equal(56, columns.AvatarsWidth);
-
-        columns.PaidWidth = 9999;
-        Assert.Equal(160, columns.PaidWidth);
-    });
+    // 検索のリストの足した列の幅は、列を選べるようにしたとき（2026-11-20）に ItemListColumnChoiceTests へ移した
 }

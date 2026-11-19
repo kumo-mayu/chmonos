@@ -17,6 +17,12 @@ public sealed record AppSettings
     /// </summary>
     public bool ShowCardAttributes { get; init; }
 
+    /// <summary>統計の集計に非表示の商品を含めるか（統計の上の帯の切り替え。ユーザ判断 2026-11-20・既定は含める＝前と同じ）。</summary>
+    public bool StatsIncludeHidden { get; init; } = true;
+
+    /// <summary>統計の集計にR-18の商品を含めるか。<see cref="ShowAdult"/>（検索の表示）とは別の値（ユーザ判断 2026-11-20）。</summary>
+    public bool StatsIncludeAdult { get; init; } = true;
+
     /// <summary>R-18を表示するか。オフのときは検索・ショップ件数から除くが、統計の金額には含める。</summary>
     public bool ShowAdult { get; init; } = true;
 
@@ -81,6 +87,13 @@ public sealed record AppSettings
     public bool PlaceNewConditionNearSameKind { get; init; }
 
     /// <summary>
+    /// 検索の一覧（カード・リスト）を、ホイールで滑らかに流すか（ユーザ指示 2026-11-15：飛んだように見えて集中が切れる。
+    /// ユーザ判断 2026-11-20：設定の項目にし、試しに入れて触ってから決める）。**既定は入** ［要確認］——試すには入っていないと触れないため。
+    /// 切ると WPF の既定のまま、1回ごとに決まった量が飛ぶ
+    /// </summary>
+    public bool SmoothScrolling { get; init; } = true;
+
+    /// <summary>
     /// 検索をカテゴリ・ショップ・公開日・入手日で並べたとき、まとまりの境目に区切りの札を入れるか（ユーザ判断 2026-10-01：図書館やビデオショップの分類の札）。
     /// 既定は入れる。札は商品ではないので、件数・選ぶ・まとめて操作には入らない
     /// </summary>
@@ -93,6 +106,12 @@ public sealed record AppSettings
     /// <see cref="ShowSortDividers"/> が切れていれば、こちらの値によらず出さない（親に従う子の設定）
     /// </summary>
     public bool ShowAcquiredSortDividers { get; init; }
+
+    /// <summary>
+    /// 統計のグラフの軸などの金額の短い表記を「千・万・億」にするか（ユーザ判断 2026-11-20）。既定は切で、k・M・B（前からの表記）。
+    /// 日本語の桁は万（10の4乗）で区切るので、1.2万・350万・1.5億の形になる
+    /// </summary>
+    public bool ShortYenInKanji { get; init; }
 
     /// <summary>
     /// 商品カードの札とリストの「属性」の列に出す属性の名前（ユーザ判断 2026-10-04：出す属性は設定で選ぶ）。並べた順に出す。
@@ -163,6 +182,12 @@ public sealed record AppSettings
     /// 段にない値（手で書き換えた JSON）は、使う側が <see cref="DisplayZoom.Normalize"/> で近い段に丸めて読む
     /// </summary>
     public int DisplayZoomPercent { get; init; } = DisplayZoom.DefaultPercent;
+
+    /// <summary>
+    /// 流した時に上へ重ねる1行の見出しの大きさ（%。ユーザ判断 2026-11-20）。高さと字の大きさを同じ倍率で変える。
+    /// 段は <see cref="CompactHeaderSize.Steps"/>。段にない値は使う側が <see cref="CompactHeaderSize.Normalize"/> で丸めて読む
+    /// </summary>
+    public int CompactHeaderPercent { get; init; } = CompactHeaderSize.DefaultPercent;
 
     /// <summary>
     /// 表示の色（明るい／暗い／Windows に合わせる。ユーザ指示 2026-09-29）。変えるとその場で全体の色が変わる。

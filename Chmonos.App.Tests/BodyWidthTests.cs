@@ -41,7 +41,16 @@ public class BodyWidthTests
     [Fact]
     public void 主の窓の商品ページの本文の下限は_左の最小に400を足した幅のまま()
     {
-        Assert.Equal(860, ItemViewModel.MinBodyWidth(embedded: false, leftMin: 460));
+        Assert.Equal(660, ItemViewModel.MinBodyWidth(embedded: false, leftMin: 260));
+    }
+
+    [Fact]
+    public void 主の窓の商品ページは_幅900の窓でナビを開いても横に送らずに収まる()
+    {
+        // 幅 900 の窓でナビ（既定 208）を開いた時の本文の欄は約 675（縦の流しの棒と枠を除く。2026-11-20 に撮って測った）。
+        // 左の最小が 460 の頃は下限 860 で、画像の列が幅の大半を取り、右の列は横に流さないと見えなかった（ユーザ判断 2026-11-20）
+        var leftMin = Services.PaneWidths.All["item.left"].Min;
+        Assert.True(ItemViewModel.MinBodyWidth(embedded: false, leftMin) <= 675);
     }
 
     [Theory]

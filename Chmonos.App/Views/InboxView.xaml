@@ -323,7 +323,9 @@
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <CheckBox Content="未読のみ" IsChecked="{Binding UnreadOnly, Mode=TwoWay}"
                               VerticalAlignment="Center" Margin="0,0,12,0" Foreground="{DynamicResource Text}" />
-                    <Button Content="読み直す" Style="{StaticResource SmallButton}" Command="{Binding RefreshCommand}" />
+                    <Button Content="↺" Style="{StaticResource SmallButton}" Width="27" Padding="0" FontSize="17"
+                            Command="{Binding RefreshCommand}" ToolTip="通知の一覧を読み直します。"
+                            AutomationProperties.Name="読み直す" />
                     <Button Content="すべて既読にする" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                             Command="{Binding MarkAllReadCommand}" />
                     <!-- 保管した古い通知を、同じ画面で月ごとに読む見方へ（ユーザ案 2026-11-10） -->
@@ -456,11 +458,7 @@
                             <VirtualizingStackPanel />
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemContainerStyle>
-                        <Style TargetType="ContentPresenter">
-                            <Setter Property="MaxWidth" Value="{StaticResource ReadingMaxWidth}" />
-                        </Style>
-                    </ItemsControl.ItemContainerStyle>
+                    <!-- 幅は窓いっぱいに使う（ユーザ判断 2026-11-20）。ItemContainerStyle の MaxWidth はやめた -->
                     <ItemsControl.Resources>
                         <!-- 先頭の行：月の見出し（行の枠の上側）。読めない所があればここで言う -->
                         <DataTemplate DataType="{x:Type vm:ArchiveHeadLine}">
@@ -527,11 +525,7 @@
                             <VirtualizingStackPanel />
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemContainerStyle>
-                        <Style TargetType="ContentPresenter">
-                            <Setter Property="MaxWidth" Value="{StaticResource ReadingMaxWidth}" />
-                        </Style>
-                    </ItemsControl.ItemContainerStyle>
+                    <!-- 幅は窓いっぱいに使う（ユーザ判断 2026-11-20） -->
                     <ItemsControl.Resources>
                         <!-- 先頭の1行：状況の文（この画面そのものに結ぶ） -->
                         <DataTemplate DataType="{x:Type vm:InboxViewModel}">

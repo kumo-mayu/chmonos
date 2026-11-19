@@ -315,16 +315,18 @@ public partial class App : Application
                 return;
             }
 
-            var found = await services.Watch.FindNewAsync(services.Settings.WatchedFolders, CancellationToken.None);
+            var watched = services.Settings.WatchedFolders;
+            var found = await services.Watch.FindNewAsync(watched, CancellationToken.None);
             var targets = await services.Imports.LaunchTargetsAsync(found.NewFiles);
             if (targets.Count == 0)
             {
                 return;
             }
 
+            // 履歴には新着のファイルではなく監視フォルダを載せる（画面ありの起動と同じ。ユーザ判断 2026-11-20）
             await services.Imports.StartOrStackAsync(new Services.ImportRequest(
                 () => services.Imports.TargetsWithoutAsking(targets.ToList()),
-                targets));
+                ViewModels.ImportViewModel.HistoryWithWatchedSources(targets, found.NewFiles, watched)));
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {

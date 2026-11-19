@@ -117,6 +117,41 @@ public sealed class BackupArchiveTests : IDisposable
         Assert.False(File.Exists(Path.Combine(Store, BackupWritingRecord.FileName)));
     }
 
+    /// <summary>片付ける所を渡されたら、自分では消さずにそこへ任せる（アプリはごみ箱へ送る。点検29・ユーザ判断 2026-11-20）</summary>
+    [Fact]
+    public void 片付ける所を渡されたら_書きかけはそこへ任せる()
+    {
+        var temporary = Path.Combine(_dir, "out", "crashed.zip.tmp");
+        var bin = Path.Combine(_dir, "bin");
+        Directory.CreateDirectory(Path.GetDirectoryName(temporary)!);
+        Directory.CreateDirectory(bin);
+        File.WriteAllText(temporary, "書きかけ");
+        BackupWritingRecord.Begin(Store, temporary);
+
+        Assert.True(BackupWritingRecord.CleanUp(Store, path => File.Move(path, Path.Combine(bin, Path.GetFileName(path)))));
+
+        Assert.Equal("書きかけ", File.ReadAllText(Path.Combine(bin, "crashed.zip.tmp")));
+        Assert.False(File.Exists(Path.Combine(Store, BackupWritingRecord.FileName)));
+    }
+
+    /// <summary>
+    /// ごみ箱へ送れない（ごみ箱の無いドライブ・入りきらず完全に消すのを断った）なら、書きかけは消さずに残し、記録は外す。
+    /// 次の起動でも送れないので、残すと起動のたびに試し、入りきらない大きさでは毎回 Windows が聞いてくる
+    /// </summary>
+    [Fact]
+    public void ごみ箱へ送れなければ_書きかけは残して記録を外す()
+    {
+        var temporary = Path.Combine(_dir, "out", "usb.zip.tmp");
+        Directory.CreateDirectory(Path.GetDirectoryName(temporary)!);
+        File.WriteAllText(temporary, "書きかけ");
+        BackupWritingRecord.Begin(Store, temporary);
+
+        Assert.False(BackupWritingRecord.CleanUp(Store, _ => throw new Scanning.NotRecyclableException("ごみ箱を使えないドライブ")));
+
+        Assert.True(File.Exists(temporary));
+        Assert.False(File.Exists(Path.Combine(Store, BackupWritingRecord.FileName)));
+    }
+
     /// <summary>
     /// 書きかけを消せなかった（ほかのアプリが開いている）ときは、記録を残して次の起動でまた試す（点検23）。
     /// 外すと、バックアップ1つ分の .tmp が手掛かりなしで残り続けた

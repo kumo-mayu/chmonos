@@ -24,6 +24,23 @@ public class DisplayTextTests
     public void FormatsSizes(long bytes, string expected)
         => Assert.Equal(expected, DisplayText.Size(bytes));
 
+    /// <summary>金額の短い表記：英字は k・M・B、日本語は万で区切り、千は1万に満たない額だけ（ユーザ判断 2026-11-20）。</summary>
+    [Theory]
+    [InlineData(999, false, "999")]
+    [InlineData(12_000, false, "12k")]
+    [InlineData(1_500_000, false, "1.5M")]
+    [InlineData(2_000_000_000, false, "2B")]
+    [InlineData(999, true, "999")]
+    [InlineData(5_000, true, "5千")]
+    [InlineData(9_949, true, "9.9千")]
+    [InlineData(9_999, true, "1万")]
+    [InlineData(10_000, true, "1万")]
+    [InlineData(12_000, true, "1.2万")]
+    [InlineData(3_500_000, true, "350万")]
+    [InlineData(150_000_000, true, "1.5億")]
+    public void FormatsShortYen(long yen, bool kanji, string expected)
+        => Assert.Equal(expected, DisplayText.ShortYen(yen, kanji));
+
     /// <summary>負の値でも壊れない（計算違いで負になっても画面は出る）。</summary>
     [Fact]
     public void SurvivesANegativeSize()

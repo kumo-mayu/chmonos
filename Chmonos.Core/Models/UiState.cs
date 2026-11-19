@@ -113,6 +113,13 @@ public sealed record UiState
     public IReadOnlyList<string> ItemCardScreens { get; init; } = [];
 
     /// <summary>
+    /// リストで出す列とその順（鍵は画面 <c>"search"</c>・<c>"folder"</c>・<c>"shop"</c>。ユーザ判断 2026-11-20：画面ごとに別々に覚える）。
+    /// 値は列の名前の並び（左から）。無い画面は既定の列。知らない名前は読むときに飛ばす。null は空（どの画面も既定）。
+    /// 幅は別に <see cref="PaneWidths"/> の <c>"search.col.name"</c> などに入る（列を外しても幅は消さない）
+    /// </summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<string>>? ItemListColumns { get; init; }
+
+    /// <summary>
     /// ショップの中の画面でバナーを畳んでいるか（ユーザ指示 2026-09-29：バナーが場所を取りすぎる）。
     /// ショップごとではなく全部のショップで同じ値——1店ずつ畳み直すのは手間なので。既定は出す（今までと同じ見た目から始まる）
     /// </summary>

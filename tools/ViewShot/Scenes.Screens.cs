@@ -633,6 +633,20 @@ internal static partial class Scenes
             return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, main.MissingAssetsText)), FocusMargin = 24 };
         }),
 
+        // 2026-11-20：ごみ箱の無いドライブに残ったバックアップの書きかけを、起動後の帯で知らせる
+        new("band-backup-left", "下の帯：ごみ箱の無いドライブに前のバックアップの書きかけが残った（場所とエクスプローラで開く）", async context =>
+        {
+            await SeedLibraryAsync(context, count: 3);
+            var main = await context.StartAsync();
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            main.SetLeftBackupWriting(Fake.DetachedDrivePath(@"backup\chmonos-backup-2026-11-19.zip.tmp"));
+            await context.SettleAsync();
+
+            return new Shot(root) { Focus = () => Look.Ancestor<Border>(Look.Text(root, main.LeftBackupWritingText)), FocusMargin = 24 };
+        }),
+
         DroppedRegisteringBand("band-registering-dropped", "下の帯：落とした URL の商品を1件登録している最中（中止は出ない）", done: 0, total: 0),
 
         // 計画 26：まとめての登録は n/N と「中止」。帯の高さが「中止」で変わらないかも見る
@@ -803,6 +817,28 @@ internal static partial class Scenes
         {
             Width = 1280,
             Height = 2000,
+        },
+
+        new Scene("modification-gallery-folded", "改変の画面：右の欄の写真を大きな絵ごと畳んだ所（「写真を広げる」だけが残り、使ったものの追加が上へ詰まる）", async context =>
+        {
+            var selected = await SeedModificationsAsync(context);
+            var main = await context.StartAsync();
+            main.ShowModifications(
+                ModificationHubLevel.Modification,
+                new ModificationHubSelection(ModificationHubSelectionKind.Modification, selected));
+            await UntilHubLoadedAsync(main);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+
+            await UntilModificationShownAsync(context, root);
+            ((ModificationViewModel)context.Screen<ModificationHubViewModel>().Detail!).GalleryFolded = true;
+            await context.SettleAsync();
+
+            return new Shot(root);
+        })
+        {
+            Width = 1280,
+            Height = 1000,
         },
 
         new Scene("modification-selected-status","改変の画面：右の欄の上の帯に知らせの文が出ている所（日付と知らせが下の段へ送られる）・窓の最小の幅", async context =>

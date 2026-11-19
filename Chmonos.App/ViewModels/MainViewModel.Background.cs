@@ -35,7 +35,7 @@ public sealed partial class MainViewModel
     /// 見回りが書いた商品を、検索の写しとカードの印へ知らせる。数が少なければ1件ずつ差し替え、多ければ全件を読み直す
     /// （1件ずつの差し替えは毎回絞り込みをかけ直すので、数百件だと全件の読み直しより重い）。
     /// </summary>
-    private async Task NoteSweptItemsAsync(IReadOnlyList<string> written)
+    internal async Task NoteSweptItemsAsync(IReadOnlyList<string> written)
     {
         if (written.Count == 0)
         {
@@ -144,9 +144,15 @@ public sealed partial class MainViewModel
                     }
 
                     // 押してもいないので、展開先のファイルがあっても窓で尋ねない（G2）。
-                    // 続きの対象には監視していないフォルダもあるが、起動時に「監視しますか」とも聞かない
-                    RunOnUiThread(() => Import.AddDroppedPaths(
-                        present, startImmediately: true, offerWatch: false, askAboutUnpacked: false));
+                    // 続きの対象には監視していないフォルダもあるが、起動時に「監視しますか」とも聞かない。
+                    // 履歴には新着のファイルではなく監視フォルダを載せる（「新しいファイルを取り込む」と同じ。ユーザ判断 2026-11-20）。続きはそのまま
+                    var history = ImportViewModel.HistoryWithWatchedSources(present, result.NewFiles, watched);
+                    RunOnUiThread(() =>
+                    {
+                        Import.NoteWatchedNew(present.Intersect(result.NewFiles, StringComparer.OrdinalIgnoreCase));
+                        Import.AddDroppedPaths(
+                            present, startImmediately: true, offerWatch: false, askAboutUnpacked: false, history: history);
+                    });
                     return;
                 }
 
@@ -277,7 +283,8 @@ public sealed partial class MainViewModel
         OnPropertyChanged(nameof(WatchedNewText));
         OnPropertyChanged(nameof(HasLiveWatchNotice));
 
-        Import.AddDroppedPaths(files);
+        // 積むだけで始めない。始めた時の履歴は監視フォルダの1行（ユーザ判断 2026-11-20）
+        Import.AddWatchedNew(files);
         ShowImport();
     }
 }

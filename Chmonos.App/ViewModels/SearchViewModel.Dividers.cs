@@ -50,6 +50,9 @@ public sealed partial class SearchViewModel
     }
 
     /// <summary>札の右クリックの項目（札が出ているので押すと消す）。</summary>
+    /// <summary>ホイールで一覧を滑らかに流すか（設定。回すたびに画面が読む）。</summary>
+    public bool SmoothScrolling => _services.Settings.SmoothScrolling;
+
     public RelayCommand HideSortDividersCommand => _hideSortDividers ??= new RelayCommand(() => ShowSortDividers = false);
 
     private RelayCommand? _hideSortDividers;

@@ -239,6 +239,14 @@ internal static partial class Scenes
         return (Window)constructor.Invoke([title, question, detail, first, second, third]);
     }
 
+    /// <summary>まとめてタグの窓に渡す作り物の3件（外す側の候補が出るよう、タグと属性を付けておく）。</summary>
+    private static IReadOnlyList<ItemRecord> BulkTagItems() =>
+    [
+        new ItemRecord { Id = "9900101", Local = new LocalBlock { UserTags = [new UserTagAssignment { Top = "衣装", Subs = ["夏"] }], Attributes = new Dictionary<string, int> { ["かわいさ"] = 4 } } },
+        new ItemRecord { Id = "9900102", Local = new LocalBlock { UserTags = [new UserTagAssignment { Top = "衣装", Subs = ["夏"] }, new UserTagAssignment { Top = "髪型" }] } },
+        new ItemRecord { Id = "9900103", Local = new LocalBlock() },
+    ];
+
     private static Window NewOwnedElsewhere(IReadOnlyList<ArchiveHolder> holders)
     {
         var request = ChoiceQuestion.OwnedElsewhere("ファイルを紐付ける", "作り物_衣装A_v1.2.zip", holders);
@@ -321,7 +329,29 @@ internal static partial class Scenes
         DialogScene("catalog-dialog-merge-attribute-plain", "属性の統合の窓：値がぶつからない（聞く欄が出ない）", _ => Task.FromResult<Window>(
             new MergeAttributeDialog(new MergeAttributeDialogViewModel("軽さ", "軽量", new AttributeMergePreview { ItemCount = 5, Conflicts = 0 })))),
 
-        DialogScene("catalog-dialog-move-sub", "小分類の移動の窓：移動先を選んだ所（下見の文と、元の大分類をどうするか）", async context =>
+        DialogScene("catalog-dialog-bulk-tag-add", "選んだ3件にタグを追加する窓：候補に無い小分類を入れた所（新しく作る）", _ =>
+        {
+            var master = new UserTagMaster
+            {
+                Tops =
+                [
+                    new UserTagTop { Name = "衣装", Subs = [new UserTagSub { Name = "夏" }, new UserTagSub { Name = "冬" }] },
+                    new UserTagTop { Name = "髪型" },
+                ],
+            };
+            var model = BulkTagDialogViewModel.ForAdding(master, BulkTagItems());
+            model.Type(top: "衣装", sub: "水着");
+            return Task.FromResult<Window>(new BulkTagDialog(model));
+        }),
+
+        DialogScene("catalog-dialog-bulk-tag-remove", "選んだ3件からタグ・属性を外す窓：付いているタグを選んだ所", _ =>
+        {
+            var model = BulkTagDialogViewModel.ForRemoving(BulkTagItems());
+            model.Type(removal: "衣装／夏");
+            return Task.FromResult<Window>(new BulkTagDialog(model));
+        }),
+
+        DialogScene("catalog-dialog-move-sub","小分類の移動の窓：移動先を選んだ所（下見の文と、元の大分類をどうするか）", async context =>
         {
             await context.Seed.UserTags.SaveAsync(new UserTagMaster
             {

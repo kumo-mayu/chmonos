@@ -151,6 +151,26 @@ public class ResolveActionTests
     });
 
     [Fact]
+    public Task 除外の間に別の行へ移ると_終わったとき除外した行だけが消え_見ている行はそのまま() => TestApp.Run(async app =>
+    {
+        var (_, resolve) = await OpenResolveAsync(app, @"a\first.zip", @"b\second.zip", @"c\third.zip");
+        resolve.Selected = resolve.Files.Single(row => row.FileName == "first.zip");
+
+        // 対象は押した時に決まる。答える間（命令が終わるまで）に別の行を見に行った形を、答えの中で選び直して作る
+        app.Answer = _ =>
+        {
+            resolve.Selected = resolve.Files.Single(row => row.FileName == "third.zip");
+            return MessageBoxResult.OK;
+        };
+        resolve.ExcludeRowCommand.Execute(null);
+        await app.SettleAsync();
+
+        Assert.Equal(["second.zip", "third.zip"], resolve.Files.Select(row => row.FileName).Order());
+        Assert.Equal("third.zip", resolve.Selected!.FileName);
+        Assert.Equal("1 件を管理対象から除外しました。", resolve.ListNoticeText);
+    });
+
+    [Fact]
     public Task BOOTHに無い商品IDを確かめると_そのIDのまま登録する形になり_1件なら窓を出さずに登録する() => TestApp.Run(async app =>
     {
         var (_, resolve) = await OpenResolveAsync(app, @"a\costume.zip");
@@ -208,6 +228,47 @@ public class ResolveActionTests
         Assert.Empty(app.Booth.Requests);
 
         await UiThread.Until(() => main.UnresolvedCount == 1, "ナビの未確定の数が減る");
+    });
+
+    /// <summary>
+    /// 登録の途中（画像を入れる間など）に別の行を選ぶと、終わった時に登録した行だけが消え、選んだ行は残って選ばれたまま（外部の点検20）。
+    /// 前は終わった時に選んでいる行を外していた。先頭へ飛ばないことも見るため、3件で先頭以外を選ぶ
+    /// </summary>
+    [Fact]
+    public Task BOOTHに無い商品の登録の間に別の行へ移ると_終わったとき登録した行だけが消え_見ている行はそのまま() => TestApp.Run(async app =>
+    {
+        var (_, resolve) = await OpenResolveAsync(app, @"a\first.zip", @"b\second.zip", @"c\third.zip");
+        resolve.Selected = resolve.Files.Single(row => row.FileName == "first.zip");
+        resolve.LocalNameInput = "作り物の商品";
+        app.Answer = _ => MessageBoxResult.OK;
+
+        resolve.RegisterLocalCommand.Execute(null);
+        resolve.Selected = resolve.Files.Single(row => row.FileName == "third.zip");
+        await app.SettleAsync();
+
+        Assert.Equal(["second.zip", "third.zip"], resolve.Files.Select(row => row.FileName).Order(StringComparer.Ordinal));
+        Assert.Equal("third.zip", resolve.Selected!.FileName);
+        Assert.Equal(2, app.Store.Unresolved.Load().Count);
+    });
+
+    /// <summary>見つからなかった商品IDのまま登録するときも、上と同じ（外部の点検20）</summary>
+    [Fact]
+    public Task 見つからなかったIDのまま登録する間に別の行へ移ると_終わったとき登録した行だけが消え_見ている行はそのまま() => TestApp.Run(async app =>
+    {
+        var (_, resolve) = await OpenResolveAsync(app, @"a\first.zip", @"b\second.zip", @"c\third.zip");
+        resolve.Selected = resolve.Files.Single(row => row.FileName == "first.zip");
+        resolve.ItemIdInput = "1999999";
+        resolve.PreviewCommand.Execute(null);
+        await app.SettleAsync();
+        Assert.True(resolve.IsUnpublishedForm);
+
+        resolve.AssignCommand.Execute(null);
+        resolve.Selected = resolve.Files.Single(row => row.FileName == "third.zip");
+        await app.SettleAsync();
+
+        Assert.Equal(["second.zip", "third.zip"], resolve.Files.Select(row => row.FileName).Order(StringComparer.Ordinal));
+        Assert.Equal("third.zip", resolve.Selected!.FileName);
+        Assert.NotNull(await app.Store.Items.LoadAsync("1999999"));
     });
 
     /// <summary>

@@ -1182,6 +1182,28 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         }
     }
 
+    /// <summary>
+    /// 写真の欄を大きな絵ごと畳んでいるか（ユーザ判断 2026-11-20：商品ページの「小さな絵を折りたたむ」と同じ形で）。
+    /// 右の欄の上に大きな絵が出て、使ったものが下へ押されるため。次に起動した時まで覚える（<see cref="GalleryFoldKey.Modification"/>）。
+    /// 畳んでいる間は部品ごと作らない（画面の側）ので、小さな絵の枠も作らない。写真の落とす・貼るは画面全体で受けるので畳んでも使える
+    /// </summary>
+    public bool GalleryFolded
+    {
+        get => _services.PaneWidths.IsCollapsed(GalleryFoldKey.Modification);
+        set
+        {
+            if (GalleryFolded != value)
+            {
+                _services.PaneWidths.SetCollapsed(GalleryFoldKey.Modification, value);
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public RelayCommand ToggleGalleryCommand => _toggleGalleryCommand ??= new RelayCommand(() => GalleryFolded = !GalleryFolded);
+
+    private RelayCommand? _toggleGalleryCommand;
+
     public RelayCommand PreviousImageCommand { get; }
 
     public RelayCommand NextImageCommand { get; }
@@ -1698,7 +1720,19 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         RebuildGallery();
 
         await LoadSuggestionsAsync();
-        await LoadProjectsAsync();
+
+        // 紐付けの候補（Unity Hub・VCC の一覧とツールの有無）は、開いた時と「読み直す」の時だけ読む（ユーザ判断 2026-11-20）。
+        // ここは使ったもの・写真を変えるたびに通るので、前は足す・外すのたびにレジストリとファイルを読み直していた。
+        // 紐付け先が変わったときのために、今の目印だけは控えた候補から付け直す
+        if (_projectsLoaded)
+        {
+            ShowProjectCandidates();
+        }
+        else
+        {
+            await LoadProjectsAsync();
+        }
+
         ProjectMissing = HasProject && !await Core.Services.DiskCheck.FolderExistsAsync(Record.UnityProject);
 
         // 今の VPM は改変の画面のプロジェクトの欄と同じ控えから取る（2つの画面で食い違わない。Packages を開くたびに数えない）
@@ -1724,21 +1758,34 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     /// <summary>
     /// 紐付けの候補を読み直す。
     ///
-    /// **押されたときと開いたときに読む。**一覧は他のアプリが書くもので、
-    /// こちらが持っていても古くなる（Unityを開いたら開いている印も変わる）。
+    /// **「読み直す」を押したときと開いたときだけ読む**（ユーザ判断 2026-11-20。使ったものを変えるたびには読まない）。
+    /// 一覧は他のアプリが書くもので、こちらが持っていると古くなる（Unityを開いたら開いている印も変わる）ので、
+    /// 古いと思ったら「読み直す」で読む
     /// </summary>
     private async Task LoadProjectsAsync()
     {
         // レジストリとファイルを見るので、どちらも画面のスレッドの外で調べる
         var projects = Task.Run(() => _services.DiscoverUnityProjects());
         var tools = Task.Run(() => _services.DetectUnityTools());
-        var found = await projects;
+        _foundProjects = await projects;
         _tools = await tools;
+        _projectsLoaded = true;
         OnPropertyChanged(nameof(ProjectCandidatesEmptyText));
         OnPropertyChanged(nameof(RefreshProjectsHint));
+        ShowProjectCandidates();
+    }
 
+    /// <summary>候補を読んだか（開いた時の1回目の <see cref="ReloadAsync"/> で読む）。</summary>
+    private bool _projectsLoaded;
+
+    /// <summary>最後に読んだ候補。紐付け先が変わったら、ここから「今の紐付け先」の目印を付け直す。</summary>
+    private IReadOnlyList<UnityProjectCandidate> _foundProjects = [];
+
+    /// <summary>控えた候補から行を組む（読まない）。今の紐付け先の目印は今の記録で付ける。</summary>
+    private void ShowProjectCandidates()
+    {
         ProjectCandidates.Clear();
-        foreach (var candidate in found)
+        foreach (var candidate in _foundProjects)
         {
             ProjectCandidates.Add(new UnityProjectRowViewModel
             {

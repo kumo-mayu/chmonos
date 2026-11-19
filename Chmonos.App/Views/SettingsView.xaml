@@ -130,6 +130,18 @@
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="220,4,0,0"
                                        Text="アプリ全体の文字と絵をまとめて大きくします。下のショートカットでも変えられます。" />
 
+                            <!-- 流した時に上へ重ねる1行の見出し（ショップ・商品ページ・編集）の大きさ（ユーザ判断 2026-11-20） -->
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="上に出る見出しの大きさ" Style="{StaticResource RowLabel}" Width="220" />
+                                <ComboBox controls:SettingDefault.Key="CompactHeaderPercent" Width="120" ItemsSource="{x:Static vm:SettingsViewModel.CompactHeaderOptions}"
+                                          DisplayMemberPath="Label" SelectedValuePath="Percent"
+                                          SelectedValue="{Binding CompactHeaderPercent, Mode=TwoWay}"
+                                          AutomationProperties.AutomationId="Settings.CompactHeaderSize"
+                                          AutomationProperties.Name="上に出る見出しの大きさ" />
+                            </StackPanel>
+                            <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="220,4,0,0"
+                                       Text="下へ流したとき、画面の上に出る1行の見出しを大きくします。" />
+
                             <!-- ドラッグで変えた画面の幅を全部戻す（ユーザ判断 2026-09-14：1か所は境目のダブルクリック、全部はここ） -->
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="画面の幅" Style="{StaticResource RowLabel}" Width="220" />
@@ -287,11 +299,21 @@
                                       ToolTip="入手日の順では、年と月ごとに区切りを入れます。"
                                       IsEnabled="{Binding ShowSortDividers}"
                                       IsChecked="{Binding ShowAcquiredSortDividers, Mode=TwoWay}" />
+                            <!-- 統計のグラフの軸などの金額の短い表記（ユーザ判断 2026-11-20）。既定は k・M・B -->
+                            <CheckBox controls:SettingDefault.Key="ShortYenInKanji" Content="統計の金額の短い表記を千・万・億にする" Style="{StaticResource SettingCheck}"
+                                      AutomationProperties.AutomationId="Settings.ShortYenInKanji"
+                                      ToolTip="グラフの軸などで、12k を 1.2万 のように出します。"
+                                      IsChecked="{Binding ShortYenInKanji, Mode=TwoWay}" />
                             <!-- 検索の絞り込みで条件を足す位置（ユーザ判断 2026-10-01）。並べる操作は検索の画面のメニューにあるので、ここでは言わない -->
                             <CheckBox controls:SettingDefault.Key="PlaceNewConditionNearSameKind" Content="追加する条件を同じ種類の条件のすぐ下に置く" Style="{StaticResource SettingCheck}"
                                       AutomationProperties.AutomationId="Settings.PlaceNewConditionNearSameKind"
                                       ToolTip="オフのときは、いちばん下に追加します。"
                                       IsChecked="{Binding PlaceNewConditionNearSameKind, Mode=TwoWay}" />
+                            <!-- 検索の一覧をホイールで滑らかに流す（ユーザ判断 2026-11-20：設定の項目にし、試しに入れる） -->
+                            <CheckBox controls:SettingDefault.Key="SmoothScrolling" Content="検索の一覧を滑らかに流す" Style="{StaticResource SettingCheck}"
+                                      AutomationProperties.AutomationId="Settings.SmoothScrolling"
+                                      ToolTip="マウスのホイールで、一覧を少しずつ流します。オフのときは、決まった量ずつ動きます。"
+                                      IsChecked="{Binding SmoothScrolling, Mode=TwoWay}" />
 
                             <!--
                                 検索の履歴。横に並ぶスロットなので、増やすほど端まで送る手間が増える。

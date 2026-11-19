@@ -55,6 +55,16 @@ public sealed class FolderBrowserFolderCard
 
     /// <summary>名前の列は商品の行と同じ型を使うので、R-18 の印の欄も持つ（フォルダには付かない）。</summary>
     public string AdultMark => string.Empty;
+
+    /// <summary>
+    /// 商品の列（ユーザータグ・文字の列など。ユーザ判断 2026-11-20 で選べるようになった）にも同じ型を使うので、空の中身を持つ。
+    /// 持たないと、行ごとに結び付けが失敗して、そのたびに記録を書く（流すのが重くなる）
+    /// </summary>
+    public ItemListRow ListRow => ItemListRow.Empty;
+
+    public CardInfo ListInfo => s_emptyInfo;
+
+    private static readonly CardInfo s_emptyInfo = new();
 }
 
 /// <summary>
@@ -415,8 +425,6 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImages
         }
     });
 
-    public RelayCommand AddSelectionToFavoritesCommand => _addToFavorites ??= new RelayCommand(() => AddSelectionToFavoritesAsync().Forget());
-
     public RelayCommand AddSelectionToModificationCommand => _addToModification ??= new RelayCommand(
         () => ItemSelectionActions.AddToModificationAsync(_services, SelectedCards()).Forget());
 
@@ -438,7 +446,6 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImages
     private RelayCommand? _selectAll;
     private RelayCommand? _clearSelection;
     private RelayCommand? _sendToEdit;
-    private RelayCommand? _addToFavorites;
     private RelayCommand? _addToModification;
     private RelayCommand? _sendToUnity;
 
@@ -456,7 +463,58 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImages
     }
 
     /// <summary>帯を出すか。選んでいる間と、Unity へ送っている間（E10：1件でも進み具合を出す）。</summary>
-    public bool ShowsSelectionBar => HasSelection || IsSendingToUnity;
+    public bool ShowsSelectionBar => HasSelection || IsSendingToUnity || Bulk.IsRefreshing;
+
+    /// <summary>帯の「お気に入り ▾」「タグ・属性 ▾」「その他 ▾」（検索の画面と同じ中身。ユーザ判断 2026-11-20）。</summary>
+    public SelectionBulkActions Bulk => _bulk ??= new SelectionBulkActions(
+        _services, _main, () => SelectedCards(), ApplyBulkChanged, () => OnPropertyChanged(nameof(ShowsSelectionBar)));
+
+    private SelectionBulkActions? _bulk;
+
+    /// <summary>
+    /// まとめた操作で書いた記録を当てる。検索の写しへも渡す（戻ったときに古い星・タグが出ないように）。
+    /// この画面のカードは作り直さず（選択を保つ）、星だけ揃える。非表示にした物は、1件の「非表示にする」と同じくこの一覧から外す
+    /// </summary>
+    private void ApplyBulkChanged(IReadOnlyList<ItemRecord> items)
+    {
+        _main.Search.NoteItemsChanged(items, keepSelection: true);
+        var hidden = false;
+        foreach (var item in items)
+        {
+            ReplaceIn(_directItems, item);
+            ReplaceIn(_allItems, item);
+            if (_cards.TryGetValue(item.Id, out var card))
+            {
+                card.IsFavorite = item.Local.IsFavorite;
+            }
+
+            if (item.Local.IsHidden)
+            {
+                _directItems.RemoveAll(entry => entry.Id == item.Id);
+                _allItems.RemoveAll(entry => entry.Id == item.Id);
+                if (card is not null)
+                {
+                    card.IsSelected = false;
+                }
+
+                hidden = true;
+            }
+        }
+
+        if (hidden)
+        {
+            Rebuild();
+        }
+
+        static void ReplaceIn(List<ItemRecord> list, ItemRecord item)
+        {
+            var index = list.FindIndex(entry => entry.Id == item.Id);
+            if (index >= 0)
+            {
+                list[index] = item;
+            }
+        }
+    }
 
     /// <summary>送るのをやめる（E7）。</summary>
     public RelayCommand StopUnityCommand => _stopUnity ??= new RelayCommand(Services.UnityImportQueue.Stop);
@@ -538,15 +596,6 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImages
         }
     }
 
-    /// <summary>選んだ物に星を付ける。付いている物はそのまま（外す操作ではない）。</summary>
-    private async Task AddSelectionToFavoritesAsync()
-    {
-        foreach (var card in SelectedCards().Where(card => !card.IsFavorite))
-        {
-            await ToggleFavoriteAsync(card);
-        }
-    }
-
     /// <summary>1件でも選ぶと、カード全体が選択の的になる（検索画面と同じ。中を見るのは専用のボタンへ）。</summary>
     private void OnCardSelectionChanged()
     {
@@ -561,6 +610,7 @@ public sealed class FolderViewDetail : ViewModelBase, IItemCardHost, IItemImages
         OnPropertyChanged(nameof(ShowsSelectionBar));
         OnPropertyChanged(nameof(SelectionText));
         OnPropertyChanged(nameof(CanOpenFilePool));
+        _bulk?.NoteSelectionChanged();
 
         var selecting = HasSelection;
         foreach (var card in _cards.Values)

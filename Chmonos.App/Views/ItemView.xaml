@@ -85,71 +85,23 @@
             </DataTemplate.Triggers>
         </DataTemplate>
 
+        <!--
+            商品ページのメニュー（上の帯の「…」と、上の帯の右クリックで同じ物。ユーザ判断 2026-11-20）。
+            商品ページには全体の右クリックが無かった（名前・説明文は字の右クリック）ので、上の帯に置く。
+            押せないときも項目は出し、吹き出しで理由を言う（右クリックのメニューの決まり）
+        -->
+        <ContextMenu x:Key="ItemPageMenu">
+            <MenuItem Header="BOOTHでの変化の履歴" Command="{Binding ShowChangeHistoryCommand}"
+                      AutomationProperties.AutomationId="ItemMenu.ChangeHistory"
+                      ToolTip="{Binding ChangeHistoryTip}" ToolTipService.ShowOnDisabled="True" />
+        </ContextMenu>
+
         <!-- 欄に付く札の並び（ChangeSlot.Marks）。印の無い欄では何も出さない -->
         <ItemsPanelTemplate x:Key="ChangeMarksPanel">
             <StackPanel Orientation="Horizontal" />
         </ItemsPanelTemplate>
-        </ResourceDictionary>
-    </UserControl.Resources>
-
-    <DockPanel Background="{DynamicResource Bg}">
-
-        <!-- 上部バー -->
-        <!--
-            左（戻る・カテゴリ）と右（状態の文・ボタン3つ）を1行に並べ、入り切らなければ右の塊を次の段へ送る（メモ6-③）。
-            前は Grid に右寄せで重ねて置いていて、フォルダビューに組み込んだ狭い欄（右の欄が約360px以下）では
-            ボタンの列が左へはみ出してカテゴリの文字の上に重なり、幅900では「商品情報を取り直す」の左も欠けていた。
-            右の塊だけでも幅を超える欄では、右の塊の中でボタンを折り返す。高さは中身に合わせ、1行のときは前と同じ52
-        -->
-        <Border DockPanel.Dock="Top" MinHeight="52" Background="{DynamicResource Surface}"
-                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
-            <controls:SplitRowPanel Margin="20,7" Gap="12" VerticalAlignment="Center">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <!-- フォルダビューに組み込んだときは戻るを隠す（ShowsBack） -->
-                    <Button Content="{Binding BackText}" Command="{Binding BackCommand}" BorderThickness="0" Background="Transparent"
-                            Visibility="{Binding ShowsBack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                    <Border Width="1" Height="20" Background="{DynamicResource Border}" Margin="12,0"
-                            Visibility="{Binding ShowsBack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                    <!-- 狭い欄では「…」で切る（全文は乗せると出す） -->
-                    <TextBlock Text="{Binding CategoryText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
-                               TextTrimming="CharacterEllipsis" ToolTip="{Binding CategoryText}" />
-                </StackPanel>
-                <WrapPanel HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding RefreshStatus}" Style="{StaticResource Caption}" VerticalAlignment="Center"
-                               Margin="0,2,10,2" MaxWidth="320" TextTrimming="CharacterEllipsis"
-                               Visibility="{Binding HasRefreshStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                    <!-- 取り込みの③がまだで、直す操作を塞いでいる理由（U8・U10）。塞いだことを黙らない -->
-                    <TextBlock Text="{Binding EditLockText}" FontSize="11.5" Foreground="{DynamicResource Warn}"
-                               VerticalAlignment="Center" Margin="0,2,12,2" MaxWidth="520" TextWrapping="Wrap"
-                               Visibility="{Binding IsEditLocked, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                    <!-- 外部で更新を知ったときに、次回更新予定を待たずに取り直せるようにする -->
-                    <Button Content="{Binding RefreshButtonText}" Command="{Binding RefreshCommand}" Margin="0,2,8,2"
-                            AutomationProperties.AutomationId="ItemRefresh"
-                            ToolTipService.ShowOnDisabled="True" ToolTip="{Binding RefreshButtonTip}" />
-                    <!--
-                        プラグインが足した項目（plan 44 の②）。商品ページには全体の右クリックが無い（名前・説明文は字の右クリック）ので、
-                        「開く ▾」と同じ押すと開くボタンにする。足したソフトが無ければ出さない。中身は押すたびに作る（押せるかは今の商品で決まる）
-                    -->
-                    <Button Content="プラグイン ▾" Margin="0,2,8,2" Click="OnPluginMenuClick" PreviewKeyDown="OnPluginMenuKeyDown"
-                            AutomationProperties.AutomationId="ItemPluginMenu"
-                            ToolTip="プラグインが追加した操作を選びます。"
-                            Visibility="{Binding PluginMenus.HasItemMenus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}" />
-                    <Button Content="編集" AutomationProperties.Name="この商品を編集" Command="{Binding EditCommand}" Margin="0,2,8,2"
-                            AutomationProperties.AutomationId="ItemEdit"
-                            ToolTipService.ShowOnDisabled="True" ToolTip="{Binding EditButtonTip}" />
-                    <Button Content="BOOTHで開く" Command="{Binding OpenBoothCommand}" Margin="0,2,0,2"
-                            AutomationProperties.AutomationId="ItemOpenBooth"
-                            ToolTipService.ShowOnDisabled="True" ToolTip="{Binding OpenBoothTip}" />
-                </WrapPanel>
-            </controls:SplitRowPanel>
-        </Border>
-
-        <!--
-            使っている商品に新しい版が出たら促す帯（docs/spec/used-updates.md・ユーザ判断 2026-11-06）。
-            既読とは別：通知を読んでも、新しい版を取り込むか「確認した」を押すまで残す。高さは下の帯と同じ1行
-        -->
-        <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
-                Visibility="{Binding ShowsUsedUpdateBar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+        <!-- 上の2本の帯の中身。本文の頭の帯と、流した時の1行の見出しの印から開く小窓の、両方で使う（ユーザ判断 2026-11-20） -->
+        <DataTemplate x:Key="UsedUpdateBarContent">
             <Border BorderThickness="3,0,0,0" BorderBrush="{DynamicResource Warn}" Margin="20,8" Padding="10,0,0,0" Height="28">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -172,17 +124,12 @@
                             ToolTip="この帯を消します。次の更新でまた出ます。" />
                 </Grid>
             </Border>
-        </Border>
-
+        </DataTemplate>
         <!--
-            BOOTH で変わった所がある間だけ出す帯（メモ7-①）。印は「既読にする」を押すまで残す（ユーザ判断 2026-10-02）。
-            流す本文の外に置くのは、下へ流しても「既読にする」に届くように。
             変わった所を並べ、押すとそこまで流す（メモ17⑤）。**帯の高さは1行に決める**：並びは折り返さず、入り切らない分は
-            「ほか n 件」の一覧へ回す（OneLinePanel）。既読にした後も、このページを開いている間は同じ高さで残す
-            （帯が伸び縮み・消えると、その分だけ本文が一気に動く。ユーザ指示 2026-10-03）
+            「ほか n 件」の一覧へ回す（OneLinePanel）
         -->
-        <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
-                Visibility="{Binding ShowsChangesBar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+        <DataTemplate x:Key="ChangesBarContent">
           <StackPanel>
             <Border BorderThickness="3,0,0,0" Margin="20,8" Padding="10,0,0,0" Height="28">
                 <Border.Style>
@@ -223,7 +170,7 @@
                             <DataTemplate DataType="{x:Type vm:ChangeTarget}">
                                 <Button Style="{StaticResource SmallButton}" Height="24" Padding="7,0"
                                         AutomationProperties.AutomationId="ItemChangeTarget" AutomationProperties.Name="{Binding Label}"
-                                        Command="{Binding DataContext.GoToChangeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        Command="{Binding DataContext.GoToChangeCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                         CommandParameter="{Binding}" ToolTip="{Binding Tip}" ToolTipService.ShowOnDisabled="True">
                                     <StackPanel Orientation="Horizontal">
                                         <Rectangle x:Name="Edge" Width="3" Height="12" Margin="0,0,6,0" Fill="{DynamicResource Warn}" VerticalAlignment="Center" />
@@ -284,6 +231,65 @@
             <controls:AreaNoticeLine DataContext="{Binding ChangesNotice}" Margin="33,-6,20,6"
                                      Visibility="{Binding HasText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
           </StackPanel>
+        </DataTemplate>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <DockPanel Background="{DynamicResource Bg}">
+
+        <!-- 上部バー -->
+        <!--
+            左（戻る・カテゴリ）と右（状態の文・ボタン3つ）を1行に並べ、入り切らなければ右の塊を次の段へ送る（メモ6-③）。
+            前は Grid に右寄せで重ねて置いていて、フォルダビューに組み込んだ狭い欄（右の欄が約360px以下）では
+            ボタンの列が左へはみ出してカテゴリの文字の上に重なり、幅900では「商品情報を取り直す」の左も欠けていた。
+            右の塊だけでも幅を超える欄では、右の塊の中でボタンを折り返す。高さは中身に合わせ、1行のときは前と同じ52
+        -->
+        <Border DockPanel.Dock="Top" MinHeight="52" Background="{DynamicResource Surface}"
+                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
+                ContextMenu="{StaticResource ItemPageMenu}">
+            <controls:SplitRowPanel Margin="20,7" Gap="12" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- フォルダビューに組み込んだときは戻るを隠す（ShowsBack） -->
+                    <Button Content="{Binding BackText}" Command="{Binding BackCommand}" BorderThickness="0" Background="Transparent"
+                            Visibility="{Binding ShowsBack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <Border Width="1" Height="20" Background="{DynamicResource Border}" Margin="12,0"
+                            Visibility="{Binding ShowsBack, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <!-- 狭い欄では「…」で切る（全文は乗せると出す） -->
+                    <TextBlock Text="{Binding CategoryText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" ToolTip="{Binding CategoryText}" />
+                </StackPanel>
+                <WrapPanel HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding RefreshStatus}" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                               Margin="0,2,10,2" MaxWidth="320" TextTrimming="CharacterEllipsis"
+                               Visibility="{Binding HasRefreshStatus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <!-- 取り込みの③がまだで、直す操作を塞いでいる理由（U8・U10）。塞いだことを黙らない -->
+                    <TextBlock Text="{Binding EditLockText}" FontSize="11.5" Foreground="{DynamicResource Warn}"
+                               VerticalAlignment="Center" Margin="0,2,12,2" MaxWidth="520" TextWrapping="Wrap"
+                               Visibility="{Binding IsEditLocked, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <!-- 外部で更新を知ったときに、次回更新予定を待たずに取り直せるようにする -->
+                    <Button Content="{Binding RefreshButtonText}" Command="{Binding RefreshCommand}" Margin="0,2,8,2"
+                            AutomationProperties.AutomationId="ItemRefresh"
+                            ToolTipService.ShowOnDisabled="True" ToolTip="{Binding RefreshButtonTip}" />
+                    <!--
+                        プラグインが足した項目（plan 44 の②）。商品ページには全体の右クリックが無い（名前・説明文は字の右クリック）ので、
+                        「開く ▾」と同じ押すと開くボタンにする。足したソフトが無ければ出さない。中身は押すたびに作る（押せるかは今の商品で決まる）
+                    -->
+                    <Button Content="プラグイン ▾" Margin="0,2,8,2" Click="OnPluginMenuClick" PreviewKeyDown="OnPluginMenuKeyDown"
+                            AutomationProperties.AutomationId="ItemPluginMenu"
+                            ToolTip="プラグインが追加した操作を選びます。"
+                            Visibility="{Binding PluginMenus.HasItemMenus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}" />
+                    <Button Content="編集" AutomationProperties.Name="この商品を編集" Command="{Binding EditCommand}" Margin="0,2,8,2"
+                            AutomationProperties.AutomationId="ItemEdit"
+                            ToolTipService.ShowOnDisabled="True" ToolTip="{Binding EditButtonTip}" />
+                    <Button Content="BOOTHで開く" Command="{Binding OpenBoothCommand}" Margin="0,2,0,2"
+                            AutomationProperties.AutomationId="ItemOpenBooth"
+                            ToolTipService.ShowOnDisabled="True" ToolTip="{Binding OpenBoothTip}" />
+                    <!-- 上の帯の右クリックと同じメニュー（ItemPageMenu）。押すと開くボタン（「プラグイン ▾」と同じ開き方） -->
+                    <Button Content="…" Margin="8,2,0,2" Padding="10,0" Click="OnPageMenuClick" PreviewKeyDown="OnPageMenuKeyDown"
+                            AutomationProperties.AutomationId="ItemPageMenu" AutomationProperties.Name="その他の操作"
+                            ToolTip="その他の操作を表示します。" />
+                </WrapPanel>
+            </controls:SplitRowPanel>
         </Border>
 
         <!--
@@ -316,8 +322,29 @@
                 いつでも横スクロールが出てしまうため
             -->
             <!-- フォルダビューに組み込んだときは、最小の幅と左の列の幅を窓に合わせる（BodyMinWidth） -->
-            <Border Padding="20" MinWidth="{Binding BodyMinWidth}"
-                    Width="{Binding ViewportWidth, ElementName=Body}">
+            <!--
+                上の2本の帯（使っている商品の新しい版・BOOTHで変わったところ）は本文と一緒に流す（ユーザ判断 2026-11-20）。
+                流していない時は今までどおり一番上に見え、流すと本文と一緒に上へ去るので、出し入れで本文が跳ねない。
+                流した後は1行の見出し（CompactBar）の右端の「更新」「変更」の印から、同じ中身（UsedUpdateBarContent・ChangesBarContent）を開く。
+                帯の外枠は Surface の地で幅いっぱい（前と同じ見た目）。画面内検索では探さない（中身は本文ではない）
+            -->
+            <StackPanel MinWidth="{Binding BodyMinWidth}" Width="{Binding ViewportWidth, ElementName=Body}">
+            <!-- 使っている商品に新しい版が出たら促す帯（docs/spec/used-updates.md・ユーザ判断 2026-11-06）。高さは下の帯と同じ1行 -->
+            <Border x:Name="UsedUpdateBar" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
+                    views:FindInPage.IsSkipped="True"
+                    Visibility="{Binding ShowsUsedUpdateBar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource UsedUpdateBarContent}" Focusable="False" />
+            </Border>
+            <!--
+                BOOTH で変わった所がある間だけ出す帯（メモ7-①）。印は「既読にする」を押すまで残す（ユーザ判断 2026-10-02）。
+                既読にした後も、このページを開いている間は同じ高さで残す（帯が伸び縮み・消えると、その分だけ本文が一気に動く。ユーザ指示 2026-10-03）
+            -->
+            <Border x:Name="ChangesBar" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
+                    views:FindInPage.IsSkipped="True"
+                    Visibility="{Binding ShowsChangesBar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ChangesBarContent}" Focusable="False" />
+            </Border>
+            <Border Padding="20">
             <!-- 覚えた左の幅は窓が狭いと頭打ちにする（右の最小 320 を割らないように。PaneGrid） -->
             <controls:PaneGrid Pane="{Binding LeftPane}">
                 <Grid.ColumnDefinitions>
@@ -1100,11 +1127,71 @@
                 </StackPanel>
             </controls:PaneGrid>
             </Border>
+            </StackPanel>
         </controls:InsetScrollViewer>
 
         <!-- 名前と星・絵は商品ページの持ち主から。ショップ名は頭の段と同じく押すとショップの画面へ -->
         <views:ItemCompactBar x:Name="CompactBar" Page="{Binding}" ItemName="{Binding Name}" ShopName="{Binding ShopName}"
-                              ShopCommand="{Binding OpenShopCommand}" ShopBoothCommand="{Binding OpenShopInBoothCommand}" IdPrefix="Item" />
+                              ShopCommand="{Binding OpenShopCommand}" ShopBoothCommand="{Binding OpenShopInBoothCommand}" IdPrefix="Item">
+            <!--
+                流した後も上の2本の帯に届く印（ユーザ判断 2026-11-20）。帯は本文と一緒に流れ去るので、帯がある間だけ印を出し、
+                押すと見出しのすぐ下に帯と同じ中身を開く。開け閉めは ItemView.xaml.cs（OnBarMarkChecked）で、印と小窓は Tag で組にする（見出しの部品の中なので x:Name を付けられない）。並びは帯と同じ上から順
+            -->
+            <views:ItemCompactBar.Trailing>
+                <StackPanel Orientation="Horizontal">
+                    <ToggleButton Tag="UsedUpdate" Height="27" Padding="9,0" FontSize="11.5" Margin="8,0,0,0"
+                                  Checked="OnBarMarkChecked" Unchecked="OnBarMarkUnchecked" PreviewKeyDown="OnBarMarkKeyDown" IsVisibleChanged="OnBarMarkVisibleChanged"
+                                  Visibility="{Binding ShowsUsedUpdateBar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                  AutomationProperties.AutomationId="ItemCompactUsedUpdate" AutomationProperties.Name="使っている商品の新しい版"
+                                  ToolTip="使っている商品の新しい版の知らせを表示します。">
+                        <StackPanel Orientation="Horizontal">
+                            <Rectangle Width="3" Height="12" Margin="0,0,6,0" Fill="{DynamicResource Warn}" VerticalAlignment="Center" />
+                            <TextBlock Text="更新" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </ToggleButton>
+                    <ToggleButton Tag="Changes" Height="27" Padding="9,0" FontSize="11.5" Margin="6,0,0,0"
+                                  Checked="OnBarMarkChecked" Unchecked="OnBarMarkUnchecked" PreviewKeyDown="OnBarMarkKeyDown" IsVisibleChanged="OnBarMarkVisibleChanged"
+                                  Visibility="{Binding ShowsChangesBar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                  AutomationProperties.AutomationId="ItemCompactChanges" AutomationProperties.Name="BOOTHで変わったところ"
+                                  ToolTip="BOOTHで変わったところを表示します。">
+                        <StackPanel Orientation="Horizontal">
+                            <!-- 線の色は帯の左の線と同じ（足しただけ＝緑・消しただけ＝赤・それ以外＝橙） -->
+                            <Rectangle Width="3" Height="12" Margin="0,0,6,0" VerticalAlignment="Center">
+                                <Rectangle.Style>
+                                    <Style TargetType="Rectangle">
+                                        <Setter Property="Fill" Value="{DynamicResource Warn}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ChangesBarTone}" Value="{x:Static vm:ChangeTone.Added}">
+                                                <Setter Property="Fill" Value="{DynamicResource Good}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding ChangesBarTone}" Value="{x:Static vm:ChangeTone.Removed}">
+                                                <Setter Property="Fill" Value="{DynamicResource Bad}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Rectangle.Style>
+                            </Rectangle>
+                            <TextBlock Text="変更" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </ToggleButton>
+                    <!-- 見出しの幅いっぱいに、見出しのすぐ下へ開く（幅は開く時に見出しに合わせる。OneLinePanel が1行に収める幅が要る） -->
+                    <Popup Tag="UsedUpdate" StaysOpen="False" Placement="Bottom" Opened="OnBarPopupOpened" Closed="OnBarPopupClosed">
+                        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderStrong}" BorderThickness="1"
+                                KeyboardNavigation.TabNavigation="Cycle" PreviewKeyDown="OnBarPopupKeyDown"
+                                AutomationProperties.AutomationId="ItemCompactUsedUpdatePanel">
+                            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource UsedUpdateBarContent}" Focusable="False" />
+                        </Border>
+                    </Popup>
+                    <Popup Tag="Changes" StaysOpen="False" Placement="Bottom" Opened="OnBarPopupOpened" Closed="OnBarPopupClosed">
+                        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderStrong}" BorderThickness="1"
+                                KeyboardNavigation.TabNavigation="Cycle" PreviewKeyDown="OnBarPopupKeyDown"
+                                AutomationProperties.AutomationId="ItemCompactChangesPanel">
+                            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ChangesBarContent}" Focusable="False" />
+                        </Border>
+                    </Popup>
+                </StackPanel>
+            </views:ItemCompactBar.Trailing>
+        </views:ItemCompactBar>
         </Grid>
     </DockPanel>
 </UserControl>

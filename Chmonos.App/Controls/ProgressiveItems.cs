@@ -69,6 +69,21 @@ public static class ProgressiveItems
     /// </summary>
     internal const double LookAhead = 300;
 
+    /// <summary>
+    /// 一覧ごとの先読みの量（px）。付けなければ <see cref="LookAhead"/>。
+    /// 1つが小さく数の多い一覧（ギャラリーの小さな絵）は、先読みの 300 で十段近く作ってしまい、分ける意味が薄れるので小さくする
+    /// </summary>
+    public static readonly DependencyProperty LookAheadOverrideProperty =
+        DependencyProperty.RegisterAttached(
+            "LookAheadOverride",
+            typeof(double),
+            typeof(ProgressiveItems),
+            new PropertyMetadata(double.NaN));
+
+    public static void SetLookAheadOverride(DependencyObject element, double value) => element.SetValue(LookAheadOverrideProperty, value);
+
+    public static double GetLookAheadOverride(DependencyObject element) => (double)element.GetValue(LookAheadOverrideProperty);
+
     /// <summary>足している途中の一覧。全部が要る所が、待たずに足し切るために持つ（済んだら外すので、画面を握り続けない）。</summary>
     private static readonly List<Feeder> Active = [];
 
@@ -265,7 +280,8 @@ public static class ProgressiveItems
     private static bool NeedsMore(Feeder feeder, ScrollViewer scroller, UIElement content)
     {
         var bottom = feeder.List.TranslatePoint(new Point(0, feeder.List.ActualHeight), content).Y;
-        return bottom < scroller.ViewportHeight + LookAhead;
+        var lookAhead = GetLookAheadOverride(feeder.List) is var own && double.IsFinite(own) ? own : LookAhead;
+        return bottom < scroller.ViewportHeight + lookAhead;
     }
 
 

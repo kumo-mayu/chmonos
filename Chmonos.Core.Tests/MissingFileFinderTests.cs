@@ -307,6 +307,54 @@ public class MissingFileFinderTests : IDisposable
     }
 
     /// <summary>
+    /// 商品を名指しして探すと（商品ページ・選択の帯。ユーザ判断 2026-11-20）、その商品の分だけを結び直す。
+    /// 同じ中身を名指ししていない商品も持っていても、その商品の場所は変えない。
+    /// </summary>
+    [Fact]
+    public async Task 名指しした商品だけを結び直し_同じ中身を持つほかの商品には触らない()
+    {
+        var (found, file) = await EmptyRecordOfAsync("おなじ.zip", "おなじなかみ");
+        await SaveAsync("111", file);
+        await SaveAsync("222", file);
+
+        var result = await _finder.FindAsync([_watched], itemIds: ["111"]);
+
+        Assert.Equal((1, 1), (result.MissingBefore, result.Relinked));
+        Assert.Equal(["111"], result.RelinkedFiles.Select(outcome => outcome.ItemId));
+        Assert.Equal([found], (await OnlyFileOfAsync("111")).Paths);
+        Assert.Empty((await OnlyFileOfAsync("222")).Paths);
+    }
+
+    /// <summary>名指しして見つからなかったときも、見つからなかった日時を付けるのは名指しした商品だけ。</summary>
+    [Fact]
+    public async Task 名指しして見つからなかった日時は_名指しした商品にだけ付ける()
+    {
+        var gone = Path.Combine(_watched, "消えた.zip");
+        var file = new LocalFileRecord { Hash = new string('c', 64), SizeBytes = 7, Paths = [gone] };
+        await SaveAsync("111", file);
+        await SaveAsync("222", file);
+
+        var result = await _finder.FindAsync([_watched], itemIds: ["111"]);
+
+        Assert.Equal(["111"], result.NotFoundFiles.Select(outcome => outcome.ItemId));
+        Assert.NotNull((await OnlyFileOfAsync("111")).MissingSince);
+        Assert.Null((await OnlyFileOfAsync("222")).MissingSince);
+    }
+
+    /// <summary>空の一覧は「どれも探さない」（null の全商品と取り違えない）。</summary>
+    [Fact]
+    public async Task 空の一覧を名指しすると何も探さない()
+    {
+        var (_, file) = await EmptyRecordOfAsync("おなじ.zip", "おなじなかみ");
+        await SaveAsync("111", file);
+
+        var result = await _finder.FindAsync([_watched], itemIds: []);
+
+        Assert.Equal(0, result.MissingBefore);
+        Assert.Empty((await OnlyFileOfAsync("111")).Paths);
+    }
+
+    /// <summary>
     /// 探している間（読み終えて中身を確かめている間）に、取り込みが同じファイルへ別の場所を足し、人がメモを書いても、
     /// どれも消えない。探した側は錠の中で今の値に場所を足すだけ。
     /// </summary>

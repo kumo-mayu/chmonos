@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using Chmonos.Core.Models;
 
 namespace Chmonos.App.Controls;
 
@@ -16,7 +17,35 @@ public static class CompactHeader
     /// 1行の見出しの高さ。帯の XAML の Height と揃える。ショップでは「このショップの商品」の行が止まる高さにもなる。
     /// 32 の絵と2行にならない名前（15）が上下に余白を持って収まる高さ（ショップで決めた値。ほかの画面も揃える）
     /// </summary>
-    public const double Height = 52;
+    /// <remarks>
+    /// 設定の「見出しの大きさ」（<see cref="CompactHeaderSize"/>）で変わる（ユーザ判断 2026-11-20）。帯の XAML は
+    /// 資源 <see cref="HeightResourceKey"/>・<see cref="TransformResourceKey"/> を読むので、<see cref="Apply"/> で3つが一緒に替わる
+    /// </remarks>
+    public static double Height { get; private set; } = CompactHeaderSize.BaseHeight;
+
+    /// <summary>帯の高さを置く App の資源の名前（帯の Height が DynamicResource で読む）。</summary>
+    public const string HeightResourceKey = "CompactHeaderHeight";
+
+    /// <summary>帯の中身（字・絵）を同じ倍率で大きくする縮尺を置く App の資源の名前（中身の LayoutTransform が読む）。</summary>
+    public const string TransformResourceKey = "CompactHeaderTransform";
+
+    /// <summary>
+    /// 大きさ（%）を当てる。起動のときと、設定で変えたとき。字は帯の中身の LayoutTransform で大きくするので、
+    /// 字ごとの FontSize を書き換えるより、並びと切り詰め（「…」）が100%と同じまま比例する
+    /// </summary>
+    public static void Apply(int percent)
+    {
+        var normalized = CompactHeaderSize.Normalize(percent);
+        Height = CompactHeaderSize.Height(normalized);
+        if (Application.Current is { } app)
+        {
+            var scale = normalized / 100.0;
+            var transform = new ScaleTransform(scale, scale);
+            transform.Freeze();
+            app.Resources[TransformResourceKey] = transform;
+            app.Resources[HeightResourceKey] = Height;
+        }
+    }
 
     /// <summary>
     /// 1行の見出しを出すか：名前の段の下端が上端に着いたとき。名前の段が見えている間は同じ物が2つ並ぶので出さない。

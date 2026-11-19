@@ -194,6 +194,9 @@ internal sealed class TestApp
     /// <summary>出すはずだった、除外の解除の窓。</summary>
     public List<ExclusionListViewModel> ExclusionDialogs { get; } = [];
 
+    /// <summary>出すはずだった、商品ページの「BOOTHでの変化の履歴」の窓（窓は出ない。読むだけの窓なので答えは無い）。</summary>
+    public List<ChangeHistoryViewModel> ChangeHistoryDialogs { get; } = [];
+
     /// <summary>出すはずだったサブ画面（ファイルの割り振り）の窓。窓は作らず、前に出した回数と閉じるを控える。</summary>
     public List<FakeSubWindow> SubWindows { get; } = [];
 
@@ -241,6 +244,12 @@ internal sealed class TestApp
 
     /// <summary>出すはずだった、BOOTHに無い商品の名前の窓。</summary>
     public List<LocalItemNameDialogViewModel> LocalItemNameDialogs { get; } = [];
+
+    /// <summary>選択の帯の「タグ・属性」の窓への答え（窓は出ない）。選ぶ物は窓の Type で決める。既定は「キャンセル」。</summary>
+    public Func<BulkTagDialogViewModel, bool> AnswerBulkTag { get; set; } = _ => false;
+
+    /// <summary>出すはずだった、選択の帯の「タグ・属性」の窓。</summary>
+    public List<BulkTagDialogViewModel> BulkTagDialogs { get; } = [];
 
     /// <summary>選ぶ窓（<see cref="ChoiceQuestion"/>）への答え（窓は出ない）。既定はキャンセル——答えを決めていない問いで、書き換えが黙って走らないように</summary>
     public Func<ChoiceRequest, Views.ChoiceDialogResult> Choose { get; set; } = _ => Views.ChoiceDialogResult.Cancel;
@@ -370,6 +379,11 @@ internal sealed class TestApp
                 app.SearchScopes.Add(model);
                 return app.PickSearchScope(model);
             };
+            ChangeHistoryWindow.Intercept = model =>
+            {
+                app.ChangeHistoryDialogs.Add(model);
+                return Task.CompletedTask;
+            };
             ExclusionDialog.Intercept = model =>
             {
                 app.ExclusionDialogs.Add(model);
@@ -412,6 +426,11 @@ internal sealed class TestApp
             {
                 app.LocalItemNameDialogs.Add(model);
                 return app.NameLocalItem(model);
+            };
+            BulkTagDialogViewModel.Intercept = model =>
+            {
+                app.BulkTagDialogs.Add(model);
+                return app.AnswerBulkTag(model);
             };
 
             // 裏の取得は既定で切る：作り物の BOOTH は「無い」としか答えないので、走らせると
@@ -574,11 +593,13 @@ internal sealed class TestApp
             RenameDialogAsk.Intercept = null;
             ModificationNameDialogViewModel.Intercept = null;
             LocalItemNameDialogViewModel.Intercept = null;
+            BulkTagDialogViewModel.Intercept = null;
             // Run で差し替えた口は全部ここで戻す（点検24：この2つだけ戻しておらず、TestApp を使わない試験が
             // 同じ入口を呼ぶと前の試験の答えを使い、走らせる順で結果が変わり得た）
             ChoiceQuestion.Intercept = null;
             ResetSettingsDialogViewModel.Intercept = null;
             ExclusionDialog.Intercept = null;
+            ChangeHistoryWindow.Intercept = null;
 
             // 開いたままのサブ画面は閉じる（置き場の知らせを外す。次の試験へ持ち越さない）
             foreach (var window in SubWindows.Where(window => !window.IsClosed))

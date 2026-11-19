@@ -66,6 +66,18 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
+        new Scene("item-page-gallery-many-wide", "商品ページ：絵の多い商品（40枚）を広い窓で（大きな絵は欄の幅の 3/4 の高さ・上限 720。小さな絵は見えている段から作り、残りは後から足されて全部並ぶ）", async context =>
+        {
+            var item = await context.Fake.ItemAsync("9900424", "作り物の衣装", images: 40);
+            var root = await OpenItemAsync(context, item);
+            await context.SettleAsync();
+            return new Shot(root);
+        })
+        {
+            Width = 2200,
+            Height = 1400,
+        },
+
         new Scene("item-page-gallery-remove-own", "商品ページ：自分で足した画像を選んでいる所（「この画像を削除」が押せる）", async context =>
         {
             var item = await context.Fake.ItemAsync("9900422", "作り物の衣装", record => record with

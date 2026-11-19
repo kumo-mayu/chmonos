@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Windows.Media.Imaging;
 using Chmonos.App.Services;
 using Chmonos.Core.Models;
+using Chmonos.Core.Services;
 
 namespace Chmonos.App.ViewModels;
 
@@ -244,6 +245,29 @@ public sealed class ItemCardViewModel : ViewModelBase
 
     public bool HasMissingFile { get; init; }
 
+    private bool _isDetached;
+
+    /// <summary>
+    /// 手元の物が全部、今つながっていないドライブの上にあるか（帯「取り外し中」・ユーザ判断 2026-11-20。<see cref="Chmonos.Core.Services.DetachedItems"/>）。
+    /// ディスクの根を見て決めるので、カードを作った後に裏で確かめて入れる（つなぎ直した・外したときも変わる）
+    /// </summary>
+    public bool IsDetached
+    {
+        get => _isDetached;
+        set
+        {
+            if (SetField(ref _isDetached, value))
+            {
+                OnPropertyChanged(nameof(ShowsSize));
+            }
+        }
+    }
+
+    /// <summary>
+    /// 容量を出すか。未所持と取り外し中は左下の帯が重なるので出さない（帯が同じことを言う）
+    /// </summary>
+    public bool ShowsSize => IsOwned && !_isDetached;
+
     /// <summary>持っている物が全部見つからないか。札の文を分ける（一部だけなら「一部見つからない」。メモ65 の②）。</summary>
     public bool HasAllFilesMissing { get; init; }
 
@@ -303,6 +327,32 @@ public sealed class ItemCardViewModel : ViewModelBase
 
     /// <summary>リストの列の中身（幅で変えない）。</summary>
     public CardInfo ListInfo => InfoFor(narrow: false);
+
+    private ItemListRow? _listRow;
+    private UsedItems? _listRowUsed;
+
+    /// <summary>
+    /// リストの文字の列の中身（ユーザ判断 2026-11-20：列を自分で選ぶ）。初めて読まれたときに作って持ち、値は列ごとに1回だけ作る。
+    /// 使っている所（改変の数・新しい版）の答えが替わっていたら作り直す（見張りの答えは丸ごと替わるので、同じ物かで見る）
+    /// </summary>
+    public ItemListRow ListRow
+    {
+        get
+        {
+            var sources = InfoContext?.RowSources ?? ItemListRowSources.None;
+            var used = sources.UsedItems();
+            if (_listRow is null || !ReferenceEquals(used, _listRowUsed))
+            {
+                _listRowUsed = used;
+                _listRow = new ItemListRow(Item, sources, IsAwaitingDetection);
+            }
+
+            return _listRow;
+        }
+    }
+
+    /// <summary>使っている所の答えが替わった。描いている行だけが読み直す（作り直すのは <see cref="ListRow"/> を読んだとき）。</summary>
+    public void NoteListRowChanged() => OnPropertyChanged(nameof(ListRow));
 
     /// <summary>出す属性の決め方が変わった。描いているカードと行だけが読み直す（ほかは誰も聞いていない）。</summary>
     public void NoteInfoChanged()

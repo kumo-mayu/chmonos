@@ -534,6 +534,7 @@ public sealed partial class SearchViewModel
             IsImagePending = imagePending,
             HasMissingFile = item.HasMissingFile,
             HasAllFilesMissing = item.HasAllFilesMissing,
+            IsDetached = _detachedIds.Contains(item.Id),
             InfoContext = info ?? _cardInfo,
         };
     }

@@ -453,12 +453,27 @@
                         </Border>
                     </Button>
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button AutomationProperties.AutomationId="ModificationsAvatarCreate" AutomationProperties.Name="{Binding Title, StringFormat={}{0}の改変を作る}" Content="改変を作る…" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
+                        <!--
+                            文字のボタン（「改変を作る…」「アバターの管理へ」）は左の欄が狭いと名前を先に削っていたので、
+                            ＋ とナビのアバターの印にし、何をするかは吹き出しで言う（ユーザ判断 2026-11-20）。読み上げの名前はアバター名付きのまま
+                        -->
+                        <Button AutomationProperties.AutomationId="ModificationsAvatarCreate" AutomationProperties.Name="{Binding Title, StringFormat={}{0}の改変を作る}"
+                                Content="＋" FontSize="14" Style="{StaticResource SmallButton}" Width="27" Padding="0" Margin="4,0,0,0"
+                                ToolTip="改変を作る"
                                 Command="{Binding DataContext.CreateModificationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 CommandParameter="{Binding AvatarItemId}" />
-                        <Button AutomationProperties.AutomationId="ModificationsAvatarManage" AutomationProperties.Name="{Binding Title, StringFormat={}{0}のアバターの管理へ}" Content="アバターの管理へ" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
+                        <Button AutomationProperties.AutomationId="ModificationsAvatarManage" AutomationProperties.Name="{Binding Title, StringFormat={}{0}のアバターの管理へ}"
+                                Style="{StaticResource SmallButton}" Width="27" Padding="0" Margin="4,0,0,0"
+                                ToolTip="アバターの管理へ"
                                 Command="{Binding DataContext.OpenAvatarManageCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                CommandParameter="{Binding AvatarItemId}" />
+                                CommandParameter="{Binding AvatarItemId}">
+                            <Viewbox Width="15" Height="15">
+                                <Path Data="{StaticResource IconAvatars}" Fill="{x:Null}" StrokeThickness="1.8"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                      Width="24" Height="24"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                            </Viewbox>
+                        </Button>
                     </StackPanel>
                     <StackPanel VerticalAlignment="Center">
                         <Button AutomationProperties.AutomationId="ModificationsAvatarLink" AutomationProperties.Name="{Binding Title}" Style="{StaticResource HubLink}" ToolTip="{Binding Title}"

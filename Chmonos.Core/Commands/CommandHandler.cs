@@ -78,6 +78,9 @@ public sealed class CommandHandler
     /// <summary>見つからない記録をまとめて消す部品。無ければ「この機能は使えません」と返す。</summary>
     public Services.MissingRecordCleaner? MissingRecords { get; init; }
 
+    /// <summary>同じ中身のファイルの1か所をごみ箱へ送る（統計）。</summary>
+    public Services.DuplicateFileRemover? DuplicateRemover { get; init; }
+
     /// <summary>プロジェクトの中を調べた控え（unityscans）。場所の付け替えで新しい場所へ写す。無ければ写さない（次に調べ直すだけ）。</summary>
     public Storage.UnityScanStore? UnityScans { private get; init; }
 
@@ -95,6 +98,49 @@ public sealed class CommandHandler
         => StoreRootMissing()
             ?new CommandResult.Failed("保存先のフォルダが見つかりません。ドライブがつながっているか、Googleドライブなどの同期のアプリが動いているかを確かめて、もう一度押してください。")
             : new CommandResult.Failed("対象の商品データが手元にありません。");
+
+    /// <summary>
+    /// 選んだ商品へ1件ずつ、錠の中で今の値に当てる（ユーザ判断 2026-11-20）。既にそうなっている商品は書かずに数える。
+    /// 書けなかった商品（その間に消えた）があっても止めずに続け、数を返す。
+    /// </summary>
+    private static async Task<BulkItemChangeOutcome> ChangeItemsAsync(
+        IEditService edit, UiCommand.ChangeItems command, CancellationToken cancellationToken)
+    {
+        var (changed, already, notFound) = (0, 0, 0);
+        foreach (var itemId in command.ItemIds.Distinct(StringComparer.Ordinal))
+        {
+            // 錠の中で今の値を見て決める。読み直しで呼ばれ直しても最後の答えだけを数えるよう、足さずに入れ直す
+            var wrote = false;
+            var found = await edit.ChangeLocalAsync(
+                itemId,
+                current =>
+                {
+                    var next = command.Change.Apply(current);
+                    wrote = next is not null;
+
+                    // null を返すと「消えていた」と区別が付かない（どちらも false）。今の値を返せば、
+                    // 変わらない物は書かない（WriteIfChangedAsync。ファイルの日時も変えない）
+                    return next ?? current;
+                },
+                command.Change.Owns,
+                cancellationToken);
+
+            if (!found)
+            {
+                notFound++;
+            }
+            else if (wrote)
+            {
+                changed++;
+            }
+            else
+            {
+                already++;
+            }
+        }
+
+        return new BulkItemChangeOutcome(changed, already, notFound);
+    }
 
     public CommandHandler(
         IImportPipeline import,
@@ -647,6 +693,24 @@ public sealed class CommandHandler
                 return new CommandResult.UnpackedFoldersRemoved(
                     await _unpackedRemover.RemoveAsync(remove.Folders, cancellationToken));
 
+            case UiCommand.RemoveDuplicatePlace duplicate:
+                if (DuplicateRemover is null)
+                {
+                    return MissingService("削除の実行");
+                }
+
+                return new CommandResult.DuplicatePlaceRemoved(
+                    await DuplicateRemover.RemoveAsync(duplicate.Hash, duplicate.Path, cancellationToken));
+
+            case UiCommand.RemoveArchiveOfUnpacked archive:
+                if (DuplicateRemover is null)
+                {
+                    return MissingService("削除の実行");
+                }
+
+                return new CommandResult.DuplicatePlaceRemoved(
+                    await DuplicateRemover.RemoveArchiveAsync(archive.ItemId, archive.Path, cancellationToken));
+
             case UiCommand.SaveItemLocal save:
                 if (_edit is null)
                 {
@@ -666,6 +730,14 @@ public sealed class CommandHandler
                 return await _edit.ChangeLocalAsync(change.ItemId, change.Change, change.Owns, cancellationToken)
                     ? new CommandResult.ItemSaved(change.ItemId)
                     : ItemMissing();
+
+            case UiCommand.ChangeItems changeItems:
+                if (_edit is null)
+                {
+                    return MissingService("まとめての変更");
+                }
+
+                return new CommandResult.ItemsChanged(await ChangeItemsAsync(_edit, changeItems, cancellationToken));
 
             case UiCommand.ConfirmAvatars confirm:
                 if (_edit is null)
@@ -1332,7 +1404,7 @@ public sealed class CommandHandler
 
                 return new CommandResult.MissingFilesSearched(
                     await _missingFiles.FindAsync(
-                        find.Folders ?? _settings.Current.WatchedFolders, find.Progress, cancellationToken));
+                        find.Folders ?? _settings.Current.WatchedFolders, find.Progress, cancellationToken, find.ItemIds));
 
             case UiCommand.DetectUnreadableItems:
                 if (_notifications is null)

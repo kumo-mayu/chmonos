@@ -266,6 +266,18 @@ public abstract record UiCommand
     public record RemoveUnpackedFolders(IReadOnlyList<UnpackedFolder> Folders) : UiCommand;
 
     /// <summary>
+    /// 同じ中身のファイルの1か所をごみ箱へ送る（統計の「空けられる場所」。ユーザ判断 2026-11-20）。
+    /// 同じ中身のほかのファイルが今も在ると確かめてから送る。<paramref name="Hash"/> は記録のハッシュ
+    /// </summary>
+    public record RemoveDuplicatePlace(string Hash, string Path) : UiCommand;
+
+    /// <summary>
+    /// zip と展開したフォルダの組で、zip だけをごみ箱へ送る（統計の「空けられる場所」。ユーザ判断 2026-11-20。展開したフォルダには触らない）。
+    /// 展開したフォルダが今も在ると確かめてから送る
+    /// </summary>
+    public record RemoveArchiveOfUnpacked(string ItemId, string Path) : UiCommand;
+
+    /// <summary>
     /// 画面の入力を保存する。<c>local</c> のうち <paramref name="Owns"/> で名指しした項目だけを書く。
     /// 名指ししなかった項目は、保存の直前に読み直したものが残る。
     /// </summary>
@@ -289,6 +301,12 @@ public abstract record UiCommand
     /// 名指しした ID のうち、今の記録で確認待ちの物だけを錠の中で変える。
     /// </summary>
     public record ConfirmAvatars(string ItemId, IReadOnlyList<string> AvatarItemIds) : UiCommand;
+
+    /// <summary>
+    /// 選んだ商品へ同じ変更をまとめて当てる（選択の帯のタグ・属性・お気に入り・非表示・更新の通知。ユーザ判断 2026-11-20）。
+    /// 商品ごとに錠の中で今の値に当て、既にそうなっている商品は書かずに数える。結果は <see cref="CommandResult.ItemsChanged"/>
+    /// </summary>
+    public record ChangeItems(IReadOnlyList<string> ItemIds, Services.BulkItemChange Change) : UiCommand;
 
     /// <summary>
     /// 対応アバター・共通素体の行を足す・消す・戻す（商品ページ・編集画面）。変え方を渡し、**錠の中で今の一覧に当てる**
@@ -725,9 +743,14 @@ public abstract record UiCommand
     /// <summary>新しい版の確認の記録を変える（新しい版の帯を × で閉じた版を覚える。ユーザ判断 2026-10-08）。</summary>
     public record ChangeUpdateCheck(Func<Services.UpdateCheckRecord, Services.UpdateCheckRecord> Change) : UiCommand;
 
+    /// <summary>
+    /// 見つからないファイル・登録フォルダを、選んだフォルダの中から探して結び直す（取り込み画面・商品ページ・検索の選択の帯）。
+    /// <paramref name="ItemIds"/> を渡すとその商品の分だけを探す（null は全商品。ユーザ判断 2026-11-20）。
+    /// </summary>
     public record FindMissingFiles(
         IProgress<(int Hashed, string? Detail)>? Progress = null,
-        IReadOnlyList<string>? Folders = null) : UiCommand;
+        IReadOnlyList<string>? Folders = null,
+        IReadOnlyList<string>? ItemIds = null) : UiCommand;
 
     /// <summary>
     /// 見つからない登録フォルダの場所を、探した結果の候補から人が選んだ場所に差し替える（見つからない・移動の点検 10-A）。
@@ -770,6 +793,8 @@ public abstract record CommandResult
 
     public record UnpackedFoldersRemoved(IReadOnlyList<UnpackedFolderRemoval> Results) : CommandResult;
 
+    public record DuplicatePlaceRemoved(Services.DuplicateRemoval Result) : CommandResult;
+
     public record UserTagsChanged(Models.UserTagMaster Master) : CommandResult;
 
     /// <summary>改名・削除の結果。書き換えたitem数を持つのは、何が起きたかを画面に出すため。</summary>
@@ -791,6 +816,9 @@ public abstract record CommandResult
 
     /// <summary>済んだ。数を持つ（書き換えた商品の数・取り除いた数など）。</summary>
     public record Counted(int Count) : CommandResult;
+
+    /// <summary>選んだ商品へまとめて当てた（<see cref="UiCommand.ChangeItems"/>）。書いた・既にそうだった・消えていた数。</summary>
+    public record ItemsChanged(Services.BulkItemChangeOutcome Outcome) : CommandResult;
 
     /// <summary>取り込みが作った商品を消した。消した数と、人が手を入れていたので残した数。</summary>
     public record ImportedItemsDeleted(Services.ImportedItemsRemoved Result) : CommandResult;

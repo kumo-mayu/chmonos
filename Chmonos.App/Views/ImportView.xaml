@@ -51,7 +51,8 @@
         </Border>
 
         <ScrollViewer x:Name="ImportScroll" VerticalScrollBarVisibility="Auto">
-            <StackPanel Margin="24,20" MaxWidth="{StaticResource ReadingMaxWidth}">
+            <!-- 幅は窓いっぱいに使う（ユーザ判断 2026-11-20。2560px で左右が空いた。他の文章の画面は ReadingMaxWidth のまま） -->
+            <StackPanel Margin="24,20">
 
                 <!-- 取り込み元 -->
                 <Border BorderBrush="{DynamicResource DropZoneBorder}" BorderThickness="2" CornerRadius="10" Background="{DynamicResource DropZoneBack}" Padding="24,22">

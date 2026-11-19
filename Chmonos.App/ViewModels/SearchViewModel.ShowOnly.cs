@@ -54,6 +54,20 @@ public sealed partial class SearchViewModel
     }
 
     /// <summary>
+    /// 対応アバターの指定が無い商品だけを出す（統計の「対応アバター未設定」の行から）。
+    /// 条件「対応アバター」の「対応の指定が無い商品」だけを入れ、アバターは選ばない
+    /// </summary>
+    public void ShowOnlyUnspecifiedAvatar()
+    {
+        RecordBeforeShowOnly();
+        ClearFilters(apply: false);
+        var module = EnsureModule<ListModule>(SearchModuleKind.Avatar);
+        module.ShowUnspecified = true;
+        module.ShowMatched = false;
+        FinishShowOnly();
+    }
+
+    /// <summary>
     /// このアバターに関連するプロファイルの商品だけを出す（ユーザ判断 2026-11-09：アバターの管理の詳細と、アバターの商品ページからの導線）。
     /// 条件「プロファイル」の変換元と変換先の両方に、このアバターを入れる：このアバターの逆方向（このアバター用の衣装を持っていく）と
     /// 順方向（このアバターに着せる）の両方が出る。素体経由・確認待ちは条件の既定（どちらも入）のまま
@@ -199,34 +213,55 @@ public sealed partial class SearchViewModel
     /// これでナビの「未:」がその場で減る（ユーザ指示 2026-09-12：以前は編集を終えるまで減らなかった）。
     /// 全件の読み直しの最中なら覚えておき、読み直しが写しを差し替えた後に当て直す（<see cref="_notedSinceLoad"/>）
     /// </summary>
-    public void NoteItemChanged(ItemRecord item)
-    {
-        RememberNoted(item);
+    public void NoteItemChanged(ItemRecord item) => NoteItemsChanged([item], keepSelection: false);
 
-        var index = _allItems.FindIndex(entry => entry.Id == item.Id);
-        if (index < 0)
+    /// <summary>
+    /// 何件かを保存し直したことを知る（<see cref="NoteItemChanged"/> の何件か版。絞り込みは最後に1回だけ当てる）。
+    /// <paramref name="keepSelection"/> は選択の帯のまとめた操作から：選んでいた物は選んだままにする（続けて別の操作をするため。
+    /// ユーザ判断 2026-11-20）。ただし非表示にして一覧から消えた物は外す（見えない物が選んだまま残り、次の操作に混ざらないように）
+    /// </summary>
+    public void NoteItemsChanged(IReadOnlyList<ItemRecord> items, bool keepSelection)
+    {
+        var any = false;
+        var selectionTouched = false;
+        foreach (var item in items)
+        {
+            RememberNoted(item);
+
+            var index = _allItems.FindIndex(entry => entry.Id == item.Id);
+            if (index < 0)
+            {
+                continue;
+            }
+
+            any = true;
+            _allItems[index] = item;
+            _itemsById[item.Id] = item;
+            _haystacks[item.Id] = Core.Services.SearchText.Build(item, _services.KanjiReadings);
+            Core.Services.SearchText.Remember(item, _haystacks[item.Id]);
+            _fingerprints.Remove(item.Id);
+
+            if (_cards.TryGetValue(item.Id, out var old))
+            {
+                old.SelectionChanged -= OnCardSelectionChanged;
+            }
+
+            var card = ToCard(item);
+            var keepSelected = KeepsSelection(old, _sentToEdit)
+                || (keepSelection && old is { IsSelected: true } && (_allowsHidden || !item.Local.IsHidden));
+            card.IsSelected = keepSelected;
+            card.SelectionChanged += OnCardSelectionChanged;
+            _cards[item.Id] = card;
+            ApplyUpdate(card);
+            selectionTouched |= keepSelected || old is { IsSelected: true };
+        }
+
+        if (!any)
         {
             return;
         }
 
-        _allItems[index] = item;
-        _itemsById[item.Id] = item;
-        _haystacks[item.Id] = Core.Services.SearchText.Build(item, _services.KanjiReadings);
-        Core.Services.SearchText.Remember(item, _haystacks[item.Id]);
-        _fingerprints.Remove(item.Id);
-
-        if (_cards.TryGetValue(item.Id, out var old))
-        {
-            old.SelectionChanged -= OnCardSelectionChanged;
-        }
-
-        var card = ToCard(item);
-        var keepSelected = KeepsSelection(old, _sentToEdit);
-        card.IsSelected = keepSelected;
-        card.SelectionChanged += OnCardSelectionChanged;
-        _cards[item.Id] = card;
-        ApplyUpdate(card);
-        if (keepSelected)
+        if (selectionTouched)
         {
             // 新しいカードにも「選んでいる最中」を知らせる（帯の件数は変わらないが、カードの押し方が選択の切り替えになる）
             OnCardSelectionChanged();

@@ -70,6 +70,9 @@ public sealed record StatsCountBar
 
     public required int ItemCount { get; init; }
 
+    /// <summary>そのうち、アバターに直接対応している商品の数。残りは共通素体経由（推定）。<see cref="ItemCount"/> は直接と素体経由の合計</summary>
+    public int DirectCount { get; init; }
+
     /// <summary>「対応アバター未設定」のような、集計の外側を示す行。控えめに出す。</summary>
     public bool IsResidual { get; init; }
 }
@@ -286,6 +289,9 @@ public sealed record StatsSnapshot
 
     public IReadOnlyList<StatsSpendBar> UserTagSpend { get; init; } = [];
 
+    /// <summary>小分類ごとの支出。ラベルは「大分類 / 小分類」（同じ名前の小分類が別の大分類にあっても見分けるため）。小分類の無い付け方は「大分類 / 小分類なし」。</summary>
+    public IReadOnlyList<StatsSpendBar> UserTagSubSpend { get; init; } = [];
+
     /// <summary>月ごとのカテゴリ構成。買うものの移り変わり。</summary>
     public IReadOnlyList<StatsMonthlyCategory> MonthlyCategories { get; init; } = [];
 
@@ -304,6 +310,9 @@ public sealed record StatsSnapshot
     public IReadOnlyList<StatsCountBar> CategoryCounts { get; init; } = [];
 
     public IReadOnlyList<StatsCountBar> UserTagCounts { get; init; } = [];
+
+    /// <summary>小分類ごとの点数（ラベルの形は <see cref="UserTagSubSpend"/> と同じ）。</summary>
+    public IReadOnlyList<StatsCountBar> UserTagSubCounts { get; init; } = [];
 
     public IReadOnlyList<StatsAttributeDistribution> AttributeDistributions { get; init; } = [];
 
@@ -356,6 +365,16 @@ public sealed record StatsAvatarWearable
     public int Total => DirectCount + ViaBaseCount;
 }
 
+/// <summary>
+/// 集計に含める商品の範囲（ユーザ判断 2026-11-20）。既定は全部含める（前と同じ）。
+/// 外すのは所持の数・金額・容量などの集計だけ。「手元の状態」の非表示の数・積み残し・贈った数は全商品で数えるので、ここでは外さない
+/// </summary>
+public sealed record StatsScope(bool IncludeHidden = true, bool IncludeAdult = true)
+{
+    public bool Includes(ItemRecord item)
+        => (IncludeHidden || !item.Local.IsHidden) && (IncludeAdult || !item.Booth.IsAdult);
+}
+
 public interface IStatsService
 {
     Task<StatsSnapshot> LoadAsync(bool useDetectedVariationTargets = true, CancellationToken cancellationToken = default);
@@ -373,8 +392,9 @@ public sealed record StatsSource(
 ///
 /// 数え方は決定事項に従う：
 /// ・集計対象はファイル（またはフォルダ）を持つitemだけ。持っていないものは資産ではない
-/// ・非表示のitemも含める。非表示は見せ方の操作であって「持っていないことにする」ではない
-/// ・R-18も金額・容量に含める。表示設定で総額が変わると資産の把握に使えなくなる
+/// ・非表示のitemも含める（既定）。非表示は見せ方の操作であって「持っていないことにする」ではない
+/// ・R-18も金額・容量に含める（既定）。表示設定で総額が変わると資産の把握に使えなくなる
+/// ・ただし統計の画面の切り替えで外せる（<see cref="StatsScope"/>・ユーザ判断 2026-11-20）。検索の「R-18を表示」の設定とは別の値
 /// ・支出はギフトを除いた購入価格の合計。BOOTHから消えたvariationも含める
 /// ・時系列の軸は入手日。手入力が無ければファイルの日付で代え、代えた件数を持ち回る
 ///
@@ -415,9 +435,10 @@ public sealed class StatsService : IStatsService
         IReadOnlyList<ItemRecord> items,
         AvatarRegistry registry,
         int unresolvedCount,
-        bool useDetectedVariationTargets = true)
+        bool useDetectedVariationTargets = true,
+        StatsScope? scope = null)
     {
-        var owned = items.Where(IsOwned).ToList();
+        var owned = items.Where(IsOwned).Where(item => scope?.Includes(item) ?? true).ToList();
 
         var spent = 0L;
         var gifted = 0;
@@ -433,6 +454,7 @@ public sealed class StatsService : IStatsService
         var shops = new Dictionary<string, (string Name, long Spent, int Count)>(StringComparer.OrdinalIgnoreCase);
         var categories = new Dictionary<string, List<ItemRecord>>(StringComparer.CurrentCulture);
         var avatars = new Dictionary<string, int>(StringComparer.Ordinal);
+        var avatarDirect = new Dictionary<string, int>(StringComparer.Ordinal);
 
         // 素体経由の展開は相性の索引に任せる（検索・商品ページと同じ規則で数えるため）
         var compatibility = AvatarCompatibilityIndex.Build(registry);
@@ -510,10 +532,10 @@ public sealed class StatsService : IStatsService
 
             members.Add(item);
 
-            CountAvatars(item, compatibility, useDetectedVariationTargets, avatars, ref withoutAvatar);
+            CountAvatars(item, compatibility, useDetectedVariationTargets, avatars, avatarDirect, ref withoutAvatar);
         }
 
-        var avatarBars = BuildAvatarBars(owned, registry, avatars, withoutAvatar);
+        var avatarBars = BuildAvatarBars(owned, registry, avatars, avatarDirect, withoutAvatar);
 
         var snapshot = new StatsSnapshot
         {
@@ -572,6 +594,7 @@ public sealed class StatsService : IStatsService
         IReadOnlyList<ItemRecord> owned,
         AvatarRegistry registry,
         Dictionary<string, int> counts,
+        Dictionary<string, int> direct,
         int withoutAvatar)
     {
         var names = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -596,6 +619,7 @@ public sealed class StatsService : IStatsService
                 Key = pair.Key,
                 Label = names.TryGetValue(pair.Key, out var name) ? name : pair.Key,
                 ItemCount = pair.Value,
+                DirectCount = direct.TryGetValue(pair.Key, out var d) ? d : 0,
             })
             .ToList();
 
@@ -631,6 +655,7 @@ public sealed class StatsService : IStatsService
         AvatarCompatibilityIndex compatibility,
         bool useDetectedVariationTargets,
         Dictionary<string, int> counts,
+        Dictionary<string, int> direct,
         ref int withoutAvatar)
     {
         var reached = compatibility.Resolve(item.Local);
@@ -644,9 +669,13 @@ public sealed class StatsService : IStatsService
         var unowned = compatibility.UnownedVariationAvatars(item.Local, useDetectedVariationTargets);
 
         // 直接対応も素体経由も同じ1件として数える（見出しに「素体経由を含む」と断る）
-        foreach (var id in reached.Keys.Where(id => !unowned.Contains(id)))
+        foreach (var (id, match) in reached.Where(pair => !unowned.Contains(pair.Key)))
         {
             counts[id] = counts.TryGetValue(id, out var current) ? current + 1 : 1;
+            if (match == AvatarMatch.Direct)
+            {
+                direct[id] = direct.TryGetValue(id, out var d) ? d + 1 : 1;
+            }
         }
     }
 
