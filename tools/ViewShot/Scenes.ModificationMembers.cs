@@ -214,6 +214,10 @@ internal static partial class Scenes
                 CommitLabel = "追加して送る",
                 EmptyText = "改変がまだありません。",
                 RequireSameProject = true,
+
+                // 行の「複製…」を出す（描くだけなので、押しても何も作らない）
+                Duplicator = _ => Task.FromResult<ModificationRecord?>(null),
+                RowFactory = record => Row(record.Id, string.Empty, record.Name, record.UnityProject, 0),
             };
             model.PickCommand.Execute(model.Rows[0]);
             model.PickCommand.Execute(model.Rows[3]);
