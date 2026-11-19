@@ -482,7 +482,7 @@ public sealed class AppServiceContainer : IDisposable
             var deleted = JsonStore.DeleteStaleTemporaryFiles(Paths.Root, includeSubdirectories: true);
 
             // 前のバックアップの書き出しが途中で止まっていたら、書き出し先に残った書きかけを消す
-            if (CleanUpBackupWriting(Paths.Root))
+            if (CleanUpBackupWriting(Paths.Root, onLeft: NoteBackupWritingLeft))
             {
                 UiTrace.Write("速さ", "起動時の片付け：前のバックアップの書きかけを消した");
             }
@@ -500,7 +500,8 @@ public sealed class AppServiceContainer : IDisposable
     internal static bool CleanUpBackupWriting(
         string root,
         Func<string, ushort, (int Result, bool Aborted)>? shell = null,
-        Func<string, bool>? hasRecycleBin = null)
+        Func<string, bool>? hasRecycleBin = null,
+        Action<string>? onLeft = null)
         => Core.Storage.BackupWritingRecord.CleanUp(root, path =>
         {
             if (!(hasRecycleBin ?? Services.RecycleBin.HasRecycleBin)(path))
@@ -509,7 +510,22 @@ public sealed class AppServiceContainer : IDisposable
             }
 
             Services.RecycleBin.Send(path, shell);
-        });
+        }, onLeft);
+
+    /// <summary>
+    /// 起動の片付けが、ごみ箱へ送れず残したバックアップの書きかけの場所（無ければ null）。起動後の帯で使う人へ知らせる
+    /// （ユーザ判断 2026-11-20。残すだけでログにしか書かず、書きかけが何GBも残ったままになっていた）。
+    /// 片付けは窓を出した後の裏で走るので、帯の側は <see cref="BackupWritingLeftFound"/> でも受ける
+    /// </summary>
+    public string? LeftBackupWriting { get; private set; }
+
+    public event Action<string>? BackupWritingLeftFound;
+
+    internal void NoteBackupWritingLeft(string temporaryFile)
+    {
+        LeftBackupWriting = temporaryFile;
+        BackupWritingLeftFound?.Invoke(temporaryFile);
+    }
 
     public DataStore Store { get; }
 
