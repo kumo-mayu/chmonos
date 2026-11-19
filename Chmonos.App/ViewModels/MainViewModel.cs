@@ -584,7 +584,7 @@ public sealed partial class MainViewModel : ViewModelBase
     public void ShowInbox() => CurrentViewModel = new InboxViewModel(_services, this);
 
     /// <summary>保管した通知の見方で通知の画面を開く（いちばん新しい月）。履歴に積むので、戻るで今の通知へ戻る。</summary>
-    public void ShowInboxArchive() => CurrentViewModel = new InboxViewModel(_services, this, archive: (null, null));
+    public void ShowInboxArchive() => CurrentViewModel = new InboxViewModel(_services, this, archive: new ArchiveOpening());
 
     /// <summary>要確認を開き、その商品の「商品の更新」の知らせまで送る（ショップの「更新あり」から）。</summary>
     public void ShowInboxFor(string itemId) => CurrentViewModel = new InboxViewModel(_services, this, itemId);

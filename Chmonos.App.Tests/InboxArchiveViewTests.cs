@@ -237,6 +237,87 @@ public sealed class InboxArchiveViewTests
     });
 
     /// <summary>
+    /// 商品の見方から商品ページを開いて戻ると、商品の見方と選んでいた商品で戻る（open 146 の続き・ユーザ判断 2026-11-20。
+    /// 見方を控えずに年月の見方に戻っていた）。商品名は欄にも出し、年月へ戻すと前に見ていた月で出す
+    /// </summary>
+    [Fact]
+    public Task 商品の見方から商品ページへ移って戻ると_同じ商品の見方で戻る() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item("9900603", "作り物の髪型"));
+        await app.Store.NotificationArchive.AppendAsync([Record("sep-a", At(9, 1)), Record("sep-b", At(9, 2), "作り物の髪型") with { ItemId = "9900603" }]);
+        await app.Store.NotificationArchive.AppendAsync([Record("oct-a", At(10, 1)), Record("oct-b", At(10, 2), "作り物の髪型") with { ItemId = "9900603" }]);
+        var (inbox, archive) = await OpenArchiveAsync(app);
+        archive.SelectedMonth = archive.Months[1];
+        await archive.Pending;
+        archive.IsItemLevel = true;
+        await archive.Pending;
+        archive.PickItemCommand.Execute("作り物の髪型");
+        await archive.Pending;
+        Assert.Equal(["oct-b", "sep-b"], Ids(archive));
+
+        var main = app.Main;
+        archive.Rows[0].OpenItemCommand!.Execute(null);
+        await UiThread.Until(() => main.CurrentViewModel is not InboxViewModel, "商品ページが開く");
+        main.GoBack();
+        await app.SettleAsync();
+
+        var back = Assert.IsType<InboxViewModel>(main.CurrentViewModel).Archive!;
+        Assert.NotSame(archive, back);
+        await back.Pending;
+        Assert.True(back.IsItemLevel);
+        Assert.Equal("作り物の髪型", back.SelectedItem);
+        Assert.Equal("作り物の髪型", back.ItemText);
+        Assert.Equal("作り物の髪型", back.HeadLabel);
+        Assert.Equal(["oct-b", "sep-b"], Ids(back));
+
+        back.IsMonthLevel = true;
+        await back.Pending;
+        Assert.Equal("2026-09", back.SelectedMonth!.Month);
+        Assert.Equal(["sep-b", "sep-a"], Ids(back));
+    });
+
+    /// <summary>変更の種類の見方から商品ページへ移って戻ると、同じ種類（最初の種類ではない物）と絞りで戻る（open 146 の続き）。</summary>
+    [Fact]
+    public Task 種類の見方から商品ページへ移って戻ると_同じ種類と絞りで戻る() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item("9900601", "作り物の衣装"));
+        await app.Store.NotificationArchive.AppendAsync(
+        [
+            Record("sep-update", At(9, 1)),
+            Record("sep-back", At(9, 2), kind: NotificationKind.ItemBackOnBooth),
+        ]);
+        await app.Store.NotificationArchive.AppendAsync(
+        [
+            Record("oct-update", At(10, 1)),
+            Record("oct-update2", At(10, 2), "作り物の髪型"),
+            Record("oct-back", At(10, 3), "作り物の髪型", NotificationKind.ItemBackOnBooth),
+        ]);
+        var (_, archive) = await OpenArchiveAsync(app);
+        archive.IsKindLevel = true;
+        await archive.Pending;
+        archive.SelectedKind = archive.Kinds.Single(choice => choice.Kind == NotificationKind.ItemBackOnBooth);
+        await archive.Pending;
+        archive.NameFilter = "衣装";
+        await archive.Pending;
+        Assert.Equal(["sep-back"], Ids(archive));
+
+        var main = app.Main;
+        archive.Rows[0].OpenItemCommand!.Execute(null);
+        await UiThread.Until(() => main.CurrentViewModel is not InboxViewModel, "商品ページが開く");
+        main.GoBack();
+        await app.SettleAsync();
+
+        var back = Assert.IsType<InboxViewModel>(main.CurrentViewModel).Archive!;
+        await back.Pending;
+        Assert.True(back.IsKindLevel);
+        Assert.Equal(NotificationKind.ItemBackOnBooth, back.SelectedKind!.Kind);
+        Assert.Same(back.SelectedKind, back.Kinds.Single(choice => choice.Kind == NotificationKind.ItemBackOnBooth));
+        Assert.Equal("衣装", back.NameFilter);
+        Assert.Equal(["sep-back"], Ids(back));
+        Assert.Equal("2 件中 1 件", back.CountText);
+    });
+
+    /// <summary>
     /// 一番上を「変更の種類」にすると、すべての月からその種類の通知を新しい順に並べる（open 146・ユーザ判断 2026-11-19）。
     /// 種類の欄は数の多い順に件数付きで、最初の種類を選んで開く。「商品名で絞る」も効く
     /// </summary>

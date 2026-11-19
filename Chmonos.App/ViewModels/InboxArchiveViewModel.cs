@@ -30,6 +30,13 @@ public enum ArchiveLevel
     Kind,
 }
 
+/// <summary>
+/// 保管した通知を開く見方（画面の履歴に控え、戻る・進むで開き直す。open 146 の続き・ユーザ判断 2026-11-20）。
+/// 商品は ID で控える（候補の文字は、同じ名前の商品が増えると「名前（ID）」に変わる）
+/// </summary>
+public sealed record ArchiveOpening(
+    string? Month = null, string? NameFilter = null, ArchiveLevel Level = ArchiveLevel.Month, string? ItemId = null, NotificationKind? Kind = null);
+
 /// <summary>保管した通知の一覧の先頭の行（見出しと件数。行の枠の上側）。</summary>
 public sealed class ArchiveHeadLine(InboxArchiveViewModel archive) : InboxLine
 {
@@ -80,6 +87,11 @@ public sealed class InboxArchiveViewModel : ViewModelBase
     private ArchiveMonthChoice? _selectedMonth;
     private ArchiveKindChoice? _selectedKind;
     private string? _selectedItem;
+    private string _itemText = string.Empty;
+
+    /// <summary>戻るで開き直す時に選び直す商品・種類（全部の月の目録ができるまで持ち、できたら当てて消す）。</summary>
+    private string? _restoreItemId;
+    private NotificationKind? _restoreKind;
     private string _nameFilter;
     private ArchiveState _state = ArchiveState.Loading;
     private bool _loadingMore;
@@ -94,15 +106,19 @@ public sealed class InboxArchiveViewModel : ViewModelBase
     }
 
     /// <param name="createRow">行は今の通知と同じ形で作る（通知の画面が持つ作り方を借りる）。</param>
-    /// <param name="month">開く月（戻るで開き直すとき）。無ければいちばん新しい月。</param>
-    public InboxArchiveViewModel(AppServiceContainer services, Func<NotificationRecord, NotificationRow> createRow, string? month = null, string? nameFilter = null)
+    /// <param name="opening">開く見方（戻るで開き直すとき）。無ければ年月の見方で、いちばん新しい月。</param>
+    public InboxArchiveViewModel(AppServiceContainer services, Func<NotificationRecord, NotificationRow> createRow, ArchiveOpening? opening = null)
     {
         _services = services;
         _createRow = createRow;
-        _nameFilter = nameFilter ?? string.Empty;
+        opening ??= new ArchiveOpening();
+        _nameFilter = opening.NameFilter ?? string.Empty;
+        _level = opening.Level;
+        _restoreItemId = opening.ItemId;
+        _restoreKind = opening.Kind;
         _head = new ArchiveHeadLine(this);
         PickItemCommand = new RelayCommand(parameter => PickItem(parameter as string));
-        Pending = StartAsync(month);
+        Pending = StartAsync(opening.Month);
     }
 
     /// <summary>試験が待つ：最後に始めた読み。</summary>
@@ -227,6 +243,26 @@ public sealed class InboxArchiveViewModel : ViewModelBase
     /// <summary>商品で選ぶ欄で選んだ商品（候補の文字）。</summary>
     public string? SelectedItem => _selectedItem;
 
+    /// <summary>選んだ商品の ID（履歴に控える。候補の文字は同じ名前の商品が増えると変わる）。</summary>
+    private string? SelectedItemId => _selectedItem is { } name && _itemChoices.TryGetValue(name, out var id) ? id : null;
+
+    /// <summary>
+    /// 商品で選ぶ欄の文字（双方向）。戻るで開き直した時に、前に選んでいた商品名を欄にも出す（見出しだけ商品名で、欄が空にならないように）。
+    /// 打ちかけの文字はここに来るだけで、選んだ商品は変えない（選ぶのは確定した時の <see cref="PickItemCommand"/>）
+    /// </summary>
+    public string ItemText
+    {
+        get => _itemText;
+        set => SetField(ref _itemText, value ?? string.Empty);
+    }
+
+    /// <summary>
+    /// 戻る・進むで開き直すための見方（open 146）。目録や読んだ行は持たず、選んでいた物だけを控える（履歴に残る間、目録を持ち続けない）。
+    /// 全部の月の目録ができる前に離れたなら、開き直す時に頼まれていた商品・種類をそのまま引き継ぐ
+    /// </summary>
+    public ArchiveOpening Opening => new(
+        _selectedMonth?.Month, _nameFilter, _level, SelectedItemId ?? _restoreItemId, _selectedKind?.Kind ?? _restoreKind);
+
     public string MonthLabel => _selectedMonth?.Label ?? string.Empty;
 
     /// <summary>一覧の先頭の見出し：選んだ月・商品・種類。</summary>
@@ -341,8 +377,14 @@ public sealed class InboxArchiveViewModel : ViewModelBase
             return;
         }
 
-        // 選ぶと読み始める（SelectedMonth の set）。読みの終わりを待てるよう、その読みを返す
+        // 年月の見方なら、選ぶと読み始める（SelectedMonth の set）。商品・種類で開き直すときは月を選んでも読まないので、ここで読む。
+        // 月は商品・種類で開いても選んでおく（年月へ戻した時に、前に見ていた月で出す）。読みの終わりを待てるよう、その読みを返す
         SelectedMonth = Months.FirstOrDefault(choice => choice.Month == month) ?? Months[0];
+        if (_level != ArchiveLevel.Month)
+        {
+            Pending = ReloadAsync();
+        }
+
         await Pending;
     }
 
@@ -449,14 +491,27 @@ public sealed class InboxArchiveViewModel : ViewModelBase
             Kinds.Add(new ArchiveKindChoice(kind, $"{InboxViewModel.KindLabel(kind)}（{count:N0}）"));
         }
 
-        // 選んだだけで読み直さない（読み直すのは待っている側。ここで読み直すと、読みが2本になり先の方が待たれない）
+        // 選んだだけで読み直さない（読み直すのは待っている側。ここで読み直すと、読みが2本になり先の方が待たれない）。
+        // 戻るで開き直したなら、前に選んでいた種類（無くなっていれば最初の種類）
         if (_selectedKind is null && Kinds.Count > 0)
         {
-            _selectedKind = Kinds[0];
+            _selectedKind = Kinds.FirstOrDefault(choice => choice.Kind == _restoreKind) ?? Kinds[0];
             OnPropertyChanged(nameof(SelectedKind));
             OnPropertyChanged(nameof(HeadLabel));
         }
 
+        // 戻るで開き直したなら、前に選んでいた商品。候補の文字は同じ名前の商品が増えると「名前（ID）」に変わるので、ID で引き直す
+        if (_selectedItem is null && _restoreItemId is { } itemId
+            && choices.FirstOrDefault(pair => pair.Value == itemId).Key is { } name)
+        {
+            _selectedItem = name;
+            ItemText = name;
+            OnPropertyChanged(nameof(SelectedItem));
+            OnPropertyChanged(nameof(HeadLabel));
+        }
+
+        _restoreKind = null;
+        _restoreItemId = null;
         return catalog;
     }
 

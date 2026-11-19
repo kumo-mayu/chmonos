@@ -386,8 +386,8 @@ public sealed class InboxViewModel : ViewModelBase
         set => SetField(ref _focusLine, value);
     }
 
-    /// <param name="archive">保管した通知の見方で開く（戻る・進むで開き直すとき）。月と「商品名で絞る」の中身を持つ。</param>
-    public InboxViewModel(AppServiceContainer services, MainViewModel main, string? focusItemId = null, (string? Month, string? NameFilter)? archive = null)
+    /// <param name="archive">保管した通知の見方で開く（戻る・進むで開き直すとき）。見方・月・選んでいた商品と種類・「商品名で絞る」の中身を持つ。</param>
+    public InboxViewModel(AppServiceContainer services, MainViewModel main, string? focusItemId = null, ArchiveOpening? archive = null)
     {
         _services = services;
         _main = main;
@@ -406,7 +406,7 @@ public sealed class InboxViewModel : ViewModelBase
         if (archive is { } open)
         {
             // 保管した通知の見方では今の通知を並べないので、読み込みと検出は走らせない（今の通知へ戻るときに開き直す）
-            Archive = new InboxArchiveViewModel(_services, CreateArchivedRow, open.Month, open.NameFilter);
+            Archive = new InboxArchiveViewModel(_services, CreateArchivedRow, open);
             return;
         }
 

@@ -393,6 +393,7 @@
                     <Grid Width="260" VerticalAlignment="Center"
                           Visibility="{Binding Archive.IsItemLevel, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}">
                         <controls:SuggestBox Source="{Binding Archive.ItemCandidates}" CommitCommand="{Binding Archive.PickItemCommand}"
+                                             Text="{Binding Archive.ItemText, Mode=TwoWay}"
                                              AllowNew="False" KeepsCommittedText="True" Placeholder="商品名を入れて選ぶ"
                                              AutomationProperties.AutomationId="InboxArchiveItem" AutomationProperties.Name="表示する商品" />
                     </Grid>

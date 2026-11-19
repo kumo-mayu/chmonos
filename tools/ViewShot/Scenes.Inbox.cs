@@ -447,6 +447,24 @@ internal static partial class Scenes
             return new Shot(context.MainWindow());
         }),
 
+        // 商品の見方から商品ページへ移って戻った所（open 146 の続き）：商品の見方のまま、欄にも選んでいた商品名が出る
+        new Scene("inbox-archive-item-back", "通知：保管した通知を「商品」で見て商品ページへ移り、戻った所（同じ商品の見方で、欄に商品名）", async context =>
+        {
+            var inbox = await OpenSeededArchiveAsync(context);
+            inbox.Archive!.IsItemLevel = true;
+            await SceneContext.UntilAsync(() => inbox.Archive.ItemCandidates.Count > 0, "商品の候補が並ぶ");
+            inbox.Archive.PickItemCommand.Execute("作り物のワンピース");
+            await SceneContext.UntilAsync(() => inbox.Archive.Lines.OfType<InboxRowLine>().Count() == 2, "選んだ商品の行が並ぶ");
+            inbox.Archive.Lines.OfType<InboxRowLine>().First().Row.OpenItemCommand!.Execute(null);
+            await SceneContext.UntilAsync(() => context.Main.CurrentViewModel is not InboxViewModel, "商品ページが開く");
+            context.Main.GoBack();
+            await SceneContext.UntilAsync(
+                () => context.Main.CurrentViewModel is InboxViewModel { Archive: { IsItemLevel: true } back } && back.Lines.OfType<InboxRowLine>().Count() == 2,
+                "戻って同じ商品の行が並ぶ");
+            await context.SettleAsync();
+            return new Shot(context.MainWindow());
+        }),
+
         // 保管した通知が1つも無いとき（保管しない設定）。空の表示が並ぶようにする方法を言うことを見る
         new Scene("inbox-archive-empty", "通知：保管した通知が無いとき（保管の容量が 0）の空の表示", async context =>
         {
