@@ -65,7 +65,7 @@ public sealed class StatsRowViewModel : ViewModelBase
 /// <summary>
 /// 重複1組。**どれとどれか**と**消せばいくら空くか**を出す。
 /// </summary>
-public sealed class DuplicateRowViewModel(DuplicateGroup group)
+public sealed class DuplicateRowViewModel(DuplicateGroup group, Func<string, Task>? reveal = null)
 {
     public string Label { get; } = group.Label;
 
@@ -82,12 +82,54 @@ public sealed class DuplicateRowViewModel(DuplicateGroup group)
     };
 
     /// <summary>置いてある場所。**消す前に見えている必要がある。**</summary>
-    public IReadOnlyList<string> Places { get; } = group.Places.Select(place => place.Path).ToList();
+    public IReadOnlyList<DuplicatePlaceViewModel> Places { get; } =
+        group.Places.Select(place => new DuplicatePlaceViewModel(place.Path, reveal)).ToList();
 
     /// <summary>どの商品に紐付いているか。商品をまたぐときだけ意味がある。</summary>
     public string ItemsText { get; } = string.Join(
         "・",
         group.Places.Select(place => place.ItemName).Distinct());
+}
+
+/// <summary>
+/// 空けられる場所の1行（置き場所1つ）。押すと、その場所をエクスプローラで選んで開く（open.md 2026-11-18 のメモ）。
+/// 消す前に場所を見に行けるようにするため。ごみ箱へ送る操作は別（ここには持たない）
+/// </summary>
+public sealed class DuplicatePlaceViewModel
+{
+    public DuplicatePlaceViewModel(string path, Func<string, Task>? reveal, bool? isAvailable = null)
+    {
+        Path = path;
+        IsAvailable = isAvailable ?? DriveIsConnected(path);
+        OpenCommand = new RelayCommand(() => reveal?.Invoke(path).Forget());
+    }
+
+    public string Path { get; }
+
+    /// <summary>外したドライブの上の場所は押せない（押しても親も無く開けない）。</summary>
+    public bool IsAvailable { get; }
+
+    public string Tooltip => IsAvailable
+        ? "エクスプローラで、この場所を選んで開きます。"
+        : "ドライブがつながっていません。つなぐと開けます。";
+
+    public RelayCommand OpenCommand { get; }
+
+    /// <summary>
+    /// ドライブ文字の場所だけ、ドライブのルートが在るかを見る（外すとルートごと無い。ここは画面のスレッドで、
+    /// 表示のたびに行数分呼ぶので軽い物だけ）。ネットワークの場所（\\...）は見ずに押せる扱いにする：
+    /// 切れた共有を見に行くと待たされるので、開けない時は押した後に窓で知らせる（<see cref="ExplorerReveal"/>）
+    /// </summary>
+    private static bool DriveIsConnected(string path)
+    {
+        var root = System.IO.Path.GetPathRoot(path);
+        if (string.IsNullOrEmpty(root) || root.StartsWith(@"\\", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return System.IO.Directory.Exists(root);
+    }
 }
 
 public sealed class BacklogRowViewModel
@@ -591,7 +633,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
             if (!ReferenceEquals(_duplicatesOf, _snapshot))
             {
                 _duplicatesOf = _snapshot;
-                _duplicates = _snapshot?.Duplicates.Select(group => new DuplicateRowViewModel(group)).ToList() ?? [];
+                _duplicates = _snapshot?.Duplicates.Select(group => new DuplicateRowViewModel(group, _services.RevealInFolder)).ToList() ?? [];
             }
 
             return _duplicates;

@@ -51,6 +51,11 @@
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="Hit" Property="Background" Value="{DynamicResource SurfaceAlt}" />
                             </Trigger>
+                            <!-- 押せない行（外したドライブの上の場所）は、薄くして乗せても色を変えない -->
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Hit" Property="Background" Value="Transparent" />
+                                <Setter TargetName="Hit" Property="Opacity" Value="0.5" />
+                            </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -573,10 +578,16 @@
                                                                 <!-- 消す前に場所が見えていること -->
                                                                 <controls:ContentItemsControl ItemsSource="{Binding Places}" Margin="0,5,0,0">
                                                                     <ItemsControl.ItemTemplate>
-                                                                        <DataTemplate>
-                                                                            <TextBlock Text="{Binding}" Style="{StaticResource Mono}"
-                                                                                       FontSize="10.5" Margin="0,1,0,0"
-                                                                                       TextTrimming="CharacterEllipsis" />
+                                                                        <DataTemplate DataType="{x:Type vm:DuplicatePlaceViewModel}">
+                                                                            <!-- 押すと、その場所をエクスプローラで選んで開く。外したドライブの上は押せない -->
+                                                                            <Button Style="{StaticResource RowButton}" Margin="0,1,0,0"
+                                                                                    Command="{Binding OpenCommand}" IsEnabled="{Binding IsAvailable}"
+                                                                                    ToolTip="{Binding Tooltip}"
+                                                                                    AutomationProperties.AutomationId="StatsDuplicatePlace"
+                                                                                    AutomationProperties.Name="{Binding Path, StringFormat={}{0}をエクスプローラで開く}">
+                                                                                <TextBlock Text="{Binding Path}" Style="{StaticResource Mono}"
+                                                                                           FontSize="10.5" TextTrimming="CharacterEllipsis" />
+                                                                            </Button>
                                                                         </DataTemplate>
                                                                     </ItemsControl.ItemTemplate>
                                                                 </controls:ContentItemsControl>

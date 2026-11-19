@@ -107,7 +107,8 @@ public static class Shell
 
     private static bool SelectCore(string path)
     {
-        if (File.Exists(path))
+        // フォルダも選んだ状態で開く（統計の「空けられる場所」に、zip を展開したフォルダの行がある）
+        if (File.Exists(path) || Directory.Exists(path))
         {
             OpenInExplorer($"/select,\"{path}\"");
             return true;
