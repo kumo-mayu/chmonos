@@ -233,7 +233,40 @@ public sealed class ConversionPairTests : IDisposable
         Assert.Equal([file.Pairs[1]], ConversionPairs.RenameBase(file, "作り物素体", null)!.Pairs);
     }
 
+    [Fact]
+    public void メモは同じ元と先の組だけを書き替え_ツールは残し_空白は持たない()
+    {
+        var target = Pair(ConversionEnd.Base("作り物素体"), ConversionEnd.Avatar("9000002")) with { Tool = "作り物のツール" };
+        var other = Pair(ConversionEnd.Avatar("9000001"), ConversionEnd.Avatar("9000002"));
+        var file = new ConversionPairFile { Pairs = [target, other] };
+
+        var written = ConversionPairs.SetMemo(file, Pair(ConversionEnd.Base("作り物素体"), ConversionEnd.Avatar("9000002")), "  袖は直す ");
+
+        Assert.Equal([target with { Memo = "袖は直す" }, other], written.Pairs);
+        Assert.Null(ConversionPairs.SetMemo(written, target, "   ").Pairs[0].Memo);
+
+        // 外された組はメモだけで生き返らせない
+        Assert.Same(file, ConversionPairs.SetMemo(file, Pair(ConversionEnd.Avatar("9000009"), ConversionEnd.Avatar("9000002")), "メモ"));
+    }
+
     // ---- 保存 ----
+
+    [Fact]
+    public async Task メモを書いた組を読み戻せ_メモの無い前の形も読める()
+    {
+        var paths = new AppPaths(Root);
+        paths.EnsureCreated();
+        File.WriteAllText(paths.ConversionPairsFile, """{ "formatVersion": 1, "pairs": [ { "from": { "baseName": "作り物素体" }, "to": { "avatarItemId": "9000002" } } ] }""");
+        var store = new DataStore(paths);
+        var handler = new CommandHandler(null!, null!) { ConversionPairs = store.ConversionPairs };
+        var pair = Assert.Single(store.ConversionPairs.Load().Pairs);
+        Assert.Null(pair.Memo);
+
+        await handler.ExecuteAsync(new UiCommand.ChangeConversionPairs(file => ConversionPairs.SetMemo(file, pair, "袖は直す")));
+
+        Assert.Equal("袖は直す", Assert.Single(new DataStore(paths).ConversionPairs.Load().Pairs).Memo);
+        Assert.Contains("\"memo\"", File.ReadAllText(paths.ConversionPairsFile), StringComparison.Ordinal);
+    }
 
     [Fact]
     public async Task 書いた組を読み戻せ_欠けた配列と端はnullでなく空として読む()

@@ -19,6 +19,18 @@ public static class ConversionPairs
         => file with { Pairs = [.. file.Pairs.Where(known => !known.SameEnds(pair))] };
 
     /// <summary>
+    /// 同じ元と先の組のメモを書き替える（ツールは残す）。空白だけのメモは持たない（null。ファイルに空の欄を書かない）。
+    /// 組が既に外されていたら何もしない（メモの待ちの間に別の所で外した組を、メモだけで生き返らせない）
+    /// </summary>
+    public static ConversionPairFile SetMemo(ConversionPairFile file, ConversionPair pair, string? memo)
+    {
+        var text = string.IsNullOrWhiteSpace(memo) ? null : memo.Trim();
+        return file.Pairs.Any(known => known.SameEnds(pair) && known.Memo != text)
+            ? file with { Pairs = [.. file.Pairs.Select(known => known.SameEnds(pair) ? known with { Memo = text } : known)] }
+            : file;
+    }
+
+    /// <summary>
     /// 商品 ID を変えた・まとめたときの読み替え。変わらなければ null（書かない）。
     /// 読み替えで元と先が同じになった組と、前の組と重なった組は落とす（統合で同じ組が2つになる）
     /// </summary>
