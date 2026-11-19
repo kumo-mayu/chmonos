@@ -104,6 +104,40 @@ public class SavedSearchTests
         Assert.False(search.IsListMode);
     });
 
+    /// <summary>
+    /// 既定が入手日の新しい順だった間（〜2026-11）は、その順を null で書いた。既定をカテゴリにした後も、
+    /// その記録はカテゴリでなく入手日の新しい順で開く（使う人が選んでいた順を消さない）
+    /// </summary>
+    [Fact]
+    public Task 表示順をnullで書いた前の保存した検索は_入手日の新しい順で開く() => TestApp.Run(async app =>
+    {
+        var search = await StartAsync(app);
+        SortByName(search);
+
+        search.ApplySaved(new SearchHistoryEntry { Name = "前の版で保存", Text = "夏", Sort = null });
+
+        Assert.Equal(SortKind.AcquiredAt, search.SortField.Kind);
+        Assert.True(search.SortsDescending);
+        Assert.Equal("入手日が新しい順", search.Sort.Label);
+        Assert.Empty(app.Notices);
+    });
+
+    [Fact]
+    public Task 入手日の新しい順で保存すると_表示順はnullで書き_呼び出すと入手日の新しい順に戻る() => TestApp.Run(async app =>
+    {
+        var search = await StartAsync(app);
+        search.QueryText = "夏";
+        search.SortField = search.SortFields.First(field => field.Kind == SortKind.AcquiredAt);
+        search.SortsDescending = true;
+        await search.SaveCurrentSearchAsync("夏");
+        Assert.Null(Assert.Single(app.Store.SavedSearches.Load().Entries).Sort);
+
+        SortByName(search);
+        Row(search, "夏").ApplyCommand.Execute(null);
+
+        Assert.Equal("入手日が新しい順", search.Sort.Label);
+    });
+
     [Fact]
     public Task 今は無い表示順で保存した物を呼び出すと_既定の順で並べて窓で言い_今は無いタグの値は条件に残す() => TestApp.Run(async app =>
     {

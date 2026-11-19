@@ -98,13 +98,13 @@ public class SearchShopDividerTests
         };
         var local = new SortDivider("shop:b", "ショップ", "手元の店", null) { OpenShopCommand = new RelayCommand(() => { }) };
 
-        Assert.Equal(["ショップを開く", "BOOTHで開く"], SortDividerBorder.BuildMenu(booth).Items.OfType<MenuItem>().Select(item => (string)item.Header));
-        var localItems = SortDividerBorder.BuildMenu(local).Items.OfType<MenuItem>().ToList();
+        Assert.Equal(["ショップを開く", "BOOTHで開く"], SortDividerBorder.BuildMenu(booth)!.Items.OfType<MenuItem>().Select(item => (string)item.Header));
+        var localItems = SortDividerBorder.BuildMenu(local)!.Items.OfType<MenuItem>().ToList();
         Assert.Equal(["ショップを開く", "BOOTHで開く"], localItems.Select(item => (string)item.Header));
         Assert.True(localItems[0].IsEnabled);
         Assert.False(localItems[1].IsEnabled);
         Assert.Equal("BOOTHに無いショップなので開けません", localItems[1].ToolTip);
-        Assert.True(SortDividerBorder.BuildMenu(booth).Items.OfType<MenuItem>().All(item => item.IsEnabled));
+        Assert.True(SortDividerBorder.BuildMenu(booth)!.Items.OfType<MenuItem>().All(item => item.IsEnabled));
     });
 
     [Fact]

@@ -33,6 +33,44 @@ public sealed partial class SearchViewModel
         }
     }
 
+    /// <summary>
+    /// 一覧の余白と札の右クリックの「まとまりごとに区切りを表示」（ユーザ指示 2026-11-06）。設定の「並べ替えたとき、まとまりごとに区切りを表示」と同じ値で、
+    /// 読むのも書くのも設定（<see cref="AppSettings.ShowSortDividers"/>）。札を消すために設定の画面まで行かずに済むようにする
+    /// </summary>
+    public bool ShowSortDividers
+    {
+        get => _services.Settings.ShowSortDividers;
+        set
+        {
+            if (value != _services.Settings.ShowSortDividers)
+            {
+                SetShowSortDividersAsync(value).Forget();
+            }
+        }
+    }
+
+    /// <summary>札の右クリックの項目（札が出ているので押すと消す）。</summary>
+    public RelayCommand HideSortDividersCommand => _hideSortDividers ??= new RelayCommand(() => ShowSortDividers = false);
+
+    private RelayCommand? _hideSortDividers;
+
+    /// <summary>
+    /// 設定に書いてから一覧を組み直す。書き方は設定の画面と同じ <see cref="Core.Commands.UiCommand.ChangeSettings"/>（錠の中で今の設定に当てる）。
+    /// 組み直しは検索の一覧だけでよい（札を出すのは検索だけ）。書けなかったときも、チェックは保存してある値を読み直して合わせる
+    /// </summary>
+    internal async Task SetShowSortDividersAsync(bool value)
+    {
+        try
+        {
+            await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSettings(settings => settings with { ShowSortDividers = value }));
+        }
+        finally
+        {
+            OnPropertyChanged(nameof(ShowSortDividers));
+            ApplyFilters();
+        }
+    }
+
     /// <summary>今出している札（試験・確かめ用）。</summary>
     internal IEnumerable<SortDivider> ShownDividers => DisplayItems.OfType<SortDivider>();
 
@@ -101,9 +139,10 @@ public sealed partial class SearchViewModel
                 || divider.IconPath != shop?.IconPath)
             {
                 divider = shop is null
-                    ? new SortDivider(key, grouping.Kind, group.Label, group.Parent)
+                    ? new SortDivider(key, grouping.Kind, group.Label, group.Parent) { HideDividersCommand = HideSortDividersCommand }
                     : new SortDivider(key, grouping.Kind, group.Label, group.Parent)
                     {
+                        HideDividersCommand = HideSortDividersCommand,
                         IconPath = shop.IconPath,
                         Thumbnails = _thumbnails,
                         OpenShopCommand = new RelayCommand(() => _main?.ShowShopAsync(shop.Subdomain).Forget()),

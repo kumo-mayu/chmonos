@@ -20,6 +20,9 @@ namespace Chmonos.App.Controls;
 /// </summary>
 public sealed class SortDividerBorder : Border
 {
+    /// <summary>札と一覧の余白の右クリックの項目の名前。設定の「並べ替えたとき、まとまりごとに区切りを表示」の後ろ半分で、同じ値だと分かるようにする</summary>
+    public const string SortDividerMenuHeader = "まとまりごとに区切りを表示";
+
     private MouseButton? _pressed;
 
     public SortDividerBorder()
@@ -33,7 +36,7 @@ public sealed class SortDividerBorder : Border
     /// <summary>押せる札かで、マウスの形と右クリックのメニューを付け替える（札は一覧の中で使い回される）。</summary>
     private void Refresh()
     {
-        if (Divider is not { IsPressable: true } divider)
+        if (Divider is not { } divider)
         {
             ClearValue(CursorProperty);
             ClearValue(ContextMenuProperty);
@@ -41,28 +44,65 @@ public sealed class SortDividerBorder : Border
             return;
         }
 
-        Cursor = Cursors.Hand;
-        ToolTip = divider.PressHint;
-        ContextMenu = BuildMenu(divider);
+        if (divider.IsPressable)
+        {
+            Cursor = Cursors.Hand;
+            ToolTip = divider.PressHint;
+        }
+        else
+        {
+            ClearValue(CursorProperty);
+            ClearValue(ToolTipProperty);
+        }
+
+        if (BuildMenu(divider) is { } menu)
+        {
+            ContextMenu = menu;
+        }
+        else
+        {
+            ClearValue(ContextMenuProperty);
+        }
     }
 
     /// <summary>
     /// 右クリックのメニュー。文言は商品のカードの右クリックに揃える（「ショップを開く」はアプリのショップの画面、「BOOTHで開く」は BOOTH のページ）。
     /// BOOTH にページの無い手元だけのショップでも、BOOTH の行は出したまま押せなくして理由を言う（項目をいつも同じに並べる。ユーザ判断 2026-10-04）。
+    /// 札を消す項目（ユーザ指示 2026-11-06）は、一覧の余白の右クリックと同じ言い方のチェック付き（札が出ているので入）。並べる物が無ければ null
     /// </summary>
-    internal static ContextMenu BuildMenu(SortDivider divider)
+    internal static ContextMenu? BuildMenu(SortDivider divider)
     {
-        var menu = new ContextMenu();
-        System.Windows.Automation.AutomationProperties.SetName(menu, $"{divider.Label}の操作");
-        menu.Items.Add(Item("ショップを開く", "SortDivider.Menu.OpenShop", divider.OpenShopCommand));
-        var booth = Item("BOOTHで開く", "SortDivider.Menu.OpenInBooth", divider.OpenInBoothCommand);
-        if (divider.OpenInBoothCommand is null)
+        if (!divider.IsPressable && divider.HideDividersCommand is null)
         {
-            booth.IsEnabled = false;
-            booth.ToolTip = "BOOTHに無いショップなので開けません";
+            return null;
         }
 
-        menu.Items.Add(booth);
+        var menu = new ContextMenu();
+        System.Windows.Automation.AutomationProperties.SetName(menu, $"{divider.Label}の操作");
+        if (divider.IsPressable)
+        {
+            menu.Items.Add(Item("ショップを開く", "SortDivider.Menu.OpenShop", divider.OpenShopCommand));
+            var booth = Item("BOOTHで開く", "SortDivider.Menu.OpenInBooth", divider.OpenInBoothCommand);
+            if (divider.OpenInBoothCommand is null)
+            {
+                booth.IsEnabled = false;
+                booth.ToolTip = "BOOTHに無いショップなので開けません";
+            }
+
+            menu.Items.Add(booth);
+        }
+
+        if (divider.HideDividersCommand is { } hide)
+        {
+            if (menu.Items.Count > 0)
+            {
+                menu.Items.Add(new Separator());
+            }
+
+            var toggle = Item(SortDividerMenuHeader, "SortDivider.Menu.ShowDividers", hide);
+            toggle.IsChecked = true;
+            menu.Items.Add(toggle);
+        }
 
         return menu;
 

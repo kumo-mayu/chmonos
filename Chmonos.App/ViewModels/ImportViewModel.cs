@@ -1017,12 +1017,16 @@ public sealed partial class ImportViewModel : ViewModelBase
     /// <param name="askAboutUnpacked">
     /// 展開先のファイルを指していたときに人へ尋ねてよいか。**自動で始めたときは尋ねない**（G2）。
     /// </param>
+    /// <param name="history">
+    /// 取り込み元の履歴へ載せるパス。null なら落とした物そのもの。監視フォルダの新着はファイルではなく監視フォルダを載せる（<see cref="WatchedSources"/>）。
+    /// </param>
     public void AddDroppedPaths(
         IEnumerable<string> paths,
         bool startImmediately = false,
         bool offerWatch = true,
-        bool askAboutUnpacked = true)
-        => AddDroppedPathsAsync(paths.ToList(), startImmediately, offerWatch, askAboutUnpacked).Forget();
+        bool askAboutUnpacked = true,
+        IReadOnlyList<string>? history = null)
+        => AddDroppedPathsAsync(paths.ToList(), startImmediately, offerWatch, askAboutUnpacked, history).Forget();
 
     /// <summary>
     /// **在るかは画面のスレッドの外で見る**（技術的負債 4-2）。落とされた物・監視の新着は外付けやネットワークにもあり、
@@ -1032,7 +1036,8 @@ public sealed partial class ImportViewModel : ViewModelBase
         IReadOnlyList<string> paths,
         bool startImmediately,
         bool offerWatch,
-        bool askAboutUnpacked = true)
+        bool askAboutUnpacked = true,
+        IReadOnlyList<string>? history = null)
     {
         var kinds = await Task.Run(() => paths
             .Select(path => (Path: path, IsFolder: Core.Services.DiskCheck.FolderExists(path), IsFile: Core.Services.DiskCheck.FileExists(path)))
@@ -1063,7 +1068,7 @@ public sealed partial class ImportViewModel : ViewModelBase
         var dropped = kinds.Where(kind => kind.IsFolder || kind.IsFile).Select(kind => kind.Path).ToList();
         if (startImmediately)
         {
-            StartOrStackAsync(askAboutUnpacked, dropped).Forget();
+            StartOrStackAsync(askAboutUnpacked, dropped, history).Forget();
         }
     }
 
@@ -1281,8 +1286,9 @@ public sealed partial class ImportViewModel : ViewModelBase
 
             WatchImportText = $"新しいファイル {take.Count} 件を取り込みます。";
 
-            // 押した操作なので、展開先のファイルがあれば尋ねる。監視フォルダの中なので「監視しますか」は聞かない
-            AddDroppedPaths(take, startImmediately: true, offerWatch: false);
+            // 押した操作なので、展開先のファイルがあれば尋ねる。監視フォルダの中なので「監視しますか」は聞かない。
+            // 取り込み元の履歴には見つけたファイルではなく監視フォルダを載せる（ユーザ 2026-11-06。ファイルが1つずつ並んでいた）
+            AddDroppedPaths(take, startImmediately: true, offerWatch: false, history: WatchedSources(take, folders));
             return take.Count;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
@@ -1295,6 +1301,29 @@ public sealed partial class ImportViewModel : ViewModelBase
             _isCheckingWatched = false;
             RelayCommand.RaiseCanExecuteChanged();
         }
+    }
+
+    /// <summary>
+    /// 監視フォルダの新着を取り込むときに、取り込み元の履歴へ載せる物：ファイルごとに、それを含む監視フォルダ（入れ子なら一番内側）。
+    /// 履歴は「何を読んだか」を確かめる一覧で、新着を取り込むたびにファイルが1行ずつ増えると、監視フォルダを読んだ事が埋もれる（ユーザ 2026-11-06）。
+    /// どの監視フォルダにも入っていない物（場所の書き方が違う）は、そのパスのまま載せる（読んだ物を履歴から落とさない）
+    /// </summary>
+    internal static IReadOnlyList<string> WatchedSources(IReadOnlyList<string> files, IReadOnlyList<string> watched)
+    {
+        var sources = new List<string>();
+        foreach (var file in files)
+        {
+            var source = watched
+                .Where(folder => Core.Storage.StoreIds.IsInside(file, folder))
+                .OrderByDescending(folder => folder.Length)
+                .FirstOrDefault() ?? file;
+            if (!sources.Any(known => Core.Services.PathText.Same(known, source)))
+            {
+                sources.Add(source);
+            }
+        }
+
+        return sources;
     }
 
     private async Task RemoveWatchedAsync(string? folder)
@@ -1675,7 +1704,8 @@ public sealed partial class ImportViewModel : ViewModelBase
     /// 対象と履歴は、頼んだこの画面の一覧から決める。展開先のファイルについて尋ねるのもこの画面
     /// </summary>
     /// <param name="only">今回の対象。無ければ取り込み対象の一覧全部（「取り込み開始」を押したとき）。</param>
-    private async Task StartOrStackAsync(bool ask = true, IReadOnlyList<string>? only = null)
+    /// <param name="history">取り込み元の履歴へ載せるパス。無ければ対象そのもの。</param>
+    private async Task StartOrStackAsync(bool ask = true, IReadOnlyList<string>? only = null, IReadOnlyList<string>? history = null)
     {
         var targets = only?.ToList() ?? Folders.ToList();
 
@@ -1685,7 +1715,7 @@ public sealed partial class ImportViewModel : ViewModelBase
         _notStarted.ExceptWith(targets);
         RaiseNotStarted();
 
-        var added = await _services.Imports.StartOrStackAsync(new ImportRequest(() => ResolveUnpackedTargets(targets.ToList(), ask), targets));
+        var added = await _services.Imports.StartOrStackAsync(new ImportRequest(() => ResolveUnpackedTargets(targets.ToList(), ask), history ?? targets));
         if (added is { } count)
         {
             StackNotice = count == 0

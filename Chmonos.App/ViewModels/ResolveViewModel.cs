@@ -62,6 +62,24 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
     internal const string OtherSearchHint = "ほかのファイルの候補を検索中です。終わるか、下の帯で中止してからお試しください。";
 
     /// <summary>
+    /// 候補の欄の「設定」のリンクの後ろに続ける文（ユーザのメモ 2026-11-18：裏で先に自動検索しておく設定があることが画面から分からなかった）。
+    /// 設定の項目の名前をそのまま出し、設定の画面で探せるようにする
+    /// </summary>
+    public const string PrefetchSettingNote = "の「未確定の候補を先に検索しておく」を入れると、自動検索を裏で先に済ませておけます。";
+
+    /// <summary>
+    /// 先に検索しておく設定が切のときだけ、候補の欄に案内を出す。入にした人には言うことが無い（ボタンが「再検索」になって分かる）
+    /// </summary>
+    public bool ShowsPrefetchSettingNote => !_services.Settings.PrefetchCandidateSearch;
+
+    /// <summary>案内の「設定」のリンク。設定の画面へ移る（取り込み画面の監視の欄と同じ）。</summary>
+    public RelayCommand ShowSettingsCommand => _main.ShowSettingsCommand;
+
+    /// <summary>設定の画面を経ずに変わることもあるので（外から使う API の書き込みなど）、書いたときに出し分けを直す。合図は書いたスレッドから来る</summary>
+    private void OnSettingsChanged(Core.Models.AppSettings settings)
+        => RunOnUiThread(() => OnPropertyChanged(nameof(ShowsPrefetchSettingNote)));
+
+    /// <summary>
     /// 登録の後で1件だけ読んで検索の写しに足せなかった商品（読み直しの途中に足した分が上書きされたなど）の保険。
     /// 画面を離れるとき・編集へ送るときに、写しに無い商品があるときだけ1回読み直す（ユーザ判断 2026-09-28）。
     /// 編集へ送ると溜めたIDは空になるので、離れる時点では見えない。送る前にここを通す

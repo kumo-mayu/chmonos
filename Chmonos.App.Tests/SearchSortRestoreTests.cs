@@ -49,7 +49,7 @@ public class SearchSortRestoreTests
     });
 
     [Fact]
-    public Task 消した属性で並べていたら_入手日に戻る() => TestApp.Run(async app =>
+    public Task 消した属性で並べていたら_既定のカテゴリのBOOTHの並びに戻る() => TestApp.Run(async app =>
     {
         await app.Services.SettingsStore.UpdateUiStateAsync(state => state with
         {
@@ -58,7 +58,9 @@ public class SearchSortRestoreTests
 
         var search = await StartAsync(app);
 
-        Assert.Equal(SortKind.AcquiredAt, search.SortField.Kind);
+        // 向きは既定に戻す。消した属性の「高い順」を引き継ぐと「BOOTHの逆順」になる
+        Assert.Equal(SortKind.Category, search.SortField.Kind);
+        Assert.True(search.SortsAscending);
     });
 
     [Fact]
@@ -71,8 +73,32 @@ public class SearchSortRestoreTests
 
         var search = await StartAsync(app);
 
-        Assert.Equal(SortKind.AcquiredAt, search.SortField.Kind);
-        Assert.True(search.SortsDescending);
+        Assert.Equal(SortKind.Category, search.SortField.Kind);
+        Assert.True(search.SortsAscending);
+    });
+
+    [Fact]
+    public Task 初めては_カテゴリのBOOTHの並びで始まる() => TestApp.Run(async app =>
+    {
+        var search = await StartAsync(app);
+
+        Assert.Equal(SortKind.Category, search.SortField.Kind);
+        Assert.True(search.SortsAscending);
+        Assert.Equal(SearchViewModel.DefaultSort.Label, search.Sort.Label);
+    });
+
+    /// <summary>前の既定（入手日の新しい順）を選んでも、既定でなくなったので書く（書かないと次の起動でカテゴリへ戻る）</summary>
+    [Fact]
+    public Task 入手日の新しい順を選ぶと_書く() => TestApp.Run(async app =>
+    {
+        var search = await StartAsync(app);
+
+        search.SortField = search.SortFields.First(field => field.Kind == SortKind.AcquiredAt);
+        search.SortsDescending = true;
+
+        await UiThread.Until(
+            () => app.Services.SettingsStore.UiState.SearchSort is { Kind: "AcquiredAt", Descending: true, AttributeName: null },
+            "書く");
     });
 
     [Fact]

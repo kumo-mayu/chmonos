@@ -341,16 +341,26 @@ public sealed class DateModule : SearchModule
 
         return DateText.Parse(text, isEnd, Today) is { } date
             ? $"{date:yyyy年M月d日}{suffix}"
-            : "日付として読めません。2026/9/1 のように入れてください。";
+            : UnreadableNote;
     }
+
+    /// <summary>
+    /// 日付の欄の吹き出し（検索の日付の条件・編集の入手日と購入の日付で共通）。区切りの3通り（`-`・`/`・年月日）を見せる
+    /// （ユーザのメモ 2026-11-18：前は `-` か `/` の1つだけで、使える区切りが伝わらなかった）。読み方は <see cref="Core.Services.DateText.Parse"/>。
+    /// `.`・8桁・全角も読むが、40字に収めるため例には出さない。例は全部読める事を試験で確かめる
+    /// </summary>
+    public const string InputHint = "2026-9-1・2026/9/1・2026年9月1日 のように入れられます。";
+
+    /// <summary>検索の日付の欄に打った物が読めなかったときの、欄の下の1行。検索の欄は年の無い「9/1」も読むので、それも見せる</summary>
+    public const string UnreadableNote = "日付として読めません。2026/9/1・2026年9月1日・9/1 のように入れてください。";
 
     /// <summary>効かせていない側に、使えない理由を出す（`ui-rules.md`・E11）。</summary>
     public string SinceHint => SinceEnabled
-        ? "日付は「2026-09-01」「9/1」のように入れられます。"
+        ? InputHint
         : "始まりの日を使うには、左のチェックを入れてください。";
 
     public string TillHint => TillEnabled
-        ? "日付は「2026-09-01」「9/1」のように入れられます。"
+        ? InputHint
         : "終わりの日を使うには、左のチェックを入れてください。";
 
     private void RaiseSince()

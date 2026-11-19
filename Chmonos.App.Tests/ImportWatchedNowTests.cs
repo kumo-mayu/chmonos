@@ -137,6 +137,39 @@ public class ImportWatchedNowTests
         await app.SettleAsync();
     });
 
+    /// <summary>
+    /// 取り込み元の履歴には、見つけたファイルではなく監視フォルダを1行だけ載せる（ユーザ 2026-11-06。前はファイルが1つずつ並んだ）
+    /// </summary>
+    [Fact]
+    public Task 取り込み元の履歴には_ファイルではなく監視フォルダを1行だけ載せる() => TestApp.Run(async app =>
+    {
+        var watched = Path.GetDirectoryName(app.NewFile(@"watched\keep.txt"))!;
+        await app.ChangeSettingsAsync(settings => settings with { WatchedFolders = [watched] });
+        var main = await app.StartAsync();
+        var costume = app.NewFile(@"watched\costume.zip", [1, 2, 3, 4]);
+        var hair = app.NewFile(@"watched\hair.zip", [5, 6, 7, 8]);
+
+        main.Import.ImportWatchedCommand.Execute(null);
+
+        await UiThread.Until(
+            () => app.Services.Settings.ImportFolders.Any(path => Core.Services.PathText.Same(path, watched)),
+            "履歴に監視フォルダを載せる");
+        await app.SettleAsync();
+        var history = app.Services.Settings.ImportFolders;
+        Assert.Single(history, path => Core.Services.PathText.Same(path, watched));
+        Assert.DoesNotContain(history, path => Core.Services.PathText.Same(path, costume) || Core.Services.PathText.Same(path, hair));
+    });
+
+    [Fact]
+    public void 履歴に載せる監視フォルダは_ファイルごとに一番内側で_どこにも入っていなければそのまま()
+    {
+        var sources = ViewModels.ImportViewModel.WatchedSources(
+            [@"D:\監視\a.zip", @"D:\監視\b.zip", @"D:\監視\中\c.zip", @"D:\監視-別\d.zip", @"E:\外\e.zip"],
+            [@"D:\監視", @"D:\監視\中\", @"D:\監視-別"]);
+
+        Assert.Equal([@"D:\監視", @"D:\監視\中\", @"D:\監視-別", @"E:\外\e.zip"], sources);
+    }
+
     [Fact]
     public Task 監視していなければ押せない() => TestApp.Run(async app =>
     {

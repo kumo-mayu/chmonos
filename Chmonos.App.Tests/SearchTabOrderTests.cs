@@ -26,7 +26,10 @@ public class SearchTabOrderTests
     [Fact]
     public Task 表示順の帯は_項目_新しい順_古い順_カード_リストの順に止まる() => WithSearchView(async (app, search, view) =>
     {
-        // 既定は新しい順を選んでいる。選んでいる方が重なりで後ろへ回っても、並んでいる順に通る
+        // 新しい順を選んでいる所から。選んでいる方が重なりで後ろへ回っても、並んでいる順に通る（既定はカテゴリの BOOTH の並びなので、入手日を名指しする）
+        search.SortField = search.SortFields.First(field => field.Kind == Chmonos.App.ViewModels.SortKind.AcquiredAt);
+        await app.SettleAsync();
+        Settle(view);
         Assert.True(search.SortsDescending);
 
         Assert.Equal(

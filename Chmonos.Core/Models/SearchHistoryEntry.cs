@@ -62,7 +62,9 @@ public sealed record SearchHistoryEntry
     /// <summary>効いていた絞り込みのモジュール（何も絞っていないモジュールは持たない）。</summary>
     public IReadOnlyList<SearchModuleState> Modules { get; init; } = [];
 
-    /// <summary>表示順。既定なら null。</summary>
+    /// <summary>
+    /// 表示順。入手日が新しい順なら null（検索の既定がこの順だった間の書き方。既定をカテゴリにした 2026-11 の後も、前に書いた記録と意味を揃えるため据え置く）。
+    /// </summary>
     public string? Sort { get; init; }
 
     /// <summary>

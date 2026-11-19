@@ -82,6 +82,12 @@ public sealed class SortDivider : ViewModelBase
     /// <summary>BOOTH のショップのページを開く（中クリック・メニュー）。手元だけのショップでは押せない（BOOTH にページが無い）。</summary>
     public RelayCommand? OpenInBoothCommand { get; init; }
 
+    /// <summary>
+    /// 札を消す（右クリックの「まとまりごとに区切りを表示」。ユーザ指示 2026-11-06）。札が出ている間は設定が入なので、押すと切る。
+    /// どの札にも付ける（ショップの札はショップの2つの後ろに区切り線を挟んで並べる）
+    /// </summary>
+    public RelayCommand? HideDividersCommand { get; init; }
+
     /// <summary>押せる札か（ショップの札で、ショップが分かる）。マウスの形・右クリックのメニュー・読み上げの「押す」を出し分ける。</summary>
     public bool IsPressable => OpenShopCommand is not null;
 
