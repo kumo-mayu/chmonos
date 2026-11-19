@@ -208,6 +208,9 @@ public sealed record StatsSnapshot
     /// </summary>
     public required int UnpricedItemCount { get; init; }
 
+    /// <summary>上の商品の ID。画面の「編集で開く」が、その集合を編集の画面へ渡すために持つ（数だけでは開けない）。集計の順（読み込みの順）。</summary>
+    public IReadOnlyList<string> UnpricedItemIds { get; init; } = [];
+
     /// <summary>同じ中身を1回だけ数えた容量。「持っているアセットの大きさ」。2つ以上の商品に付けたファイルも1回（<see cref="LibrarySizes.Owned"/>）。</summary>
     public required long LogicalBytes { get; init; }
 
@@ -419,7 +422,7 @@ public sealed class StatsService : IStatsService
         var spent = 0L;
         var gifted = 0;
         var free = 0;
-        var unpriced = 0;
+        var unpricedIds = new List<string>();
         var undatedSpent = 0L;
         var undated = 0;
         var fallbackDated = 0;
@@ -445,7 +448,7 @@ public sealed class StatsService : IStatsService
             // 「払ったはずだが記録が無い」を数える。金額の欠けを黙って0で埋めない
             if (!Purchases.HasPricedSelfPurchase(item))
             {
-                unpriced++;
+                unpricedIds.Add(item.Id);
             }
 
             // 容量の合計はループの外で LibrarySizes がまとめて出す（1つのファイルを2つの商品に付けられるので、商品ごとの値を足すと二重に数える・2026-11-11）
@@ -521,7 +524,8 @@ public sealed class StatsService : IStatsService
             GivenCount = items.Sum(Purchases.GivenCountOf),
             GivenSpentYen = items.Sum(Purchases.GivenSpendOf),
             FreeCount = free,
-            UnpricedItemCount = unpriced,
+            UnpricedItemCount = unpricedIds.Count,
+            UnpricedItemIds = unpricedIds,
             LogicalBytes = LibrarySizes.Owned(owned),
             PhysicalBytes = LibrarySizes.OnDisk(owned),
             DuplicateBytes = LibrarySizes.DuplicateOnDisk(owned),

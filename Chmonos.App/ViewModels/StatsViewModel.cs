@@ -546,10 +546,24 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
     public string UnpricedNote => Period is not { UnpricedItemCount: > 0 } period
         ? string.Empty
         : IsAllTime
-            ? $"払った額の記録が無い商品が {period.UnpricedItemCount:N0} 件あります。その分は総額に入っていません。"
-            : $"この期間に、払った額の記録が無い商品が {period.UnpricedItemCount:N0} 件あります。その分は期間の支出に入っていません。";
+            ? $"金額の記録が無い商品が {period.UnpricedItemCount:N0} 件あります。その分は総額に入っていません。"
+            : $"この期間に、金額の記録が無い商品が {period.UnpricedItemCount:N0} 件あります。その分は期間の支出に入っていません。";
 
     public bool HasUnpricedNote => UnpricedNote.Length > 0;
+
+    /// <summary>
+    /// 帯に出ている数と同じ商品（今の期間のぶん）を、編集の画面の順に積んで開く。
+    /// 検索の選択の帯の「まとめて編集する」と同じ口（<see cref="MainViewModel.ShowEditAsync"/>）。
+    /// 数えている物は、無料・貰った物だけの商品も含む（0円と未入力は編集画面の空欄が 0 で記録されるため見分けられない）
+    /// </summary>
+    public RelayCommand EditUnpricedCommand => new(() =>
+    {
+        var ids = Period?.UnpricedItemIds ?? [];
+        if (ids.Count > 0)
+        {
+            _main.ShowEditAsync(ids).Forget();
+        }
+    });
 
     public string SizeText => Core.Models.DisplayText.Size(_snapshot?.PhysicalBytes ?? 0);
 

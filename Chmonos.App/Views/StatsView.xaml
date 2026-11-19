@@ -287,8 +287,14 @@
                     <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
                             BorderThickness="1" CornerRadius="6" Padding="12,9" Margin="0,14,0,0"
                             Visibility="{Binding HasUnpricedNote, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                        <TextBlock Text="{Binding UnpricedNote}" FontSize="12"
-                                   Foreground="{DynamicResource Warn}" TextWrapping="Wrap" />
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="まとめて編集する" Margin="12,0,0,0" Padding="10,2" VerticalAlignment="Center"
+                                    Command="{Binding EditUnpricedCommand}"
+                                    AutomationProperties.AutomationId="StatsUnpricedEdit"
+                                    ToolTip="金額の記録が無い商品を、編集の画面で順に開きます。" />
+                            <TextBlock Text="{Binding UnpricedNote}" FontSize="12" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource Warn}" TextWrapping="Wrap" />
+                        </DockPanel>
                     </Border>
 
                     <!-- 月別の支出 -->
