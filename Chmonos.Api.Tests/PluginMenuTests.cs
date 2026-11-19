@@ -339,7 +339,9 @@ public sealed class PluginMenuTests : IAsyncLifetime
             Clients = (list.Clients ?? []).Select(client => client.Id != "tool" ? client : client with { Menu = null }).ToList(),
         });
 
-        await PutMenuAsync(new { items = new[] { Export } });
+        // 聞く窓は 202 を返した後に出るので、出るまで待ってから数える（すぐ数えると一式の重い時に1のままで落ちた。2026-11-20）
+        Assert.Equal(HttpStatusCode.Accepted, (await PutMenuAsync(new { items = new[] { Export } })).StatusCode);
+        await WaitUntilAsync(() => _approvals.AskedCount == 2);
 
         Assert.Equal(2, _approvals.AskedCount);
     }
