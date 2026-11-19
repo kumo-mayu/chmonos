@@ -164,6 +164,89 @@ public class SelectionBarBulkTests
         Assert.Equal(40, attributes["露出"]);
     });
 
+    /// <summary>
+    /// 属性の追加は値を付けずに「値はまだ」として足す（ユーザ判断 2026-11-20 の (a)）。値がある（0% も）・値はまだの商品は何もせず数える。
+    /// カードの写しが古くても、今の記録の値を潰さない
+    /// </summary>
+    [Fact]
+    public Task 属性の追加は値はまだとして足し_付いている商品は数えるだけ() => TestApp.Run(async app =>
+    {
+        await app.Store.Attributes.SaveAsync(new AttributeMaster { Attributes = [new AttributeDefinition { Name = "かわいさ" }] });
+        var search = await SearchWithAsync(app,
+            Make.Item(First, "作り物の衣装"),
+            Make.Item(Second, "作り物の髪") with { Local = Make.Item(Second, "作り物の髪").Local with { PendingAttributes = ["かわいさ"] } },
+            Make.Item(Third, "作り物の小物"));
+
+        // 画面が読んだ後に、別の所が3件目に値を付けた。カードはそれを知らない
+        await app.Store.Items.ChangeLocalAsync(Third, local => ItemAttributes.WithValue(local, "かわいさ", 0), LocalOwners.Attributes);
+        Select(search, First, Second, Third);
+        app.AnswerBulkTag = model =>
+        {
+            Assert.True(model.IsAddingAttribute);
+            Assert.Equal(["かわいさ"], model.AttributeCandidates);
+            model.Type(attribute: "かわいさ");
+            Assert.False(model.IsNewAttribute);
+            return true;
+        };
+
+        search.Bulk.AddAttributeCommand.Execute(null);
+        await app.SettleAsync();
+
+        var added = await LocalOfAsync(app, First);
+        Assert.Equal(["かわいさ"], added.PendingAttributes!);
+        Assert.Empty(added.Attributes);
+        Assert.Equal(["かわいさ"], (await LocalOfAsync(app, Second)).PendingAttributes!);
+        var valued = await LocalOfAsync(app, Third);
+        Assert.Equal(0, valued.Attributes["かわいさ"]);
+        Assert.Null(valued.PendingAttributes);
+        Assert.Equal("1 件に追加しました（2 件は既に付いていました）。", search.Bulk.StatusText);
+        Assert.Empty(app.Notices);
+    });
+
+    [Fact]
+    public Task 候補に無い属性は属性の一覧へも足す() => TestApp.Run(async app =>
+    {
+        var search = await SearchWithAsync(app, Make.Item(First, "作り物の衣装"));
+        Select(search, First);
+        app.AnswerBulkTag = model =>
+        {
+            model.Type(attribute: "新しい属性");
+            Assert.True(model.IsNewAttribute);
+            return true;
+        };
+
+        search.Bulk.AddAttributeCommand.Execute(null);
+        await app.SettleAsync();
+
+        Assert.Equal(["新しい属性"], (await LocalOfAsync(app, First)).PendingAttributes!);
+        Assert.Contains((await app.Store.Attributes.LoadAsync()).Attributes, attribute => attribute.Name == "新しい属性");
+    });
+
+    /// <summary>値はまだの属性も外す候補に出て、外すと付いていない状態に戻る</summary>
+    [Fact]
+    public Task 値はまだの属性も外せる() => TestApp.Run(async app =>
+    {
+        var search = await SearchWithAsync(app,
+            Make.Item(First, "作り物の衣装") with { Local = Make.Item(First, "作り物の衣装").Local with { PendingAttributes = ["かわいさ"] } });
+        Select(search, First);
+        Assert.True(search.Bulk.RemoveTagCommand.CanExecute(null));
+        app.AnswerBulkTag = model =>
+        {
+            model.RemovesAttribute = true;
+            Assert.Equal(["かわいさ"], model.RemovalCandidates);
+            model.Type(removal: "かわいさ");
+            Assert.Equal(1, model.CountHaving());
+            return true;
+        };
+
+        app.Answer = _ => MessageBoxResult.OK;
+        search.Bulk.RemoveTagCommand.Execute(null);
+        await app.SettleAsync();
+
+        Assert.Null((await LocalOfAsync(app, First)).PendingAttributes);
+        Assert.Equal("1 件から外しました。", search.Bulk.StatusText);
+    });
+
     [Fact]
     public Task お気に入りは足す_外すを分け_既にそうなっている物は数えるだけ() => TestApp.Run(async app =>
     {

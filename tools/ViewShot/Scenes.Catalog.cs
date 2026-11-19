@@ -344,7 +344,18 @@ internal static partial class Scenes
             return Task.FromResult<Window>(new BulkTagDialog(model));
         }),
 
-        DialogScene("catalog-dialog-bulk-tag-remove", "選んだ3件からタグ・属性を外す窓：付いているタグを選んだ所", _ =>
+        DialogScene("catalog-dialog-bulk-attribute-add", "選んだ3件に属性を追加する窓：候補の属性を選んだ所（値は付けない）", _ =>
+        {
+            var master = new AttributeMaster
+            {
+                Attributes = [new AttributeDefinition { Name = "かわいさ" }, new AttributeDefinition { Name = "露出" }],
+            };
+            var model = BulkTagDialogViewModel.ForAddingAttribute(master, BulkTagItems());
+            model.Type(attribute: "かわいさ");
+            return Task.FromResult<Window>(new BulkTagDialog(model));
+        }),
+
+        DialogScene("catalog-dialog-bulk-tag-remove","選んだ3件からタグ・属性を外す窓：付いているタグを選んだ所", _ =>
         {
             var model = BulkTagDialogViewModel.ForRemoving(BulkTagItems());
             model.Type(removal: "衣装／夏");

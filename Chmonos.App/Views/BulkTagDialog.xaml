@@ -22,7 +22,7 @@
                    TextWrapping="Wrap" Margin="0,7,0,0" />
 
         <!-- 足す：大分類と、続けて小分類（どちらも候補に無い語はタグの一覧へも追加する） -->
-        <StackPanel Visibility="{Binding IsAdding, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+        <StackPanel Visibility="{Binding IsAddingTag, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
             <TextBlock Text="大分類" Style="{StaticResource SectionLabel}" Margin="0,18,0,6" />
             <controls:SuggestBox x:Name="TopBox" Source="{Binding TopCandidates}" CommitCommand="{Binding PickTopCommand}"
                                  AllowNew="True" KeepsCommittedText="True" Placeholder="大分類を入力"
@@ -32,6 +32,17 @@
                                  AllowNew="True" KeepsCommittedText="True" Placeholder="小分類を入力"
                                  IsEnabled="{Binding HasTop}"
                                  AutomationProperties.AutomationId="BulkTag.Sub" />
+        </StackPanel>
+
+        <!-- 属性を足す：値は付けない（スライダーは出さない。同じ値で埋めると、付けただけか評価したかが分からなくなる）。
+             候補に無い語は属性の一覧へも追加する -->
+        <StackPanel Visibility="{Binding IsAddingAttribute, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+            <TextBlock Text="属性" Style="{StaticResource SectionLabel}" Margin="0,18,0,6" />
+            <controls:SuggestBox x:Name="AttributeBox" Source="{Binding AttributeCandidates}" CommitCommand="{Binding PickAttributeCommand}"
+                                 AllowNew="True" KeepsCommittedText="True" Placeholder="属性を入力"
+                                 AutomationProperties.AutomationId="BulkTag.Attribute" />
+            <TextBlock Text="値は「まとめて編集する」で付けます。" Style="{StaticResource Caption}"
+                       TextWrapping="Wrap" Margin="0,6,0,0" />
         </StackPanel>
 
         <!-- 外す：タグか属性か。候補は選んだ商品に付いている物だけ -->

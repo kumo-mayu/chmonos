@@ -760,6 +760,8 @@
                             <ContextMenu>
                                 <MenuItem Header="タグを追加…" Command="{Binding Bulk.AddTagCommand}"
                                           AutomationProperties.AutomationId="SelectionBar.Tags.Add" />
+                                <MenuItem Header="属性を追加…" Command="{Binding Bulk.AddAttributeCommand}"
+                                          AutomationProperties.AutomationId="SelectionBar.Tags.AddAttribute" />
                                 <MenuItem Header="タグ・属性を削除…" Command="{Binding Bulk.RemoveTagCommand}" Style="{StaticResource DangerMenuItem}"
                                           AutomationProperties.AutomationId="SelectionBar.Tags.Remove" />
                             </ContextMenu>
