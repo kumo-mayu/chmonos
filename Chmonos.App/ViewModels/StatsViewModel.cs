@@ -65,7 +65,7 @@ public sealed class StatsRowViewModel : ViewModelBase
 /// <summary>
 /// 重複1組。**どれとどれか**と**消せばいくら空くか**を出す。
 /// </summary>
-public sealed class DuplicateRowViewModel(DuplicateGroup group)
+public sealed class DuplicateRowViewModel(DuplicateGroup group, Func<string, Task>? reveal = null)
 {
     public string Label { get; } = group.Label;
 
@@ -82,12 +82,54 @@ public sealed class DuplicateRowViewModel(DuplicateGroup group)
     };
 
     /// <summary>置いてある場所。**消す前に見えている必要がある。**</summary>
-    public IReadOnlyList<string> Places { get; } = group.Places.Select(place => place.Path).ToList();
+    public IReadOnlyList<DuplicatePlaceViewModel> Places { get; } =
+        group.Places.Select(place => new DuplicatePlaceViewModel(place.Path, reveal)).ToList();
 
     /// <summary>どの商品に紐付いているか。商品をまたぐときだけ意味がある。</summary>
     public string ItemsText { get; } = string.Join(
         "・",
         group.Places.Select(place => place.ItemName).Distinct());
+}
+
+/// <summary>
+/// 空けられる場所の1行（置き場所1つ）。押すと、その場所をエクスプローラで選んで開く（open.md 2026-11-18 のメモ）。
+/// 消す前に場所を見に行けるようにするため。ごみ箱へ送る操作は別（ここには持たない）
+/// </summary>
+public sealed class DuplicatePlaceViewModel
+{
+    public DuplicatePlaceViewModel(string path, Func<string, Task>? reveal, bool? isAvailable = null)
+    {
+        Path = path;
+        IsAvailable = isAvailable ?? DriveIsConnected(path);
+        OpenCommand = new RelayCommand(() => reveal?.Invoke(path).Forget());
+    }
+
+    public string Path { get; }
+
+    /// <summary>外したドライブの上の場所は押せない（押しても親も無く開けない）。</summary>
+    public bool IsAvailable { get; }
+
+    public string Tooltip => IsAvailable
+        ? "エクスプローラで、この場所を選んで開きます。"
+        : "ドライブがつながっていません。つなぐと開けます。";
+
+    public RelayCommand OpenCommand { get; }
+
+    /// <summary>
+    /// ドライブ文字の場所だけ、ドライブのルートが在るかを見る（外すとルートごと無い。ここは画面のスレッドで、
+    /// 表示のたびに行数分呼ぶので軽い物だけ）。ネットワークの場所（\\...）は見ずに押せる扱いにする：
+    /// 切れた共有を見に行くと待たされるので、開けない時は押した後に窓で知らせる（<see cref="ExplorerReveal"/>）
+    /// </summary>
+    private static bool DriveIsConnected(string path)
+    {
+        var root = System.IO.Path.GetPathRoot(path);
+        if (string.IsNullOrEmpty(root) || root.StartsWith(@"\\", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return System.IO.Directory.Exists(root);
+    }
 }
 
 public sealed class BacklogRowViewModel
@@ -336,6 +378,8 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
 
     public string PeriodGivenText => $"{PeriodText} ¥{Period?.GivenSpentYen ?? 0:N0}";
 
+    public string PeriodGiftedText => $"{PeriodText} ¥{Period?.GiftedValueYen ?? 0:N0}";
+
     public string PeriodShopCountText => $"{PeriodText} {Period?.ShopCount ?? 0:N0}";
 
     public bool ShowsPeriodTiles => !IsAllTime;
@@ -401,7 +445,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         foreach (var name in new[]
         {
             nameof(IsAllTime), nameof(PeriodText), nameof(PeriodNote), nameof(HasPeriodNote),
-            nameof(PeriodOwnedText), nameof(PeriodSpentText), nameof(PeriodGivenText), nameof(PeriodShopCountText),
+            nameof(PeriodOwnedText), nameof(PeriodSpentText), nameof(PeriodGivenText), nameof(PeriodGiftedText), nameof(PeriodShopCountText),
             nameof(ShowsPeriodTiles), nameof(UnpricedNote), nameof(HasUnpricedNote), nameof(GiftText), nameof(FreeText),
         })
         {
@@ -527,17 +571,41 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
 
     public bool HasGiven => _snapshot is { GivenCount: > 0 };
 
-    /// <summary>贈答が無ければタイルは4枚。無い枠を空けておく意味がない。</summary>
-    public int TileColumns => HasGiven ? 5 : 4;
+    /// <summary>
+    /// ギフトで貰った額（定価の合計）。自分が払った額ではないので累計支出には混ぜず、別のタイルにする
+    /// （貰った行の <c>Price</c> は定価。open.md 2026-11-18 のメモ）。
+    /// </summary>
+    public string GiftedText => $"¥{_snapshot?.GiftedValueYen ?? 0:N0}";
+
+    public string GiftedSubText => $"貰った {_snapshot?.GiftedItemCount ?? 0} 件・定価の合計";
+
+    public bool HasGifted => _snapshot is { GiftedItemCount: > 0 };
+
+    /// <summary>贈答が無ければタイルは4枚。贈った・貰ったは、あるものだけ1枚ずつ足す（無い枠を空けておく意味がない）。</summary>
+    public int TileColumns => 4 + (HasGiven ? 1 : 0) + (HasGifted ? 1 : 0);
 
     /// <summary>金額に入っていない分。総額を額面どおり受け取られないように必ず出す。</summary>
     public string UnpricedNote => Period is not { UnpricedItemCount: > 0 } period
         ? string.Empty
         : IsAllTime
-            ? $"払った額の記録が無い商品が {period.UnpricedItemCount:N0} 件あります。その分は総額に入っていません。"
-            : $"この期間に、払った額の記録が無い商品が {period.UnpricedItemCount:N0} 件あります。その分は期間の支出に入っていません。";
+            ? $"金額の記録が無い商品が {period.UnpricedItemCount:N0} 件あります。その分は総額に入っていません。"
+            : $"この期間に、金額の記録が無い商品が {period.UnpricedItemCount:N0} 件あります。その分は期間の支出に入っていません。";
 
     public bool HasUnpricedNote => UnpricedNote.Length > 0;
+
+    /// <summary>
+    /// 帯に出ている数と同じ商品（今の期間のぶん）を、編集の画面の順に積んで開く。
+    /// 検索の選択の帯の「まとめて編集する」と同じ口（<see cref="MainViewModel.ShowEditAsync"/>）。
+    /// 数えている物は、無料・貰った物だけの商品も含む（0円と未入力は編集画面の空欄が 0 で記録されるため見分けられない）
+    /// </summary>
+    public RelayCommand EditUnpricedCommand => new(() =>
+    {
+        var ids = Period?.UnpricedItemIds ?? [];
+        if (ids.Count > 0)
+        {
+            _main.ShowEditAsync(ids).Forget();
+        }
+    });
 
     public string SizeText => Core.Models.DisplayText.Size(_snapshot?.PhysicalBytes ?? 0);
 
@@ -565,7 +633,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
             if (!ReferenceEquals(_duplicatesOf, _snapshot))
             {
                 _duplicatesOf = _snapshot;
-                _duplicates = _snapshot?.Duplicates.Select(group => new DuplicateRowViewModel(group)).ToList() ?? [];
+                _duplicates = _snapshot?.Duplicates.Select(group => new DuplicateRowViewModel(group, _services.RevealInFolder)).ToList() ?? [];
             }
 
             return _duplicates;
@@ -631,23 +699,45 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
 
     public bool HasBacklog => Backlog.Count > 0;
 
+    /// <summary>
+    /// 今の集計を取り消して、全商品から読み直す（上の帯の ↺。ユーザ案 2026-11-18）。
+    /// 集計は画面を作った時に1回だけなので、取り込みや編集の後に見るには別の画面へ行って戻るしか無かった。
+    /// 期間・開いている欄はそのまま
+    /// </summary>
+    public RelayCommand RefreshCommand => _refreshCommand ??= new RelayCommand(() =>
+    {
+        IsLoading = true;
+        LoadAsync().Forget();
+    });
+
+    private RelayCommand? _refreshCommand;
+
+    /// <summary>読み込み中の取り消し。読み直しで前の読み込みを止める（画面を離れた時の <see cref="_leaving"/> とつなぐ）。</summary>
+    private CancellationTokenSource? _loadCts;
+
     private async Task LoadAsync()
     {
+        var cts = CancellationTokenSource.CreateLinkedTokenSource(_leaving.Token);
+        Interlocked.Exchange(ref _loadCts, cts)?.Cancel();
+
         // 読めなかったときも「読み込み中」を下ろす。成功した道でしか下ろしていなかったので、
         // 壊れた商品が1件あるだけで画面が空のまま戻らなかった（失敗そのものはログに残る）
         try
         {
-            await LoadCoreAsync();
+            await LoadCoreAsync(cts.Token);
         }
         finally
         {
-            RunOnUiThread(() => IsLoading = false);
+            // 読み直しで取り消された読み込みは下ろさない（新しい読み込みの「集計しています…」を消してしまう）
+            if (ReferenceEquals(_loadCts, cts))
+            {
+                RunOnUiThread(() => IsLoading = false);
+            }
         }
     }
 
-    private async Task LoadCoreAsync()
+    private async Task LoadCoreAsync(CancellationToken token)
     {
-        var token = _leaving.Token;
         // アバターの欄は検索と同じ設定で、持っていないバリエーションの分を外す（open.md 106）
         var useDetected = _services.Settings.UseDetectedVariationTargets;
         // 全商品は1回だけ読み、期間を替えるたびには読み直さない（open.md 104）。期間の集計も読み込みと同じ裏で済ませる
@@ -703,6 +793,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
             {
                 nameof(OwnedText), nameof(OwnedSubText), nameof(SpentText), nameof(SpentSubText),
                 nameof(SpentLabel), nameof(GivenText), nameof(GivenSubText), nameof(HasGiven),
+                nameof(GiftedText), nameof(GiftedSubText), nameof(HasGifted),
                 nameof(TileColumns),
                 nameof(UnpricedNote), nameof(HasUnpricedNote), nameof(SizeText), nameof(SizeSubText),
                 nameof(Duplicates), nameof(HasDuplicates), nameof(DuplicateSummary),
@@ -1191,10 +1282,14 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
     }
 
     /// <summary>
-    /// 見つからないファイルは、検索の条件ではなくフォルダビューで見る（ユーザ判断 2026-09-16：管理対象に明確に指定された物ではないので、
-    /// フォルダと未確定で見られれば十分）。フォルダビューは記録上の場所に灰色で残して出す
+    /// 見つからないファイルは、検索の条件「見つからないファイル」で開く（ユーザ判断 2026-11-18：検索に条件ができたので変えた。
+    /// 2026-09-16 はその条件が無く、フォルダビューで見る事にしていた）。検索の画面なら、何が入ったかを見てから編集へ送れる
     /// </summary>
-    private void ShowMissing() => _main.ShowFolders();
+    private void ShowMissing()
+    {
+        _main.Search.ShowOnlyMissingFile();
+        _main.ShowSearch();
+    }
 
     /// <summary>
     /// 軸の上端。半端な最大値をそのまま上端にすると目盛りが読めないので、

@@ -51,6 +51,11 @@
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="Hit" Property="Background" Value="{DynamicResource SurfaceAlt}" />
                             </Trigger>
+                            <!-- 押せない行（外したドライブの上の場所）は、薄くして乗せても色を変えない -->
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Hit" Property="Background" Value="Transparent" />
+                                <Setter TargetName="Hit" Property="Opacity" Value="0.5" />
+                            </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -145,6 +150,11 @@
                     期間（ユーザ判断 2026-11-18・open.md 104）。「年を選ぶ」は右に年の欄、「開始と終了を選ぶ」は右に日の欄2つ（カレンダーは検索の日付の条件と同じ部品）
                 -->
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <!-- 読み直し。ほかの画面の「読み直す」と同じ小さいボタンで、ここは帯が狭いので記号だけにする（名前は同じ「読み直す」） -->
+                    <Button Content="↺" Style="{StaticResource SmallButton}" Width="27" Padding="0" FontSize="17" Margin="0,0,8,0"
+                            VerticalAlignment="Center" Command="{Binding RefreshCommand}"
+                            ToolTip="集計し直します。"
+                            AutomationProperties.Name="読み直す" AutomationProperties.AutomationId="StatsRefresh" />
                     <ComboBox VerticalAlignment="Center" Width="150"
                               AutomationProperties.Name="集計する期間" AutomationProperties.AutomationId="StatsRange"
                               ItemsSource="{x:Static vm:StatsViewModel.Ranges}"
@@ -244,6 +254,19 @@
                                            Visibility="{Binding ShowsPeriodTiles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             </StackPanel>
                         </Border>
+                        <!-- ギフトで貰った額（定価）。自分が払った額ではないので支出に混ぜない。貰った物が無ければ列ごと出さない（TileColumns） -->
+                        <Border Style="{StaticResource Card}" Margin="0,0,14,0" Padding="18,15"
+                                Visibility="{Binding HasGifted, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <StackPanel>
+                                <TextBlock Text="ギフトで貰った額" Style="{StaticResource SectionLabel}" />
+                                <TextBlock Text="{Binding GiftedText}" Style="{StaticResource Mono}"
+                                           FontSize="27" FontWeight="Bold" Margin="0,5,0,0" />
+                                <TextBlock Text="{Binding GiftedSubText}" Style="{StaticResource Caption}" Margin="0,3,0,0" />
+                                <TextBlock Text="{Binding PeriodGiftedText}" Style="{StaticResource Mono}" FontSize="12" Margin="0,3,0,0" TextWrapping="Wrap"
+                                           Foreground="{DynamicResource Accent}" ToolTip="選んだ期間の値です。"
+                                           Visibility="{Binding ShowsPeriodTiles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            </StackPanel>
+                        </Border>
                         <Border Style="{StaticResource Card}" Margin="0,0,14,0" Padding="18,15">
                             <StackPanel>
                                 <TextBlock Text="ディスク使用量" Style="{StaticResource SectionLabel}" />
@@ -274,8 +297,14 @@
                     <Border Background="{DynamicResource WarnSoft}" BorderBrush="{DynamicResource WarnBorder}"
                             BorderThickness="1" CornerRadius="6" Padding="12,9" Margin="0,14,0,0"
                             Visibility="{Binding HasUnpricedNote, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                        <TextBlock Text="{Binding UnpricedNote}" FontSize="12"
-                                   Foreground="{DynamicResource Warn}" TextWrapping="Wrap" />
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="まとめて編集する" Margin="12,0,0,0" Padding="10,2" VerticalAlignment="Center"
+                                    Command="{Binding EditUnpricedCommand}"
+                                    AutomationProperties.AutomationId="StatsUnpricedEdit"
+                                    ToolTip="金額の記録が無い商品を、編集の画面で順に開きます。" />
+                            <TextBlock Text="{Binding UnpricedNote}" FontSize="12" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource Warn}" TextWrapping="Wrap" />
+                        </DockPanel>
                     </Border>
 
                     <!-- 月別の支出 -->
@@ -331,7 +360,8 @@
                                             </ItemsControl.ItemsPanel>
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate DataType="{x:Type vm:SpendBarViewModel}">
-                                                    <DockPanel ToolTip="{Binding Tooltip}">
+                                                    <!-- Background を付けないと WPF は描いた物にしか当たらず、0円の月（棒の高さ0）は月の字にしか吹き出しが出ない。月の幅と高さ全体で当てる -->
+                                                    <DockPanel Background="Transparent" ToolTip="{Binding Tooltip}">
                                                         <!--
                                                             月の下に年（左端と1月だけ。点検 2026-09-23：「09」だけでは年が分からなかった）。
                                                             年の無い棒も同じ高さを取り、棒の下端を揃える。年は隣の棒の下まではみ出してよい
@@ -553,10 +583,16 @@
                                                                 <!-- 消す前に場所が見えていること -->
                                                                 <controls:ContentItemsControl ItemsSource="{Binding Places}" Margin="0,5,0,0">
                                                                     <ItemsControl.ItemTemplate>
-                                                                        <DataTemplate>
-                                                                            <TextBlock Text="{Binding}" Style="{StaticResource Mono}"
-                                                                                       FontSize="10.5" Margin="0,1,0,0"
-                                                                                       TextTrimming="CharacterEllipsis" />
+                                                                        <DataTemplate DataType="{x:Type vm:DuplicatePlaceViewModel}">
+                                                                            <!-- 押すと、その場所をエクスプローラで選んで開く。外したドライブの上は押せない -->
+                                                                            <Button Style="{StaticResource RowButton}" Margin="0,1,0,0"
+                                                                                    Command="{Binding OpenCommand}" IsEnabled="{Binding IsAvailable}"
+                                                                                    ToolTip="{Binding Tooltip}"
+                                                                                    AutomationProperties.AutomationId="StatsDuplicatePlace"
+                                                                                    AutomationProperties.Name="{Binding Path, StringFormat={}{0}をエクスプローラで開く}">
+                                                                                <TextBlock Text="{Binding Path}" Style="{StaticResource Mono}"
+                                                                                           FontSize="10.5" TextTrimming="CharacterEllipsis" />
+                                                                            </Button>
                                                                         </DataTemplate>
                                                                     </ItemsControl.ItemTemplate>
                                                                 </controls:ContentItemsControl>
