@@ -93,8 +93,9 @@
                     <ComboBox ItemsSource="{Binding SortOptions}" SelectedItem="{Binding Sort, Mode=TwoWay}"
                               AutomationProperties.Name="表示順"
                               DisplayMemberPath="Label" Width="120" VerticalAlignment="Center" />
-                    <Button Content="読み直す" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
-                            Command="{Binding RefreshCommand}" />
+                    <Button Content="↺" Style="{StaticResource SmallButton}" Width="27" Padding="0" FontSize="17" Margin="8,0,0,0"
+                            Command="{Binding RefreshCommand}" ToolTip="ショップの一覧を読み直します。"
+                            AutomationProperties.Name="読み直す" />
                 </StackPanel>
                 </WrapPanel>
             </controls:SplitRowPanel>

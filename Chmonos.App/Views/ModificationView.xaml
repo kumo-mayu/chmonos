@@ -800,7 +800,8 @@
                             <Grid Margin="0,0,0,8">
                                 <TextBlock Text="紐付ける先" Style="{StaticResource SectionLabel}"
                                            VerticalAlignment="Center" />
-                                <Button Content="読み直す" Style="{StaticResource SmallButton}"
+                                <Button Content="↺" Style="{StaticResource SmallButton}" Width="27" Padding="0" FontSize="17"
+                                        AutomationProperties.Name="読み直す"
                                         HorizontalAlignment="Right" VerticalAlignment="Center"
                                         Command="{Binding RefreshProjectsCommand}"
                                         ToolTip="{Binding RefreshProjectsHint}" />

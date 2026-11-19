@@ -323,7 +323,9 @@
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <CheckBox Content="未読のみ" IsChecked="{Binding UnreadOnly, Mode=TwoWay}"
                               VerticalAlignment="Center" Margin="0,0,12,0" Foreground="{DynamicResource Text}" />
-                    <Button Content="読み直す" Style="{StaticResource SmallButton}" Command="{Binding RefreshCommand}" />
+                    <Button Content="↺" Style="{StaticResource SmallButton}" Width="27" Padding="0" FontSize="17"
+                            Command="{Binding RefreshCommand}" ToolTip="通知の一覧を読み直します。"
+                            AutomationProperties.Name="読み直す" />
                     <Button Content="すべて既読にする" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                             Command="{Binding MarkAllReadCommand}" />
                     <!-- 保管した古い通知を、同じ画面で月ごとに読む見方へ（ユーザ案 2026-11-10） -->
