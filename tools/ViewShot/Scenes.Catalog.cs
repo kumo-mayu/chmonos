@@ -351,6 +351,9 @@ internal static partial class Scenes
         DialogScene("catalog-dialog-saved-search-rename", "検索の名前を変える窓（戻せることの1行）", _ => Task.FromResult<Window>(
             new SavedSearchNameDialog(new SavedSearchNameDialogViewModel(SavedSearchNameDialogViewModel.Purpose.Rename, "夏の衣装", [])))),
 
+        DialogScene("catalog-dialog-local-item-name", "BOOTHに無い商品を名前だけで登録する窓（検索の件数の帯から。名前を打った所）", _ => Task.FromResult<Window>(
+            new LocalItemNameDialog(new LocalItemNameDialogViewModel { Name = "作り物の手作りアクセサリー" }))),
+
         DialogScene("catalog-dialog-change-item-id", "商品IDを変える窓：移し先のIDを打った所（確かめる前。BOOTHへは問い合わせない）", async context =>
         {
             await context.StartAsync();
@@ -477,6 +480,14 @@ internal static partial class Scenes
                 Booth = record.Booth with { Url = string.Empty, Tags = [], Shop = null },
                 Local = record.Local with { LocalFiles = [Fake.FileRecord(Fake.Zip(@"ライブラリ\local_only.zip"))] },
             })),
+
+        // 検索の件数の帯の「BOOTHに無い商品を登録…」で作った直後の姿（2026-11-20 のメモ）。ファイルの欄の「追加…」が見えるか
+        CatalogItemScene("catalog-item-local-no-files", "商品ページ：名前だけで作ったBOOTHに無い商品（ファイル・絵が無い）", async context =>
+            await context.Fake.ItemAsync(LocalItemId.NewUnique(), "作り物の手作りアクセサリー", record => record with
+            {
+                Booth = new BoothBlock(),
+                Local = new LocalBlock { DisplayName = "作り物の手作りアクセサリー" },
+            }, images: 0)),
 
         CatalogItemScene("catalog-item-no-images", "商品ページ：絵が1枚も無い商品", async context =>
             await context.Fake.ItemAsync("9900511", "絵の無い作り物の衣装", record => record with

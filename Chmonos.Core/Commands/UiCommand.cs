@@ -48,6 +48,12 @@ public abstract record UiCommand
     }
 
     /// <summary>
+    /// ファイルを持たない「BOOTHに無い商品」を名前だけで作る（2026-11-20 のメモ「ファイルの無いlocalItemが作成できない」）。
+    /// 仮IDは乱数で決める（<see cref="Models.LocalItemId.NewUnique"/>）。BOOTHへは問い合わせない。ファイルは後から商品ページで追加する
+    /// </summary>
+    public record CreateLocalItem(string DisplayName) : UiCommand;
+
+    /// <summary>
     /// 未確定ファイルを、BOOTHで見つからなかった商品IDのまま登録する（ユーザ判断 2026-09-29）。
     /// 「BOOTHで公開されていない」商品として持ち、⑦で確かめ直して、公開されたら情報を取る。BOOTHへは問い合わせない。
     /// </summary>

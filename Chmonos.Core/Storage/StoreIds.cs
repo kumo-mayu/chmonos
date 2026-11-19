@@ -22,7 +22,7 @@ namespace Chmonos.Core.Storage;
 /// </summary>
 public static class StoreIds
 {
-    // 桁の上限は、場所の名前が長くなりすぎないための物。BOOTH の番号は今8桁、仮IDと改変IDのハッシュは8桁
+    // 桁の上限は、場所の名前が長くなりすぎないための物。BOOTH の番号は今8桁、仮IDと改変IDのハッシュは8桁、名前だけで作る仮IDの乱数は12桁
     private static readonly Regex ItemIdPattern = new(
         @"\A(?:[0-9]{1,18}|local-[0-9a-f]{1,64})\z",
         RegexOptions.CultureInvariant);

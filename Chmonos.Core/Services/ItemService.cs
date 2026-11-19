@@ -211,6 +211,13 @@ public interface IItemService
         string displayName,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// ファイルを持たない「BOOTHに無い商品」を名前だけで作る（2026-11-20 のメモ。前はファイルを選ばないと作れなかった）。
+    /// 仮IDは乱数（<see cref="LocalItemId.NewUnique"/>）。BOOTHへは一切問い合わせない。
+    /// </summary>
+    /// <returns>作った商品のID。名前が空なら null。</returns>
+    Task<string?> CreateLocalItemAsync(string displayName, CancellationToken cancellationToken = default);
+
     /// <summary>ファイルに種類を付け直す（null で外す）。商品が無ければ false。</summary>
     Task<bool> SetFileVariationsAsync(
         string itemId,
@@ -1165,6 +1172,52 @@ public sealed class ItemService : IItemService
             cancellationToken);
 
         return itemId;
+    }
+
+    /// <summary>名前だけで作る商品の仮IDを出す物。試験だけが差し替える（重なったときに引き直すかを確かめるため）。</summary>
+    internal Func<string> NewLocalItemId { get; set; } = LocalItemId.NewUnique;
+
+    /// <summary>
+    /// 引き直す回数の上限。12桁の乱数が続けて重なるのは事実上起きないので、ここまで重なるのは乱数の元が壊れているとき。
+    /// そのときに回り続けないための止め。
+    /// </summary>
+    private const int LocalItemIdAttempts = 8;
+
+    public async Task<string?> CreateLocalItemAsync(string displayName, CancellationToken cancellationToken = default)
+    {
+        // API からも来得るので、空の名前は Core で断る（名前の無い仮IDの商品は、画面に local-… しか出ない）
+        var name = (displayName ?? string.Empty).Trim();
+        if (name.Length == 0)
+        {
+            return null;
+        }
+
+        for (var attempt = 0; attempt < LocalItemIdAttempts; attempt++)
+        {
+            var id = NewLocalItemId();
+            var created = false;
+
+            // **在れば作らない（足しもしない）。**ファイルから作る道（RegisterLocalItemAsync）は「同じファイルなら同じ商品」なので在れば足すが、
+            // こちらは乱数がたまたま重なっただけで、在る商品は別の物。錠の中で在るかを見て、在れば書かずに別のIDで引き直す。
+            // 錠の外で見ると、見てから書くまでの間に作られた商品を丸ごと上書きする（CreateWhileSomeoneSavesTests と同じ穴）
+            await _store.Items.CreateOrChangeLocalAsync(
+                id,
+                () =>
+                {
+                    created = true;
+                    return EmptyItem(id) with { Local = new LocalBlock { DisplayName = name } };
+                },
+                current => created ? current : null,
+                [LocalField.DisplayName],
+                cancellationToken);
+
+            if (created)
+            {
+                return id;
+            }
+        }
+
+        throw new InvalidOperationException("商品の仮のIDを決められませんでした。");
     }
 
     /// <summary>

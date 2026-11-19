@@ -509,6 +509,12 @@ public sealed class CommandHandler
                     ? new CommandResult.ItemSaved(localId)
                     : new CommandResult.Failed("対象のファイルが未確定に見つかりませんでした。");
 
+            case UiCommand.CreateLocalItem createLocal:
+                // ファイルが無いので unitypackage の控えを埋める物も無い（FillUnityPackagesInBackground は後でファイルを追加した時に走る）
+                return await _items.CreateLocalItemAsync(createLocal.DisplayName, cancellationToken) is { } createdId
+                    ? new CommandResult.ItemSaved(createdId)
+                    : new CommandResult.Failed("商品名を入力してください。");
+
             case UiCommand.AssignUnpublishedItemId unpublished:
                 if (await _items.AssignUnpublishedItemIdAsync(
                         unpublished.Hash, unpublished.ItemId, unpublished.DisplayName, cancellationToken))
