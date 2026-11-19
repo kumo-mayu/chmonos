@@ -61,7 +61,7 @@ public class ResolveActionTests
         var asked = Assert.Single(app.Notices);
         Assert.Equal("管理対象から除外する", asked.Caption);
         Assert.Equal(
-            "first.zip を管理対象から除外します。\n\nファイル自体は消しません。設定の「隠したもの」から戻せます。",
+            "first.zip を管理対象から除外します。\n\nファイル自体は消しません。この画面の「除外の解除…」からも戻せます。",
             asked.Text);
         Assert.Equal(MessageBoxButton.OKCancel, asked.Button);
 

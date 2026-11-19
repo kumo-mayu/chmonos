@@ -152,6 +152,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         RegisterFolderOfCommand = new RelayCommand(parameter => RegisterFolderOfAsync(parameter).Forget(), parameter => parameter is string && !IsBusy);
         UseOriginZipCommand = new RelayCommand(UseOriginZip, () => CanUseOriginZip);
         TreatAsOriginZipCommand = new RelayCommand(TreatAsOriginZip, parameter => parameter is not null);
+        UndoExcludeCommand = new RelayCommand(() => UndoExcludeAsync().Forget(), () => HasUndoExclude && !IsBusy);
         OpenExclusionsCommand = new RelayCommand(() => OpenExclusionsAsync().Forget(), () => HasExcluded && !IsBusy);
         RevealCommand = new RelayCommand(RevealSelected, () => HasSelection);
         CopyFileNameCommand = new RelayCommand(CopyFileName, () => HasSelection);
@@ -179,6 +180,9 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
     public RelayCommand UseOriginZipCommand { get; }
 
     public RelayCommand TreatAsOriginZipCommand { get; }
+
+    /// <summary>外した直後だけ出す「外した n 件を戻す」。元の記録のまま戻す（open.md 132）。</summary>
+    public RelayCommand UndoExcludeCommand { get; }
 
     /// <summary>「除外の解除…」（open.md 132）。</summary>
     public RelayCommand OpenExclusionsCommand { get; }
@@ -238,6 +242,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
     private void RemoveRows(IReadOnlyList<UnresolvedRow> rows)
     {
+        ForgetExcluded();
         foreach (var row in rows)
         {
             row.SelectionChanged -= OnCheckedChanged;
@@ -689,6 +694,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
     {
         // 「除外の解除…」を出すかは除外の件数で決める。一覧を読むたびに合わせる（ほかの画面・取り込みで除外が増減する）
         RefreshExcludedCountAsync().Forget();
+        ForgetExcluded();
 
         // 見分けと zip の有無の控えは、この後の操作（元zipで登録した後に中身を外すなど）でも使う
         _judgements.Clear();
@@ -1260,7 +1266,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         var what = targets.Count == 1 ? targets[0].FileName : GroupSubject;
         var answer = Services.Notice.Show(
             $"{what} を管理対象から除外します。\n\n"
-            + "ファイル自体は消しません。設定の「隠したもの」から戻せます。",
+            + "ファイル自体は消しません。この画面の「除外の解除…」からも戻せます。",
             "管理対象から除外する",
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Question,
@@ -1275,7 +1281,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         try
         {
             var reason = targets.Count == 1 ? "未確定画面から除外" : "未確定画面から元zipごと除外";
-            await _services.Commands.ExecuteAsync(new UiCommand.ExcludeFiles([.. targets.Select(row => row.File)], reason));
+            var excluded = await _services.Commands.ExecuteAsync(new UiCommand.ExcludeFiles([.. targets.Select(row => row.File)], reason));
 
             RefreshExcludedCountAsync().Forget();
             if (targets.Count == 1)
@@ -1287,6 +1293,9 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
                 RemoveRows(targets);
                 ListNoticeText = $"{targets.Count} 件を管理対象から除外しました。";
             }
+
+            // 一覧から外した後に控える（外す側の ForgetExcluded に消されないように）
+            RememberExcluded(targets, excluded);
         }
         finally
         {
@@ -1298,6 +1307,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
     /// <param name="registered">商品に登録したか（管理対象から除外したときは false）。登録したら、そのzipの中身も一覧から外す。</param>
     private void AfterSettled(bool registered = true)
     {
+        ForgetExcluded();
         // 次に選ぶのは、検索で見えている行の中の次（隠れている行を選ぶと、左で何を選んでいるか分からない）
         var visible = FilesView.Cast<UnresolvedRow>().ToList();
         var index = Selected is null ? -1 : visible.IndexOf(Selected);

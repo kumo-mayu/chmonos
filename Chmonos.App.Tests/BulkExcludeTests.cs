@@ -217,4 +217,53 @@ public class BulkExcludeTests
         Assert.Equal(unresolvedWrites, app.Store.Unresolved.WriteCount);
         await UiThread.Until(() => resolve.HasExcluded, "除外が残れば「除外の解除…」が出る");
     });
+
+    /// <summary>
+    /// 外した直後だけ「外した n 件を戻す」を出し、元の記録のまま戻す（open.md 132・ユーザ判断 2026-11-20）。
+    /// 「除外の解除…」は今のファイルから記録を組み直すので初めて見た日時が消える。こちらは外す前の記録（日時 2026-09-01）がそのまま戻る。
+    /// </summary>
+    [Fact]
+    public Task 外した直後の戻すは_元の記録のまま戻し_戻したら消える() => TestApp.Run(async app =>
+    {
+        var (main, resolve) = await OpenResolveAsync(app, @"a\first.zip", @"b\second.zip");
+        Assert.False(resolve.HasUndoExclude);
+        resolve.Selected = resolve.Files.Single(row => row.FileName == "first.zip");
+        app.Answer = _ => MessageBoxResult.OK;
+        resolve.ExcludeCommand.Execute(null);
+        await app.SettleAsync();
+
+        Assert.True(resolve.HasUndoExclude);
+        Assert.Equal("外した 1 件を戻す", resolve.UndoExcludeText);
+
+        resolve.UndoExcludeCommand.Execute(null);
+        await app.SettleAsync();
+
+        Assert.Empty(app.Store.Excluded.Load());
+        var back = Assert.Single(app.Store.Unresolved.Load(), file => file.Paths[0].EndsWith("first.zip", StringComparison.Ordinal));
+        Assert.Equal(new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.Zero), back.FirstSeenAt);
+        Assert.False(resolve.HasUndoExclude);
+        await UiThread.Until(() => main.UnresolvedCount == 2, "戻したらナビの数も戻る");
+    });
+
+    [Fact]
+    public Task 外した直後の戻すは_次に外した後は置き換わり_解除の窓を開いた後は消える() => TestApp.Run(async app =>
+    {
+        var (_, resolve) = await OpenResolveAsync(app, @"a\first.zip", @"b\second.zip", @"c\third.zip");
+        app.Answer = _ => MessageBoxResult.OK;
+        resolve.Selected = resolve.Files.Single(row => row.FileName == "first.zip");
+        resolve.ExcludeCommand.Execute(null);
+        await app.SettleAsync();
+        Assert.Equal("外した 1 件を戻す", resolve.UndoExcludeText);
+
+        // 次に外した分に置き換わる（古い分は戻す対象から外れる）
+        resolve.Selected = resolve.Files.Single(row => row.FileName == "second.zip");
+        resolve.ExcludeCommand.Execute(null);
+        await app.SettleAsync();
+        Assert.Equal("外した 1 件を戻す", resolve.UndoExcludeText);
+
+        // 「除外の解除…」の窓を開いた後は、元の記録で戻す道を閉じる
+        resolve.OpenExclusionsCommand.Execute(null);
+        await app.SettleAsync();
+        Assert.False(resolve.HasUndoExclude);
+    });
 }

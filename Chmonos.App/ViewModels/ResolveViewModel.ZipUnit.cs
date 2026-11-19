@@ -124,6 +124,73 @@ public sealed partial class ResolveViewModel
 
     public bool ShowsInlineHidden => IsEmbedded && HasHiddenByRegisteredZip;
 
+    // 外した直後だけ、元の記録のまま戻すボタンを残す（open.md 132・ユーザ判断 2026-11-20）。
+    // 「除外の解除…」は今のファイルから記録を組み直すので、初めて見た日時・同じパスの商品ID・「BOOTH に無い」の印が消える。
+    // 外した直後は UndoExclude で外す前の記録をそのまま戻せる。別の操作（登録・次の除外・解除の窓・一覧の読み直し）と画面を離れた時に消す
+    private List<Core.Models.UnresolvedFile> _lastExcluded = [];
+
+    /// <summary>今回除外の記録に足したハッシュ。戻すときはこれだけを除外から消す（前から除外していた物の記録を残す。2026-10-05）。</summary>
+    private IReadOnlyCollection<string> _lastExcludedHashes = [];
+
+    public bool HasUndoExclude => _lastExcluded.Count > 0;
+
+    public string UndoExcludeText => $"外した {_lastExcluded.Count} 件を戻す";
+
+    /// <summary>組み込んだ画面では上の帯が隠れるので、右側の上にも出す。</summary>
+    public bool ShowsInlineUndo => IsEmbedded && HasUndoExclude;
+
+    /// <summary>外した直後に呼ぶ。ほかの操作で <see cref="ForgetExcluded"/> されるまで、「外した n 件を戻す」を出す。</summary>
+    private void RememberExcluded(IEnumerable<UnresolvedRow> rows, Core.Commands.CommandResult excluded)
+    {
+        _lastExcluded = rows.Select(row => row.File).ToList();
+        _lastExcludedHashes = excluded is Core.Commands.CommandResult.FilesExcluded { AddedHashes: var added } ? added : [];
+        NotifyUndoExcludeChanged();
+    }
+
+    /// <summary>別の操作をした後は、元の記録で戻す道を閉じる（古い記録で戻すと、その間の登録と食い違う）。</summary>
+    private void ForgetExcluded()
+    {
+        if (_lastExcluded.Count == 0)
+        {
+            return;
+        }
+
+        _lastExcluded = [];
+        _lastExcludedHashes = [];
+        NotifyUndoExcludeChanged();
+    }
+
+    private void NotifyUndoExcludeChanged()
+    {
+        OnPropertyChanged(nameof(HasUndoExclude));
+        OnPropertyChanged(nameof(UndoExcludeText));
+        OnPropertyChanged(nameof(ShowsInlineUndo));
+        RelayCommand.RaiseCanExecuteChanged();
+    }
+
+    private async Task UndoExcludeAsync()
+    {
+        if (_lastExcluded.Count == 0)
+        {
+            return;
+        }
+
+        var files = _lastExcluded;
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.UndoExclude(files, _lastExcludedHashes));
+        ForgetExcluded();
+        RefreshExcludedCountAsync().Forget();
+
+        await ReloadRowsAsync();
+
+        // 除外したときと同じく、ナビの件数も合わせる
+        _main.RefreshBadges();
+
+        var first = files[0].Hash;
+        Selected = Files.FirstOrDefault(row => string.Equals(row.File.Hash, first, StringComparison.OrdinalIgnoreCase)) ?? Selected;
+        // 「戻す」は一覧の見出しの近くにあるので、結果もそこに出す
+        ListNoticeText = $"{files.Count} 件を未確定に戻しました。";
+    }
+
     /// <summary>除外の件数を読み直す。記録は上限なく溜まるので画面のスレッドの外で読む（LoadExcludedAsync）。古い答えは捨てる。</summary>
     private async Task RefreshExcludedCountAsync()
     {
@@ -146,6 +213,7 @@ public sealed partial class ResolveViewModel
     /// </summary>
     private async Task OpenExclusionsAsync()
     {
+        ForgetExcluded();
         var lifted = false;
         ExclusionListViewModel? list = null;
         list = ExclusionLifting.ForExcluded(_services, async () =>
