@@ -244,6 +244,19 @@
                                            Visibility="{Binding ShowsPeriodTiles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             </StackPanel>
                         </Border>
+                        <!-- ギフトで貰った額（定価）。自分が払った額ではないので支出に混ぜない。貰った物が無ければ列ごと出さない（TileColumns） -->
+                        <Border Style="{StaticResource Card}" Margin="0,0,14,0" Padding="18,15"
+                                Visibility="{Binding HasGifted, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <StackPanel>
+                                <TextBlock Text="ギフトで貰った額" Style="{StaticResource SectionLabel}" />
+                                <TextBlock Text="{Binding GiftedText}" Style="{StaticResource Mono}"
+                                           FontSize="27" FontWeight="Bold" Margin="0,5,0,0" />
+                                <TextBlock Text="{Binding GiftedSubText}" Style="{StaticResource Caption}" Margin="0,3,0,0" />
+                                <TextBlock Text="{Binding PeriodGiftedText}" Style="{StaticResource Mono}" FontSize="12" Margin="0,3,0,0" TextWrapping="Wrap"
+                                           Foreground="{DynamicResource Accent}" ToolTip="選んだ期間の値です。"
+                                           Visibility="{Binding ShowsPeriodTiles, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            </StackPanel>
+                        </Border>
                         <Border Style="{StaticResource Card}" Margin="0,0,14,0" Padding="18,15">
                             <StackPanel>
                                 <TextBlock Text="ディスク使用量" Style="{StaticResource SectionLabel}" />

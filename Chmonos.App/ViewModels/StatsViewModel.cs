@@ -336,6 +336,8 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
 
     public string PeriodGivenText => $"{PeriodText} ¥{Period?.GivenSpentYen ?? 0:N0}";
 
+    public string PeriodGiftedText => $"{PeriodText} ¥{Period?.GiftedValueYen ?? 0:N0}";
+
     public string PeriodShopCountText => $"{PeriodText} {Period?.ShopCount ?? 0:N0}";
 
     public bool ShowsPeriodTiles => !IsAllTime;
@@ -401,7 +403,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         foreach (var name in new[]
         {
             nameof(IsAllTime), nameof(PeriodText), nameof(PeriodNote), nameof(HasPeriodNote),
-            nameof(PeriodOwnedText), nameof(PeriodSpentText), nameof(PeriodGivenText), nameof(PeriodShopCountText),
+            nameof(PeriodOwnedText), nameof(PeriodSpentText), nameof(PeriodGivenText), nameof(PeriodGiftedText), nameof(PeriodShopCountText),
             nameof(ShowsPeriodTiles), nameof(UnpricedNote), nameof(HasUnpricedNote), nameof(GiftText), nameof(FreeText),
         })
         {
@@ -527,8 +529,18 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
 
     public bool HasGiven => _snapshot is { GivenCount: > 0 };
 
-    /// <summary>贈答が無ければタイルは4枚。無い枠を空けておく意味がない。</summary>
-    public int TileColumns => HasGiven ? 5 : 4;
+    /// <summary>
+    /// ギフトで貰った額（定価の合計）。自分が払った額ではないので累計支出には混ぜず、別のタイルにする
+    /// （貰った行の <c>Price</c> は定価。open.md 2026-11-18 のメモ）。
+    /// </summary>
+    public string GiftedText => $"¥{_snapshot?.GiftedValueYen ?? 0:N0}";
+
+    public string GiftedSubText => $"貰った {_snapshot?.GiftedItemCount ?? 0} 件・定価の合計";
+
+    public bool HasGifted => _snapshot is { GiftedItemCount: > 0 };
+
+    /// <summary>贈答が無ければタイルは4枚。贈った・貰ったは、あるものだけ1枚ずつ足す（無い枠を空けておく意味がない）。</summary>
+    public int TileColumns => 4 + (HasGiven ? 1 : 0) + (HasGifted ? 1 : 0);
 
     /// <summary>金額に入っていない分。総額を額面どおり受け取られないように必ず出す。</summary>
     public string UnpricedNote => Period is not { UnpricedItemCount: > 0 } period
@@ -703,6 +715,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
             {
                 nameof(OwnedText), nameof(OwnedSubText), nameof(SpentText), nameof(SpentSubText),
                 nameof(SpentLabel), nameof(GivenText), nameof(GivenSubText), nameof(HasGiven),
+                nameof(GiftedText), nameof(GiftedSubText), nameof(HasGifted),
                 nameof(TileColumns),
                 nameof(UnpricedNote), nameof(HasUnpricedNote), nameof(SizeText), nameof(SizeSubText),
                 nameof(Duplicates), nameof(HasDuplicates), nameof(DuplicateSummary),
