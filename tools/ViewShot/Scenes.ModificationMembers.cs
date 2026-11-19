@@ -61,7 +61,21 @@ internal static partial class Scenes
             Height = 1500,
         },
 
-        new Scene("repick-member-files-dialog", "使ったファイルを選び直す窓：記録した版の zip が手元に無い（一覧の上の1行・今の記録のまま・欄を1つ足して選んだ所）", context =>
+        new Scene("modification-members-grouped", "改変の詳細：1商品1欄（衣装の2つのファイルが1つの欄に並ぶ・番号は送る順・欄と欄の中の「移動 ▾」・外した行）（カード）", async context =>
+            await RepickDetailShotAsync(context, list: false, grouped: true))
+        {
+            Width = 1280,
+            Height = 1500,
+        },
+
+        new Scene("modification-members-grouped-list", "改変の詳細：1商品1欄（1行＝1商品・名前の下にファイルと操作・操作の列は欄の「移動 ▾」）（リスト）", async context =>
+            await RepickDetailShotAsync(context, list: true, grouped: true))
+        {
+            Width = 1280,
+            Height = 1500,
+        },
+
+        new Scene("repick-member-files-dialog","使ったファイルを選び直す窓：記録した版の zip が手元に無い（一覧の上の1行・今の記録のまま・欄を1つ足して選んだ所）", context =>
         {
             var item = TwoPackageItem("9900401", "作り物の衣装セット");
             var member = new ModificationMember
@@ -242,7 +256,8 @@ internal static partial class Scenes
     /// <summary>
     /// 選び直しの入口（ユーザ指示 2026-11-11）。衣装は古い版の zip を記録していて、新しい版の zip が手元に来ている（新しい版の札と「更新 ▾」が出る）
     /// </summary>
-    private static async Task<Shot> RepickDetailShotAsync(SceneContext context, bool list)
+    /// <param name="grouped">衣装の2つ目のファイル（新しい版）の行を最後に足す。1商品1欄で、離れた同じ商品の行が1つの欄にまとまるかを見る（ユーザ判断 2026-11-20）。</param>
+    private static async Task<Shot> RepickDetailShotAsync(SceneContext context, bool list, bool grouped = false)
     {
         var avatar = await context.Fake.ItemAsync("9900201", "作り物のアバター「ミナト」", record => record with
         {
@@ -287,6 +302,9 @@ internal static partial class Scenes
                 new ModificationMember { ItemId = shader.Id, AddedAt = created },
                 new ModificationMember { ItemId = costume.Id, FileHash = oldZip.Hash, Package = "costume.unitypackage", AddedAt = created },
                 new ModificationMember { ItemId = hair.Id, AddedAt = created.AddMinutes(1), Detached = true },
+                .. grouped
+                    ? [new ModificationMember { ItemId = costume.Id, FileHash = newZip.Hash, Package = "costume.unitypackage", AddedAt = created.AddMinutes(2) }]
+                    : Array.Empty<ModificationMember>(),
             ],
         });
 
@@ -300,7 +318,8 @@ internal static partial class Scenes
 
         await UntilModificationShownAsync(context, root);
         var detail = (ModificationViewModel)Look.View<ModificationView>(root)!.DataContext;
-        await SceneContext.UntilAsync(() => detail.Members.Count == 3, "使ったものが並ぶ");
+        var count = grouped ? 4 : 3;
+        await SceneContext.UntilAsync(() => detail.Members.Count == count, "使ったものが並ぶ");
         if (list)
         {
             detail.ShowListCommand.Execute(null);

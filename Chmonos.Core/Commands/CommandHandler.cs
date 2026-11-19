@@ -940,6 +940,14 @@ public sealed class CommandHandler
                     () => _modifications!.MoveMemberAsync(
                         moveMember.Id, moveMember.Member, moveMember.Delta, cancellationToken));
 
+            case UiCommand.MoveModificationItem moveItem:
+                return await RunModificationAsync(
+                    () => _modifications!.MoveItemAsync(moveItem.Id, moveItem.ItemId, moveItem.Delta, cancellationToken));
+
+            case UiCommand.MoveModificationMemberInItem moveInItem:
+                return await RunModificationAsync(
+                    () => _modifications!.MoveMemberInItemAsync(moveInItem.Id, moveInItem.Member, moveInItem.Delta, cancellationToken));
+
             case UiCommand.RecordModificationMemberFiles recordFiles:
                 return await RunModificationAsync(
                     () => _modifications!.ReplaceMemberAsync(

@@ -419,6 +419,12 @@ public abstract record UiCommand
 
     public record MoveModificationMember(string Id, Models.ModificationMember Member, int Delta) : UiCommand;
 
+    /// <summary>商品の欄ごと動かす（送る順が商品ごとのとき。欄の中の行は一緒に動く。ユーザ判断 2026-11-20）。<c>Delta</c> は欄の数。</summary>
+    public record MoveModificationItem(string Id, string ItemId, int Delta) : UiCommand;
+
+    /// <summary>同じ商品の欄の中で行（ファイル）を動かす。ほかの商品の行の位置は変えない。</summary>
+    public record MoveModificationMemberInItem(string Id, Models.ModificationMember Member, int Delta) : UiCommand;
+
     /// <summary>
     /// 手で足した使ったもの（どのファイルか分からない行）に、Unityへ送るときに選んだファイルを記録する。
     /// 2つ選べば、その行の場所に2行並ぶ

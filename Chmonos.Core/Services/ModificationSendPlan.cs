@@ -32,7 +32,9 @@ public static class ModificationSendPlan
     /// 送る順に並べ替える（設定の <see cref="AppSettings.SendModificationInRecordOrder"/>）。<paramref name="rows"/> は記録の順で渡す。
     /// **商品ごと**（<paramref name="byItem"/>）：商品はその商品が記録に初めて出る順、同じ商品の中は記録の順（ユーザ判断 2026-11-20）。
     /// 初めて出る順にするのは、記録を書き換えずに決まる順で、依存物（先に入れた物）が先に来るのを崩さないため。
-    /// 記録の順なら、渡した順のまま
+    /// 記録の順なら、渡した順のまま。
+    /// **外した行も入れて並べ、送らない行は並べた後に落とす**：画面の欄は外した行も自分の商品の欄に入れるので、外した行を先に除くと
+    /// 「A（外した）・B・A」の記録で画面は A→B、送るのは B→A と食い違い、外す・戻すだけで商品の順が動く
     /// </summary>
     public static IReadOnlyList<T> InSendOrder<T>(IEnumerable<T> rows, Func<T, string> itemIdOf, bool byItem)
         // GroupBy は群を初めて出た順に返し、群の中は元の順を保つ（.NET の決まり）
@@ -42,10 +44,8 @@ public static class ModificationSendPlan
     /// <param name="itemOf">商品の記録を引く（無ければ null）。</param>
     /// <param name="byItem">商品ごとに送るか（設定の <see cref="AppSettings.SendModificationInRecordOrder"/> の逆）。</param>
     public static IReadOnlyList<Row> RowsOf(ModificationRecord record, Func<string, ItemRecord?> itemOf, bool byItem)
-        => InSendOrder(
-                record.Members.Select((member, index) => (member, index)).Where(pair => Sends(pair.member)),
-                pair => pair.member.ItemId,
-                byItem)
+        => InSendOrder(record.Members.Select((member, index) => (member, index)), pair => pair.member.ItemId, byItem)
+            .Where(pair => Sends(pair.member))
             .Select(pair => Decide(pair.index, pair.member, itemOf(pair.member.ItemId)))
             .ToList();
 

@@ -88,6 +88,15 @@ public interface IModificationService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// 商品の欄ごと動かす（送る順が商品ごとのとき。ユーザ判断 2026-11-20「まとめた欄を動かすと中のファイルも一緒に動く」）。
+    /// 欄の順は商品が記録に初めて出る順（<see cref="ModificationSendPlan.InSendOrder{T}"/>）。<paramref name="delta"/> は欄の数で数える
+    /// </summary>
+    Task<bool> MoveItemAsync(string id, string itemId, int delta, CancellationToken cancellationToken = default);
+
+    /// <summary>同じ商品の行の中で動かす（欄の中のファイルの順。ほかの商品の行の位置は変えない）。</summary>
+    Task<bool> MoveMemberInItemAsync(string id, ModificationMember member, int delta, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 手で足した行（どのファイルか分からない行）を、Unityへ送るときに選んだファイルの行に置き換える。
     /// 2つ選べば、その位置に2行並ぶ（同じ商品を別のファイルの行で持つ形）。
     /// **その行がまだファイルの記録の無い同じ商品のときだけ書く**——選んでいる間に並びが変わっていたら、別の行を書き換えてしまう。
@@ -444,6 +453,61 @@ public sealed class ModificationService : IModificationService
                 var moved = members[index];
                 members.RemoveAt(index);
                 members.Insert(to, moved);
+                return record with { Members = members };
+            },
+            cancellationToken);
+
+    public Task<bool> MoveItemAsync(string id, string itemId, int delta, CancellationToken cancellationToken = default)
+        => UpdateAsync(
+            id,
+            record =>
+            {
+                var order = record.Members.Select(member => member.ItemId).Distinct(StringComparer.Ordinal).ToList();
+                var at = order.IndexOf(itemId);
+                var to = at + delta;
+                if (at < 0 || delta == 0 || to < 0 || to >= order.Count)
+                {
+                    return record;
+                }
+
+                // 動かす商品の行だけを抜き、行き先の欄の最初の行の直前（無ければ末尾）へ固めて入れる。
+                // 記録の全部を商品ごとに並べ直すと、ほかの商品の間に手で挟んだ並び（記録の順で送る人の物）まで消える
+                var moving = record.Members.Where(member => string.Equals(member.ItemId, itemId, StringComparison.Ordinal)).ToList();
+                var rest = record.Members.Where(member => !string.Equals(member.ItemId, itemId, StringComparison.Ordinal)).ToList();
+                order.RemoveAt(at);
+                var insertAt = to < order.Count
+                    ? rest.FindIndex(member => string.Equals(member.ItemId, order[to], StringComparison.Ordinal))
+                    : rest.Count;
+                rest.InsertRange(insertAt, moving);
+                return record with { Members = rest };
+            },
+            cancellationToken);
+
+    public Task<bool> MoveMemberInItemAsync(string id, ModificationMember member, int delta, CancellationToken cancellationToken = default)
+        => UpdateAsync(
+            id,
+            record =>
+            {
+                var members = record.Members.ToList();
+                var index = members.FindIndex(entry => IsSame(entry, member));
+                if (index < 0)
+                {
+                    return record;
+                }
+
+                // 同じ商品の行の位置だけを見て、相手の行と場所を入れ替える。抜いて差すと、間にあるほかの商品の行が前後にずれ、
+                // 欄の順（商品が記録に初めて出る順）が変わり得る
+                var same = Enumerable.Range(0, members.Count)
+                    .Where(position => string.Equals(members[position].ItemId, member.ItemId, StringComparison.Ordinal))
+                    .ToList();
+                var at = same.IndexOf(index);
+                var to = at + delta;
+                if (delta == 0 || to < 0 || to >= same.Count)
+                {
+                    return record;
+                }
+
+                (members[index], members[same[to]]) = (members[same[to]], members[index]);
                 return record with { Members = members };
             },
             cancellationToken);
