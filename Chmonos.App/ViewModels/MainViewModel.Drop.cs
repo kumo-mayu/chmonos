@@ -26,7 +26,10 @@ public sealed partial class MainViewModel
         // 編集画面も同じ（ユーザ判断：画像の追加などは商品ページと同等。落とす・貼るも含む）
         // 未確定の画面でファイルを選んでいるときは、商品ページを「そのファイルの商品ID」として受ける（ユーザ指示 2026-09-17：
         // 前は商品IDの入力欄の上でしか受けず、欄の外に落とすと商品ページへ移っていた）
-        var resolve = CurrentViewModel as ResolveViewModel;
+        // フォルダビューの右に組み込んだ未確定も同じ規則で受ける（ユーザのメモ 2026-11-18：前は未確定の画面だけを見ていて、
+        // 右でファイルを選んでいてもブラウザから落とした商品ページが新しい登録の問いになった）
+        var resolve = CurrentViewModel as ResolveViewModel
+            ?? (CurrentViewModel as FolderViewModel)?.Detail as ResolveViewModel;
 
         // 改変の詳細も同じ道を通す（B5）。以前は改変の画面が自分で受けていて、
         // 改変を見ている間は zip も BOOTH の URL も落とせなかった
