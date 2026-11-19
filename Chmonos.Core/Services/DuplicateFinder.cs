@@ -35,6 +35,9 @@ public sealed record DuplicateGroup
 
     public required IReadOnlyList<DuplicatePlace> Places { get; init; }
 
+    /// <summary>同じ中身の組（<see cref="DuplicateKind.SameFile"/>）の記録のハッシュ。ごみ箱へ送る時に今の記録と照らす。zipと展開の組は null</summary>
+    public string? Hash { get; init; }
+
     /// <summary>
     /// 1つ残して他を消したら空く量。
     ///
@@ -129,6 +132,7 @@ public static class DuplicateFinder
             yield return new DuplicateGroup
             {
                 Kind = DuplicateKind.SameFile,
+                Hash = entries[0].File.Hash,
                 Label = Path.GetFileName(places[0].Path),
                 UnitBytes = unit,
                 Places = places,

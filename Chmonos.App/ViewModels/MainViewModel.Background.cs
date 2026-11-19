@@ -35,7 +35,7 @@ public sealed partial class MainViewModel
     /// 見回りが書いた商品を、検索の写しとカードの印へ知らせる。数が少なければ1件ずつ差し替え、多ければ全件を読み直す
     /// （1件ずつの差し替えは毎回絞り込みをかけ直すので、数百件だと全件の読み直しより重い）。
     /// </summary>
-    private async Task NoteSweptItemsAsync(IReadOnlyList<string> written)
+    internal async Task NoteSweptItemsAsync(IReadOnlyList<string> written)
     {
         if (written.Count == 0)
         {

@@ -627,15 +627,24 @@
                                                                 <controls:ContentItemsControl ItemsSource="{Binding Places}" Margin="0,5,0,0">
                                                                     <ItemsControl.ItemTemplate>
                                                                         <DataTemplate DataType="{x:Type vm:DuplicatePlaceViewModel}">
-                                                                            <!-- 押すと、その場所をエクスプローラで選んで開く。外したドライブの上は押せない -->
-                                                                            <Button Style="{StaticResource RowButton}" Margin="0,1,0,0"
-                                                                                    Command="{Binding OpenCommand}" IsEnabled="{Binding IsAvailable}"
-                                                                                    ToolTip="{Binding Tooltip}"
-                                                                                    AutomationProperties.AutomationId="StatsDuplicatePlace"
-                                                                                    AutomationProperties.Name="{Binding Path, StringFormat={}{0}をエクスプローラで開く}">
-                                                                                <TextBlock Text="{Binding Path}" Style="{StaticResource Mono}"
-                                                                                           FontSize="10.5" TextTrimming="CharacterEllipsis" />
-                                                                            </Button>
+                                                                            <DockPanel Margin="0,1,0,0">
+                                                                                <!-- 同じ中身のファイルの組だけ。確かめの窓を出してから、ごみ箱へ送る -->
+                                                                                <Button DockPanel.Dock="Right" Content="ごみ箱へ移す…" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                                                                        Command="{Binding RemoveCommand}" IsEnabled="{Binding CanRemove}"
+                                                                                        Visibility="{Binding HasRemove, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                                                        ToolTip="{Binding RemoveTooltip}"
+                                                                                        AutomationProperties.AutomationId="StatsDuplicateRemove"
+                                                                                        AutomationProperties.Name="{Binding Path, StringFormat={}{0}をごみ箱へ移す}" />
+                                                                                <!-- 押すと、その場所をエクスプローラで選んで開く。外したドライブの上は押せない -->
+                                                                                <Button Style="{StaticResource RowButton}"
+                                                                                        Command="{Binding OpenCommand}" IsEnabled="{Binding IsAvailable}"
+                                                                                        ToolTip="{Binding Tooltip}"
+                                                                                        AutomationProperties.AutomationId="StatsDuplicatePlace"
+                                                                                        AutomationProperties.Name="{Binding Path, StringFormat={}{0}をエクスプローラで開く}">
+                                                                                    <TextBlock Text="{Binding Path}" Style="{StaticResource Mono}"
+                                                                                               FontSize="10.5" TextTrimming="CharacterEllipsis" />
+                                                                                </Button>
+                                                                            </DockPanel>
                                                                         </DataTemplate>
                                                                     </ItemsControl.ItemTemplate>
                                                                 </controls:ContentItemsControl>

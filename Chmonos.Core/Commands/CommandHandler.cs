@@ -75,6 +75,9 @@ public sealed class CommandHandler
     /// <summary>見つからない記録をまとめて消す部品。無ければ「この機能は使えません」と返す。</summary>
     public Services.MissingRecordCleaner? MissingRecords { get; init; }
 
+    /// <summary>同じ中身のファイルの1か所をごみ箱へ送る（統計）。</summary>
+    public Services.DuplicateFileRemover? DuplicateRemover { get; init; }
+
     /// <summary>プロジェクトの中を調べた控え（unityscans）。場所の付け替えで新しい場所へ写す。無ければ写さない（次に調べ直すだけ）。</summary>
     public Storage.UnityScanStore? UnityScans { private get; init; }
 
@@ -638,6 +641,15 @@ public sealed class CommandHandler
 
                 return new CommandResult.UnpackedFoldersRemoved(
                     await _unpackedRemover.RemoveAsync(remove.Folders, cancellationToken));
+
+            case UiCommand.RemoveDuplicatePlace duplicate:
+                if (DuplicateRemover is null)
+                {
+                    return MissingService("削除の実行");
+                }
+
+                return new CommandResult.DuplicatePlaceRemoved(
+                    await DuplicateRemover.RemoveAsync(duplicate.Hash, duplicate.Path, cancellationToken));
 
             case UiCommand.SaveItemLocal save:
                 if (_edit is null)

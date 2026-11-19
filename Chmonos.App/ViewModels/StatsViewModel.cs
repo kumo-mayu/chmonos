@@ -68,7 +68,8 @@ public sealed class StatsRowViewModel : ViewModelBase
 /// <summary>
 /// 重複1組。**どれとどれか**と**消せばいくら空くか**を出す。
 /// </summary>
-public sealed class DuplicateRowViewModel(DuplicateGroup group, Func<string, Task>? reveal = null)
+public sealed class DuplicateRowViewModel(
+    DuplicateGroup group, Func<string, Task>? reveal = null, Func<DuplicateGroup, DuplicatePlace, Task>? remove = null)
 {
     public string Label { get; } = group.Label;
 
@@ -86,7 +87,13 @@ public sealed class DuplicateRowViewModel(DuplicateGroup group, Func<string, Tas
 
     /// <summary>置いてある場所。**消す前に見えている必要がある。**</summary>
     public IReadOnlyList<DuplicatePlaceViewModel> Places { get; } =
-        group.Places.Select(place => new DuplicatePlaceViewModel(place.Path, reveal)).ToList();
+        group.Places.Select(place => new DuplicatePlaceViewModel(
+            place.Path, reveal,
+            // ごみ箱へ送れるのは同じ中身のファイルの組だけ。zipと展開したフォルダの組は、展開先の削除（取り込み画面）が
+            // 商品に登録したフォルダを止める決まりなので、ここには付けない
+            remove: group.Kind == DuplicateKind.SameFile && group.Hash is not null && remove is not null
+                ? () => remove(group, place)
+                : null)).ToList();
 
     /// <summary>どの商品に紐付いているか。商品をまたぐときだけ意味がある。</summary>
     public string ItemsText { get; } = string.Join(
@@ -100,12 +107,32 @@ public sealed class DuplicateRowViewModel(DuplicateGroup group, Func<string, Tas
 /// </summary>
 public sealed class DuplicatePlaceViewModel
 {
-    public DuplicatePlaceViewModel(string path, Func<string, Task>? reveal, bool? isAvailable = null)
+    public DuplicatePlaceViewModel(
+        string path, Func<string, Task>? reveal, bool? isAvailable = null, Func<Task>? remove = null, bool? hasRecycleBin = null)
     {
         Path = path;
         IsAvailable = isAvailable ?? DriveIsConnected(path);
         OpenCommand = new RelayCommand(() => reveal?.Invoke(path).Forget());
+        HasRemove = remove is not null;
+        _hasRecycleBin = hasRecycleBin ?? (HasRemove && Services.RecycleBin.HasRecycleBin(path));
+        RemoveCommand = new RelayCommand(() => remove?.Invoke().Forget());
     }
+
+    private readonly bool _hasRecycleBin;
+
+    /// <summary>「ごみ箱へ移す…」を出すか（同じ中身のファイルの組だけ）。</summary>
+    public bool HasRemove { get; }
+
+    /// <summary>ドライブがつながっていて、ごみ箱を使えるときだけ押せる（ネットワーク・取り外せるドライブでは消すと完全に消えるため）。</summary>
+    public bool CanRemove => HasRemove && IsAvailable && _hasRecycleBin;
+
+    public string RemoveTooltip => !IsAvailable
+        ? "ドライブがつながっていません。つなぐと移せます。"
+        : !_hasRecycleBin
+            ? "ごみ箱の無いドライブなので移せません。"
+            : "同じ中身のファイルがほかにあるのを確かめて、この場所をごみ箱へ移します。";
+
+    public RelayCommand RemoveCommand { get; }
 
     public string Path { get; }
 
@@ -696,7 +723,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
             if (!ReferenceEquals(_duplicatesOf, _snapshot))
             {
                 _duplicatesOf = _snapshot;
-                _duplicates = _snapshot?.Duplicates.Select(group => new DuplicateRowViewModel(group, _services.RevealInFolder)).ToList() ?? [];
+                _duplicates = _snapshot?.Duplicates.Select(group => new DuplicateRowViewModel(group, _services.RevealInFolder, RemovePlaceAsync)).ToList() ?? [];
             }
 
             return _duplicates;
@@ -1112,6 +1139,56 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// 同じ中身のファイルの1か所を、確かめの窓を出してからごみ箱へ送る（ユーザ判断 2026-11-20：設定の画面の削除と同じ確かめ方。既定はやめる）。
+    /// 送る直前に Core が、同じ中身のほかのファイルが今も在るかを確かめ直す（この一覧は集計した時の写し）。
+    /// 送れたら記録の場所を見回り、集計を読み直す
+    /// </summary>
+    internal async Task RemovePlaceAsync(DuplicateGroup group, DuplicatePlace place)
+    {
+        if (group.Hash is not { } hash)
+        {
+            return;
+        }
+
+        var others = group.Places.Where(other => !string.Equals(other.Path, place.Path, StringComparison.OrdinalIgnoreCase)).ToList();
+        var text = $"このファイルをごみ箱へ移します。\n\n{place.Path}\n（{Core.Models.DisplayText.Size(group.UnitBytes)}）\n\n"
+            + $"同じ中身のファイルは、ほかの {others.Count} 箇所に残ります。ごみ箱を空にするまでは元に戻せます。";
+
+        // 商品をまたぐ組で、この商品に同じ中身の場所がほかに無いときは、移すとその商品のファイルが見つからなくなる
+        if (group.CrossesItems && group.Places.Count(other => other.ItemId == place.ItemId) == 1)
+        {
+            text += $"\n\n商品「{place.ItemName}」にはほかの場所が無いので、移すとこの商品のファイルが見つからなくなります。";
+        }
+
+        var answer = Services.Notice.Show(
+            text, "ごみ箱へ移す", MessageBoxButton.OKCancel, MessageBoxImage.Question, MessageBoxResult.Cancel);
+        if (answer != MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.RemoveDuplicatePlace(hash, place.Path));
+        if (result is Core.Commands.CommandResult.DuplicatePlaceRemoved { Result: { } removal })
+        {
+            if (!removal.Removed)
+            {
+                Services.Notice.Show(removal.Reason ?? "移せませんでした。", "ごみ箱へ移す", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+            else if (removal.ChangedItemIds is { Count: > 0 } changed)
+            {
+                await _main.NoteSweptItemsAsync(changed);
+            }
+        }
+        else if (result is Core.Commands.CommandResult.Failed failed)
+        {
+            Services.Notice.Show(failed.Message, "ごみ箱へ移す", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+
+        // 送れなかった時も読み直す（確かめ直しで、集計の写しが古かったと分かったかもしれない）
+        RefreshCommand.Execute(null);
     }
 
     private void ShowAvatar(string avatarItemId, string name)
