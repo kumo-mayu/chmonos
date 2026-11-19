@@ -234,7 +234,9 @@ public sealed class ApiCurationTests
         var id = JsonDocument.Parse(await created.Content.ReadAsStringAsync()).RootElement.GetProperty("id").GetString()!;
         var main = app.Main!;
         main.ShowModification((await app.Store.Modifications.LoadAsync(id))!);
-        var detail = Assert.IsType<ViewModels.ModificationViewModel>(main.CurrentViewModel);
+        var hub = Assert.IsType<ViewModels.ModificationHubViewModel>(main.CurrentViewModel);
+        await UiThread.Until(() => hub.Detail is ViewModels.ModificationViewModel, "改変を右に選んだ改変の画面で開く");
+        var detail = Assert.IsType<ViewModels.ModificationViewModel>(hub.Detail);
 
         Assert.Equal(System.Net.HttpStatusCode.OK, (await PutAsync(client, $"/v1/modifications/{id}/memo", """{"memo":"冬"}""")).StatusCode);
         await UiThread.Until(() => detail.MemoInput == "冬", "打っていないメモの欄が新しい値になる");
