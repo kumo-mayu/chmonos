@@ -220,6 +220,27 @@ public sealed class BackupArchiveTests : IDisposable
         Assert.DoesNotContain("images/111/a.webp", entries);
     }
 
+    /// <summary>
+    /// 共通素体に付けた画像（<c>images/_bases</c>・ユーザ判断 2026-11-20）も、画像を入れない書き出しに入り、戻すと同じ場所に戻る。
+    /// BOOTH に無い絵なので、落とすと戻した後に消える。名前が <c>user-</c> で始まることで入る
+    /// </summary>
+    [Fact]
+    public void 画像を入れないときも_共通素体の画像は入り_戻すと同じ場所に戻る()
+    {
+        var paths = new AppPaths(Store);
+        Directory.CreateDirectory(paths.BaseImagesDir);
+        File.WriteAllText(Path.Combine(paths.BaseImagesDir, "user-0a1b2c3d.webp"), "素体の画像");
+        var zip = Path.Combine(_dir, "no-booth-images-bases.zip");
+
+        BackupArchive.Export(Store, zip, includeImages: false);
+
+        Assert.Contains("images/_bases/user-0a1b2c3d.webp", EntriesOf(zip));
+
+        var destination = Path.Combine(_dir, "restored-bases");
+        BackupArchive.Restore(zip, destination);
+        Assert.Equal("素体の画像", File.ReadAllText(Path.Combine(new AppPaths(destination).BaseImagesDir, "user-0a1b2c3d.webp")));
+    }
+
     [Fact]
     public void 保存先の中に書き出しても自分自身は入れない()
     {

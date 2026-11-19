@@ -90,6 +90,12 @@ public sealed class AppPaths
     /// <summary>持っていないアバターの1枚目の置き場の親（<c>images/_avatars</c>）。消す前に、この中に収まるかを確かめる</summary>
     public string AvatarImagesRoot => Path.Combine(ImagesDir, "_avatars");
 
+    /// <summary>
+    /// 共通素体に人が付けた画像（<c>images/_bases</c>）。素体は名前がキーで、改名・統合で名前が変わるので、素体ごとのフォルダにせず平らに置く
+    /// （名前は中身のハッシュ）。<c>_shops</c>・<c>_mods</c> と同じく、商品IDのフォルダと重ならない名前にする
+    /// </summary>
+    public string BaseImagesDir => Path.Combine(ImagesDir, "_bases");
+
     /// <summary>改変に貼った画像の置き場の親（<c>images/_mods</c>）。消す前に、この中に収まるかを確かめる</summary>
     public string ModificationImagesRoot => Path.Combine(ImagesDir, "_mods");
 

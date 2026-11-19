@@ -106,6 +106,20 @@ public class StoreMoverTests : IDisposable
         Assert.True(File.Exists(Path.Combine(Destination, "images", "123", "a.webp")));
     }
 
+    /// <summary>共通素体に付けた画像（<c>images/_bases</c>・ユーザ判断 2026-11-20）も、引越しで同じ場所へ運ぶ</summary>
+    [Fact]
+    public void CarriesTheBaseImages()
+    {
+        var baseImages = new AppPaths(Source).BaseImagesDir;
+        Directory.CreateDirectory(baseImages);
+        File.WriteAllBytes(Path.Combine(baseImages, "user-0a1b2c3d.webp"), new byte[32]);
+
+        var result = StoreMover.Move(Source, Destination);
+
+        Assert.True(result.Succeeded);
+        Assert.True(File.Exists(Path.Combine(new AppPaths(Destination).BaseImagesDir, "user-0a1b2c3d.webp")));
+    }
+
     /// <summary>コピーが済んでから元を消す。順序が逆だと、失敗したときに何も残らない。</summary>
     [Fact]
     public void RemovesTheSourceAfterCopying()

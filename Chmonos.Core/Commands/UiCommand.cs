@@ -96,6 +96,12 @@ public abstract record UiCommand
     /// <summary>共通素体に配布商品を結ぶ。null で外す。</summary>
     public record SetBaseItemId(string Name, string? ItemId) : UiCommand;
 
+    /// <summary>共通素体に画像を1枚付ける（前の画像と差し替える）。商品の画像と同じ圧縮を通す（ユーザ判断 2026-11-20・152）</summary>
+    public record SetBaseImage(string Name, byte[] Bytes) : UiCommand;
+
+    /// <summary>共通素体に付けた画像を外す。表示は素体の商品の1枚目に戻る</summary>
+    public record RemoveBaseImage(string Name) : UiCommand;
+
     /// <summary>共通素体の名前を変える。商品の宣言も書き換える（結果は書き換えた商品の数）。</summary>
     public record RenameBase(string OldName, string NewName) : UiCommand;
 

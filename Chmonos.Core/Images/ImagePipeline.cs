@@ -795,6 +795,17 @@ public sealed class ImagePipeline
             cancellationToken);
 
     /// <summary>
+    /// 共通素体に付ける画像を保存する。置き場所は <c>images/_bases/</c>。
+    /// 一覧と素体の詳細に小さく出す物なので、商品画像と同じ長辺（既定384）・同じ圧縮にする
+    /// </summary>
+    public Task<string?> SaveBaseImageAsync(byte[] bytes, CancellationToken cancellationToken = default)
+        => SaveUserImageToAsync(_paths.BaseImagesDir, bytes, null, cancellationToken);
+
+    /// <summary>共通素体の画像を消す。**ファイルごと消える。**ほかの素体が指していないかは呼ぶ側で確かめる</summary>
+    public Task DeleteBaseImageAsync(string fileName, CancellationToken cancellationToken = default)
+        => DeleteUserImageFromAsync(_paths.BaseImagesDir, _paths.ImagesDir, fileName, cancellationToken);
+
+    /// <summary>
     /// 置き場所を受け取って保存する。
     ///
     /// 商品と改変で置き場所だけが違い、名前の付け方（中身のハッシュ）と

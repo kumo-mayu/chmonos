@@ -52,6 +52,29 @@ public partial class AvatarsView : UserControl
     /// </summary>
     private void StartRename_Click(object sender, RoutedEventArgs e) => _focusNameEditor = true;
 
+    /// <summary>
+    /// 素体の詳細の絵を左に置くと右に残る最低の幅。素体の商品の欄（230）・間（8）・「素体の商品を設定」（約120）が1行に収まる幅。
+    /// これを切ると名前が「削除」の下に潜り、欄が切れた（窓の幅 900 で右の欄は約310しかない）
+    /// </summary>
+    private const double BaseDetailMinWidth = 360;
+
+    /// <summary>
+    /// 素体の詳細のカードが狭いときは、絵を左ではなく上に置く。
+    /// 幅はカードの外（右の欄の幅）で決まり、中身の置き方では変わらないので、切り替えで行き来はしない
+    /// </summary>
+    private void BaseCardBody_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (sender is not DockPanel panel || panel.Children.Count == 0 || panel.Children[0] is not FrameworkElement image)
+        {
+            return;
+        }
+
+        var narrow = panel.ActualWidth < image.Width + 20 + BaseDetailMinWidth;
+        DockPanel.SetDock(image, narrow ? Dock.Top : Dock.Left);
+        image.HorizontalAlignment = HorizontalAlignment.Left;
+        image.Margin = narrow ? new Thickness(0, 0, 0, 14) : new Thickness(0, 0, 20, 0);
+    }
+
     private void NameEditor_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
         if (!_focusNameEditor || e.NewValue is not true || sender is not TextBox box)

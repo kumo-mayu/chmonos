@@ -397,6 +397,122 @@ public sealed partial class AvatarService
             cancellationToken);
 
     /// <summary>
+    /// 共通素体に画像を1枚付ける（ユーザ判断 2026-11-20・152 の案A）。前に付けた画像は差し替え、ほかの素体が指していなければファイルも消す。
+    ///
+    /// ファイルを先に保存してから、錠の中で素体がまだ在るかを見て書く。画像の圧縮は重いので、錠の中で回すと検出などの書き込みを待たせる。
+    /// 素体がもう無ければ書かず、保存したファイルを片付ける
+    /// </summary>
+    public async Task<BaseImageOutcome> SetBaseImageAsync(
+        string name,
+        byte[] bytes,
+        CancellationToken cancellationToken = default)
+    {
+        if (_images is null)
+        {
+            return BaseImageOutcome.Unavailable;
+        }
+
+        var fileName = await _images.SaveBaseImageAsync(bytes, cancellationToken);
+        if (fileName is null)
+        {
+            return BaseImageOutcome.NotImage;
+        }
+
+        var found = false;
+        string? previous = null;
+
+        await _store.Avatars.UpdateAsync(
+            registry =>
+            {
+                var group = LiveGroup(registry, name);
+                if (group is null)
+                {
+                    return registry;
+                }
+
+                found = true;
+                previous = group.Image;
+
+                // 同じ絵を付け直したときは書かない（名前が中身のハッシュなので、同じ名前になる）
+                return string.Equals(previous, fileName, StringComparison.OrdinalIgnoreCase)
+                    ? registry
+                    : WithGroup(registry, group, group with { Image = fileName });
+            },
+            cancellationToken);
+
+        await ReleaseBaseImagesAsync(found ? [previous] : [fileName], cancellationToken);
+        return found ? BaseImageOutcome.Set : BaseImageOutcome.BaseMissing;
+    }
+
+    /// <summary>共通素体に付けた画像を外す。表示は素体の商品の1枚目に戻る。ほかの素体が指していなければファイルも消す</summary>
+    public async Task<bool> RemoveBaseImageAsync(string name, CancellationToken cancellationToken = default)
+    {
+        string? removed = null;
+
+        await _store.Avatars.UpdateAsync(
+            registry =>
+            {
+                // 錠の中で今の値を見る。押した後に別の画像へ差し替わっていても、今付いている物を外す
+                if (LiveGroup(registry, name) is not { Image: { } image } group)
+                {
+                    return registry;
+                }
+
+                removed = image;
+                return WithGroup(registry, group, group with { Image = null });
+            },
+            cancellationToken);
+
+        await ReleaseBaseImagesAsync([removed], cancellationToken);
+        return removed is not null;
+    }
+
+    /// <summary>名前の素体のうち、消した印の無い行。画像は一覧に出る素体にだけ付ける</summary>
+    private static AvatarBaseGroup? LiveGroup(AvatarRegistry registry, string name)
+        => registry.BaseGroups.FirstOrDefault(group =>
+            !group.Rejected && string.Equals(group.Name, name, StringComparison.CurrentCultureIgnoreCase));
+
+    private static AvatarRegistry WithGroup(AvatarRegistry registry, AvatarBaseGroup current, AvatarBaseGroup replaced)
+        => Sorted(registry, registry.Entries, registry.BaseGroups.Select(group => ReferenceEquals(group, current) ? replaced : group));
+
+    /// <summary>
+    /// 使われなくなったかもしれない素体の画像を消す。**書いた後の最新の登録簿で、どの素体（消した印の行も）も指していない物だけ**
+    /// （名前が中身のハッシュなので、同じ絵を付けたほかの素体とファイルを分け合っている）。
+    /// 消せなくても記録からは外れているので、ファイルが残るだけ
+    /// </summary>
+    private async Task ReleaseBaseImagesAsync(IEnumerable<string?> fileNames, CancellationToken cancellationToken)
+    {
+        if (_images is null)
+        {
+            return;
+        }
+
+        var candidates = fileNames
+            .Where(AvatarBaseImage.IsValidName)
+            .Select(fileName => fileName!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (candidates.Count == 0)
+        {
+            return;
+        }
+
+        var latest = await _store.Avatars.LoadAsync(cancellationToken);
+        foreach (var fileName in candidates.Where(fileName => !AvatarBaseImage.IsReferenced(latest, fileName)))
+        {
+            try
+            {
+                await _images.DeleteBaseImageAsync(fileName, cancellationToken);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                // 記録からはもう外れている。ほかのアプリが開いているなどで消せなくても、操作は済んだことにする
+                Diagnostics.AppLog.Warn("共通素体の画像を消す", $"{fileName} を消せませんでした：{exception.Message}");
+            }
+        }
+    }
+
+    /// <summary>
     /// 素体グループを改名する。名前で参照しているので、
     /// レジストリのアバターと、全itemの宣言を一括で書き換える。
     /// </summary>
@@ -412,9 +528,13 @@ public sealed partial class AvatarService
             return 0;
         }
 
+        // 改名・統合で行き場の無くなった画像（統合元の画像を統合先が持たなかった分・片付けた消した行の画像）
+        var released = new List<string?>();
+
         await _store.Avatars.UpdateAsync(
             registry =>
             {
+                released.Clear();
                 var entries = registry.Entries
                     .Select(entry => string.Equals(entry.BaseName, oldName, StringComparison.CurrentCultureIgnoreCase)
                         ? entry with { BaseName = trimmed }
@@ -432,25 +552,46 @@ public sealed partial class AvatarService
                 var renamed = registry.BaseGroups
                     .FirstOrDefault(group => string.Equals(group.Name, oldName, StringComparison.CurrentCultureIgnoreCase));
 
-                if (renamed is not null
-                    && !groups.Any(group => string.Equals(group.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)))
+                released.AddRange(registry.BaseGroups
+                    .Where(group => group.Rejected && string.Equals(group.Name, trimmed, StringComparison.CurrentCultureIgnoreCase))
+                    .Select(group => group.Image));
+
+                var targetIndex = groups.FindIndex(group => string.Equals(group.Name, trimmed, StringComparison.CurrentCultureIgnoreCase));
+
+                if (renamed is not null && targetIndex < 0)
                 {
+                    // ただの改名は、画像も含めて行をそのまま引き継ぐ
                     groups.Add(renamed with { Name = trimmed });
                 }
-                else if (renamed is { IsManual: true })
+                else if (renamed is not null)
                 {
+                    var target = groups[targetIndex];
+
                     // 統合先へ手で足した印を移す。落とすと、人が足した素体が検出の作った物として扱われる
-                    groups = groups
-                        .Select(group => string.Equals(group.Name, trimmed, StringComparison.CurrentCultureIgnoreCase)
-                            ? group with { IsManual = true }
-                            : group)
-                        .ToList();
+                    if (renamed.IsManual)
+                    {
+                        target = target with { IsManual = true };
+                    }
+
+                    // 画像は統合先に無ければ引き継ぐ（付けた絵が統合で黙って消えないように・ユーザ判断 2026-11-20）。
+                    // 両方にあれば統合先の絵を残す（統合先の名前が残るのと揃える。どちらを残すかは判断待ち）。統合元の絵は行き場が無いので片付ける
+                    if (target.Image is null)
+                    {
+                        target = target with { Image = renamed.Image };
+                    }
+                    else if (!string.Equals(target.Image, renamed.Image, StringComparison.OrdinalIgnoreCase))
+                    {
+                        released.Add(renamed.Image);
+                    }
+
+                    groups[targetIndex] = target;
                 }
 
                 return Sorted(registry, entries, groups);
             },
             cancellationToken);
 
+        await ReleaseBaseImagesAsync(released, cancellationToken);
         return await RewriteBaseNameInItemsAsync(oldName, trimmed, cancellationToken);
     }
 
@@ -478,17 +619,33 @@ public sealed partial class AvatarService
     /// <returns>書き換えたitem数。</returns>
     public async Task<int> DeleteBaseAsync(string name, CancellationToken cancellationToken = default)
     {
+        var released = new List<string?>();
+
         await _store.Avatars.UpdateAsync(
-            registry => Sorted(
-                registry,
-                registry.Entries.Select(entry => string.Equals(entry.BaseName, name, StringComparison.CurrentCultureIgnoreCase)
-                    ? entry with { BaseName = null }
-                    : entry),
-                registry.BaseGroups.Select(group => string.Equals(group.Name, name, StringComparison.CurrentCultureIgnoreCase)
-                    ? group with { Rejected = true }
-                    : group)),
+            registry =>
+            {
+                released.Clear();
+                return Sorted(
+                    registry,
+                    registry.Entries.Select(entry => string.Equals(entry.BaseName, name, StringComparison.CurrentCultureIgnoreCase)
+                        ? entry with { BaseName = null }
+                        : entry),
+                    registry.BaseGroups.Select(group =>
+                    {
+                        if (!string.Equals(group.Name, name, StringComparison.CurrentCultureIgnoreCase))
+                        {
+                            return group;
+                        }
+
+                        // 画像は外して片付ける（消した行は一覧に出ないので、画像を持っていても見る所が無い）。
+                        // 同じ名前で足し直しても画像は戻らない（並びやメモは行に残るので戻る。判断待ち）
+                        released.Add(group.Image);
+                        return group with { Rejected = true, Image = null };
+                    }));
+            },
             cancellationToken);
 
+        await ReleaseBaseImagesAsync(released, cancellationToken);
         return await RewriteBaseNameInItemsAsync(name, null, cancellationToken);
     }
 

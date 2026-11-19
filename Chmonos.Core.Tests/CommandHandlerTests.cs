@@ -215,6 +215,8 @@ public class CommandHandlerTests
 
         public bool RecheckSucceeds { get; set; } = true;
 
+        public BaseImageOutcome BaseImageResult { get; set; } = BaseImageOutcome.Set;
+
         /// <summary>登録を頼まれたときの優先度（命令の入口が掛けた物）。</summary>
         public List<Booth.BoothPriority> Priorities { get; } = [];
 
@@ -241,6 +243,18 @@ public class CommandHandlerTests
         public Task SetBaseMemberOrderAsync(string name, IReadOnlyList<string>? order, CancellationToken cancellationToken = default) => Note($"order {name}");
 
         public Task SetBaseItemIdAsync(string name, string? itemId, CancellationToken cancellationToken = default) => Note($"baseItem {name}");
+
+        public Task<BaseImageOutcome> SetBaseImageAsync(string name, byte[] bytes, CancellationToken cancellationToken = default)
+        {
+            Calls.Add($"baseImage {name}");
+            return Task.FromResult(BaseImageResult);
+        }
+
+        public Task<bool> RemoveBaseImageAsync(string name, CancellationToken cancellationToken = default)
+        {
+            Calls.Add($"baseImage- {name}");
+            return Task.FromResult(true);
+        }
 
         public Task<int> RenameBaseAsync(string oldName, string newName, CancellationToken cancellationToken = default)
         {
@@ -285,6 +299,26 @@ public class CommandHandlerTests
 
         Assert.Equal(7, renamed.Count);
         Assert.Equal(["base 111 素体A", "base- 222 素体A", "rename 素体A 素体B"], editor.Calls);
+    }
+
+    /// <summary>共通素体の画像を付ける・外すも UiCommand から通り、付けられなかった訳を言い分ける（2026-11-20・152）。</summary>
+    [Fact]
+    public async Task RoutesBaseImagesAndTellsWhyItFailed()
+    {
+        var editor = new FakeAvatarEditor();
+        var handler = new CommandHandler(new FakeImportPipeline(), new FakeItemService(), avatarEditor: editor);
+
+        Assert.IsType<CommandResult.Done>(await handler.ExecuteAsync(new UiCommand.SetBaseImage("素体A", [1])));
+        Assert.IsType<CommandResult.Done>(await handler.ExecuteAsync(new UiCommand.RemoveBaseImage("素体A")));
+
+        editor.BaseImageResult = BaseImageOutcome.NotImage;
+        var notImage = Assert.IsType<CommandResult.Failed>(await handler.ExecuteAsync(new UiCommand.SetBaseImage("素体A", [1])));
+        editor.BaseImageResult = BaseImageOutcome.BaseMissing;
+        var missing = Assert.IsType<CommandResult.Failed>(await handler.ExecuteAsync(new UiCommand.SetBaseImage("素体A", [1])));
+
+        Assert.Equal("画像として読めませんでした。", notImage.Message);
+        Assert.Equal("この共通素体は削除されたか、名前が変わりました。", missing.Message);
+        Assert.Equal(["baseImage 素体A", "baseImage- 素体A", "baseImage 素体A", "baseImage 素体A"], editor.Calls);
     }
 
     /// <summary>共通素体を手で足す操作も UiCommand から通り、足したかどうかを返す（2026-09-28）。</summary>

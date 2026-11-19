@@ -281,7 +281,7 @@ public sealed class CommandHandler
 
             case UiCommand.SetAvatarName or UiCommand.SetAvatarMemo or UiCommand.SetAvatarOwned
                 or UiCommand.SetAvatarOverride or UiCommand.RegisterAvatar or UiCommand.SetAvatarBase or UiCommand.RemoveAvatarFromBase or UiCommand.SetBaseInferClothing or UiCommand.SetBaseMemberOrder
-                or UiCommand.SetBaseItemId or UiCommand.RenameBase or UiCommand.DeleteBase or UiCommand.AddBase
+                or UiCommand.SetBaseItemId or UiCommand.SetBaseImage or UiCommand.RemoveBaseImage or UiCommand.RenameBase or UiCommand.DeleteBase or UiCommand.AddBase
                 or UiCommand.AddAvatarAlias or UiCommand.RemoveAvatarAlias or UiCommand.RecheckAvatar:
             {
                 if (_avatarEditor is null)
@@ -1512,6 +1512,17 @@ public sealed class CommandHandler
                 break;
             case UiCommand.SetBaseItemId baseItem:
                 await editor.SetBaseItemIdAsync(baseItem.Name, baseItem.ItemId, cancellationToken);
+                break;
+            case UiCommand.SetBaseImage baseImage:
+                return await editor.SetBaseImageAsync(baseImage.Name, baseImage.Bytes, cancellationToken) switch
+                {
+                    BaseImageOutcome.Set => new CommandResult.Done(),
+                    BaseImageOutcome.NotImage => new CommandResult.Failed("画像として読めませんでした。"),
+                    BaseImageOutcome.BaseMissing => new CommandResult.Failed("この共通素体は削除されたか、名前が変わりました。"),
+                    _ => MissingService("共通素体の画像"),
+                };
+            case UiCommand.RemoveBaseImage removeImage:
+                await editor.RemoveBaseImageAsync(removeImage.Name, cancellationToken);
                 break;
             case UiCommand.RenameBase rename:
                 return new CommandResult.Counted(await editor.RenameBaseAsync(rename.OldName, rename.NewName, cancellationToken));

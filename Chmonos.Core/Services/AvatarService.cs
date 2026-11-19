@@ -101,6 +101,22 @@ public sealed record AvatarBaseSummary
     public required int ItemCount { get; init; }
 }
 
+/// <summary>共通素体に画像を付けた結果。画面が何と知らせるかを分ける。</summary>
+public enum BaseImageOutcome
+{
+    /// <summary>付けた（同じ絵を付け直したときも）。</summary>
+    Set,
+
+    /// <summary>画像として読めなかった。何も書いていない。</summary>
+    NotImage,
+
+    /// <summary>素体がもう無かった（消した・名前が変わった）。何も書いていない。</summary>
+    BaseMissing,
+
+    /// <summary>画像を保存する所が渡されていない（試験の組み立てなど）。</summary>
+    Unavailable,
+}
+
 /// <summary>共通素体を手で足した結果。画面が何と知らせるかを分ける。</summary>
 public enum AvatarBaseAddOutcome
 {
@@ -157,6 +173,13 @@ public interface IAvatarRegistryEditor
 
     Task SetBaseItemIdAsync(string name, string? itemId, CancellationToken cancellationToken = default);
 
+    /// <summary>共通素体に画像を1枚付ける（前の画像と差し替える）。</summary>
+    Task<BaseImageOutcome> SetBaseImageAsync(string name, byte[] bytes, CancellationToken cancellationToken = default);
+
+    /// <summary>共通素体に付けた画像を外す。</summary>
+    /// <returns>外したか（付けていなければ false）。</returns>
+    Task<bool> RemoveBaseImageAsync(string name, CancellationToken cancellationToken = default);
+
     /// <returns>書き換えた商品の数。</returns>
     Task<int> RenameBaseAsync(string oldName, string newName, CancellationToken cancellationToken = default);
 
@@ -191,6 +214,7 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
     private readonly DataStore _store;
     private readonly Func<AppSettings> _currentSettings;
     private readonly IBoothClient? _client;
+    private readonly Images.ImagePipeline? _images;
 
     /// <summary>
     /// 「対応アバター」節から挙がったときだけ受け入れるcategory。
@@ -211,17 +235,19 @@ public sealed partial class AvatarService : IAvatarService, IAvatarRegistryEdito
 
     private const string AvatarCategory = "3Dキャラクター";
 
-    public AvatarService(DataStore store, AppSettings? settings = null, IBoothClient? client = null)
-        : this(store, SettingsSource.Fixed(settings), client)
+    public AvatarService(DataStore store, AppSettings? settings = null, IBoothClient? client = null, Images.ImagePipeline? images = null)
+        : this(store, SettingsSource.Fixed(settings), client, images)
     {
     }
 
     /// <param name="currentSettings">使うたびに今の設定を返すもの（<see cref="SettingsSource"/>）。</param>
-    public AvatarService(DataStore store, Func<AppSettings> currentSettings, IBoothClient? client = null)
+    /// <param name="images">共通素体の画像を保存・消す所。無ければ画像を付けられない（改変の <see cref="ModificationService"/> と同じ渡し方）。</param>
+    public AvatarService(DataStore store, Func<AppSettings> currentSettings, IBoothClient? client = null, Images.ImagePipeline? images = null)
     {
         _store = store;
         _currentSettings = currentSettings;
         _client = client;
+        _images = images;
     }
 
     /// <summary>今の設定。**抱えずに毎回読む。**</summary>
