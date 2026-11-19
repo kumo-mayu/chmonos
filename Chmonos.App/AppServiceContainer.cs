@@ -105,7 +105,7 @@ public sealed class AppServiceContainer : IDisposable
             Images = new ImagePipeline(Client, Paths, () => Settings);
 
             // 検出は梯子の③なので、取り込みより先に組み立てる
-            Avatars = new AvatarService(Store, () => Settings, Client);
+            Avatars = new AvatarService(Store, () => Settings, Client, Images);
 
             // unitypackage の中身は取り込みの裏で1度だけ読み、ハッシュごとの控えに置く（2026-09-13 ユーザ判断）。
             // 商品ページや改変の画面は zip を解く前に控えを見る

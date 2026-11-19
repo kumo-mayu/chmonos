@@ -95,7 +95,7 @@ var notificationService = new NotificationService(store, Settings);
 var attributeService = new AttributeService(store);
 var handler = new CommandHandler(
     pipeline, itemService, new EditService(store), null, null, notificationService,
-    new UserTagService(store), attributeService, new ModificationService(store, images), new AvatarService(store, Settings, client), unityPackages,
+    new UserTagService(store), attributeService, new ModificationService(store, images), new AvatarService(store, Settings, client, images), unityPackages,
     settingsService, null, null, images, client, store.VideoTitles, store.ShopNotes, new MissingFileFinder(store), null, store.ImportState)
 {
     // アプリの組み立て（AppServiceContainer）と同じく、やりかけの記録を渡す。渡さないと続きの手順（ResumePendingOperations）が何もしない

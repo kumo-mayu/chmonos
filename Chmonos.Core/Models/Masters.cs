@@ -257,6 +257,17 @@ public sealed record AvatarBaseGroup
     [System.Text.Json.Serialization.JsonIgnore(
         Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<string>? MemberOrder { get; init; }
+
+    /// <summary>
+    /// 人が付けた、この素体の画像（<c>images/_bases/</c> の中のファイル名だけ。ユーザ判断 2026-11-20・152 の案A）。null は付けていない。
+    ///
+    /// 配布されていない素体には商品の絵が無く、一覧で見分けられなかった。付けていなければ素体の商品の1枚目を出す（<see cref="Services.AvatarBaseImage"/>）。
+    /// 名前は中身のハッシュ（<see cref="UserImageName"/>）なので、同じ絵を2つの素体に付けると1つのファイルを分け合う。
+    /// 消すときは、ほかの素体が指していないかを見てから消す。省略できる欄なので形式の版は上げない（data-format.md）
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(
+        Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? Image { get; init; }
 }
 
 public sealed record AvatarAlias
