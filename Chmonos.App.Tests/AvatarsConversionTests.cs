@@ -347,6 +347,85 @@ public class AvatarsConversionTests
     });
 
     /// <summary>
+    /// 一覧を差し替えると ListBox が選びに null を書き戻す（試験には ListBox が無いので、知らせを受けて同じ事をする）。
+    /// 組を選んだまま足す・外す・読み直すと、その書き戻しを受けて決めていない商品を一度選び、右を入れ替えていた
+    /// </summary>
+    [Fact]
+    public Task 組を選んだまま足す_外す_読み直すとき_一覧の差し替えで商品へ選びが移らない() => TestApp.Run(async app =>
+    {
+        var avatars = await OpenAsync(app);
+        await app.Store.ConversionPairs.SaveAsync(new ConversionPairFile
+        {
+            Pairs = [new ConversionPair { From = ConversionEnd.Avatar("9800401"), To = ConversionEnd.Base("作り物の素体") }],
+        });
+        avatars.ShowConversionModeCommand.Execute(null);
+        var pairs = avatars.ConversionPairs;
+        await pairs.ReloadAsync();
+        pairs.SelectedRow = Assert.Single(pairs.Rows);
+
+        var movedToItem = false;
+        pairs.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ConversionPairEditor.Rows))
+            {
+                pairs.SelectedRow = null;
+            }
+        };
+        avatars.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(AvatarsViewModel.SelectedConversion) && avatars.SelectedConversion is not null)
+            {
+                movedToItem = true;
+            }
+        };
+
+        await pairs.ReloadAsync();
+        Assert.Equal("アオイ → 作り物の素体（共通素体）", pairs.SelectedRow?.Text);
+
+        await app.Store.Avatars.SaveAsync(new AvatarRegistry
+        {
+            Entries =
+            [
+                new AvatarRegistryEntry { ItemId = "9800401", BoothName = "作り物のアバター「アオイ」", DisplayName = "アオイ", Category = "3Dキャラクター" },
+                new AvatarRegistryEntry { ItemId = "9800402", BoothName = "作り物のアバター「モモ」", DisplayName = "モモ", Category = "3Dキャラクター" },
+            ],
+        });
+        await pairs.ReloadAsync();
+        pairs.FromText = "アオイ";
+        pairs.ToText = "モモ";
+        await pairs.AddAsync();
+        Assert.Equal("アオイ → モモ", pairs.SelectedRow?.Text);
+
+        await pairs.RemoveAsync(pairs.SelectedRow!);
+        Assert.Equal("アオイ → 作り物の素体（共通素体）", pairs.SelectedRow?.Text);
+
+        Assert.False(movedToItem);
+        Assert.Null(avatars.SelectedConversion);
+    });
+
+    [Fact]
+    public Task 組を選んで元へ移り_変換へ入り直すと同じ組を選んだまま() => TestApp.Run(async app =>
+    {
+        await app.Store.ConversionPairs.SaveAsync(new ConversionPairFile
+        {
+            Pairs = [new ConversionPair { From = ConversionEnd.Avatar("9800401"), To = ConversionEnd.Base("作り物の素体") }],
+        });
+        var avatars = await OpenAsync(app);
+        avatars.ShowConversionModeCommand.Execute(null);
+        var row = Assert.Single(avatars.ConversionPairs.Rows);
+        avatars.ConversionPairs.SelectedRow = row;
+
+        row.OpenFromCommand.Execute(null);
+        Assert.True(avatars.IsAvatarMode);
+
+        avatars.ShowConversionModeCommand.Execute(null);
+        await app.SettleAsync();
+        Assert.Equal("アオイ → 作り物の素体（共通素体）", avatars.ConversionPairs.SelectedRow?.Text);
+        Assert.Null(avatars.SelectedConversion);
+        Assert.True(avatars.ShowsConversionPairDetail);
+    });
+
+    /// <summary>
     /// 保存に失敗したら次の商品へ進まない（件16）。進むと、失敗の知らせを置いた商品から離れ、
     /// 決めていないのに決めたように見える。書き込みだけを止める（読むのは通る）ので、画面の読み直しも通る。
     /// </summary>

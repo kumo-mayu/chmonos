@@ -192,6 +192,11 @@ public sealed class ConversionPairEditor : ViewModelBase
         var names = AvatarNames.Map(registry.Entries);
         var wanted = select ?? _selectedRow?.Pair ?? SelectOnLoad;
         SelectOnLoad = null;
+
+        // 一覧を差し替えると ListBox が選びに null を書き戻す。それを「選びが外れた」と受けると、組を選び直すまでの間に
+        // 決めていない商品を一度選んで右を入れ替える（読み込みも走る）。先に黙って外し、書き戻しを同じ値として捨てる
+        var previous = _selectedRow;
+        _selectedRow = null;
         Rows = [.. file.Pairs
             .Where(pair => !pair.IsEmpty)
             .Select(pair => new ConversionPairRow(this, pair, ConversionPairText.NameOf(pair.From, names), ConversionPairText.NameOf(pair.To, names)))];
@@ -230,10 +235,8 @@ public sealed class ConversionPairEditor : ViewModelBase
         OnPropertyChanged(nameof(HeaderText));
         OnPropertyChanged(nameof(Suggestions));
 
-        // 行は新しい物に替わったので、同じ組でも選び直したと必ず知らせる（ListBox は一覧の差し替えで選びを外す）。
-        // 待っているメモは呼ぶ側が先に書き切っている
-        var previous = _selectedRow;
-        var next = wanted is null ? null : Rows.FirstOrDefault(row => row.Pair.SameEnds(wanted));
+        // 行は新しい物に替わったので、同じ組でも選び直したと必ず知らせる。待っているメモは呼ぶ側が先に書き切っている
+        var next =wanted is null ? null : Rows.FirstOrDefault(row => row.Pair.SameEnds(wanted));
         if (previous is null && next is null)
         {
             return;

@@ -1489,7 +1489,7 @@
                                 <Button Content="この組を外す" Style="{StaticResource DangerButton}" HorizontalAlignment="Left" Margin="0,16,0,0"
                                         Command="{Binding RemoveCommand}"
                                         AutomationProperties.AutomationId="AvatarsConversionPairRemove"
-                                        ToolTip="外しても、左の「組を追加」からまた追加できます。" />
+                                        ToolTip="この組を外します。組のメモは戻せません。" />
                             </StackPanel>
                         </Border>
                     </StackPanel>

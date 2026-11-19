@@ -128,24 +128,6 @@ internal static partial class Scenes
 
             return new Shot(root);
         }),
-
-        new Scene("avatars-conversion-pair-detail", "アバターの管理：「変換」で追加した組を選んだ右の欄（元・先のリンク・ツールの名前・メモ・この組を外す）", async context =>
-        {
-            await SeedConversionPairsAsync(context);
-            var (avatars, root) = await OpenBaseMembersAsync(context);
-            avatars.ShowConversionModeCommand.Execute(null);
-            await context.SettleAsync();
-
-            // 元はリンク（移れる）、先の MARUBODY は共通素体の一覧にあるのでリンク。ツールの名前の行も出る組
-            avatars.ConversionPairs.SelectedRow = avatars.ConversionPairs.Rows[1];
-            await context.SettleAsync();
-            if (!avatars.ShowsConversionPairDetail || avatars.SelectedConversion is not null)
-            {
-                throw new InvalidOperationException("右に組の中身が出ない");
-            }
-
-            return new Shot(root);
-        }),
     ];
 
     /// <summary>名前から MARUBODY に推されるアバター1体・手で素体を決めたアバター1体・素体の無いアバター2体と、共通素体2つ。</summary>
