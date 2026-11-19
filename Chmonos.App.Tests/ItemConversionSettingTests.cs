@@ -134,6 +134,16 @@ public class ItemConversionSettingTests
         Assert.NotNull(page.Conversion.Rows.Single(row => row.ProfileText == "fakebase").IconFactory!());
     });
 
+    /// <summary>持っているアバター（商品を持つ）は所持の群。商品ページでも手元の商品を引く道を渡している（外れると全部が未所持になる）</summary>
+    [Fact]
+    public Task つなぎ先の候補で_持っているアバターは所持の群() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item("9800401", "作り物のアバター「アオイ」"));
+        var page = await OpenAsync(app, new ConversionSetting { Targets = [SuggestedBase] });
+
+        Assert.Equal(AvatarSuggestionText.OwnedGroup, page.Conversion.TargetInfoSelector("アオイ")!.Group);
+    });
+
     [Fact]
     public Task 確認済みにすると_確認したつなぎ先として保存する() => TestApp.Run(async app =>
     {

@@ -57,7 +57,7 @@ internal static partial class Scenes
 
         // open.md 73 行の続き（ユーザ指示 2026-11-18）：素体を選ぶ・探す欄の候補にも素体の絵を出す。
         // 候補の入れ物はポップアップで撮れないので、本物の画面の候補・群・絵の引き方で中身だけを並べる（SuggestPanel）
-        new Scene("suggest-base-icons", "素体の候補の絵：商品ページの対応アバターを追加／変換のつなぎ先を選ぶ欄／アバターの詳細の共通素体（画像を付けた素体は絵、無い素体は頭の字）", async context =>
+        new Scene("suggest-base-icons", "素体の候補の絵：商品ページの対応アバターを追加／変換のつなぎ先を選ぶ欄／検索の対応アバター／アバターの詳細の共通素体（画像を付けた素体は絵、無い素体は頭の字）", async context =>
         {
             const string hash = "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD";
             await context.Fake.ItemAsync("9800401", "作り物のアバター「アオイ」", images: 1);
@@ -105,6 +105,10 @@ internal static partial class Scenes
             }
 
             var page = new ItemViewModel(item, context.Services, main, main.Thumbnails);
+
+            // 検索の画面は載せないので、条件を足しても入力欄にフォーカスが入らず、候補の小窓は開かない（開いたまま終わると後始末が固まる）
+            var avatarModule = (ListModule)AddModule(main.Search, SearchModuleKind.Avatar);
+            var searchSuggestions = avatarModule.Suggestions.ToList();
             main.ShowAvatarsCommand.Execute(null);
             var avatars = context.Screen<AvatarsViewModel>();
             await SceneContext.UntilAsync(() => !avatars.IsLoading && avatars.BaseNames.Count == 2, "素体の候補が並ぶ");
@@ -118,6 +122,8 @@ internal static partial class Scenes
                 page.SupportSuggestInfoSelector, page.SupportGroupHeadings, width: 240, icons: page.AvatarIconSelector));
             host.Children.Add(SuggestPanel("変換のつなぎ先を選ぶ欄", page.Conversion.TargetSuggestions, string.Empty,
                 page.Conversion.TargetInfoSelector, page.Conversion.TargetGroupHeadings, width: 220, icons: page.Conversion.TargetIconSelector));
+            host.Children.Add(SuggestPanel("検索の条件「対応アバター」", searchSuggestions, string.Empty,
+                avatarModule.InfoSelector!, avatarModule.GroupHeadings, width: 260, icons: avatarModule.IconSelector));
             host.Children.Add(SuggestPanel("アバターの詳細の「共通素体」", [.. avatars.BaseNames], string.Empty,
                 _ => null, null, width: 240, icons: avatars.BaseIconSelector));
             return new Shot(SceneContext.OnSurface(host, 20));
