@@ -128,10 +128,9 @@ internal static class PluginEndpoints
 
             // 消えるだけなら聞かずに効かせる（出す物が減るだけで、人が見ていない項目は増えない。空の items で消すのも同じ）
             var change = PluginMenus.Diff(current, items);
-            if (change.OnlyRemoves)
+            if (change.OnlyRemoves && await state.Clients.SetMenuIfOnlyRemovesAsync(client.Id, items))
             {
                 requests.WithdrawMenu(client.Id);
-                await state.Clients.SetMenuAsync(client.Id, items);
                 Core.Diagnostics.AppLog.Note("外から使う API", $"ソフト「{client.Name}」が項目を消した（{change.Removed.Count}個）");
                 return Results.Json(new PluginMenuAnswer(ApiClientRequests.Approved, items, null), json.PluginMenuAnswer);
             }

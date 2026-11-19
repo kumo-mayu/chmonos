@@ -123,6 +123,37 @@ internal sealed class ApiClientBook(Func<DataStore> store, Func<DateTimeOffset> 
         Reload();
     }
 
+    /// <summary>
+    /// 消えるだけの宣言を、錠の中で今のメニューに対して確かめ直してから書く。書いたら true。
+    /// 錠の外の控え（<see cref="MenuOf"/>）で「消えるだけ」と見ても、その間に人が設定で項目を外していれば、
+    /// 宣言で置き換えると外した項目が許し直し無しに戻る（Codex の点検 2026-11-19 の2回目の 2・ユーザ判断 2026-11-20）。
+    /// 今のメニューに対しても消えるだけでなければ書かずに false を返し、呼び手は人に聞く道へ進む
+    /// </summary>
+    public async Task<bool> SetMenuIfOnlyRemovesAsync(string clientId, IReadOnlyList<PluginMenuItemRef> items)
+    {
+        var written = false;
+        await store().ApiClients.UpdateAsync(list =>
+        {
+            written = false;
+            var clients = list.Clients ?? [];
+            if (clients.FirstOrDefault(client => client.Id == clientId) is not { } row
+                || !PluginMenus.Diff(PluginMenus.FromRecords(row.Menu), items).OnlyRemoves)
+            {
+                return list;
+            }
+
+            written = true;
+            return list with
+            {
+                Clients = clients
+                    .Select(client => client.Id != clientId ? client : client with { Menu = items.Count == 0 ? null : PluginMenus.ToRecords(items) })
+                    .ToList(),
+            };
+        });
+        Reload();
+        return written;
+    }
+
     /// <summary>ソフトごとに、最後に使った日時を最後に書いた時刻（書く間隔を空けるため）。</summary>
     private readonly ConcurrentDictionary<string, DateTimeOffset> _touched = new(StringComparer.Ordinal);
 

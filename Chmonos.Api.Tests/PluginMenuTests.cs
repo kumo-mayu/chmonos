@@ -324,6 +324,26 @@ public sealed class PluginMenuTests : IAsyncLifetime
         Assert.Null(_store.ApiClients.Load().Clients.Single(client => client.Id == "tool").Menu);
     }
 
+    /// <summary>
+    /// 控えでは消えるだけに見えても、その間に人が設定でメニューを外していたら、聞かずに書くと外した項目が戻る。
+    /// 錠の中の今のメニューに対して確かめ直し、増えるなら人に聞く（Codex の点検 2026-11-19 の2回目の 2）
+    /// </summary>
+    [Fact]
+    public async Task 控えの後に人がメニューを外していたら_消えるだけに見えても聞き直す()
+    {
+        await ApproveFirstAsync(Preview, Export);
+
+        // 設定の「メニューから外す」と同じ書き込みを、API の控えを読み直さずに先に済ませる（2つの書き込みが重なった順）
+        await _store.ApiClients.UpdateAsync(list => list with
+        {
+            Clients = (list.Clients ?? []).Select(client => client.Id != "tool" ? client : client with { Menu = null }).ToList(),
+        });
+
+        await PutMenuAsync(new { items = new[] { Export } });
+
+        Assert.Equal(2, _approvals.AskedCount);
+    }
+
     [Fact]
     public async Task 取りに来ていなければ応答していない_待っている間と取りに来た後の時間内は押せる()
     {
