@@ -2155,13 +2155,30 @@
                           ScrollViewer.ScrollChanged="OnResultsScrollChanged" Loaded="OnResultsLoaded"
                           BorderThickness="0" Background="Transparent" Margin="18,4,18,18"
                           VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
-                          Visibility="{Binding IsListMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                          Visibility="{Binding IsListMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <!-- 一覧の余白の右クリック（ユーザ指示 2026-11-06）：区切りの札を出すか。設定と同じ値。行の上は行のメニュー、札の上は札のメニューが先に出る -->
+                    <controls:ItemListView.ContextMenu>
+                        <ContextMenu AutomationProperties.AutomationId="SearchListMenu" AutomationProperties.Name="一覧の操作">
+                            <MenuItem Header="{x:Static controls:SortDividerBorder.SortDividerMenuHeader}" IsCheckable="True"
+                                      IsChecked="{Binding ShowSortDividers, Mode=TwoWay}"
+                                      AutomationProperties.AutomationId="SearchListMenu.ShowDividers" />
+                        </ContextMenu>
+                    </controls:ItemListView.ContextMenu>
+                </controls:ItemListView>
 
                 <!-- カードの行の一覧。Tab で1回だけ入り、中は矢印でカードからカードへ移る（CardRowsListBox が並び ArrowGroup になる。ユーザ判断 2026-10-01） -->
                 <!-- 段は読み上げ・自動操作の木に出さず、カードを一覧の直下に出す（CardRowsListBox と CardRowItems。ユーザ判断 2026-09-30） -->
                 <controls:CardRowsListBox ItemsSource="{Binding Rows}"
                          Visibility="{Binding IsCardMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                          ScrollViewer.ScrollChanged="OnResultsScrollChanged" Loaded="OnResultsLoaded">
+                    <!-- 一覧の余白の右クリック（リストと同じ）。カードの上はカードのメニュー、札の上は札のメニューが先に出る -->
+                    <controls:CardRowsListBox.ContextMenu>
+                        <ContextMenu AutomationProperties.AutomationId="SearchCardsMenu" AutomationProperties.Name="一覧の操作">
+                            <MenuItem Header="{x:Static controls:SortDividerBorder.SortDividerMenuHeader}" IsCheckable="True"
+                                      IsChecked="{Binding ShowSortDividers, Mode=TwoWay}"
+                                      AutomationProperties.AutomationId="SearchCardsMenu.ShowDividers" />
+                        </ContextMenu>
+                    </controls:CardRowsListBox.ContextMenu>
                     <controls:CardRowsListBox.ItemTemplate>
                         <DataTemplate>
                             <controls:CardRowItems ItemsSource="{Binding Cards}" ItemTemplateSelector="{StaticResource CardSlotTemplate}" Focusable="False">
