@@ -11,6 +11,9 @@ public enum StorePart
     UserTags,
     Attributes,
     ShopNotes,
+
+    /// <summary>人が足した変換の組（conversion-pairs.json）。漏れると変換経由の答えが古いまま残る。</summary>
+    ConversionPairs,
     Notifications,
     Modifications,
     Recent,
@@ -127,6 +130,7 @@ public static class StoreChanges
             "usertags.json" => StorePart.UserTags,
             "attributes.json" => StorePart.Attributes,
             "shops.json" => StorePart.ShopNotes,
+            "conversion-pairs.json" => StorePart.ConversionPairs,
             "notifications.json" => StorePart.Notifications,
             "recent.json" => StorePart.Recent,
             "settings.json" => StorePart.Settings,
@@ -167,6 +171,7 @@ public static class StoreChanges
             StorePart.UserTags => paths.UserTagsFile,
             StorePart.Attributes => paths.AttributesFile,
             StorePart.ShopNotes => paths.ShopNotesFile,
+            StorePart.ConversionPairs => paths.ConversionPairsFile,
             StorePart.Notifications => paths.NotificationsFile,
             StorePart.Recent => paths.RecentFile,
             StorePart.Settings => paths.SettingsFile,

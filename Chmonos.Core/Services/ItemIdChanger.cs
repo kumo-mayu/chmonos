@@ -497,6 +497,10 @@ internal sealed class ItemIdChanger(DataStore store, IBoothClient client, ItemSe
             },
             cancellationToken);
 
+        // 人が足した変換の組（conversion-pairs.json）。アバターを ID で指すので、移さないと組が消えた ID を指したまま黙って効かなくなる。
+        // 何度当てても同じ結果なので、続きでも分けずに当てる
+        await store.ConversionPairs.TryUpdateAsync(file => ConversionPairs.RenameItem(file, fromId, toId), cancellationToken);
+
         // 他の商品が指している分（対応アバター・バリエーションの対応・変換のつなぎ先・新しい版の向き先。LocalReferences の表）。
         // 前は対応アバターだけで、ほかの欄は消えたIDを指したまま残った（洗い出し 2026-11-10・D3）。
         // 書き換える欄の持ち主を全部名乗る（名乗らない欄は、錠の中で今の値に重ねるときに書き換えた分が落ちる）

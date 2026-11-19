@@ -34,6 +34,7 @@
 | `recent.json` | 「最近」の足跡（追加・使った・閲覧）。手元に無くなった商品の行は起動時に落とす（`RecentTracker.PruneMissingItemsAsync`・2026-09-29） | 取り込み・Unityへ送る・商品ページ |
 | `shop-banners.json` | ショップのバナーを調べた記録 | ショップの画面 |
 | `shops.json` | ショップに人が付けた星とメモ（鍵はショップ一覧が束ねる鍵＝サブドメインか `local-` の鍵。見分け用の名前の控えと BOOTH の ID も書く。星もメモも無くなった店は落とす。商品が無くなった店の記録は消さない） | ショップの画面（書くのは `UiCommand.ChangeShopNote`）・検索のショップの条件 |
+| `conversion-pairs.json` | 人が足した変換の組（`pairs`：`from`・`to`〔`avatarItemId` か `baseName`〕・`tool`・`memo`。元→先の1方向。[conversion.md](conversion.md)「人が足す組」）。商品 ID の変更と素体の改名・削除で端を追う | `UiCommand.ChangeConversionPairs` |
 | `video-titles.json` | YouTube の動画のタイトルの控え（動画ID・題・取った日時）。30日を過ぎたら取り直すか消す | 商品ページの動画の欄・起動時の整理 |
 | `scan-cache.json` | パス → サイズ・更新日時・ハッシュと、zip の中のテキストにあった商品ID（`clueItemIds`・まだ読んでいなければ無い）、ハッシュを取ったディスクの通し番号（`volume`・分からなければ無い）（消してもよい） | 取り込み・見つからないファイルを探す所（錠の中で今の控えに重ねる） |
 | `import-state.json` | 取り込みの進み具合（済んだ数・全体・日時）と、続きに要る物（対象・取れなかった商品・打ち切りの理由・走査の途中か）と、この取り込みが新しく作った商品（`createdItems`。中断の窓で消す相手）。残りが無ければ空にする（`import.md`） | 取り込み |

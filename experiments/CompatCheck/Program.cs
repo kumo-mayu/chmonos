@@ -54,6 +54,7 @@ var checks = new List<FileKind>
     Single<RecentLog>(paths.RecentFile),
     Single<List<ShopBannerRecord>>(paths.ShopBannersFile),
     Single<List<ShopNoteRecord>>(paths.ShopNotesFile),
+    Single<ConversionPairFile>(paths.ConversionPairsFile),
     Single<List<VideoTitleRecord>>(paths.VideoTitlesFile),
     Single<List<ScanCacheEntry>>(paths.ScanCacheFile),
     Single<ImportState>(paths.ImportStateFile),

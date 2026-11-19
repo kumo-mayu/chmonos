@@ -367,6 +367,8 @@ public sealed partial class SearchViewModel
         HasOpenProject = _openProjects.Count > 0,
         UseDetectedVariationTargets = _services.Settings.UseDetectedVariationTargets,
         IncludeUnconfirmedConversion = _services.Settings.IncludeUnconfirmedConversion,
+        // 変わっていなければ読み直さない（共有の写し）ので、条件を組むたびに読んでよい
+        ConversionPairs = _services.Store.ConversionPairs.Load().Pairs,
     };
 
     /// <summary>種類ごとの照らし方（Core の一覧表。API と同じ物）を、選ぶ条件の形で渡す。選ぶ条件の照らし方は材料を使わない。</summary>

@@ -196,5 +196,8 @@ public sealed class SearchModuleContext
     private ConversionIndex? _conversion;
 
     /// <summary>変換経由の索引（docs/spec/conversion.md）。「変換で使える物も含める」で絞るときだけ、手元の商品の全部（<see cref="Items"/>）から作る</summary>
-    public ConversionIndex Conversion => _conversion ??= ConversionIndex.Build(Compatibility, Items, IncludeUnconfirmedConversion, UseDetectedVariationTargets);
+    public ConversionIndex Conversion => _conversion ??= ConversionIndex.Build(Compatibility, Items, IncludeUnconfirmedConversion, UseDetectedVariationTargets, ConversionPairs);
+
+    /// <summary>人が足した変換の組（<c>conversion-pairs.json</c>）。変換経由の計算に、プロファイルのつなぎ先と合わせて使う。</summary>
+    public IReadOnlyList<ConversionPair> ConversionPairs { get; init; } = [];
 }

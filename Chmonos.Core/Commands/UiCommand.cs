@@ -195,6 +195,12 @@ public abstract record UiCommand
         Func<Models.ShopNoteRecord, Models.ShopNoteRecord> Change) : UiCommand;
 
     /// <summary>
+    /// 人が足した変換の組を変える（conversion-pairs.json・ユーザ判断 2026-11-20）。変え方（<see cref="Services.ConversionPairs"/> の足す・外す）を関数で渡し、
+    /// 錠の中で今の値に当てる。
+    /// </summary>
+    public record ChangeConversionPairs(Func<Models.ConversionPairFile, Models.ConversionPairFile> Change) : UiCommand;
+
+    /// <summary>
     /// 動画のタイトルを控える（video-titles.json）。<paramref name="Title"/> が null なら控えを消す（非公開・削除で取れなくなった）。
     /// 書くついでに30日を過ぎた控えも落とす（YouTube の開発者ポリシー・<see cref="Services.VideoTitleBook"/>）。
     /// </summary>
@@ -812,6 +818,9 @@ public abstract record CommandResult
 
     /// <summary>ショップの星・メモを変えた結果（書いた後の全店ぶん）。</summary>
     public record ShopNotesChanged(IReadOnlyList<Models.ShopNoteRecord> Notes) : CommandResult;
+
+    /// <summary>変換の組を変えた結果（書いた後の全部）。</summary>
+    public record ConversionPairsChanged(Models.ConversionPairFile Pairs) : CommandResult;
 
     /// <summary>属性の改名・削除の結果。書き換えたitem数を持つ。</summary>
     public record AttributesRewritten(Services.AttributeEditResult Result) : CommandResult;

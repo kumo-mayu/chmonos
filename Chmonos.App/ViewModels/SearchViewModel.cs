@@ -306,7 +306,8 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
             compatibility,
             _allItems,
             _services.Settings.IncludeUnconfirmedConversion,
-            _services.Settings.UseDetectedVariationTargets);
+            _services.Settings.UseDetectedVariationTargets,
+            _services.Store.ConversionPairs.Load().Pairs);
 
     public IReadOnlySet<string> OwnedItemIds() => _allItems
         .Where(item => item.IsOwned)
