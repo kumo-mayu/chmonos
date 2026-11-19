@@ -13,9 +13,10 @@
         DataContext は ItemViewModel（編集画面では、今開いている商品の分）か ModificationViewModel（改変の写真・ユーザ指示 2026-09-13）。
         どちらも IGalleryHost と、同じ名前の値・コマンドを持つ。商品にしか無い物（サムネイルの指名・役割・取得の案内）は、改変では false の値で隠す
     -->
-                    <Border Style="{StaticResource Card}" ClipToBounds="True">
+                    <Border Style="{StaticResource Card}" ClipToBounds="True" SizeChanged="OnCardSizeChanged">
                         <StackPanel>
-                            <Grid Height="420" Background="{DynamicResource ImageBack}">
+                            <!-- 高さは欄の幅に合わせて決める（OnCardSizeChanged・BigImageHeight。ユーザ判断 2026-11-20）。420 は狭い時の値で、前はいつもこの高さだった -->
+                            <Grid x:Name="BigImage" Height="420" Background="{DynamicResource ImageBack}">
                                 <!--
                                     絵を送る矢印。**普段は出さない。**
                                     常に置いておくと絵の上に黒い箱が居座るので、
@@ -226,7 +227,14 @@
                                     </Style>
                                 </Button.Style>
                             </Button>
-                            <controls:ContentItemsControl x:Name="Tiles" ItemsSource="{Binding GalleryTiles}" Margin="10" controls:ArrowGroup.IsEnabled="True">
+                            <!--
+                                小さな絵は、見えている段（と1段先）だけを最初の配置で作り、残りは絵を描いた後に1枚ずつ足す
+                                （ProgressiveItems。ユーザ判断 2026-11-20：最初の数段だけ作り、残りは手の空いた時に作る）。
+                                78枚の商品で、開く時の1回の止まりが3枚より約120〜130ms 長く、その多くが小さな絵の配置と読み上げの木の作り直しだった（2026-11-18 に測った）。
+                                先読みの 62 は1段（枠 54＋間 8）：少し流した所に空きが見えないだけの分。既定の 300 では十段近くを最初に作ってしまう
+                            -->
+                            <controls:ContentItemsControl x:Name="Tiles" controls:ProgressiveItems.Source="{Binding GalleryTiles}" controls:ProgressiveItems.LookAheadOverride="62"
+                                                          Margin="10" controls:ArrowGroup.IsEnabled="True">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <WrapPanel />

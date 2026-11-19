@@ -104,7 +104,7 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
         Title = title;
         HeadingText = headingText;
         ContextText = contextText;
-        _allRows = rows;
+        _allRows = [.. rows];
         Rows = new ObservableCollection<PickModificationRowViewModel>(rows);
         AvatarNames = avatarNames;
         ResolveAvatar = resolveAvatar;
@@ -115,14 +115,12 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
 
         foreach (var row in rows)
         {
-            row.PropertyChanged += (_, e) =>
-            {
-                if (e.PropertyName == nameof(PickModificationRowViewModel.IsChecked))
-                {
-                    OnPickedChanged(row);
-                }
-            };
+            Watch(row);
         }
+
+        DuplicateCommand = new RelayCommand(
+            parameter => DuplicateAsync(parameter as PickModificationRowViewModel).Forget(),
+            parameter => !_duplicating && parameter is PickModificationRowViewModel { IsSelectable: true });
         PickAvatarCommand = new RelayCommand(parameter => PickAvatar(parameter as string));
         ClearFilterCommand = new RelayCommand(() => FilterText = string.Empty);
 
@@ -148,7 +146,7 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
 
     public bool HasFiles => Files is { HasChoices: true };
 
-    private readonly IReadOnlyList<PickModificationRowViewModel> _allRows;
+    private readonly List<PickModificationRowViewModel> _allRows;
     private string _filterText = string.Empty;
 
     /// <summary>探す欄の中身（今ある改変の一覧を絞る）。</summary>
@@ -437,6 +435,70 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
                 ? "新しい改変の名前を入れてください。"
                 : "どのアバターの改変かを選んでください。"
             : "追加する先の改変を選んでください。";
+
+    private void Watch(PickModificationRowViewModel row)
+        => row.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(PickModificationRowViewModel.IsChecked))
+            {
+                OnPickedChanged(row);
+            }
+        };
+
+    /// <summary>
+    /// 改変を複製する（名前を聞いて作り、できた改変を返す）。null ならその窓では複製を出さない。
+    /// 名前を聞く窓と命令は呼ぶ側（<see cref="ModificationPicking.DuplicateAsync"/>）。やめた・作れなかったときは null を返す
+    /// </summary>
+    public Func<ModificationRecord, Task<ModificationRecord?>>? Duplicator { get; init; }
+
+    /// <summary>複製してできた改変の行を作る（並びのほかの行と同じ作り方）。<see cref="Duplicator"/> と組で渡す。</summary>
+    public Func<ModificationRecord, PickModificationRowViewModel>? RowFactory { get; init; }
+
+    /// <summary>行に「複製」を出すか。</summary>
+    public bool CanDuplicate => Duplicator is not null && RowFactory is not null;
+
+    /// <summary>
+    /// 行の「複製」。送る前に今ある改変を元に別の改変を作り、**その複製を選んだ状態にする**（ユーザ判断 2026-11-20・open.md「「改変に追加して送る」の窓で、改変を複製するボタン」）。
+    /// 元の行の選びは外す（元を残したまま別の形を試すために複製するので、元にも足すと複製した意味が無い）。ほかに選んでいた改変はそのまま。
+    /// 複製の行は元の行のすぐ下に入れる。探す欄で絞っていて複製が当たらなくても、選びはボタンの上の名前に出る
+    /// </summary>
+    public RelayCommand DuplicateCommand { get; }
+
+    private bool _duplicating;
+
+    internal async Task DuplicateAsync(PickModificationRowViewModel? source)
+    {
+        // 名前を聞いている間に2回目を押せないよう、印を立ててから聞く（改変の画面の複製と同じ）
+        if (source is null || Duplicator is null || RowFactory is null || _duplicating)
+        {
+            return;
+        }
+
+        _duplicating = true;
+        RelayCommand.RaiseCanExecuteChanged();
+        try
+        {
+            if (await Duplicator(source.Record) is not { } created)
+            {
+                return;
+            }
+
+            var row = RowFactory(created);
+            Watch(row);
+            var index = _allRows.IndexOf(source);
+            _allRows.Insert(index < 0 ? _allRows.Count : index + 1, row);
+
+            MakingNew = false;
+            source.IsChecked = false;
+            row.IsChecked = true;
+            ApplyFilter();
+        }
+        finally
+        {
+            _duplicating = false;
+            RelayCommand.RaiseCanExecuteChanged();
+        }
+    }
 
     private void Pick(PickModificationRowViewModel? row)
     {

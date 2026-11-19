@@ -78,23 +78,23 @@ public static class ModificationPicking
         ThumbnailLoader? loader = null;
         ThumbnailLoader Loader() => loader ??= new ThumbnailLoader(services.Settings.ThumbnailCacheBudgetMb);
 
-        var rows = records
-            .Select(record => new PickModificationRowViewModel
-            {
-                // 今ある改変の行の絵（メモ58）：改変の写真の1枚目 → そのアバターの絵 → 無ければ頭文字（既定の絵）。
-                // 読むのは行が見えたとき（絵の無い行は読み込み器も作らない）
-                IconPath = Core.Services.ModificationIcon.PathOf(services.Paths, record, ownedItems?.GetValueOrDefault(record.AvatarItemId), services.Settings.ShowRemovedBoothImages),
-                Thumbnails = Loader,
-                Record = record,
-                AvatarText = registry.Entries.FirstOrDefault(entry =>
-                    string.Equals(entry.ItemId, record.AvatarItemId, StringComparison.Ordinal))
-                    is { } found
-                        ? NameOf(found)
-                        : record.AvatarItemId,
-                ProjectName = Core.Models.DisplayText.FolderName(record.UnityProject),
-                ProjectKey = Core.Services.UnityProjectPath.Normalize(record.UnityProject) ?? string.Empty,
-            })
-            .ToList();
+        PickModificationRowViewModel RowOf(ModificationRecord record) => new()
+        {
+            // 今ある改変の行の絵（メモ58）：改変の写真の1枚目 → そのアバターの絵 → 無ければ頭文字（既定の絵）。
+            // 読むのは行が見えたとき（絵の無い行は読み込み器も作らない）
+            IconPath = Core.Services.ModificationIcon.PathOf(services.Paths, record, ownedItems?.GetValueOrDefault(record.AvatarItemId), services.Settings.ShowRemovedBoothImages),
+            Thumbnails = Loader,
+            Record = record,
+            AvatarText = registry.Entries.FirstOrDefault(entry =>
+                string.Equals(entry.ItemId, record.AvatarItemId, StringComparison.Ordinal))
+                is { } found
+                    ? NameOf(found)
+                    : record.AvatarItemId,
+            ProjectName = Core.Models.DisplayText.FolderName(record.UnityProject),
+            ProjectKey = Core.Services.UnityProjectPath.Normalize(record.UnityProject) ?? string.Empty,
+        };
+
+        var rows = records.Select(RowOf).ToList();
 
         // 候補の名前から絵を引く。重なる名前は1つにまとめてあるので、持っている方（商品の1枚目がある方）を先に当てる
         var iconIds = new Dictionary<string, string>(StringComparer.CurrentCultureIgnoreCase);
@@ -131,7 +131,45 @@ public static class ModificationPicking
             OwnedAvatarCount = ownedNames.Count,
             AvatarIconSelector = IconOf,
             AvatarInfoSelector = name => infos.GetValueOrDefault(name),
+            RowFactory = RowOf,
+            Duplicator = record => DuplicateAsync(services, record, RowOf(record).AvatarText, title),
         };
+    }
+
+    /// <summary>
+    /// 窓の行の「複製」の中身。改変の画面の複製と同じく、元の名前を入れて全部選んだ名前の窓で聞き（ユーザ判断 2026-11-18）、
+    /// 同じ命令（<see cref="Core.Commands.UiCommand.DuplicateModification"/>：外した行・blueprint ID・写真は写さない）で作る。
+    /// やめた・作れなかったときは null（作れなかった理由は窓で言う）
+    /// </summary>
+    public static async Task<ModificationRecord?> DuplicateAsync(AppServiceContainer services, ModificationRecord record, string avatarText, string title)
+    {
+        // 窓に入れる名前は今の記録から（窓を開いた後に改変の画面で名前を変えたことがある）
+        var source = await services.Modifications.LoadAsync(record.Id);
+        string? problem = null;
+        if (source is null)
+        {
+            problem = "対象の改変が見つかりませんでした。";
+        }
+        else
+        {
+            var taken = (await services.Modifications.LoadForAvatarAsync(source.AvatarItemId)).Select(other => other.Name).ToList();
+            var model = new ModificationNameDialogViewModel(ModificationNameDialogViewModel.Purpose.Duplicate, avatarText, source.Name, taken);
+            if (!ModificationNameDialogViewModel.Ask(model))
+            {
+                return null;
+            }
+
+            var result = await services.Commands.ExecuteAsync(new Core.Commands.UiCommand.DuplicateModification(source.Id, model.Name.Trim()));
+            if (result is Core.Commands.CommandResult.ModificationCreated created)
+            {
+                return created.Record;
+            }
+
+            problem = (result as Core.Commands.CommandResult.Failed)?.Message ?? "改変を複製できませんでした。";
+        }
+
+        Services.Notice.Show(problem, title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+        return null;
     }
 
     /// <summary>

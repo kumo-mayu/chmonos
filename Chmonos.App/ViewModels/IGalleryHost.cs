@@ -26,4 +26,10 @@ public interface IGalleryHost
 public static class GalleryFoldKey
 {
     public const string Tiles = "gallery.tiles";
+
+    /// <summary>
+    /// 改変の右の欄のギャラリーを、大きな絵ごと畳んでいるか（ユーザ判断 2026-11-20）。改変の画面だけの物なので、
+    /// 3つの画面で1つの <see cref="Tiles"/> とは分ける（商品ページの絵まで消えると、商品を見に来た時に困る）
+    /// </summary>
+    public const string Modification = "modification.gallery";
 }

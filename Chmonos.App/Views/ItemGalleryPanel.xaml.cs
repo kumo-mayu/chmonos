@@ -41,6 +41,40 @@ public partial class ItemGalleryPanel : UserControl
         }
     }
 
+    /// <summary>大きな絵の高さの下限。前の決まった高さで、狭い欄では今までと同じ見え方にする。</summary>
+    internal const double BigImageMinHeight = 420;
+
+    /// <summary>
+    /// 大きな絵の高さの上限。1080p の画面で窓を最大にした時の中身の高さ（約 1,000）の7割ほどで、
+    /// 絵の下の小さな絵の段が見える所に残るようにした。これより高くすると、絵を送るたびに流して小さな絵を探すことになる
+    /// </summary>
+    internal const double BigImageMaxHeight = 720;
+
+    /// <summary>
+    /// 欄の幅から大きな絵の高さを決める（ユーザ判断 2026-11-20：右の欄の幅を広げたら絵も大きくなる方が画面を広く使える）。
+    /// 幅の 3/4 にする。BOOTH の商品の絵は正方形と横長が多く、正方形の絵は幅の 3/4 の高さで左右に少し余白が出るくらいに収まる。
+    /// 前は高さが 420 に決まっていて、幅を広げても縦長・正方形の絵は大きくならなかった
+    /// </summary>
+    internal static double BigImageHeight(double width)
+        => double.IsFinite(width) && width > 0
+            ? Math.Clamp(Math.Round(width * 3 / 4), BigImageMinHeight, BigImageMaxHeight)
+            : BigImageMinHeight;
+
+    /// <summary>
+    /// 欄の幅が変わったら大きな絵の高さを合わせる。高さを変えても幅は変わらないので、ここへ戻って来ても同じ値で止まる
+    /// </summary>
+    private void OnCardSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (e.WidthChanged)
+        {
+            var height = BigImageHeight(e.NewSize.Width);
+            if (BigImage.Height != height)
+            {
+                BigImage.Height = height;
+            }
+        }
+    }
+
     private void OnThumbnailMouseEnter(object sender, MouseEventArgs e)
     {
         if (sender is not FrameworkElement { DataContext: GalleryImage image }

@@ -81,7 +81,12 @@
                                 行ごとのチェック（ユーザ指示 2026-11-03：いくつでも選べる。前は行の「これに追加」で1つだけ）。行のどこを押しても選べるよう、行の中身ごとチェックにする。
                                 送るときに紐付けたプロジェクトが違う行は押せず、吹き出しで理由を言う
                             -->
-                            <CheckBox Padding="6,0,0,0" VerticalContentAlignment="Center" Margin="2,5,0,5"
+                            <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <CheckBox Grid.Column="0" Padding="6,0,0,0" VerticalContentAlignment="Center" Margin="2,5,0,5"
                                       IsChecked="{Binding IsChecked, Mode=TwoWay}" IsEnabled="{Binding IsSelectable}"
                                       ToolTipService.ShowOnDisabled="True"
                                       AutomationProperties.AutomationId="PickModificationPick" AutomationProperties.Name="{Binding Name}">
@@ -112,21 +117,35 @@
 
                                     <StackPanel Grid.Column="1" Margin="8,0,8,0">
                                         <TextBlock Text="{Binding Name}" FontSize="12.5"
-                                                   MaxWidth="280" HorizontalAlignment="Left"
+                                                   MaxWidth="230" HorizontalAlignment="Left"
                                                    TextTrimming="CharacterEllipsis" />
                                         <TextBlock Text="{Binding Detail}" Style="{StaticResource Caption}"
-                                                   MaxWidth="280" HorizontalAlignment="Left"
+                                                   MaxWidth="230" HorizontalAlignment="Left"
                                                    Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
                                         <!-- 名前以外で当たったとき、何で当たったか -->
                                         <TextBlock Text="{Binding MatchNote}" Style="{StaticResource Caption}"
                                                    Foreground="{DynamicResource AccentText}"
-                                                   MaxWidth="280" HorizontalAlignment="Left"
+                                                   MaxWidth="230" HorizontalAlignment="Left"
                                                    Margin="0,2,0,0" TextWrapping="Wrap"
                                                    Visibility="{Binding HasMatchNote, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                     </StackPanel>
 
                                 </Grid>
                             </CheckBox>
+
+                            <!--
+                                複製（ユーザ判断 2026-11-20）。今ある改変を元に別の改変を作り、その複製を選んだ状態にする。
+                                チェックの中に置くと押したときに行の選びまで変わるので、行の右に分けて置く
+                            -->
+                            <Button Grid.Column="1" Content="複製…" VerticalAlignment="Center" Margin="4,0,2,0" Padding="8,2"
+                                    Command="{Binding DataContext.DuplicateCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding}"
+                                    ToolTip="この改変を複製して、複製に追加します"
+                                    AutomationProperties.AutomationId="PickModificationDuplicate"
+                                    AutomationProperties.Name="{Binding Name, StringFormat={}{0}を複製}"
+                                    Visibility="{Binding DataContext.CanDuplicate, RelativeSource={RelativeSource AncestorType=Window},
+                                                 Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                            </Grid>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </controls:ContentItemsControl>

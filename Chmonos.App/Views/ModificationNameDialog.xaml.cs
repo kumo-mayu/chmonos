@@ -10,7 +10,9 @@ public partial class ModificationNameDialog : Window
     {
         InitializeComponent();
         DataContext = model;
-        Owner = Application.Current?.MainWindow;
+        // 「改変に追加して送る」の窓の「複製…」からも開くので、今手前にある窓の上に出す（主の窓に付けると、選ぶ窓の後ろの真ん中に出る）
+        Owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(window => window.IsActive && window != this)
+            ?? Application.Current?.MainWindow;
         Services.DialogFit.Prepare(this);
 
         // 名前の欄に止まり、入っている名前（複製は元の名前）を全部選んでおく。そのまま打てば置き換わり、Enter で決まる
