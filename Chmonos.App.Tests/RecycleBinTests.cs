@@ -72,6 +72,43 @@ public sealed class RecycleBinTests
     }
 
     /// <summary>
+    /// ごみ箱の無いドライブ（外付け・NAS）の書きかけは、Windows を呼ばずに残し、記録だけ外す。
+    /// 呼ぶと「完全に削除しますか」の窓が出て、起動の片付けが書き込みの門を持ったまま答えを待つ
+    /// </summary>
+    [Fact]
+    public void ごみ箱の無いドライブの書きかけは_Windowsを呼ばずに残し記録を外す()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "chmonos-backup-writing-" + Guid.NewGuid().ToString("N"));
+        var store = Path.Combine(root, "store");
+        Directory.CreateDirectory(store);
+        try
+        {
+            var temporary = Path.Combine(root, "外付け.zip.tmp");
+            File.WriteAllText(temporary, "書きかけ");
+            Chmonos.Core.Storage.BackupWritingRecord.Begin(store, temporary);
+            var called = false;
+
+            var cleaned = Chmonos.App.AppServiceContainer.CleanUpBackupWriting(
+                store,
+                (_, _) =>
+                {
+                    called = true;
+                    return (0, false);
+                },
+                hasRecycleBin: _ => false);
+
+            Assert.False(cleaned);
+            Assert.False(called);
+            Assert.True(File.Exists(temporary));
+            Assert.False(File.Exists(Path.Combine(store, Chmonos.Core.Storage.BackupWritingRecord.FileName)));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    /// <summary>
     /// 起動の片付けは、前のバックアップの書きかけをごみ箱へ送る（点検29・ユーザ判断 2026-11-20）。
     /// 書きかけの場所は手で直せる記録から読むので、名前の形が合うだけの使う人のファイルを指され得る。前は完全に消していた
     /// </summary>
