@@ -93,6 +93,8 @@ public partial class SearchView : UserControl
 
     private SearchViewModel? Model => DataContext as SearchViewModel;
 
+    private readonly HashSet<object> _smoothAttached = new();
+
     /// <summary>
     /// 条件を掴む。**見出しのつまみだけで掴める**ようにしてある——
     /// カードのどこでも掴めると、スライダを動かすたびに並べ替えが始まってしまう。
@@ -230,6 +232,12 @@ public partial class SearchView : UserControl
     private void OnResultsLoaded(object sender, RoutedEventArgs e)
     {
         var search = Model;
+
+        // ホイールの滑らかな流れ（設定「検索の一覧を滑らかに流す」）。Loaded は持ち回すたびに来るので、一覧ごとに1回だけ付ける
+        if (sender is System.Windows.Controls.ItemsControl results && _smoothAttached.Add(results))
+        {
+            Controls.SmoothWheel.Attach(results, () => Model?.SmoothScrolling ?? false);
+        }
 
         // 覚えていた位置は、印を立てる**前に**読む。立てた後だと、2つの一覧の Loaded の間に
         // 届いた「先頭にいる」で潰れたものを読むことになる

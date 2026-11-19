@@ -148,6 +148,7 @@ flowchart LR
 | 並べ替えたとき、まとまりごとに区切りを表示 | 一覧と検索 | 切替 | | いつも | Settings.ShowSortDividers・:278 |
 | 入手日で並べたときも区切りを表示 | 一覧と検索（字下げ） | 切替 | | 上が入の時に押せる | Settings.ShowAcquiredSortDividers・:287 |
 | 追加する条件を同じ種類の条件のすぐ下に置く | 一覧と検索 | 切替 | 切ると一番下に足す | いつも | Settings.PlaceNewConditionNearSameKind・:293 |
+| 検索の一覧を滑らかに流す | 一覧と検索 | 切替 | 既定は入 ［要確認］。回すたびに読む | いつも | Settings.SmoothScrolling |
 | 検索の履歴に残す件数 | 一覧と検索 | 打つ | 欄から出ると保存 | いつも | Settings.SearchHistoryCount・:304 |
 | 履歴を削除 | 一覧と検索 | クリック | 窓「検索の履歴を削除」→ OK で全部消す | いつも | Settings.ClearSearchHistory・:310・ViewModels/SettingsViewModel.cs:1213 |
 | ファイルの表示順 | 商品ページと編集 | 選ぶ | 追加した順・名前順・バージョンを考えた名前順・大きさ順 | いつも | Settings.FileOrder・:329 |

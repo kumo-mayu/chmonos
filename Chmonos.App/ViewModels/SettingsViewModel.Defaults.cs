@@ -76,6 +76,8 @@ public sealed partial class SettingsViewModel
             s => s with { ShowAcquiredSortDividers = Defaults.ShowAcquiredSortDividers }, (vm, v) => vm.ShowAcquiredSortDividers = v),
         [nameof(PlaceNewConditionNearSameKind)] = Flag(vm => vm.PlaceNewConditionNearSameKind, Defaults.PlaceNewConditionNearSameKind,
             s => s with { PlaceNewConditionNearSameKind = Defaults.PlaceNewConditionNearSameKind }, (vm, v) => vm.PlaceNewConditionNearSameKind = v),
+        [nameof(SmoothScrolling)] = Flag(vm => vm.SmoothScrolling, Defaults.SmoothScrolling,
+            s => s with { SmoothScrolling = Defaults.SmoothScrolling }, (vm, v) => vm.SmoothScrolling = v),
         [nameof(SearchHistoryCount)] = Number(vm => vm.SearchHistoryCount, Defaults.SearchHistoryCount, "件",
             s => s with { SearchHistoryCount = Defaults.SearchHistoryCount }, (vm, v) => vm.SearchHistoryCount = v),
 

@@ -680,6 +680,15 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         set { if (SetField(ref _showHiddenCountInSearch, value)) { Save(_main.ReloadLibraryAsync); } }
     }
 
+    private bool _smoothScrolling;
+
+    /// <summary>検索の一覧のホイールの滑らかな流れ。回すたびに今の値を読むので、知らせは要らない。</summary>
+    public bool SmoothScrolling
+    {
+        get => _smoothScrolling;
+        set { if (SetField(ref _smoothScrolling, value)) { Save(); } }
+    }
+
     private bool _placeNewConditionNearSameKind;
 
     /// <summary>検索で追加する条件を、同じ種類の条件のすぐ下に置くか。検索は足すたびに今の値を読むので、知らせは要らない。</summary>
@@ -1673,6 +1682,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             ShowVariationTargetsForUnpurchased = ShowVariationTargetsForUnpurchased,
             ShowHiddenCountInSearch = ShowHiddenCountInSearch,
             PlaceNewConditionNearSameKind = PlaceNewConditionNearSameKind,
+            SmoothScrolling = SmoothScrolling,
             ShowSortDividers = ShowSortDividers,
             ShowAcquiredSortDividers = ShowAcquiredSortDividers,
             ThumbnailRole = ThumbnailRole,
