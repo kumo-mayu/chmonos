@@ -92,6 +92,39 @@ public sealed class AvatarsBaseImageTests
     });
 
     [Fact]
+    public Task 素体の商品の絵があれば付けなくても絵を出し_付けて外すとその絵に戻る() => TestApp.Run(async app =>
+    {
+        // 素体の商品の控えの1枚（取り込んでいない商品でも絵を出せる所）。商品の絵の読み方は Core の試験で見るので、ここは画面へのつなぎ
+        const string BaseItemId = "9900399";
+        var avatarImages = app.Services.Paths.AvatarImagesDir(BaseItemId);
+        Directory.CreateDirectory(avatarImages);
+        File.WriteAllBytes(Path.Combine(avatarImages, "1.webp"), TinyPng);
+        await app.Store.Avatars.SaveAsync(new AvatarRegistry
+        {
+            Entries = [new AvatarRegistryEntry { ItemId = "9900301", BoothName = "作り物アバター", AvatarOverride = true, BaseName = Handmade }],
+            BaseGroups = [new AvatarBaseGroup { Name = Handmade, IsManual = true, ItemId = BaseItemId }],
+        });
+        var main = await app.StartAsync();
+        main.ShowAvatarsCommand.Execute(null);
+        var avatars = Assert.IsType<AvatarsViewModel>(main.CurrentViewModel);
+        await UiThread.Until(() => !avatars.IsLoading && avatars.Bases.Count > 0, "アバターの読み込みが済む");
+        avatars.ShowBaseModeCommand.Execute(null);
+        avatars.SelectedBase = avatars.Bases.Single(row => row.Name == Handmade);
+
+        Assert.True(avatars.SelectedBase.HasIcon);
+        Assert.False(avatars.SelectedBase.HasOwnImage);
+        Assert.Equal("画像を設定…", avatars.SelectedBase.PickImageText);
+
+        await avatars.SetBaseImageFromFileAsync(Handmade, WriteFile(app, "base.png", TinyPng));
+        await UiThread.Until(() => avatars.SelectedBase?.HasOwnImage == true, "付けた画像が行に出る");
+        await avatars.RemoveBaseImageAsync(Handmade);
+        await UiThread.Until(() => avatars.SelectedBase?.HasOwnImage == false, "外した画像が行から消える");
+
+        Assert.True(avatars.SelectedBase!.HasIcon);
+        Assert.Equal(BaseItemId, Group(app).ItemId);
+    });
+
+    [Fact]
     public Task 画像として読めないファイルは書かず_欄の下で知らせる() => TestApp.Run(async app =>
     {
         var avatars = await OpenAsync(app);

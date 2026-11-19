@@ -19,7 +19,17 @@ internal static partial class Scenes
         new Scene("avatars-base-image", "アバターの管理：共通素体に画像を付けた所（一覧の行の頭・詳細の左の絵と、その下の「画像を変更…」「画像を外す」）", async context =>
         {
             var (avatars, root) = await OpenBaseImageAsync(context);
-            await avatars.SetBaseImageFromFileAsync("作り物の素体", WriteGradientPng());
+            // 付けると置き場に写すので、元の一時ファイルは要らない（撮るたびに一時フォルダへ溜めない）
+            var picked = WriteGradientPng();
+            try
+            {
+                await avatars.SetBaseImageFromFileAsync("作り物の素体", picked);
+            }
+            finally
+            {
+                File.Delete(picked);
+            }
+
             await context.SettleAsync();
             await SceneContext.UntilAsync(() => avatars.SelectedBase?.HasOwnImage == true, "付けた画像が行に出る");
             await context.SettleAsync();
