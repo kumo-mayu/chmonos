@@ -258,8 +258,13 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
     public RelayCommand ClearChecksCommand { get; }
 
-    private void RemoveRows(IReadOnlyList<UnresolvedRow> rows)
+    /// <param name="keepSelection">
+    /// 選んでいる行が外す物に入っていなければ、その行を選んだままにする。1件の登録の間に別の行を選び直していたときに使う
+    /// （終わった時に一覧の先頭へ飛ぶと、見ていた行が消えたように見える。外部の点検20）
+    /// </param>
+    private void RemoveRows(IReadOnlyList<UnresolvedRow> rows, bool keepSelection = false)
     {
+        var viewing = keepSelection && Selected is { } selected && !rows.Contains(selected) ? selected : null;
         ForgetExcluded();
         foreach (var row in rows)
         {
@@ -282,9 +287,22 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         // 作業が進んでいないように見える
         _main.RefreshBadges();
 
+        if (viewing is not null && Files.Contains(viewing))
+        {
+            // 見ている行と入力欄はそのまま。欄へ焦点を送り直すと、打っている途中の入力を邪魔する
+            Selected = viewing;
+            return;
+        }
+
         Selected = Files.FirstOrDefault();
         RequestItemIdFocus(ItemIdFocusReason.Settled);
     }
+
+    /// <summary>
+    /// 登録が終わったときに、まだその行を見ているか。行は読み直しで作り直されるので、ハッシュで比べる（列の登録と同じ）
+    /// </summary>
+    private bool IsStillViewing(UnresolvedRow row)
+        => Selected is { } selected && string.Equals(selected.File.Hash, row.File.Hash, StringComparison.OrdinalIgnoreCase);
 
     public RangeObservableCollection<UnresolvedRow> Files { get; } = [];
 
@@ -1237,8 +1255,10 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
                 await NoteSettledAsync(saved.ItemId);
             }
 
-            // 選んでいる行1件だけなら、1件ずつ片付けるときと同じく次の行へ移る（AfterSettled は選んでいる行を外す）
-            if (!fromChecked && targets.Count == 1)
+            // 選んでいる行1件だけなら、1件ずつ片付けるときと同じく次の行へ移る（AfterSettled は選んでいる行を外す）。
+            // 移るのは終わったときにまだその行を見ていたときだけ。画像を入れる間に別の行を選んでいると、
+            // AfterSettled はその（登録していない）行を外してしまう（外部の点検20・ユーザ判断 2026-11-20）
+            if (!fromChecked && targets.Count == 1 && IsStillViewing(targets[0]))
             {
                 AfterSettled();
 
@@ -1253,7 +1273,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
 
             // 対象は全部一覧から外す。命令は未確定に残っている物を全部登録し、未確定に無かった物（同じ中身が先に片付いた）は
             // もう記録に無いので、行を残しても登録も除外もできない
-            RemoveRows(targets);
+            RemoveRows(targets, keepSelection: !fromChecked && targets.Count == 1);
             ListNoticeText = $"{targets.Count} 件を登録しました。" + imagesNote;
             HideCoveredContents(targets);
         }
