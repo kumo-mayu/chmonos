@@ -1662,7 +1662,10 @@
                                                         つまんで動かす所。カードのどこでも掴めるようにすると、
                                                         スライダを動かすたびに並べ替えが始まってしまう
                                                     -->
-                                                    <TextBlock Grid.Column="0" Text="⋮⋮" FontSize="11" Margin="0,0,6,0"
+                                                    <!-- 文字は小さいので、透明な地と余白で当たる範囲を広げる（ユーザ判断 2026-11-20：設定は足さない。全画面で押し損ねた）。
+                                                         左の余白は負の Margin で打ち消し、見た目の位置は変えない -->
+                                                    <TextBlock Grid.Column="0" Text="⋮⋮" FontSize="11" Padding="6,6,6,6" Margin="-6,0,0,0"
+                                                               Background="Transparent"
                                                                Cursor="SizeAll" VerticalAlignment="Center"
                                                                Foreground="{DynamicResource TextFaint}"
                                                                ToolTip="ドラッグで順番を変えられます"
