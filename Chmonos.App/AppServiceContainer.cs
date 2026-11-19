@@ -481,12 +481,29 @@ public sealed class AppServiceContainer : IDisposable
             var deleted = JsonStore.DeleteStaleTemporaryFiles(Paths.Root, includeSubdirectories: true);
 
             // 前のバックアップの書き出しが途中で止まっていたら、書き出し先に残った書きかけを消す
-            if (Core.Storage.BackupWritingRecord.CleanUp(Paths.Root))
+            if (CleanUpBackupWriting(Paths.Root))
             {
                 UiTrace.Write("速さ", "起動時の片付け：前のバックアップの書きかけを消した");
             }
             UiTrace.Write("速さ", $"起動時の片付け：書きかけ {deleted} 件を消した（窓を出した後に裏で）");
         }).Forget();
+
+    /// <summary>
+    /// 前のバックアップの書き出しが残した書きかけを、ごみ箱へ送る（点検29・ユーザ判断 2026-11-20）。
+    /// 書きかけの場所は保存先の中の手で直せる記録から読むので、名前の形が合うだけの使う人のファイルを指され得る。
+    /// ごみ箱の無いドライブでは送らずに残す（完全に消すと取り戻せない）
+    /// </summary>
+    /// <param name="shell">Windows の削除を呼ぶ所（試験で差し替える。<see cref="Services.RecycleBin.Send"/>）。</param>
+    internal static bool CleanUpBackupWriting(string root, Func<string, ushort, (int Result, bool Aborted)>? shell = null)
+        => Core.Storage.BackupWritingRecord.CleanUp(root, path =>
+        {
+            if (!Services.RecycleBin.HasRecycleBin(path))
+            {
+                throw new NotRecyclableException("ごみ箱を使えないドライブなので、削除しません。");
+            }
+
+            Services.RecycleBin.Send(path, shell);
+        });
 
     public DataStore Store { get; }
 
