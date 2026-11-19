@@ -22,7 +22,7 @@ public class ImportCancelDeleteTests
     }
 
     [Fact]
-    public Task 削除を選ぶと止まり切ってから新しく登録した商品を消し_ファイルは残す() => TestApp.Run(async app =>
+    public Task 削除を選ぶと止まり切ってから新しく登録した商品を消し_ファイルは未確定に戻す() => TestApp.Run(async app =>
     {
         app.Booth.HasItem(Created, "作り物の衣装");
         app.Booth.HasItem(Held, "作り物の小物");
@@ -45,10 +45,13 @@ public class ImportCancelDeleteTests
 
         var question = Assert.Single(app.Choices);
         Assert.Equal("中断して、この取り込みで新しく登録した 1 件を削除する", question.Second);
-        Assert.Equal("この取り込みで登録した 1 件を削除しました。", main.Import.StackNotice);
+        Assert.Equal("この取り込みで登録した 1 件を削除しました。ファイル 1 件を未確定に戻しました。", main.Import.StackNotice);
         Assert.Null(await app.Store.Items.LoadAsync(Created));
         Assert.True(File.Exists(created));
         Assert.True(File.Exists(held));
+
+        // 消した商品のファイルは未確定に戻り、取り込み直せる（open 119・ユーザ判断 2026-11-20）
+        Assert.Single(app.Store.Unresolved.Load(), file => file.Paths.Contains(created, StringComparer.OrdinalIgnoreCase));
     });
 
     [Fact]
