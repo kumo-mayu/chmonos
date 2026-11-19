@@ -256,7 +256,7 @@ public sealed partial class ResolveViewModel
         var answer = Services.Notice.Show(
             (lead is null ? string.Empty : lead + "\n\n")
             + $"{targets.Count} 件を管理対象から除外します。\n\n{sample}\n\n"
-            + "ファイル自体は消しません。設定の「隠したもの」から戻せます。",
+            + "ファイル自体は消しません。この画面の「除外の解除…」からも戻せます。",
             title,
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Question,

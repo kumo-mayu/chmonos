@@ -1266,7 +1266,7 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
         var what = targets.Count == 1 ? targets[0].FileName : GroupSubject;
         var answer = Services.Notice.Show(
             $"{what} を管理対象から除外します。\n\n"
-            + "ファイル自体は消しません。設定の「隠したもの」から戻せます。",
+            + "ファイル自体は消しません。この画面の「除外の解除…」からも戻せます。",
             "管理対象から除外する",
             System.Windows.MessageBoxButton.OKCancel,
             System.Windows.MessageBoxImage.Question,
