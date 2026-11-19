@@ -310,6 +310,9 @@ public sealed class UsedInModificationRowViewModel
     /// <summary>この商品が何回入っているか。同じ商品を別のバージョンで2回足せる。</summary>
     public required int UseCount { get; init; }
 
+    /// <summary>この商品の入った行のどれかが、使ったファイルより新しい版が出ている（改変の側と同じ <see cref="Core.Services.UsedUpdates.IsMemberBehind"/>）。</summary>
+    public bool IsBehind { get; init; }
+
     public string Name => Record.Name;
 
     public string Detail => UseCount > 1

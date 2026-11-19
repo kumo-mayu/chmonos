@@ -162,6 +162,15 @@ public sealed partial class ItemViewModel
         }
     }
 
+    /// <summary>
+    /// この商品が入った行の中に、使ったファイルより新しい版が出ている物があるか。改変の画面の行と同じ判定を、この商品に当てる
+    /// （同じ商品を別のバージョンで2回足していても、どちらかが古ければ札を出す）。
+    /// </summary>
+    internal bool IsBehindIn(Core.Models.ModificationRecord record, Core.Models.AvatarRegistry registry)
+        => record.UsedMembers.Any(member =>
+            string.Equals(member.ItemId, Item.Id, StringComparison.Ordinal)
+            && Core.Services.UsedUpdates.IsMemberBehind(Item, member, record.AvatarItemId, registry));
+
     private async Task LoadModificationsAsync()
     {
         var records = await _services.Modifications.LoadUsingItemAsync(Item.Id);
@@ -184,6 +193,8 @@ public sealed partial class ItemViewModel
                     // 同じ商品を別のバージョンで2回足せるので、何回入っているかを出す
                     UseCount = record.UsedMembers.Count(member =>
                         string.Equals(member.ItemId, Item.Id, StringComparison.Ordinal)),
+
+                    IsBehind = IsBehindIn(record, registry),
                 });
             }
 

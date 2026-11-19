@@ -62,6 +62,9 @@ public sealed partial class ItemViewModel
     {
         await RunItemCommandAsync(new UiCommand.CheckContentUpdate(Item.Id));
         RaiseUsedUpdate();
+
+        // 「この商品を使った改変」の行の札も、確認した分は消す（行は読み込んだ時の値を持つので、読み直す）
+        await LoadModificationsAsync();
     }
 
     private SectionRow? UpdateHistorySection()
