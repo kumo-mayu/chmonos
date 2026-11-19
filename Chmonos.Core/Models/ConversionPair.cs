@@ -19,7 +19,7 @@ public sealed record ConversionPairFile
 }
 
 /// <summary>
-/// 「元の衣装を、先に着せられる」の組1つ。向きは元→先の1方向（逆向きは足さない。「逆も」は要確認）。
+/// 「元の衣装を、先に着せられる」の組1つ。向きは元→先の1方向（逆向きはもう1つの組として足す。「逆も」は作らない・ユーザ判断 2026-11-20）。
 /// 人が書いた物なので確認は要らず、変換経由の計算にそのまま使う（推定ではない）。
 /// </summary>
 public sealed record ConversionPair
@@ -45,6 +45,7 @@ public sealed record ConversionPair
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Tool { get; init; }
 
+    /// <summary>人が書くメモ（任意・アバターの管理の「変換」の組の行で直す）。無い前の形のファイルは null として読む。</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Memo { get; init; }
 

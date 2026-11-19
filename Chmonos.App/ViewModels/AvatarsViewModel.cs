@@ -1364,7 +1364,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
     /// <summary>待っているメモを今書く（画面を離れる前・閉じる前）。</summary>
     public Task FlushPendingWritesAsync()
-        => Task.WhenAll(_memo.FlushAsync(), RightItem.Page?.FlushPendingWritesAsync() ?? Task.CompletedTask);
+        => Task.WhenAll(_memo.FlushAsync(), _conversionPairs?.FlushPendingWritesAsync() ?? Task.CompletedTask, RightItem.Page?.FlushPendingWritesAsync() ?? Task.CompletedTask);
 
     // ---- 右の欄に重ねる商品ページ（open.md 95 行・ユーザ判断 2026-11-18・11-19） ----
 
@@ -1521,7 +1521,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
                 // 名前を変えた後の読み直しは入力を伴わないので、押せないまま残っていた
                 RelayCommand.RaiseCanExecuteChanged();
 
-                ConversionPairs.ShowFor(value?.ItemId);
+                ConversionPairSummary.ShowFor(value?.ItemId);
 
                 // 選んだアバターの改変を読み直す。待たせないので投げっぱなしにする
                 ModificationNameInput = string.Empty;
