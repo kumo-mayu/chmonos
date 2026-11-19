@@ -344,7 +344,8 @@
                                             </ItemsControl.ItemsPanel>
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate DataType="{x:Type vm:SpendBarViewModel}">
-                                                    <DockPanel ToolTip="{Binding Tooltip}">
+                                                    <!-- Background を付けないと WPF は描いた物にしか当たらず、0円の月（棒の高さ0）は月の字にしか吹き出しが出ない。月の幅と高さ全体で当てる -->
+                                                    <DockPanel Background="Transparent" ToolTip="{Binding Tooltip}">
                                                         <!--
                                                             月の下に年（左端と1月だけ。点検 2026-09-23：「09」だけでは年が分からなかった）。
                                                             年の無い棒も同じ高さを取り、棒の下端を揃える。年は隣の棒の下まではみ出してよい
