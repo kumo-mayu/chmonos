@@ -1,3 +1,4 @@
+using System.IO;
 using Chmonos.App.Tests.Support;
 using Chmonos.App.ViewModels;
 
@@ -41,6 +42,67 @@ public class LocalItemCreateFlowTests
         // 後から付けられるよう、ファイルの欄の「追加…」は押せる
         Assert.True(page.AttachFilesCommand.CanExecute(null));
     });
+
+    /// <summary>未確定の「BOOTHに無い商品として登録する」と同じに、画像を添えて作ると、商品の「自分で足す画像」に入る。</summary>
+    [Fact]
+    public Task 画像を添えて作ると_商品の自分の画像に入る() => TestApp.Run(async app =>
+    {
+        var main = await app.StartAsync();
+        var red = app.NewFile(@"pics\red.png", Png(200));
+        var blue = app.NewFile(@"pics\blue.png", Png(20));
+        var text = app.NewFile(@"pics\memo.txt", [1, 2, 3]);
+        app.NameLocalItem = model =>
+        {
+            model.Name = "手で作った衣装";
+            model.AddLocalImages([red, blue, red, text]);
+
+            // 同じ画像と画像でない物は添えない。外すと枚数の文も変わる
+            Assert.Equal(2, model.LocalImages.Count);
+            Assert.Equal("画像 2 枚を一緒に追加します。", model.LocalImagesText);
+            model.RemoveLocalImageCommand.Execute(model.LocalImages[1]);
+            Assert.Single(model.LocalImages);
+            model.AddLocalImages([blue]);
+            return true;
+        };
+
+        await main.CreateLocalItemAsync();
+
+        var page = Assert.IsType<ItemViewModel>(main.CurrentViewModel);
+        var saved = await app.Store.Items.LoadAsync(page.Item.Id);
+        Assert.Equal(2, saved!.Local.UserImages.Count);
+        Assert.Empty(app.Notices);
+        Assert.Empty(app.Booth.Requests);
+    });
+
+    [Fact]
+    public Task 画像が読めなくても商品は作り_読めなかった枚数を知らせる() => TestApp.Run(async app =>
+    {
+        var main = await app.StartAsync();
+        var good = app.NewFile(@"pics\red.png", Png(200));
+        // 拡張子は画像でも中身は画像でない
+        var broken = app.NewFile(@"pics\broken.png", [1, 2, 3, 4]);
+        app.NameLocalItem = model =>
+        {
+            model.Name = "手で作った衣装";
+            model.AddLocalImages([good, broken]);
+            return true;
+        };
+
+        await main.CreateLocalItemAsync();
+
+        var page = Assert.IsType<ItemViewModel>(main.CurrentViewModel);
+        Assert.Single((await app.Store.Items.LoadAsync(page.Item.Id))!.Local.UserImages);
+        var notice = Assert.Single(app.Notices);
+        Assert.Contains("画像 1 枚を追加できませんでした。商品ページの「＋」から追加してください。", notice.Text);
+    });
+
+    private static byte[] Png(byte red)
+    {
+        using var image = new SixLabors.ImageSharp.Image<SixLabors.ImageSharp.PixelFormats.Rgba32>(8, 8, new SixLabors.ImageSharp.PixelFormats.Rgba32(red, 100, 100));
+        using var stream = new MemoryStream();
+        SixLabors.ImageSharp.ImageExtensions.SaveAsPng(image, stream);
+        return stream.ToArray();
+    }
 
     [Fact]
     public Task 窓を閉じたら何も作らない() => TestApp.Run(async app =>

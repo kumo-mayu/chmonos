@@ -222,6 +222,13 @@ internal static partial class Scenes
             Height = null,
         };
 
+    private static string WriteTempPng(byte red, byte green, byte blue)
+    {
+        var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"viewshot-local-{Guid.NewGuid():N}.png");
+        System.IO.File.WriteAllBytes(path, SolidPng(System.Windows.Media.Color.FromRgb(red, green, blue)));
+        return path;
+    }
+
     private static Window NewChoice(string title, string question, string detail, string first, string second, string? third)
     {
         // 窓を出す口（Ask）は ShowDialog まで進むので、作るところだけを呼ぶ
@@ -353,6 +360,14 @@ internal static partial class Scenes
 
         DialogScene("catalog-dialog-local-item-name", "BOOTHに無い商品を名前だけで登録する窓（検索の件数の帯から。名前を打った所）", _ => Task.FromResult<Window>(
             new LocalItemNameDialog(new LocalItemNameDialogViewModel { Name = "作り物の手作りアクセサリー" }))),
+
+        // 画像を2枚添えた所（作り物の1色の絵。置き場は一時フォルダ）
+        DialogScene("catalog-dialog-local-item-name-images", "BOOTHに無い商品を名前だけで登録する窓：画像を2枚添えた所", _ =>
+        {
+            var model = new LocalItemNameDialogViewModel { Name = "作り物の手作りアクセサリー" };
+            model.AddLocalImages([WriteTempPng(0x7c, 0xb3, 0xe8), WriteTempPng(0xe8, 0x9c, 0xc4)]);
+            return Task.FromResult<Window>(new LocalItemNameDialog(model));
+        }),
 
         DialogScene("catalog-dialog-change-item-id", "商品IDを変える窓：移し先のIDを打った所（確かめる前。BOOTHへは問い合わせない）", async context =>
         {
