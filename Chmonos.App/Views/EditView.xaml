@@ -867,7 +867,7 @@
                             </StackPanel>
                         </Expander.Header>
                         <StackPanel>
-                        <TextBlock Text="追加した属性だけが評価済みになります。追加していないものは「未評価」で、0%とは区別されます。"
+                        <TextBlock Text="値を付けた属性だけが評価済みになります。値の無いものは「未評価」で、0%とは区別されます。"
                                    Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,5,0,8" />
 
                         <controls:SuggestBox Source="{Binding AttributeSuggestions}" CommitCommand="{Binding AddAttributeCommand}"
