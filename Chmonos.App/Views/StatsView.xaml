@@ -846,12 +846,24 @@
                                     </StackPanel>
                                 </Expander.Header>
                                 <StackPanel>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                                        <RadioButton Content="大分類" GroupName="StatsUserTagLevel" Style="{StaticResource SegmentFirst}"
+                                                     IsChecked="{Binding UserTagsByTop, Mode=TwoWay}" ToolTip="大分類ごとに数えます。"
+                                                     AutomationProperties.AutomationId="StatsUserTagTop" AutomationProperties.Name="ユーザータグを大分類で数える" />
+                                        <RadioButton Content="小分類" GroupName="StatsUserTagLevel" Style="{StaticResource SegmentLast}"
+                                                     IsChecked="{Binding UserTagsBySub, Mode=TwoWay}" ToolTip="小分類ごとに数えます。「大分類 / 小分類」の形で出します。"
+                                                     AutomationProperties.AutomationId="StatsUserTagSub" AutomationProperties.Name="ユーザータグを小分類で数える" />
+                                    </StackPanel>
                                     <TextBlock Text="{Binding UserTagSpendNote}" Style="{StaticResource Caption}"
                                                Margin="0,5,0,0" TextWrapping="Wrap" />
                                     <TextBlock Text="支出" Style="{StaticResource SectionLabel}" Margin="0,12,0,8" />
                                     <controls:ContentItemsControl ItemsSource="{Binding UserTagSpend}" ItemTemplate="{StaticResource BarRow}" />
                                     <TextBlock Text="商品数" Style="{StaticResource SectionLabel}" Margin="0,10,0,8" />
                                     <controls:ContentItemsControl ItemsSource="{Binding UserTagCounts}" ItemTemplate="{StaticResource BarRow}" />
+                                    <CheckBox Content="すべて表示" IsChecked="{Binding ShowAllUserTags, Mode=TwoWay}" Margin="0,10,0,0"
+                                              Visibility="{Binding HasMoreUserTags, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                              ToolTip="上位10件より下の行も出します。"
+                                              AutomationProperties.AutomationId="StatsUserTagShowAll" />
                                 </StackPanel>
                             </Expander>
                         </Border>

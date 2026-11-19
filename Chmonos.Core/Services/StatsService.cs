@@ -289,6 +289,9 @@ public sealed record StatsSnapshot
 
     public IReadOnlyList<StatsSpendBar> UserTagSpend { get; init; } = [];
 
+    /// <summary>小分類ごとの支出。ラベルは「大分類 / 小分類」（同じ名前の小分類が別の大分類にあっても見分けるため）。小分類の無い付け方は「大分類 / 小分類なし」。</summary>
+    public IReadOnlyList<StatsSpendBar> UserTagSubSpend { get; init; } = [];
+
     /// <summary>月ごとのカテゴリ構成。買うものの移り変わり。</summary>
     public IReadOnlyList<StatsMonthlyCategory> MonthlyCategories { get; init; } = [];
 
@@ -307,6 +310,9 @@ public sealed record StatsSnapshot
     public IReadOnlyList<StatsCountBar> CategoryCounts { get; init; } = [];
 
     public IReadOnlyList<StatsCountBar> UserTagCounts { get; init; } = [];
+
+    /// <summary>小分類ごとの点数（ラベルの形は <see cref="UserTagSubSpend"/> と同じ）。</summary>
+    public IReadOnlyList<StatsCountBar> UserTagSubCounts { get; init; } = [];
 
     public IReadOnlyList<StatsAttributeDistribution> AttributeDistributions { get; init; } = [];
 

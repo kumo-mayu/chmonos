@@ -528,9 +528,8 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         {
             Fill(PriceBuckets, Period.PriceBuckets.Select(b => (b.Label, (long)b.Count, $"{b.Count} 件")));
             Fill(CategorySpend, Period.CategorySpend.Select(b => (b.Label, b.SpentYen, $"¥{b.SpentYen:N0}")));
-            Fill(UserTagSpend, Period.UserTagSpend.Select(b => (b.Label, b.SpentYen, $"¥{b.SpentYen:N0}")));
+            RebuildUserTags();
             Fill(CategoryCounts, Period.CategoryCounts.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
-            Fill(UserTagCounts, Period.UserTagCounts.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
         }
 
         foreach (var name in new[]
@@ -584,6 +583,74 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
     public ObservableCollection<StatsRowViewModel> CategoryCounts { get; } = [];
 
     public ObservableCollection<StatsRowViewModel> UserTagCounts { get; } = [];
+
+    /// <summary>ユーザータグの欄に先に出す件数。小分類は大分類より数が多く、全部並べると縦に伸びるため（ユーザ判断 2026-11-20）。</summary>
+    internal const int UserTagCollapsedRows = 10;
+
+    private bool _userTagsBySub;
+    private bool _showAllUserTags;
+
+    /// <summary>true なら小分類で数える（「大分類 / 小分類」の形）。</summary>
+    public bool UserTagsBySub
+    {
+        get => _userTagsBySub;
+        set
+        {
+            if (SetField(ref _userTagsBySub, value) && Period is not null)
+            {
+                OnPropertyChanged(nameof(UserTagsByTop));
+                _showAllUserTags = false;
+                RebuildUserTags();
+            }
+        }
+    }
+
+    public bool UserTagsByTop
+    {
+        get => !_userTagsBySub;
+        set
+        {
+            if (value)
+            {
+                UserTagsBySub = false;
+            }
+        }
+    }
+
+    /// <summary>畳んでいる行があるか／広げているか。</summary>
+    public bool HasMoreUserTags { get; private set; }
+
+    public bool ShowAllUserTags
+    {
+        get => _showAllUserTags;
+        set
+        {
+            if (SetField(ref _showAllUserTags, value) && Period is not null)
+            {
+                RebuildUserTags();
+            }
+        }
+    }
+
+    private void RebuildUserTags()
+    {
+        var period = Period!;
+        var limit = _showAllUserTags ? int.MaxValue : UserTagCollapsedRows;
+        var spend = _userTagsBySub ? period.UserTagSubSpend : period.UserTagSpend;
+        var counts = _userTagsBySub ? period.UserTagSubCounts : period.UserTagCounts;
+
+        Fill(UserTagSpend, spend.Take(limit).Select(b => (b.Label, b.SpentYen, $"¥{b.SpentYen:N0}")));
+        // 「未設定」の行は最後に残す（畳んでも、付けていない商品の数は見える）
+        var shown = counts.Where(b => !b.IsResidual).Take(limit).Concat(counts.Where(b => b.IsResidual));
+        Fill(UserTagCounts, shown.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
+
+        var hasMore = spend.Count > UserTagCollapsedRows || counts.Count(b => !b.IsResidual) > UserTagCollapsedRows;
+        if (hasMore != HasMoreUserTags)
+        {
+            HasMoreUserTags = hasMore;
+            OnPropertyChanged(nameof(HasMoreUserTags));
+        }
+    }
 
 
     public ObservableCollection<StatsRowViewModel> HeavyItems { get; } = [];
@@ -1214,9 +1281,8 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         Fill(PriceBuckets, Period!.PriceBuckets.Select(b => (b.Label, (long)b.Count, $"{b.Count} 件")));
         Fill(WishBuckets, _snapshot.WishBuckets.Select(b => (b.Label, (long)b.Count, $"{b.Count} 件")));
         Fill(CategorySpend, Period!.CategorySpend.Select(b => (b.Label, b.SpentYen, $"¥{b.SpentYen:N0}")));
-        Fill(UserTagSpend, Period!.UserTagSpend.Select(b => (b.Label, b.SpentYen, $"¥{b.SpentYen:N0}")));
+        RebuildUserTags();
         Fill(CategoryCounts, Period!.CategoryCounts.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
-        Fill(UserTagCounts, Period!.UserTagCounts.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
         Fill(HeavyItems, _snapshot.HeavyItems.Select(b => (b.Name, b.Bytes, Core.Models.DisplayText.Size(b.Bytes))));
 
         PriceChanges.Clear();

@@ -172,6 +172,38 @@ public class StatsExtrasTests
         Assert.All(snapshot.UserTagSpend, bar => Assert.Equal(1000, bar.SpentYen));
     }
 
+    /// <summary>小分類で比べる（ユーザ判断 2026-11-20）：「大分類 / 小分類」で数え、小分類の無い付け方は「小分類なし」にまとめる。</summary>
+    [Fact]
+    public void SubTagsAreKeyedByTopAndSub()
+    {
+        var item = Item("1", price: 1000) with
+        {
+            Local = Item("1", price: 1000).Local with
+            {
+                UserTags =
+                [
+                    new UserTagAssignment { Top = "衣装", Subs = ["和風", "水着"] },
+                    new UserTagAssignment { Top = "ギミック" },
+                ],
+            },
+        };
+        var other = Item("2", price: 500) with
+        {
+            Local = Item("2", price: 500).Local with
+            {
+                UserTags = [new UserTagAssignment { Top = "小物", Subs = ["和風"] }],
+            },
+        };
+
+        var snapshot = Build(item, other);
+
+        Assert.Equal(
+            new[] { "ギミック / 小分類なし", "衣装 / 和風", "衣装 / 水着", "小物 / 和風" }.Order(StringComparer.Ordinal),
+            snapshot.UserTagSubCounts.Select(bar => bar.Label).Order(StringComparer.Ordinal));
+        Assert.Equal(1000, snapshot.UserTagSubSpend.Single(bar => bar.Label == "衣装 / 和風").SpentYen);
+        Assert.Equal(500, snapshot.UserTagSubSpend.Single(bar => bar.Label == "小物 / 和風").SpentYen);
+    }
+
     [Fact]
     public void CountsUntaggedAsResidual()
     {
