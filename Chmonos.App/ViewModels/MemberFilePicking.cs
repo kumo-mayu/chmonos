@@ -154,6 +154,7 @@ public sealed class MemberFileChoice : ViewModelBase
         }
 
         var slot = new MemberFileSlot(this, MemberFileOption.None);
+        slot.ApplyFilter();
         Slots.Add(slot);
         Refresh();
         return slot;
@@ -179,6 +180,19 @@ public sealed class MemberFileChoice : ViewModelBase
             RemoveSlot(slot);
         }
     });
+
+    /// <summary>探す語を各欄の候補に当てる（<see cref="MemberFilePickViewModel.FilterText"/>）。</summary>
+    internal void ApplyFilter(string text)
+    {
+        FilterText = text;
+        foreach (var slot in Slots)
+        {
+            slot.ApplyFilter();
+        }
+    }
+
+    /// <summary>今の探す語。欄を足したときに、足した欄にも同じ絞りを掛ける。</summary>
+    internal string FilterText { get; private set; } = string.Empty;
 
     /// <summary>ほかの欄で選んでいる物か（「選ばない」はいくつの欄でもよい）。</summary>
     internal bool IsTakenByOther(MemberFileSlot slot, MemberFileOption option)
@@ -265,6 +279,7 @@ public sealed class MemberFileSlot : ViewModelBase
             }
 
             _selectedEntry = value;
+            ApplyFilter();
             OnPropertyChanged();
             OnPropertyChanged(nameof(Selected));
             _owner.Refresh();
@@ -287,6 +302,26 @@ public sealed class MemberFileSlot : ViewModelBase
 
     public MemberFileChoice Owner => _owner;
 
+    /// <summary>
+    /// 探す語に当たらない候補を、この欄の一覧から隠す。「選ばない」と、この欄で選んでいる物は隠さない
+    /// （隠すのは見せ方だけ。一覧を差し替えると ComboBox が選びを書き戻して消すので、候補の出し入れで行う）
+    /// </summary>
+    internal void ApplyFilter()
+    {
+        var words = _owner.FilterText.Split([' ', '　'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        foreach (var entry in Entries)
+        {
+            entry.IsShown = entry.Option.IsNone
+                || ReferenceEquals(entry, _selectedEntry)
+                || words.All(word => System.Globalization.CultureInfo.CurrentCulture.CompareInfo.IndexOf(
+                    entry.Text, word, LooseCompare) >= 0);
+        }
+    }
+
+    private const System.Globalization.CompareOptions LooseCompare =
+        System.Globalization.CompareOptions.IgnoreCase | System.Globalization.CompareOptions.IgnoreKanaType
+        | System.Globalization.CompareOptions.IgnoreWidth;
+
     internal void RefreshTaken()
     {
         foreach (var entry in Entries)
@@ -300,8 +335,16 @@ public sealed class MemberFileSlot : ViewModelBase
 public sealed class MemberFileSlotEntry(MemberFileOption option) : ViewModelBase
 {
     private bool _isSelectable = true;
+    private bool _isShown = true;
 
     public MemberFileOption Option { get; } = option;
+
+    /// <summary>探す語に当たって一覧に出すか。選びには関わらない。</summary>
+    public bool IsShown
+    {
+        get => _isShown;
+        internal set => SetField(ref _isShown, value);
+    }
 
     public string Text => Option.Text;
 
@@ -319,8 +362,10 @@ public sealed class MemberFileSlotEntry(MemberFileOption option) : ViewModelBase
 /// **まとめて足すときも窓は1つ**：商品ごとに1行（名前と選ぶ欄）を並べる。商品ごとに窓を出すと、数十件で数十回聞かれる。
 /// 選べるファイルの無い商品は行を出さない（選ぶ物が無い）。
 /// </summary>
-public sealed class MemberFilePickViewModel
+public sealed class MemberFilePickViewModel : ViewModelBase
 {
+    private string _filterText = string.Empty;
+
     public MemberFilePickViewModel(IEnumerable<ItemRecord> items)
     {
         var all = items.ToList();
@@ -405,6 +450,31 @@ public sealed class MemberFilePickViewModel
 
         return new MemberFilePickViewModel(new MemberFileChoice(owner, options, selected), notice);
     }
+
+    /// <summary>
+    /// ファイルの名前で絞る語（ユーザ指示 2026-11-18：使ったものを足す窓に探す欄）。語を空白で区切り、全部が含まれる物だけを欄の候補に出す。
+    /// **選んだ物は絞って見えなくなっても選んだまま残す**：絞りは候補の出し入れだけで、選び（欄の中身）には触らない。
+    /// 探す語は大文字小文字・かなの種類・全角半角を区別しない（ほかの探す欄と同じ）
+    /// </summary>
+    public string FilterText
+    {
+        get => _filterText;
+        set
+        {
+            if (!SetField(ref _filterText, value ?? string.Empty))
+            {
+                return;
+            }
+
+            foreach (var choice in Choices)
+            {
+                choice.ApplyFilter(_filterText);
+            }
+        }
+    }
+
+    /// <summary>探す欄を出すか。候補が2つ以上の商品があるときだけ（1つなら絞る物が無い）。</summary>
+    public bool ShowsFilter => Choices.Any(choice => choice.AllowsMore);
 
     /// <summary>一覧の上に出す1行（選び直しの窓で、今の記録が一覧に無いとき）。無ければ空。</summary>
     public string Notice { get; } = string.Empty;

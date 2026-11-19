@@ -43,6 +43,7 @@
                                                 <ComboBox.ItemContainerStyle>
                                                     <Style TargetType="ComboBoxItem" BasedOn="{StaticResource {x:Type ComboBoxItem}}">
                                                         <Setter Property="IsEnabled" Value="{Binding IsSelectable}" />
+                                                        <Setter Property="Visibility" Value="{Binding IsShown, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                     </Style>
                                                 </ComboBox.ItemContainerStyle>
                                             </ComboBox>
