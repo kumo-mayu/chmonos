@@ -51,6 +51,9 @@ public sealed class StatsRowViewModel : ViewModelBase
 
     public GridLength RestLength => new(Math.Max(1 - Ratio, 0), GridUnitType.Star);
 
+    /// <summary>名前の横に添える小さい印（アバターの行の「持っている」）。無ければ空</summary>
+    public string Badge { get; init; } = string.Empty;
+
     /// <summary>集計の外側を示す行（「未設定」など）。控えめに出す。</summary>
     public bool IsResidual { get; init; }
 
@@ -65,7 +68,8 @@ public sealed class StatsRowViewModel : ViewModelBase
 /// <summary>
 /// 重複1組。**どれとどれか**と**消せばいくら空くか**を出す。
 /// </summary>
-public sealed class DuplicateRowViewModel(DuplicateGroup group, Func<string, Task>? reveal = null)
+public sealed class DuplicateRowViewModel(
+    DuplicateGroup group, Func<string, Task>? reveal = null, Func<DuplicateGroup, DuplicatePlace, Task>? remove = null)
 {
     public string Label { get; } = group.Label;
 
@@ -83,7 +87,13 @@ public sealed class DuplicateRowViewModel(DuplicateGroup group, Func<string, Tas
 
     /// <summary>置いてある場所。**消す前に見えている必要がある。**</summary>
     public IReadOnlyList<DuplicatePlaceViewModel> Places { get; } =
-        group.Places.Select(place => new DuplicatePlaceViewModel(place.Path, reveal)).ToList();
+        group.Places.Select(place => new DuplicatePlaceViewModel(
+            place.Path, reveal,
+            // ごみ箱へ送れるのは同じ中身のファイルの組だけ。zipと展開したフォルダの組は、展開先の削除（取り込み画面）が
+            // 商品に登録したフォルダを止める決まりなので、ここには付けない
+            remove: group.Kind == DuplicateKind.SameFile && group.Hash is not null && remove is not null
+                ? () => remove(group, place)
+                : null)).ToList();
 
     /// <summary>どの商品に紐付いているか。商品をまたぐときだけ意味がある。</summary>
     public string ItemsText { get; } = string.Join(
@@ -97,12 +107,32 @@ public sealed class DuplicateRowViewModel(DuplicateGroup group, Func<string, Tas
 /// </summary>
 public sealed class DuplicatePlaceViewModel
 {
-    public DuplicatePlaceViewModel(string path, Func<string, Task>? reveal, bool? isAvailable = null)
+    public DuplicatePlaceViewModel(
+        string path, Func<string, Task>? reveal, bool? isAvailable = null, Func<Task>? remove = null, bool? hasRecycleBin = null)
     {
         Path = path;
         IsAvailable = isAvailable ?? DriveIsConnected(path);
         OpenCommand = new RelayCommand(() => reveal?.Invoke(path).Forget());
+        HasRemove = remove is not null;
+        _hasRecycleBin = hasRecycleBin ?? (HasRemove && Services.RecycleBin.HasRecycleBin(path));
+        RemoveCommand = new RelayCommand(() => remove?.Invoke().Forget());
     }
+
+    private readonly bool _hasRecycleBin;
+
+    /// <summary>「ごみ箱へ移す…」を出すか（同じ中身のファイルの組だけ）。</summary>
+    public bool HasRemove { get; }
+
+    /// <summary>ドライブがつながっていて、ごみ箱を使えるときだけ押せる（ネットワーク・取り外せるドライブでは消すと完全に消えるため）。</summary>
+    public bool CanRemove => HasRemove && IsAvailable && _hasRecycleBin;
+
+    public string RemoveTooltip => !IsAvailable
+        ? "ドライブがつながっていません。つなぐと移せます。"
+        : !_hasRecycleBin
+            ? "ごみ箱の無いドライブなので移せません。"
+            : "同じ中身のファイルがほかにあるのを確かめて、この場所をごみ箱へ移します。";
+
+    public RelayCommand RemoveCommand { get; }
 
     public string Path { get; }
 
@@ -217,6 +247,8 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         _range = Ranges[0];
         _today = today ?? DateOnly.FromDateTime(DateTime.Today);
         _selectedYear = _today.Year;
+        _includeHidden = services.Settings.StatsIncludeHidden;
+        _includeAdult = services.Settings.StatsIncludeAdult;
 
         // 「開始と終了を選ぶ」を選んだ時に、何も選ばないうちから読める期間にしておく（今月の初めから今日まで）
         _customFrom = new DateTime(_today.Year, _today.Month, 1);
@@ -224,6 +256,64 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         Panels = new StatsPanelsViewModel(services.StatsPanels);
 
         LoadAsync().Forget();
+    }
+
+    // ---- 集計に含める範囲（ユーザ判断 2026-11-20）。値は設定に残し、切り替えると集計し直す ----
+
+    private bool _includeHidden;
+    private bool _includeAdult;
+
+    private StatsScope Scope => new(_includeHidden, _includeAdult);
+
+    /// <summary>非表示の商品を数に含めるか。既定は含める（前と同じ）</summary>
+    public bool IncludeHidden
+    {
+        get => _includeHidden;
+        set
+        {
+            if (SetField(ref _includeHidden, value))
+            {
+                ScopeChanged().Forget();
+            }
+        }
+    }
+
+    /// <summary>R-18の商品を数に含めるか。検索の「R-18を表示」の設定とは別の値</summary>
+    public bool IncludeAdult
+    {
+        get => _includeAdult;
+        set
+        {
+            if (SetField(ref _includeAdult, value))
+            {
+                ScopeChanged().Forget();
+            }
+        }
+    }
+
+    /// <summary>
+    /// 切り替えたら、読み込み済みの全商品から集計し直す（ディスクは読み直さない）。設定へは錠の中で当てる。
+    /// 読み込みの途中で切り替えられたら、読み込みが済んでから今の範囲で集計し直す
+    /// </summary>
+    internal async Task ScopeChanged()
+    {
+        var hidden = _includeHidden;
+        var adult = _includeAdult;
+        if (_source is { } source)
+        {
+            IsLoading = true;
+            LoadAsync(source).Forget();
+        }
+        else
+        {
+            RefreshCommand.Execute(null);
+        }
+
+        await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSettings(settings => settings with
+        {
+            StatsIncludeHidden = hidden,
+            StatsIncludeAdult = adult,
+        }));
     }
 
     /// <summary>欄を開いているか（次の起動まで覚える）。</summary>
@@ -399,6 +489,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
 
         var range = SelectedRange;
         var useDetected = _services.Settings.UseDetectedVariationTargets;
+        var scope = Scope;
         var token = _leaving.Token;
         Task.Run(() =>
         {
@@ -408,7 +499,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
             }
 
             var narrowed = StatsPeriods.Narrow(source.Dated, selected);
-            return (StatsPeriods.Build(narrowed, source.Registry, source.UnresolvedCount, useDetected), narrowed);
+            return (StatsPeriods.Build(narrowed, source.Registry, source.UnresolvedCount, useDetected, scope), narrowed);
         }, token).ContinueWith(task =>
         {
             if (task.IsCompletedSuccessfully)
@@ -437,9 +528,8 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         {
             Fill(PriceBuckets, Period.PriceBuckets.Select(b => (b.Label, (long)b.Count, $"{b.Count} 件")));
             Fill(CategorySpend, Period.CategorySpend.Select(b => (b.Label, b.SpentYen, $"¥{b.SpentYen:N0}")));
-            Fill(UserTagSpend, Period.UserTagSpend.Select(b => (b.Label, b.SpentYen, $"¥{b.SpentYen:N0}")));
+            RebuildUserTags();
             Fill(CategoryCounts, Period.CategoryCounts.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
-            Fill(UserTagCounts, Period.UserTagCounts.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
         }
 
         foreach (var name in new[]
@@ -494,10 +584,77 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
 
     public ObservableCollection<StatsRowViewModel> UserTagCounts { get; } = [];
 
+    /// <summary>ユーザータグの欄に先に出す件数。小分類は大分類より数が多く、全部並べると縦に伸びるため（ユーザ判断 2026-11-20）。</summary>
+    internal const int UserTagCollapsedRows = 10;
+
+    private bool _userTagsBySub;
+    private bool _showAllUserTags;
+
+    /// <summary>true なら小分類で数える（「大分類 / 小分類」の形）。</summary>
+    public bool UserTagsBySub
+    {
+        get => _userTagsBySub;
+        set
+        {
+            if (SetField(ref _userTagsBySub, value) && Period is not null)
+            {
+                OnPropertyChanged(nameof(UserTagsByTop));
+                _showAllUserTags = false;
+                RebuildUserTags();
+            }
+        }
+    }
+
+    public bool UserTagsByTop
+    {
+        get => !_userTagsBySub;
+        set
+        {
+            if (value)
+            {
+                UserTagsBySub = false;
+            }
+        }
+    }
+
+    /// <summary>畳んでいる行があるか／広げているか。</summary>
+    public bool HasMoreUserTags { get; private set; }
+
+    public bool ShowAllUserTags
+    {
+        get => _showAllUserTags;
+        set
+        {
+            if (SetField(ref _showAllUserTags, value) && Period is not null)
+            {
+                RebuildUserTags();
+            }
+        }
+    }
+
+    private void RebuildUserTags()
+    {
+        var period = Period!;
+        var limit = _showAllUserTags ? int.MaxValue : UserTagCollapsedRows;
+        var spend = _userTagsBySub ? period.UserTagSubSpend : period.UserTagSpend;
+        var counts = _userTagsBySub ? period.UserTagSubCounts : period.UserTagCounts;
+
+        Fill(UserTagSpend, spend.Take(limit).Select(b => (b.Label, b.SpentYen, $"¥{b.SpentYen:N0}")));
+        // 「未設定」の行は最後に残す（畳んでも、付けていない商品の数は見える）
+        var shown = counts.Where(b => !b.IsResidual).Take(limit).Concat(counts.Where(b => b.IsResidual));
+        Fill(UserTagCounts, shown.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
+
+        var hasMore = spend.Count > UserTagCollapsedRows || counts.Count(b => !b.IsResidual) > UserTagCollapsedRows;
+        if (hasMore != HasMoreUserTags)
+        {
+            HasMoreUserTags = hasMore;
+            OnPropertyChanged(nameof(HasMoreUserTags));
+        }
+    }
+
 
     public ObservableCollection<StatsRowViewModel> HeavyItems { get; } = [];
 
-    public ObservableCollection<StatsRowViewModel> Wearables { get; } = [];
 
     public ObservableCollection<PriceChangeRowViewModel> PriceChanges { get; } = [];
 
@@ -633,7 +790,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
             if (!ReferenceEquals(_duplicatesOf, _snapshot))
             {
                 _duplicatesOf = _snapshot;
-                _duplicates = _snapshot?.Duplicates.Select(group => new DuplicateRowViewModel(group, _services.RevealInFolder)).ToList() ?? [];
+                _duplicates = _snapshot?.Duplicates.Select(group => new DuplicateRowViewModel(group, _services.RevealInFolder, RemovePlaceAsync)).ToList() ?? [];
             }
 
             return _duplicates;
@@ -697,6 +854,11 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
     /// <summary>アバターの紐付けがまだ無いとき。数字ではなく次にやることを出す。</summary>
     public bool HasAvatars => Avatars.Count > 0;
 
+    /// <summary>行が無い時の文。持っているアバターだけの時は、見つからない理由が違う</summary>
+    public string AvatarsEmptyText => _ownedAvatarsOnly
+        ? "持っているアバターがまだ分かっていません。アバターの管理から検出できます。"
+        : "対応アバターがまだ1件も紐付いていません。商品ページか編集画面で対応アバターを入れると、ここに集計が表示されます。";
+
     public bool HasBacklog => Backlog.Count > 0;
 
     /// <summary>
@@ -715,7 +877,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
     /// <summary>読み込み中の取り消し。読み直しで前の読み込みを止める（画面を離れた時の <see cref="_leaving"/> とつなぐ）。</summary>
     private CancellationTokenSource? _loadCts;
 
-    private async Task LoadAsync()
+    private async Task LoadAsync(StatsSource? reuse = null)
     {
         var cts = CancellationTokenSource.CreateLinkedTokenSource(_leaving.Token);
         Interlocked.Exchange(ref _loadCts, cts)?.Cancel();
@@ -724,7 +886,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         // 壊れた商品が1件あるだけで画面が空のまま戻らなかった（失敗そのものはログに残る）
         try
         {
-            await LoadCoreAsync(cts.Token);
+            await LoadCoreAsync(cts.Token, reuse);
         }
         finally
         {
@@ -736,18 +898,19 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         }
     }
 
-    private async Task LoadCoreAsync(CancellationToken token)
+    private async Task LoadCoreAsync(CancellationToken token, StatsSource? reuse = null)
     {
         // アバターの欄は検索と同じ設定で、持っていないバリエーションの分を外す（open.md 106）
         var useDetected = _services.Settings.UseDetectedVariationTargets;
+        var scope = Scope;
         // 全商品は1回だけ読み、期間を替えるたびには読み直さない（open.md 104）。期間の集計も読み込みと同じ裏で済ませる
         var range = SelectedRange;
         var option = _range;
         var version = _periodVersion;
         var (source, snapshot, period, narrowed, latest) = await Task.Run(async () =>
         {
-            var source = await _services.Stats.LoadSourceAsync(token);
-            var snapshot = StatsService.Build(source.Items, source.Registry, source.UnresolvedCount, useDetected);
+            var source = reuse ?? await _services.Stats.LoadSourceAsync(token);
+            var snapshot = StatsService.Build(source.Items, source.Registry, source.UnresolvedCount, useDetected, scope);
             var latest = source.Dated.SelectMany(item => item.Purchases.Select(row => row.Date).Append(item.ItemDate)).Max();
 
             // 直近 n ヶ月の右端は先の日付の購入まで伸ばすので、最後の日付が分かってから期間を決め直す
@@ -760,7 +923,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
             }
 
             var narrowed = StatsPeriods.Narrow(source.Dated, chosen);
-            return (source, snapshot, StatsPeriods.Build(narrowed, source.Registry, source.UnresolvedCount, useDetected), narrowed, latest);
+            return (source, snapshot, StatsPeriods.Build(narrowed, source.Registry, source.UnresolvedCount, useDetected, scope), narrowed, latest);
         }, token);
 
         RunOnUiThread(() =>
@@ -824,8 +987,8 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         var peak = source.Count == 0 ? 0 : source.Max(bar => bar.Period.SpentYen);
         var scale = RoundUpAxis(peak);
 
-        AxisTopText = $"¥{Format(scale)}";
-        AxisMidText = $"¥{Format(scale / 2)}";
+        AxisTopText = $"¥{Core.Models.DisplayText.ShortYen(scale, ShortYenInKanji)}";
+        AxisMidText = $"¥{Core.Models.DisplayText.ShortYen(scale / 2, ShortYenInKanji)}";
 
         for (var index = 0; index < source.Count; index++)
         {
@@ -841,7 +1004,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
                 SpentYen = period.SpentYen,
                 ItemCount = period.ItemCount,
                 BarHeight = scale == 0 ? 0 : period.SpentYen / (double)scale * SpendBarViewModel.ChartHeight,
-                ValueLabel = (isPeak || isLast) && period.SpentYen > 0 ? $"¥{Format(period.SpentYen)}" : string.Empty,
+                ValueLabel = (isPeak || isLast) && period.SpentYen > 0 ? $"¥{Core.Models.DisplayText.ShortYen(period.SpentYen, ShortYenInKanji)}" : string.Empty,
                 IsPeak = isPeak,
             });
         }
@@ -921,19 +1084,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
             return;
         }
 
-        Avatars.Clear();
-        var avatarMax = _snapshot.Avatars.Count == 0 ? 0 : _snapshot.Avatars.Max(bar => bar.ItemCount);
-        foreach (var bar in _snapshot.Avatars)
-        {
-            Avatars.Add(new StatsRowViewModel
-            {
-                Label = bar.Label,
-                ValueText = $"{bar.ItemCount:N0}",
-                Ratio = avatarMax == 0 ? 0 : bar.ItemCount / (double)avatarMax,
-                IsResidual = bar.IsResidual,
-            });
-        }
-
+        RebuildAvatars();
         RebuildShops();
 
         Categories.Clear();
@@ -959,6 +1110,166 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         OnPropertyChanged(nameof(HasBacklog));
     }
 
+    /// <summary>
+    /// 持っているアバターだけを出すか（ユーザ判断 2026-11-20）。前の「所有アバターに着られるもの」の欄をこの欄に合わせた。
+    /// 画面を出ると戻る（既定は全アバター）。「対応アバター未設定」の行は、全アバターの時だけ出す
+    /// </summary>
+    public bool OwnedAvatarsOnly
+    {
+        get => _ownedAvatarsOnly;
+        set
+        {
+            if (SetField(ref _ownedAvatarsOnly, value))
+            {
+                RebuildAvatars();
+                OnPropertyChanged(nameof(HasAvatars));
+                OnPropertyChanged(nameof(AvatarsEmptyText));
+            }
+        }
+    }
+
+    private bool _ownedAvatarsOnly;
+
+    /// <summary>
+    /// アバター別の所持数の行を組む。数は「直接 + 素体経由」で、持っているアバターには印を付ける。
+    /// 持っているのに対応する商品が0のアバターも出す（前の「着られるもの」の欄がそうだった）。
+    /// 行を押すと、そのアバターに対応する商品の検索へ（素体経由も含める。数に素体経由を含めているのと合わせる）
+    /// </summary>
+    internal void RebuildAvatars()
+    {
+        Avatars.Clear();
+        if (_snapshot is null)
+        {
+            return;
+        }
+
+        foreach (var row in AvatarRows(_snapshot, _ownedAvatarsOnly, ShowAvatar, ShowUnspecifiedAvatar))
+        {
+            Avatars.Add(row);
+        }
+    }
+
+    /// <summary>行の組み立て（画面から切り離してあるので試験から直に呼べる）。</summary>
+    internal static List<StatsRowViewModel> AvatarRows(
+        StatsSnapshot snapshot, bool ownedOnly, Action<string, string> showAvatar, Action showUnspecified)
+    {
+        var result = new List<StatsRowViewModel>();
+        var owned = snapshot.Wearables.ToDictionary(w => w.AvatarItemId, StringComparer.Ordinal);
+        var rows = new List<(string Key, string Label, int Total, int Direct, bool IsOwned)>();
+        foreach (var bar in snapshot.Avatars.Where(bar => !bar.IsResidual))
+        {
+            var isOwned = owned.ContainsKey(bar.Key);
+            if (!ownedOnly || isOwned)
+            {
+                rows.Add((bar.Key, bar.Label, bar.ItemCount, bar.DirectCount, isOwned));
+            }
+        }
+
+        var shown = rows.Select(row => row.Key).ToHashSet(StringComparer.Ordinal);
+        foreach (var wearable in snapshot.Wearables.Where(w => !shown.Contains(w.AvatarItemId)))
+        {
+            rows.Add((wearable.AvatarItemId, wearable.Name, wearable.Total, wearable.DirectCount, true));
+        }
+
+        rows = rows.OrderByDescending(row => row.Total).ThenBy(row => row.Label, StringComparer.CurrentCulture).ToList();
+
+        // 未設定は商品の数（アバターの数ではない）なので、棒の長さの基準には入れない
+        var residual = snapshot.Avatars.FirstOrDefault(bar => bar.IsResidual);
+        var max = rows.Count == 0 ? 0 : rows.Max(row => row.Total);
+        foreach (var row in rows)
+        {
+            var key = row.Key;
+            var name = row.Label;
+            var via = row.Total - row.Direct;
+            result.Add(new StatsRowViewModel
+            {
+                Label = row.Label,
+                ValueText = via > 0 ? $"{row.Direct:N0} + 素体経由 {via:N0}" : $"{row.Total:N0}",
+                Ratio = max == 0 ? 0 : row.Total / (double)max,
+                Badge = row.IsOwned ? "持っている" : string.Empty,
+                OpenCommand = new RelayCommand(() => showAvatar(key, name)),
+                Tooltip = row.IsOwned ? "持っているアバターです。対応する商品を検索画面で開きます。" : "このアバターに対応する商品を検索画面で開きます。",
+            });
+        }
+
+        if (residual is not null && !ownedOnly && rows.Count > 0)
+        {
+            result.Add(new StatsRowViewModel
+            {
+                Label = residual.Label,
+                ValueText = $"{residual.ItemCount:N0}",
+                Ratio = max == 0 ? 0 : Math.Min(1, residual.ItemCount / (double)max),
+                IsResidual = true,
+                OpenCommand = new RelayCommand(showUnspecified),
+                Tooltip = "対応アバターの指定が無い商品を検索画面で開きます。",
+            });
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// 同じ中身のファイルの1か所を、確かめの窓を出してからごみ箱へ送る（ユーザ判断 2026-11-20：設定の画面の削除と同じ確かめ方。既定はやめる）。
+    /// 送る直前に Core が、同じ中身のほかのファイルが今も在るかを確かめ直す（この一覧は集計した時の写し）。
+    /// 送れたら記録の場所を見回り、集計を読み直す
+    /// </summary>
+    internal async Task RemovePlaceAsync(DuplicateGroup group, DuplicatePlace place)
+    {
+        if (group.Hash is not { } hash)
+        {
+            return;
+        }
+
+        var others = group.Places.Where(other => !string.Equals(other.Path, place.Path, StringComparison.OrdinalIgnoreCase)).ToList();
+        var text = $"このファイルをごみ箱へ移します。\n\n{place.Path}\n（{Core.Models.DisplayText.Size(group.UnitBytes)}）\n\n"
+            + $"同じ中身のファイルは、ほかの {others.Count} 箇所に残ります。ごみ箱を空にするまでは元に戻せます。";
+
+        // 商品をまたぐ組で、この商品に同じ中身の場所がほかに無いときは、移すとその商品のファイルが見つからなくなる
+        if (group.CrossesItems && group.Places.Count(other => other.ItemId == place.ItemId) == 1)
+        {
+            text += $"\n\n商品「{place.ItemName}」にはほかの場所が無いので、移すとこの商品のファイルが見つからなくなります。";
+        }
+
+        var answer = Services.Notice.Show(
+            text, "ごみ箱へ移す", MessageBoxButton.OKCancel, MessageBoxImage.Question, MessageBoxResult.Cancel);
+        if (answer != MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        var result = await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.RemoveDuplicatePlace(hash, place.Path));
+        if (result is Core.Commands.CommandResult.DuplicatePlaceRemoved { Result: { } removal })
+        {
+            if (!removal.Removed)
+            {
+                Services.Notice.Show(removal.Reason ?? "移せませんでした。", "ごみ箱へ移す", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+            else if (removal.ChangedItemIds is { Count: > 0 } changed)
+            {
+                await _main.NoteSweptItemsAsync(changed);
+            }
+        }
+        else if (result is Core.Commands.CommandResult.Failed failed)
+        {
+            Services.Notice.Show(failed.Message, "ごみ箱へ移す", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+
+        // 送れなかった時も読み直す（確かめ直しで、集計の写しが古かったと分かったかもしれない）
+        RefreshCommand.Execute(null);
+    }
+
+    private void ShowAvatar(string avatarItemId, string name)
+    {
+        _main.Search.ShowOnlyAvatar(avatarItemId, name, includeViaBase: true);
+        _main.ShowSearch();
+    }
+
+    private void ShowUnspecifiedAvatar()
+    {
+        _main.Search.ShowOnlyUnspecifiedAvatar();
+        _main.ShowSearch();
+    }
+
     /// <summary>選んで足した項目を組み立てる。</summary>
     private void RebuildExtras()
     {
@@ -970,14 +1281,9 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         Fill(PriceBuckets, Period!.PriceBuckets.Select(b => (b.Label, (long)b.Count, $"{b.Count} 件")));
         Fill(WishBuckets, _snapshot.WishBuckets.Select(b => (b.Label, (long)b.Count, $"{b.Count} 件")));
         Fill(CategorySpend, Period!.CategorySpend.Select(b => (b.Label, b.SpentYen, $"¥{b.SpentYen:N0}")));
-        Fill(UserTagSpend, Period!.UserTagSpend.Select(b => (b.Label, b.SpentYen, $"¥{b.SpentYen:N0}")));
+        RebuildUserTags();
         Fill(CategoryCounts, Period!.CategoryCounts.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
-        Fill(UserTagCounts, Period!.UserTagCounts.Select(b => (b.Label, (long)b.ItemCount, $"{b.ItemCount} 件")));
         Fill(HeavyItems, _snapshot.HeavyItems.Select(b => (b.Name, b.Bytes, Core.Models.DisplayText.Size(b.Bytes))));
-
-        // 素体経由は推定なので、直接対応と分けたまま出す
-        Fill(Wearables, _snapshot.Wearables.Select(w =>
-            (w.Name, (long)w.Total, w.ViaBaseCount > 0 ? $"{w.DirectCount} + 素体経由 {w.ViaBaseCount}" : $"{w.DirectCount}")));
 
         PriceChanges.Clear();
         foreach (var change in _snapshot.PriceChanges.Take(10))
@@ -1002,7 +1308,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         foreach (var name in new[]
         {
             nameof(HasPriceChanges), nameof(HasAttributeDistributions), nameof(HasCorrelations),
-            nameof(HasWearables), nameof(CorrelationNote), nameof(GiftText), nameof(FreeText),
+            nameof(CorrelationNote), nameof(GiftText), nameof(FreeText),
             nameof(RepeatText), nameof(EndOfSaleText), nameof(UnsortedText), nameof(HiddenText),
             nameof(HasLocalOnly), nameof(LocalOnlyText),
             nameof(UserTagSpendNote),
@@ -1184,7 +1490,6 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
 
     public bool HasCorrelations => AttributeCorrelations.Count > 0;
 
-    public bool HasWearables => Wearables.Count > 0;
 
     /// <summary>相関が出ない理由をその場に書く。空欄のまま置かない。</summary>
     public string CorrelationNote => _snapshot is null || HasCorrelations
@@ -1311,13 +1616,8 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         return ((long)Math.Floor(peak / (double)step) + 1) * step;
     }
 
-    /// <summary>金額の短い表記。桁が多いと軸に収まらないので k / M で畳む。</summary>
-    private static string Format(long yen) => yen switch
-    {
-        >= 1_000_000 => $"{yen / 1_000_000d:0.#}M",
-        >= 1_000 => $"{yen / 1_000d:0.#}k",
-        _ => $"{yen:N0}",
-    };
+    /// <summary>金額の短い表記を千・万・億にするか（設定。表記は <see cref="Core.Models.DisplayText.ShortYen"/>）。</summary>
+    private bool ShortYenInKanji => _services.Settings.ShortYenInKanji;
 
 }
 

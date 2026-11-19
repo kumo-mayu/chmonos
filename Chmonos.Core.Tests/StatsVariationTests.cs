@@ -70,6 +70,11 @@ public class StatsVariationTests
         Assert.Equal(0, kipfel.Total);
         var kuuta = Assert.Single(snapshot.Wearables, wearable => wearable.AvatarItemId == "kuuta");
         Assert.Equal(1, kuuta.Total);
+
+        // 棒の「直接」の数は、所有アバターの欄と同じ式（統計のアバター欄が「直接 + 素体経由」で出す）
+        var kuutaBar = Assert.Single(snapshot.Avatars, bar => bar.Key == "kuuta");
+        Assert.Equal(kuuta.DirectCount, kuutaBar.DirectCount);
+        Assert.Equal(kuuta.Total, kuutaBar.ItemCount);
     }
 
     /// <summary>設定で検出した向き先を使わないなら、検索と同じく見分けない（両方に数える）</summary>

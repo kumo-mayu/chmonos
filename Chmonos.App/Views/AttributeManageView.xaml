@@ -42,7 +42,9 @@
 
                 <!-- 保存先のファイル名は出さない（内部の名前。タグの管理と揃える。ユーザ指示 2026-09-19） -->
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Content="読み直す" Style="{StaticResource SmallButton}" Command="{Binding RefreshCommand}" />
+                    <Button Content="↺" Style="{StaticResource SmallButton}" Width="27" Padding="0" FontSize="17"
+                            Command="{Binding RefreshCommand}" ToolTip="属性の一覧を読み直します。"
+                            AutomationProperties.Name="読み直す" />
                 </StackPanel>
             </Grid>
         </Border>

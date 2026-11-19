@@ -708,6 +708,14 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
     }
 
     private bool _showAcquiredSortDividers;
+    private bool _shortYenInKanji;
+
+    /// <summary>統計の金額の短い表記（千・万・億／k・M・B）。統計の画面は開くたびに設定を読むので、読み直しは要らない。</summary>
+    public bool ShortYenInKanji
+    {
+        get => _shortYenInKanji;
+        set { if (SetField(ref _shortYenInKanji, value)) { Save(); } }
+    }
 
     /// <summary>
     /// 入手日で並べたときの札（ユーザ判断 2026-10-01）。親（<see cref="ShowSortDividers"/>）に従う子で、親が切れている間は押せないだけで値は残す
@@ -1685,6 +1693,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             SmoothScrolling = SmoothScrolling,
             ShowSortDividers = ShowSortDividers,
             ShowAcquiredSortDividers = ShowAcquiredSortDividers,
+            ShortYenInKanji = ShortYenInKanji,
             ThumbnailRole = ThumbnailRole,
             GallerySwitchOnHover = GallerySwitchOnHover,
             FileOrder = FileOrder,

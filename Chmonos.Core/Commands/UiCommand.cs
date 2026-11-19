@@ -260,6 +260,12 @@ public abstract record UiCommand
     public record RemoveUnpackedFolders(IReadOnlyList<UnpackedFolder> Folders) : UiCommand;
 
     /// <summary>
+    /// 同じ中身のファイルの1か所をごみ箱へ送る（統計の「空けられる場所」。ユーザ判断 2026-11-20）。
+    /// 同じ中身のほかのファイルが今も在ると確かめてから送る。<paramref name="Hash"/> は記録のハッシュ
+    /// </summary>
+    public record RemoveDuplicatePlace(string Hash, string Path) : UiCommand;
+
+    /// <summary>
     /// 画面の入力を保存する。<c>local</c> のうち <paramref name="Owns"/> で名指しした項目だけを書く。
     /// 名指ししなかった項目は、保存の直前に読み直したものが残る。
     /// </summary>
@@ -757,6 +763,8 @@ public abstract record CommandResult
     public record ExclusionLifted(IReadOnlyDictionary<string, Services.ExclusionLiftOutcome> Outcomes) : CommandResult;
 
     public record UnpackedFoldersRemoved(IReadOnlyList<UnpackedFolderRemoval> Results) : CommandResult;
+
+    public record DuplicatePlaceRemoved(Services.DuplicateRemoval Result) : CommandResult;
 
     public record UserTagsChanged(Models.UserTagMaster Master) : CommandResult;
 

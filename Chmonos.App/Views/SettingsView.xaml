@@ -287,6 +287,11 @@
                                       ToolTip="入手日の順では、年と月ごとに区切りを入れます。"
                                       IsEnabled="{Binding ShowSortDividers}"
                                       IsChecked="{Binding ShowAcquiredSortDividers, Mode=TwoWay}" />
+                            <!-- 統計のグラフの軸などの金額の短い表記（ユーザ判断 2026-11-20）。既定は k・M・B -->
+                            <CheckBox controls:SettingDefault.Key="ShortYenInKanji" Content="統計の金額の短い表記を千・万・億にする" Style="{StaticResource SettingCheck}"
+                                      AutomationProperties.AutomationId="Settings.ShortYenInKanji"
+                                      ToolTip="グラフの軸などで、12k を 1.2万 のように出します。"
+                                      IsChecked="{Binding ShortYenInKanji, Mode=TwoWay}" />
                             <!-- 検索の絞り込みで条件を足す位置（ユーザ判断 2026-10-01）。並べる操作は検索の画面のメニューにあるので、ここでは言わない -->
                             <CheckBox controls:SettingDefault.Key="PlaceNewConditionNearSameKind" Content="追加する条件を同じ種類の条件のすぐ下に置く" Style="{StaticResource SettingCheck}"
                                       AutomationProperties.AutomationId="Settings.PlaceNewConditionNearSameKind"

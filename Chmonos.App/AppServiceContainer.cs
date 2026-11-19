@@ -182,6 +182,7 @@ public sealed class AppServiceContainer : IDisposable
                 ApiClients = Store.ApiClients,
                 PendingOperations = Store.PendingOperations,
                 MissingRecords = MissingRecords,
+                DuplicateRemover = new DuplicateFileRemover(Store, DeleteToRecycleBin, sweep: MissingMarks),
                 Recent = Store.Recent,
                 UnityScans = UnityScans,
             };

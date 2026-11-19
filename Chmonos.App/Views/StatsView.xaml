@@ -90,10 +90,28 @@
                                 <DataTrigger Binding="{Binding IsResidual}" Value="True">
                                     <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
                                 </DataTrigger>
+                                <!-- 印の点の分だけ、長い名前を左で切る -->
+                                <DataTrigger Binding="{Binding Badge}" Value="持っている">
+                                    <Setter Property="Margin" Value="12,0,0,0" />
+                                </DataTrigger>
                             </Style.Triggers>
                         </Style>
                     </TextBlock.Style>
                 </TextBlock>
+                <!-- 印（アバターの「持っている」）。名前の左の小さい点 -->
+                <Ellipse Grid.Column="0" Width="7" Height="7" HorizontalAlignment="Left" VerticalAlignment="Center"
+                         Fill="{DynamicResource Accent}" ToolTip="持っている">
+                    <Ellipse.Style>
+                        <Style TargetType="Ellipse">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Badge}" Value="持っている">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Ellipse.Style>
+                </Ellipse>
 
                 <Border Grid.Column="1" Height="9" CornerRadius="4" Margin="11,0" ClipToBounds="True"
                         Background="{DynamicResource BarTrack}" VerticalAlignment="Center">
@@ -141,7 +159,7 @@
                 <DockPanel VerticalAlignment="Center" MinHeight="35">
                     <TextBlock Text="統計" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" DockPanel.Dock="Left" />
                     <!-- 何を数えているかを最初に断る。件数の意味を取り違えると読み方が全部ずれる -->
-                    <TextBlock Text="ファイルを持っている商品だけを集計しています。非表示とR-18も含みます。"
+                    <TextBlock Text="ファイルを持っている商品だけを集計しています。"
                                Style="{StaticResource Caption}" Margin="14,0,0,0" VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis" />
                 </DockPanel>
@@ -150,6 +168,13 @@
                     期間（ユーザ判断 2026-11-18・open.md 104）。「年を選ぶ」は右に年の欄、「開始と終了を選ぶ」は右に日の欄2つ（カレンダーは検索の日付の条件と同じ部品）
                 -->
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <!-- 数える範囲（ユーザ判断 2026-11-20）。値は設定に残る。検索の「R-18を表示」とは別 -->
+                    <CheckBox Content="非表示を含む" IsChecked="{Binding IncludeHidden, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,12,0"
+                              Foreground="{DynamicResource Text}" AutomationProperties.AutomationId="StatsIncludeHidden"
+                              ToolTip="オフにすると、非表示にした商品を数・金額・容量から外します。" />
+                    <CheckBox Content="R-18を含む" IsChecked="{Binding IncludeAdult, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,12,0"
+                              Foreground="{DynamicResource Text}" AutomationProperties.AutomationId="StatsIncludeAdult"
+                              ToolTip="オフにすると、R-18の商品を数・金額・容量から外します。" />
                     <!-- 読み直し。ほかの画面の「読み直す」と同じ小さいボタンで、ここは帯が狭いので記号だけにする（名前は同じ「読み直す」） -->
                     <Button Content="↺" Style="{StaticResource SmallButton}" Width="27" Padding="0" FontSize="17" Margin="0,0,8,0"
                             VerticalAlignment="Center" Command="{Binding RefreshCommand}"
@@ -426,18 +451,36 @@
                                     </StackPanel>
                                 </Expander.Header>
                                 <DockPanel>
+                                    <!-- 前の「所有アバターに着られるもの」はこの欄に合わせた（ユーザ判断 2026-11-20）。点の付いた行が持っているアバター -->
+                                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,10,0,0">
+                                        <CheckBox Content="持っているアバターだけ" IsChecked="{Binding OwnedAvatarsOnly, Mode=TwoWay}"
+                                                  VerticalAlignment="Center" Foreground="{DynamicResource Text}"
+                                                  AutomationProperties.AutomationId="StatsOwnedAvatarsOnly" />
+                                        <Ellipse Width="7" Height="7" Fill="{DynamicResource Accent}" Margin="14,0,5,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="持っている" Style="{StaticResource Caption}" VerticalAlignment="Center" />
+                                    </StackPanel>
 
                                     <!-- 棒と空表示を同じ場所に重ねる。DockPanelに直に並べると横に割れる -->
                                     <Grid>
                                         <controls:ContentItemsControl ItemsSource="{Binding Avatars}" Margin="0,14,0,0"
                                                       VerticalAlignment="Top"
-                                                      ItemTemplate="{StaticResource BarRow}"
-                                                      Visibility="{Binding HasAvatars, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                      Visibility="{Binding HasAvatars, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="{x:Type vm:StatsRowViewModel}">
+                                                    <Button Style="{StaticResource RowButton}" Command="{Binding OpenCommand}"
+                                                            AutomationProperties.AutomationId="StatsAvatarRow"
+                                                            AutomationProperties.Name="{Binding Label, StringFormat={}{0}を開く}"
+                                                            ToolTip="{Binding Tooltip}"
+                                                            ContentTemplate="{StaticResource BarRow}"
+                                                            Content="{Binding}" />
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </controls:ContentItemsControl>
 
                                         <!-- 紐付けが無いうちは0の棒を並べても読めないので、次にやることだけ出す -->
                                         <TextBlock TextWrapping="Wrap" Style="{StaticResource Caption}" MaxWidth="360"
                                                    HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center"
-                                                   Text="対応アバターがまだ1件も紐付いていません。商品ページか編集画面で対応アバターを入れると、ここに集計が表示されます。"
+                                                   Text="{Binding AvatarsEmptyText}"
                                                    Visibility="{Binding HasAvatars, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
                                     </Grid>
                                 </DockPanel>
@@ -584,15 +627,24 @@
                                                                 <controls:ContentItemsControl ItemsSource="{Binding Places}" Margin="0,5,0,0">
                                                                     <ItemsControl.ItemTemplate>
                                                                         <DataTemplate DataType="{x:Type vm:DuplicatePlaceViewModel}">
-                                                                            <!-- 押すと、その場所をエクスプローラで選んで開く。外したドライブの上は押せない -->
-                                                                            <Button Style="{StaticResource RowButton}" Margin="0,1,0,0"
-                                                                                    Command="{Binding OpenCommand}" IsEnabled="{Binding IsAvailable}"
-                                                                                    ToolTip="{Binding Tooltip}"
-                                                                                    AutomationProperties.AutomationId="StatsDuplicatePlace"
-                                                                                    AutomationProperties.Name="{Binding Path, StringFormat={}{0}をエクスプローラで開く}">
-                                                                                <TextBlock Text="{Binding Path}" Style="{StaticResource Mono}"
-                                                                                           FontSize="10.5" TextTrimming="CharacterEllipsis" />
-                                                                            </Button>
+                                                                            <DockPanel Margin="0,1,0,0">
+                                                                                <!-- 同じ中身のファイルの組だけ。確かめの窓を出してから、ごみ箱へ送る -->
+                                                                                <Button DockPanel.Dock="Right" Content="ごみ箱へ移す…" Style="{StaticResource DangerButton}" Margin="8,0,0,0"
+                                                                                        Command="{Binding RemoveCommand}" IsEnabled="{Binding CanRemove}"
+                                                                                        Visibility="{Binding HasRemove, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                                                                        ToolTip="{Binding RemoveTooltip}"
+                                                                                        AutomationProperties.AutomationId="StatsDuplicateRemove"
+                                                                                        AutomationProperties.Name="{Binding Path, StringFormat={}{0}をごみ箱へ移す}" />
+                                                                                <!-- 押すと、その場所をエクスプローラで選んで開く。外したドライブの上は押せない -->
+                                                                                <Button Style="{StaticResource RowButton}"
+                                                                                        Command="{Binding OpenCommand}" IsEnabled="{Binding IsAvailable}"
+                                                                                        ToolTip="{Binding Tooltip}"
+                                                                                        AutomationProperties.AutomationId="StatsDuplicatePlace"
+                                                                                        AutomationProperties.Name="{Binding Path, StringFormat={}{0}をエクスプローラで開く}">
+                                                                                    <TextBlock Text="{Binding Path}" Style="{StaticResource Mono}"
+                                                                                               FontSize="10.5" TextTrimming="CharacterEllipsis" />
+                                                                                </Button>
+                                                                            </DockPanel>
                                                                         </DataTemplate>
                                                                     </ItemsControl.ItemTemplate>
                                                                 </controls:ContentItemsControl>
@@ -794,12 +846,24 @@
                                     </StackPanel>
                                 </Expander.Header>
                                 <StackPanel>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                                        <RadioButton Content="大分類" GroupName="StatsUserTagLevel" Style="{StaticResource SegmentFirst}"
+                                                     IsChecked="{Binding UserTagsByTop, Mode=TwoWay}" ToolTip="大分類ごとに数えます。"
+                                                     AutomationProperties.AutomationId="StatsUserTagTop" AutomationProperties.Name="ユーザータグを大分類で数える" />
+                                        <RadioButton Content="小分類" GroupName="StatsUserTagLevel" Style="{StaticResource SegmentLast}"
+                                                     IsChecked="{Binding UserTagsBySub, Mode=TwoWay}" ToolTip="小分類ごとに数えます。「大分類 / 小分類」の形で出します。"
+                                                     AutomationProperties.AutomationId="StatsUserTagSub" AutomationProperties.Name="ユーザータグを小分類で数える" />
+                                    </StackPanel>
                                     <TextBlock Text="{Binding UserTagSpendNote}" Style="{StaticResource Caption}"
                                                Margin="0,5,0,0" TextWrapping="Wrap" />
                                     <TextBlock Text="支出" Style="{StaticResource SectionLabel}" Margin="0,12,0,8" />
                                     <controls:ContentItemsControl ItemsSource="{Binding UserTagSpend}" ItemTemplate="{StaticResource BarRow}" />
                                     <TextBlock Text="商品数" Style="{StaticResource SectionLabel}" Margin="0,10,0,8" />
                                     <controls:ContentItemsControl ItemsSource="{Binding UserTagCounts}" ItemTemplate="{StaticResource BarRow}" />
+                                    <CheckBox Content="すべて表示" IsChecked="{Binding ShowAllUserTags, Mode=TwoWay}" Margin="0,10,0,0"
+                                              Visibility="{Binding HasMoreUserTags, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                              ToolTip="上位10件より下の行も出します。"
+                                              AutomationProperties.AutomationId="StatsUserTagShowAll" />
                                 </StackPanel>
                             </Expander>
                         </Border>
@@ -941,27 +1005,7 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
 
-                        <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,8,0" Padding="20,18">
-                            <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding Panels[wearables], Mode=TwoWay}" AutomationProperties.Name="所有アバターに着られるもの">
-                                <Expander.Header>
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="所有アバターに着られるもの" Style="{StaticResource PanelTitle}" VerticalAlignment="Center" />
-                                        <TextBlock Text="素体経由は推定" Style="{StaticResource Caption}"
-                                                   Margin="10,0,0,0" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                </Expander.Header>
-                                <StackPanel>
-                                    <controls:ContentItemsControl ItemsSource="{Binding Wearables}" Margin="0,12,0,0"
-                                                  ItemTemplate="{StaticResource BarRow}"
-                                                  Visibility="{Binding HasWearables, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                    <TextBlock Style="{StaticResource Caption}" Margin="0,10,0,0" TextWrapping="Wrap"
-                                               Text="所有しているアバターがまだ分かっていません。アバターの管理から検出できます。"
-                                               Visibility="{Binding HasWearables, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
-                                </StackPanel>
-                            </Expander>
-                        </Border>
-
-                        <Border Grid.Column="1" Style="{StaticResource Card}" Margin="8,0,0,0" Padding="20,18">
+                        <Border Grid.Column="0" Grid.ColumnSpan="2" Style="{StaticResource Card}" Padding="20,18">
                             <Expander Style="{StaticResource TriangleExpander}" IsExpanded="{Binding Panels[state], Mode=TwoWay}" AutomationProperties.Name="手元の状態">
                                 <Expander.Header>
                                     <TextBlock Text="手元の状態" Style="{StaticResource PanelTitle}" />

@@ -220,4 +220,32 @@ public static class DisplayText
         var name = System.IO.Path.GetFileName(path.TrimEnd('\\', '/'));
         return name.Length > 0 ? name : path;
     }
+
+    /// <summary>
+    /// 金額の短い表記（統計の軸・棒の上の額）。桁が多いと軸に収まらないので畳む。
+    /// 英字は k・M・B（千・百万・十億）。日本語は万（10の4乗）で区切り、千は1万に満たない額だけに使う
+    /// （「12千」とは言わず「1.2万」と言うため）
+    /// </summary>
+    public static string ShortYen(long yen, bool kanji)
+    {
+        if (kanji)
+        {
+            return yen switch
+            {
+                >= 100_000_000 => $"{yen / 100_000_000d:0.#}億",
+                // 9,950 から万にする：千のまま小数1桁へ丸めると「10千」になるため
+                >= 9_950 => $"{yen / 10_000d:0.#}万",
+                >= 1_000 => $"{yen / 1_000d:0.#}千",
+                _ => $"{yen:N0}",
+            };
+        }
+
+        return yen switch
+        {
+            >= 1_000_000_000 => $"{yen / 1_000_000_000d:0.#}B",
+            >= 1_000_000 => $"{yen / 1_000_000d:0.#}M",
+            >= 1_000 => $"{yen / 1_000d:0.#}k",
+            _ => $"{yen:N0}",
+        };
+    }
 }

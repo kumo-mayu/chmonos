@@ -17,6 +17,12 @@ public sealed record AppSettings
     /// </summary>
     public bool ShowCardAttributes { get; init; }
 
+    /// <summary>統計の集計に非表示の商品を含めるか（統計の上の帯の切り替え。ユーザ判断 2026-11-20・既定は含める＝前と同じ）。</summary>
+    public bool StatsIncludeHidden { get; init; } = true;
+
+    /// <summary>統計の集計にR-18の商品を含めるか。<see cref="ShowAdult"/>（検索の表示）とは別の値（ユーザ判断 2026-11-20）。</summary>
+    public bool StatsIncludeAdult { get; init; } = true;
+
     /// <summary>R-18を表示するか。オフのときは検索・ショップ件数から除くが、統計の金額には含める。</summary>
     public bool ShowAdult { get; init; } = true;
 
@@ -100,6 +106,12 @@ public sealed record AppSettings
     /// <see cref="ShowSortDividers"/> が切れていれば、こちらの値によらず出さない（親に従う子の設定）
     /// </summary>
     public bool ShowAcquiredSortDividers { get; init; }
+
+    /// <summary>
+    /// 統計のグラフの軸などの金額の短い表記を「千・万・億」にするか（ユーザ判断 2026-11-20）。既定は切で、k・M・B（前からの表記）。
+    /// 日本語の桁は万（10の4乗）で区切るので、1.2万・350万・1.5億の形になる
+    /// </summary>
+    public bool ShortYenInKanji { get; init; }
 
     /// <summary>
     /// 商品カードの札とリストの「属性」の列に出す属性の名前（ユーザ判断 2026-10-04：出す属性は設定で選ぶ）。並べた順に出す。

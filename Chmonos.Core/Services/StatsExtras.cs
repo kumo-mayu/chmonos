@@ -6,7 +6,7 @@ namespace Chmonos.Core.Services;
 /// 統計の追加集計。
 ///
 /// 基本の集計（<see cref="StatsService"/>）と同じ走査結果を受け取って組み立てる。
-/// 数え方の原則は同じで、対象はファイルを持つitemだけ、非表示とR-18も含める。
+/// 数え方の原則は同じで、対象はファイルを持つitemだけ、非表示とR-18も既定では含める（統計の画面の切り替えで外せる。`StatsScope`）。
 /// </summary>
 public static class StatsExtras
 {
@@ -42,6 +42,8 @@ public static class StatsExtras
             UserTagSpend = SpendByMany(owned, item => item.Local.UserTags.Select(tag => tag.Top)),
             CategoryCounts = CountBy(owned, CategoryOf),
             UserTagCounts = CountByMany(owned, item => item.Local.UserTags.Select(tag => tag.Top)),
+            UserTagSubSpend = SpendByMany(owned, SubTagKeys),
+            UserTagSubCounts = CountByMany(owned, SubTagKeys),
             MonthlyCategories = MonthlyCategories(owned, out var order),
             CategoryOrder = order,
             HeavyItems = owned
@@ -225,6 +227,12 @@ public static class StatsExtras
     /// 1つのitemが複数の分類に属する場合（userTagのトップは複数選べる）。
     /// 金額は分類ごとに満額を数える。合計は支出と一致しないので、画面でその旨を書く。
     /// </summary>
+    /// <summary>小分類のキー「大分類 / 小分類」。小分類を付けていない大分類は「大分類 / 小分類なし」にして、点数の合計が大分類の側と合うようにする。</summary>
+    private static IEnumerable<string> SubTagKeys(ItemRecord item)
+        => item.Local.UserTags.SelectMany(tag => tag.Subs.Count == 0
+            ? [$"{tag.Top} / 小分類なし"]
+            : tag.Subs.Select(sub => $"{tag.Top} / {sub}"));
+
     private static List<StatsSpendBar> SpendByMany(
         IReadOnlyList<ItemRecord> owned,
         Func<ItemRecord, IEnumerable<string>> keys)
