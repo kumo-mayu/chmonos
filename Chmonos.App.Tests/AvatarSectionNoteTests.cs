@@ -25,6 +25,22 @@ public class AvatarSectionNoteTests
             new ItemViewModel(detected, app.Services, main, main.Thumbnails).AvatarSectionNote);
     });
 
+    /// <summary>名前だけで作ったBOOTHに無い商品は判定に使う物が無く待っても終わらないので、見つかっていない方で言う（ユーザ判断 2026-11-20）</summary>
+    [Fact]
+    public Task 名前だけで作ったBOOTHに無い商品は_判定の途中と言わない() => Support.TestApp.Run(async app =>
+    {
+        var withFile = Support.Make.Item("local-0a0b0c0d", "作り物のファイルのある手元の商品");
+        var local = Support.Make.Item("local-0123456789ab", "作り物の手元の商品");
+        local = local with { Local = local.Local with { LocalFiles = [] } };
+        await app.AddItemAsync(withFile);
+        await app.AddItemAsync(local);
+        var main = await app.StartAsync();
+
+        Assert.Equal("出品者の対応表明は見つかっていません。", new ItemViewModel(local, app.Services, main, main.Thumbnails).AvatarSectionNote);
+        // ファイルのある手元の商品は判定が回るので、回る前は今まで通り「まだ」と言う
+        Assert.Equal("対応アバターの判定がまだ終わっていません。", new ItemViewModel(withFile, app.Services, main, main.Thumbnails).AvatarSectionNote);
+    });
+
     /// <summary>
     /// 開いている間に裏の判定が終わったら、勝手に入れ替えず「表示する」を出し、押したらこの欄だけ入れ替える（ユーザ判断 2026-10-06）。
     /// 対応アバターが変わらなかった判定は、判定の日時だけを黙って入れる

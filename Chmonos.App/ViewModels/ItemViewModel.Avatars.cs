@@ -441,9 +441,13 @@ public sealed partial class ItemViewModel
         ? ViaBaseAvatars.Count > 0
             ? "出品者が対応と書いているアバターです。点線は共通素体経由です。"
             : "出品者が対応と書いているアバターです。"
-        : Item.Local.AvatarsDetectedAt is null
+        // 名前だけで作ったBOOTHに無い商品（ファイルもフォルダも無い）は、判定に使う物が無く、待っても終わらない（ユーザ判断 2026-11-20）
+        : Item.Local.AvatarsDetectedAt is null && !IsLocalWithoutFiles
             ? "対応アバターの判定がまだ終わっていません。"
             : "出品者の対応表明は見つかっていません。";
+
+    private bool IsLocalWithoutFiles
+        => LocalItemId.IsLocal(Item.Id) && !Item.Local.HasOwnedFiles && Item.Local.LocalFolders.Count == 0;
 
     /// <summary>
     /// 欄の説明の吹き出し。見つからなかったときの次の手は吹き出しへ回す（説明を1行に収め、判定の前後で欄の高さを変えない。ユーザ判断 2026-10-06）
