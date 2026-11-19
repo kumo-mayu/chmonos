@@ -902,12 +902,22 @@
                                                     <ColumnDefinition Width="*" />
                                                     <ColumnDefinition Width="38" />
                                                 </Grid.ColumnDefinitions>
+                                                <!-- 値はまだの行は、棒の枠を薄くして値の所に「—」を出す（0% は枠が普通の濃さで「0」） -->
                                                 <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="12" TextAlignment="Right" Margin="0,0,10,0" />
                                                 <Border Grid.Column="1" Height="8" CornerRadius="4" Background="{DynamicResource BarTrack}">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsPending}" Value="True">
+                                                                    <Setter Property="Opacity" Value="0.45" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
                                                     <Border Height="8" CornerRadius="4" Background="{DynamicResource Accent}"
                                                             Width="{Binding BarWidth}" HorizontalAlignment="Left" />
                                                 </Border>
-                                                <TextBlock Grid.Column="2" Text="{Binding Value}" Style="{StaticResource Mono}"
+                                                <TextBlock Grid.Column="2" Text="{Binding ValueText}" Style="{StaticResource Mono}"
                                                            FontSize="11" TextAlignment="Right" />
                                             </Grid>
                                         </DataTemplate>

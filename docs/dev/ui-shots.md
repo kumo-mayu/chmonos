@@ -82,6 +82,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 |---|---|
 | 全体（絵3枚・ファイル1つ） | `item-page`（900） |
 | BOOTHに無い商品 | `catalog-item-local-only`（900） |
+| 属性の欄（値のある物・0・値はまだの「—」。縦に長い窓） | `item-page-attributes-pending` |
 | 名前だけで作ったBOOTHに無い商品（ファイル・絵が無い） | `catalog-item-local-no-files` |
 | 絵が無い・持っていない・BOOTHから消えた・隠した（メモあり） | `catalog-item-no-images`・`catalog-item-not-owned`・`catalog-item-delisted`・`catalog-item-hidden` |
 | 対応アバター29体・共通素体 | `item-page-avatars` |

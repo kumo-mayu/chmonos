@@ -165,6 +165,40 @@ public class SelectionBarBulkTests
     });
 
     /// <summary>
+    /// 外す属性が値はまだだけなら失う値が無いので「値は元に戻せません」を出さない。値のある商品が1つでも混じれば出す
+    /// （ユーザ判断 2026-11-20 の ⑤）。
+    /// </summary>
+    [Theory]
+    [InlineData(false, "2 件から属性「かわいさ」を外します。")]
+    [InlineData(true, "2 件から属性「かわいさ」を外します。外した属性の値は元に戻せません。")]
+    public Task 値はまだだけを外す確かめは_値は戻せないと言わない(bool withValue, string expected) => TestApp.Run(async app =>
+    {
+        var first = Make.Item(First, "作り物の衣装");
+        first = first with
+        {
+            Local = withValue
+                ? first.Local with { Attributes = new Dictionary<string, int> { ["かわいさ"] = 30 } }
+                : first.Local with { PendingAttributes = ["かわいさ"] },
+        };
+        var second = Make.Item(Second, "作り物の水着");
+        second = second with { Local = second.Local with { PendingAttributes = ["かわいさ"] } };
+        var search = await SearchWithAsync(app, first, second);
+        Select(search, First, Second);
+        app.AnswerBulkTag = model =>
+        {
+            model.RemovesAttribute = true;
+            model.Type(removal: "かわいさ");
+            return true;
+        };
+
+        app.Answer = _ => MessageBoxResult.OK;
+        search.Bulk.RemoveTagCommand.Execute(null);
+        await app.SettleAsync();
+
+        Assert.Equal(expected, Assert.Single(app.Notices).Text);
+    });
+
+    /// <summary>
     /// 属性の追加は値を付けずに「値はまだ」として足す（ユーザ判断 2026-11-20 の (a)）。値がある（0% も）・値はまだの商品は何もせず数える。
     /// カードの写しが古くても、今の記録の値を潰さない
     /// </summary>

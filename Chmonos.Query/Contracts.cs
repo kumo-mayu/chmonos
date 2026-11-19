@@ -199,6 +199,13 @@ public sealed record ItemDetail
     /// <summary>属性の値（評価していない属性は入らない。0 は評価して 0）。</summary>
     public required IReadOnlyDictionary<string, int> Attributes { get; init; }
 
+    /// <summary>
+    /// 付いているが値はまだの属性（0 とは別。<c>attributes</c> には入らない）。無い商品では欄ごと出さない。
+    /// ほとんどの商品が持たないのと、前の版の答えと形を変えないため。
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? PendingAttributes { get; init; }
+
     public required string? Memo { get; init; }
 
     /// <summary>手元のファイル（既定は「ある」「見つからない」だけ。外した物・古い版は <c>include=allFiles</c>）。</summary>

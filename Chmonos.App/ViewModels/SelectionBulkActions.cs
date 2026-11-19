@@ -308,7 +308,8 @@ public sealed class SelectionBulkActions : ViewModelBase
         // 外すのは1回だけ確かめ、何件から外すかを出す（ユーザ判断 2026-11-20）。属性は付け直しても値は戻らない
         var having = model.CountHaving();
         var text = model.RemovesAttribute
-            ? $"{having} 件から属性「{model.ChoiceText}」を外します。外した属性の値は元に戻せません。"
+            ? $"{having} 件から属性「{model.ChoiceText}」を外します。"
+                + (model.CountHavingValue() > 0 ? "外した属性の値は元に戻せません。" : string.Empty)
             : $"{having} 件からタグ「{model.ChoiceText}」を外します。";
         if (Notice.Show(text, model.RemovesAttribute ? "属性を削除" : "タグを削除", MessageBoxButton.OKCancel, MessageBoxImage.Question, MessageBoxResult.Cancel)
             != MessageBoxResult.OK)

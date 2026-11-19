@@ -10,7 +10,13 @@ public sealed class AttributeMasterRow : ManageMasterRow
 {
     public double? Average { get; init; }
 
-    public string ItemCountText => ItemCount == 0 ? "未評価" : $"{ItemCount}";
+    /// <summary>付いているが値はまだの商品の数（<see cref="ManageMasterRow.ItemCount"/> の値のある商品とは重ならない）。</summary>
+    public int PendingCount { get; init; }
+
+    /// <summary>値のある商品と値はまだの商品の合計。一覧の件数と、削除の確かめに使う。</summary>
+    public int AttachedCount => ItemCount + PendingCount;
+
+    public string ItemCountText => AttachedCount == 0 ? "未評価" : $"{AttachedCount}";
 
     public string AverageText => Average is null ? "評価なし" : $"平均 {Average.Value:0} %";
 
@@ -465,13 +471,17 @@ public sealed class AttributeManageViewModel : ManageViewModelBase<AttributeMast
 
     public override string SelectedUsageText => Selected is null
         ? string.Empty
-        : Selected.ItemCount == 0
+        : Selected.AttachedCount == 0
             ? "まだどの商品にも付いていません。編集画面で値を入れると、ここに件数が表示されます。"
-            : $"{Selected.ItemCount} 件の商品に付いています（{Selected.AverageText}）";
+            : Selected.PendingCount == 0
+                ? $"{Selected.ItemCount} 件の商品に付いています（{Selected.AverageText}）"
+                : $"{Selected.AttachedCount} 件の商品に付いています（{Selected.AverageText}。値はまだ {Selected.PendingCount} 件）";
 
     public override string ShowItemsToolTip => SelectedIsUsed
         ? "この属性を持つ商品を、検索で開きます。"
-        : "この属性はまだどの商品にも付いていません。編集画面で値を入れると開けます。";
+        : Selected is { PendingCount: > 0 }
+            ? "この属性に値を付けた商品はまだありません。編集画面で値を入れると開けます。"
+            : "この属性はまだどの商品にも付いていません。編集画面で値を入れると開けます。";
 
     /// <summary>**探して0件と、そもそも1つも無いのを言い分ける**（タグの管理と同じ）。</summary>
     public override string EmptyText => HasFilter
@@ -500,6 +510,7 @@ public sealed class AttributeManageViewModel : ManageViewModelBase<AttributeMast
                 Name = definition.Name,
                 Memo = definition.Memo,
                 ItemCount = counts.TryGetValue(definition.Name, out var entry) ? entry.ItemCount : 0,
+                PendingCount = counts.TryGetValue(definition.Name, out var pendingEntry) ? pendingEntry.PendingCount : 0,
                 Average = counts.TryGetValue(definition.Name, out var found) ? found.Average : null,
                 IsDefault = definition.IsDefault,
             }).ToList();
@@ -674,6 +685,29 @@ public sealed class AttributeManageViewModel : ManageViewModelBase<AttributeMast
     }
 
     /// <summary>
+    /// 削除の確かめの文。件数は値はまだの商品も数える（付いている物がこの属性から外れるため）。
+    /// 失う値があるのは値のある商品だけなので、値はまだだけなら「評価は戻りません」とは言わない。
+    /// </summary>
+    internal static string DeleteMessage(AttributeMasterRow row)
+    {
+        if (row.AttachedCount == 0)
+        {
+            return $"「{row.Name}」を削除します。\n\nどの商品も評価していません。";
+        }
+
+        if (row.ItemCount == 0)
+        {
+            return $"「{row.Name}」を削除します。\n\n{row.AttachedCount} 件の商品から、この属性が外れます。\n\nこの操作は元に戻せません。";
+        }
+
+        var rated = row.PendingCount == 0
+            ? $"{row.ItemCount} 件の商品から、この属性の評価が消えます。"
+            : $"{row.AttachedCount} 件の商品から、この属性が外れます。うち {row.ItemCount} 件は評価が消えます。";
+        return $"「{row.Name}」を削除します。\n\n{rated}\n"
+            + $"\nこの操作は元に戻せません。同じ名前で作り直しても、{row.ItemCount} 件ぶんの評価は戻りません。";
+    }
+
+    /// <summary>
     /// 削除。マスタから消すだけだとitem側に参照が残るので、評価も一緒に外す。
     /// 属性はuserTagと違って「未設定」が既定なので、空になっても編集の対象には戻らない。
     /// </summary>
@@ -684,13 +718,7 @@ public sealed class AttributeManageViewModel : ManageViewModelBase<AttributeMast
             return;
         }
 
-        var message = Selected.ItemCount == 0
-            ? $"「{Selected.Name}」を削除します。\n\nどの商品も評価していません。"
-            : $"「{Selected.Name}」を削除します。\n\n"
-                + $"{Selected.ItemCount} 件の商品から、この属性の評価が消えます。\n"
-                + $"\nこの操作は元に戻せません。同じ名前で作り直しても、{Selected.ItemCount} 件ぶんの評価は戻りません。";
-
-        if (!Confirm(message, "属性を削除する"))
+        if (!Confirm(DeleteMessage(Selected), "属性を削除する"))
         {
             return;
         }

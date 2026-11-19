@@ -562,9 +562,22 @@ public sealed class AttributeBar
 {
     public required string Name { get; init; }
 
-    public required int Value { get; init; }
+    public int Value { get; init; }
+
+    /// <summary>付いているが値はまだ。0% と見間違えないよう、棒を描かず値の所に「—」を出す。</summary>
+    public bool IsPending { get; init; }
 
     public double BarWidth => Value * 2.4;
+
+    public string ValueText => IsPending ? "—" : Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>値のある属性を高い順に、その後ろに値はまだの属性を並べる（ユーザ判断 2026-11-20）。</summary>
+    public static IReadOnlyList<AttributeBar> Build(LocalBlock local)
+        => local.Attributes
+            .OrderByDescending(pair => pair.Value)
+            .Select(pair => new AttributeBar { Name = pair.Key, Value = pair.Value })
+            .Concat(ItemAttributes.Pending(local).Select(name => new AttributeBar { Name = name, IsPending = true }))
+            .ToList();
 }
 
 /// <summary>商品ページに出す対応アバター1件（出品者の宣言）。</summary>

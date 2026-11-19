@@ -272,6 +272,13 @@ public sealed class BulkTagDialogViewModel : ViewModelBase
     /// <summary>外すときに、選んだ商品のうち何件に付いているか（確かめの窓に出す）。</summary>
     public int CountHaving() => Removal is null ? 0 : _items.Count(item => Has(item, Removal));
 
+    /// <summary>
+    /// 外す属性に値が入っている商品の数。外して失うのは値だけなので、0 なら（値はまだだけなら）確かめで
+    /// 「値は元に戻せません」と言わずに済む（ユーザ判断 2026-11-20）。
+    /// </summary>
+    public int CountHavingValue()
+        => Removal is null || !RemovesAttribute ? 0 : _items.Count(item => item.Local.Attributes.ContainsKey(Removal.Trim()));
+
     private bool Has(ItemRecord item, string removal)
     {
         if (RemovesAttribute)
