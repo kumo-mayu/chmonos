@@ -148,6 +148,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | アバター：空・カード・リスト・持っていない・探す | `empty-avatars`（900）・`avatars-cards`・`avatars-list`・`avatars-cards-unowned`・`avatars-match-note` |
 | アバター：選んだ右の欄・知らせ・検出の結果の長い文 | `avatars-detail`（900）・`avatars-notice-off`・`avatars-notice-on`・`avatars-status` |
 | 共通素体：一覧・詳細・足す欄・推定・知らせ | `avatars-bases`・`avatars-base-members`・`avatars-inferred-base`・`avatars-base-notice-*` |
+| アバターの詳細の「このアバターの衣装を着せられるアバター」（人が足す変換の組の札と欄） | `avatars-conversion-pairs` |
 | 共通素体の画像（付けた所・無い所） | `avatars-base-image`・`avatars-base-image-none` |
 | 素体の候補の絵（商品ページの対応アバターを追加・変換のつなぎ先・検索の対応アバター・アバターの詳細の共通素体） | `suggest-base-icons` |
 | 候補（アバター・改変の呼び方） | `suggest-avatar-groups`・`suggest-avatar-divider`・`suggest-modification-alias` |

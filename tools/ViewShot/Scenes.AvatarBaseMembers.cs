@@ -96,6 +96,29 @@ internal static partial class Scenes
             await context.SettleAsync();
             return new Shot(root);
         }),
+
+        new Scene("avatars-conversion-pairs", "アバターの管理：アバターの詳細の「このアバターの衣装を着せられるアバター」（足した組の札と、候補付きの欄）", async context =>
+        {
+            await context.Seed.ConversionPairs.SaveAsync(new ConversionPairFile
+            {
+                Pairs =
+                [
+                    new ConversionPair { From = ConversionEnd.Avatar("9900602"), To = ConversionEnd.Avatar("9900603") },
+                    new ConversionPair { From = ConversionEnd.Avatar("9900602"), To = ConversionEnd.Base("MARUBODY"), Tool = "作り物のツール" },
+                ],
+            });
+            var (avatars, root) = await OpenBaseMembersAsync(context);
+            avatars.Selected = avatars.Rows.First(row => row.ItemId == "9900602");
+            await context.SettleAsync();
+            Look.Text(root, "このアバターの衣装を着せられるアバター")!.BringIntoView();
+            await context.SettleAsync();
+            if (avatars.ConversionPairs.Rows.Count != 2)
+            {
+                throw new InvalidOperationException("足した組の札が2つ並ばない");
+            }
+
+            return new Shot(root);
+        }),
     ];
 
     /// <summary>名前から MARUBODY に推されるアバター1体・手で素体を決めたアバター1体・素体の無いアバター2体と、共通素体2つ。</summary>

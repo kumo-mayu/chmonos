@@ -92,6 +92,15 @@ public sealed partial class AvatarsViewModel
         ShowsReasons = true,
     };
 
+    /// <summary>
+    /// アバターの詳細の「このアバターの衣装を着せられるアバター」（人が足す変換の組・ユーザ判断 2026-11-20）。
+    /// 書いたら検索を絞り直す（対応アバターの条件の「変換で使える物も含める」が組を使う）
+    /// </summary>
+    public ConversionPairEditor ConversionPairs => _conversionPairs ??= new ConversionPairEditor(
+        _services, _main.Thumbnails, _main.Search.FindItem, _main.Search.NoteConversionPairsChanged);
+
+    private ConversionPairEditor? _conversionPairs;
+
     /// <summary>確認待ちのつなぎ先を全部確認済みにして、次の決めていない商品へ（Ctrl+Enter。未確定の「この内容で決める」と同じ流れ）。</summary>
     public RelayCommand DecideSuggestedCommand => _decideSuggestedCommand ??= new RelayCommand(
         () => DecideSuggestedAsync().Forget(),

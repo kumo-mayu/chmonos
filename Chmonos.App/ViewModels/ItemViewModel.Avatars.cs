@@ -233,6 +233,7 @@ public sealed partial class ItemViewModel
                 SourceText = "変換",
                 SourceName = nameOf(pair.Value.SourceAvatarItemId),
                 OtherSources = pair.Value.OtherSources,
+                FromPair = pair.Value.Pair is not null,
                 IsOwned = isOwned(pair.Key),
                 IconFactory = () => AvatarIcon(pair.Key, _thumbnails.LoadForCard),
                 OpenCommand = new RelayCommand(() => OpenAvatarAsync(pair.Key).Forget()),
