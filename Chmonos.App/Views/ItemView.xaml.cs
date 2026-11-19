@@ -301,6 +301,27 @@ public partial class ItemView : UserControl
         }
     }
 
+    /// <summary>上の帯の「…」：上の帯の右クリックと同じメニュー（ItemPageMenu）をボタンの下に開く。</summary>
+    private void OnPageMenuClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && FindResource("ItemPageMenu") is ContextMenu menu)
+        {
+            menu.DataContext = button.DataContext;
+            menu.PlacementTarget = button;
+            menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            menu.IsOpen = true;
+        }
+    }
+
+    private void OnPageMenuKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (MenuButton.OpensMenu(e.Key == System.Windows.Input.Key.System ? e.SystemKey : e.Key, System.Windows.Input.Keyboard.Modifiers))
+        {
+            OnPageMenuClick(sender, e);
+            e.Handled = true;
+        }
+    }
+
     // ---- BOOTH で変わった所（メモ17） ----
 
     /// <summary>上の帯の「ほか n 件」：入り切らなかった分も含めて、変わった所を全部並べる。</summary>

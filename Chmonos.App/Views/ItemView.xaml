@@ -85,6 +85,17 @@
             </DataTemplate.Triggers>
         </DataTemplate>
 
+        <!--
+            商品ページのメニュー（上の帯の「…」と、上の帯の右クリックで同じ物。ユーザ判断 2026-11-20）。
+            商品ページには全体の右クリックが無かった（名前・説明文は字の右クリック）ので、上の帯に置く。
+            押せないときも項目は出し、吹き出しで理由を言う（右クリックのメニューの決まり）
+        -->
+        <ContextMenu x:Key="ItemPageMenu">
+            <MenuItem Header="BOOTHでの変化の履歴" Command="{Binding ShowChangeHistoryCommand}"
+                      AutomationProperties.AutomationId="ItemMenu.ChangeHistory"
+                      ToolTip="{Binding ChangeHistoryTip}" ToolTipService.ShowOnDisabled="True" />
+        </ContextMenu>
+
         <!-- 欄に付く札の並び（ChangeSlot.Marks）。印の無い欄では何も出さない -->
         <ItemsPanelTemplate x:Key="ChangeMarksPanel">
             <StackPanel Orientation="Horizontal" />
@@ -102,7 +113,8 @@
             右の塊だけでも幅を超える欄では、右の塊の中でボタンを折り返す。高さは中身に合わせ、1行のときは前と同じ52
         -->
         <Border DockPanel.Dock="Top" MinHeight="52" Background="{DynamicResource Surface}"
-                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
+                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
+                ContextMenu="{StaticResource ItemPageMenu}">
             <controls:SplitRowPanel Margin="20,7" Gap="12" VerticalAlignment="Center">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <!-- フォルダビューに組み込んだときは戻るを隠す（ShowsBack） -->
@@ -140,6 +152,10 @@
                     <Button Content="BOOTHで開く" Command="{Binding OpenBoothCommand}" Margin="0,2,0,2"
                             AutomationProperties.AutomationId="ItemOpenBooth"
                             ToolTipService.ShowOnDisabled="True" ToolTip="{Binding OpenBoothTip}" />
+                    <!-- 上の帯の右クリックと同じメニュー（ItemPageMenu）。押すと開くボタン（「プラグイン ▾」と同じ開き方） -->
+                    <Button Content="…" Margin="8,2,0,2" Padding="10,0" Click="OnPageMenuClick" PreviewKeyDown="OnPageMenuKeyDown"
+                            AutomationProperties.AutomationId="ItemPageMenu" AutomationProperties.Name="その他の操作"
+                            ToolTip="その他の操作を表示します。" />
                 </WrapPanel>
             </controls:SplitRowPanel>
         </Border>
