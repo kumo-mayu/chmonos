@@ -78,6 +78,14 @@ public sealed class AttributeRow : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// 商品に付いているが値はまだの行（選択の帯の「属性を追加…」で足した物。ユーザ判断 2026-11-20 の (a)）。
+    /// 並べてあるだけの行と同じく「未評価」に見せ（<see cref="IsSuggested"/> も立てる）、**触らずに保存すれば値はまだのまま残す**
+    /// （既定の並べてあるだけの行は保存で書かないが、こちらは付いている事を消さない）。動かすと値が付き、外すと付いていない状態に戻る。
+    /// </summary>
+    public bool IsPendingOnItem { get; init; }
+
     /// <summary>並べてあるだけだと分かるようにする。黙って0%で保存されたと思われないため。</summary>
-    public string SuggestedNote => _isSuggested ? "未評価。動かすと付きます" : string.Empty;
+    public string SuggestedNote => !_isSuggested ? string.Empty
+        : IsPendingOnItem ? "未評価。動かすと値が付きます" : "未評価。動かすと付きます";
 }

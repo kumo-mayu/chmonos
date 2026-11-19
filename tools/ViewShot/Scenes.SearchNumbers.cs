@@ -136,6 +136,27 @@ internal static partial class Scenes
             await context.PresentAsync(root);
             return new Shot(root) { Focus = () => Look.View<EditView>(root), FocusMargin = 0 };
         }),
+
+        new Scene("edit-attributes-pending", "編集画面：属性の欄（値 62% の行の下に、選択の帯で足した値はまだの行と、既定で並べてあるだけの行）", async context =>
+        {
+            await context.Seed.Attributes.SaveAsync(new AttributeMaster
+            {
+                Attributes = [new AttributeDefinition { Name = "かわいい" }, new AttributeDefinition { Name = "軽さ" }, new AttributeDefinition { Name = "質感", IsDefault = true }],
+            });
+            var item = await context.Fake.ItemAsync(
+                "9900404",
+                "作り物の衣装（値はまだの属性）",
+                record => record with
+                {
+                    Local = record.Local with { Attributes = new Dictionary<string, int> { ["かわいい"] = 62 }, PendingAttributes = ["軽さ"] },
+                });
+
+            var main = await context.StartAsync();
+            await main.ShowEditAsync([item.Id]);
+            var root = context.MainWindow();
+            await context.PresentAsync(root);
+            return new Shot(root) { Focus = () => Look.View<EditView>(root), FocusMargin = 0 };
+        }),
     ];
 
     /// <summary>撮る絵が日によって変わらないよう、「最近」の今を止める。</summary>

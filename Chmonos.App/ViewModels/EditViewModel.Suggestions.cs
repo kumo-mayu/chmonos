@@ -37,9 +37,9 @@ public sealed partial class EditViewModel
         return row;
     }
 
-    private AttributeRow CreateAttributeRow(string name, int value)
+    private AttributeRow CreateAttributeRow(string name, int value, bool pending = false)
     {
-        var row = new AttributeRow { Name = name, Value = value };
+        var row = new AttributeRow { Name = name, Value = value, IsPendingOnItem = pending };
         row.RemoveCommand = new RelayCommand(() =>
         {
             Attributes.Remove(row);
