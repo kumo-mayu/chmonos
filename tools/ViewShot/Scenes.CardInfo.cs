@@ -24,6 +24,9 @@ internal static partial class Scenes
         CardInfoScene("card-info-sorted", "カードの札：属性「質感」で並べたとき、質感を先に出す", sortAttribute: "質感"),
         CardInfoScene("card-info-chosen", "カードの札：設定で「軽さ」「かわいい」を選んだとき", chosen: ["軽さ", "かわいい"]),
         CardInfoScene("card-info-list", "カードの札：リストの列（ユーザータグ・属性・払った額・対応）", list: true),
+        // 見出しの右クリックで足せる文字の列（ユーザ判断 2026-11-20）。数の列は右寄せ、空の値は空のまま
+        CardInfoScene("card-info-list-columns", "リストの列を選ぶ：ID・容量・ファイルの数・入手日・メモ・使った改変の数を足したとき", list: true,
+            columns: ["select", "icon", "fav", "name", "id", "size", "files", "acquired", "memo", "modifications", "chips"]),
         // 設定「一覧のカードに属性の札を表示」（既定は切。2026-10-06）。上の場面は札を入れて撮る（札の描き方の確かめ）。ここは既定の姿と、切ったままの小さい幅・乗せたとき
         CardInfoScene("card-info-off", "カードの札：属性の札を出さない既定（属性の段のぶん低い・2000件・幅228）", showAttributes: false),
         CardInfoScene("card-info-off-small", "カードの札：属性の札を出さない・カードを小さくしたとき（幅160）", width: 160, showAttributes: false),
@@ -36,7 +39,7 @@ internal static partial class Scenes
 
     private static Scene CardInfoScene(
         string name, string title, double? width = null, bool peek = false, bool list = false,
-        string? sortAttribute = null, IReadOnlyList<string>? chosen = null, bool showAttributes = true)
+        string? sortAttribute = null, IReadOnlyList<string>? chosen = null, bool showAttributes = true, IReadOnlyList<string>? columns = null)
         => new(name, title, async context =>
         {
             await SeedCardInfoLibraryAsync(context, 2000);
@@ -53,6 +56,11 @@ internal static partial class Scenes
             if (sortAttribute is not null)
             {
                 main.Search.SortField = main.Search.SortFields.First(field => field.AttributeName == sortAttribute);
+            }
+
+            if (columns is not null)
+            {
+                main.Search.ListColumns.Reorder(columns);
             }
 
             main.Search.IsListMode = list;
