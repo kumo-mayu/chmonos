@@ -1,5 +1,6 @@
 using System.Windows;
 using Chmonos.Core.Commands;
+using Chmonos.Core.Models;
 using Chmonos.Core.Services;
 
 namespace Chmonos.App.Services;
@@ -254,7 +255,37 @@ public sealed class PaneWidths(SettingsService settings, CommandHandler commands
     public event Action? AllReset;
 
     private Dictionary<string, double> Current()
-        => _current ??= new Dictionary<string, double>(settings.UiState.PaneWidths, StringComparer.Ordinal);
+    {
+        if (_current is null)
+        {
+            _current = new Dictionary<string, double>(settings.UiState.PaneWidths, StringComparer.Ordinal);
+            if (CarryOverShopAcquired(_current, settings.UiState))
+            {
+                ScheduleSave();
+            }
+        }
+
+        return _current;
+    }
+
+    /// <summary>
+    /// 列を選べるようにする前（2026-11-20 より前）、ショップの画面はショップの列（<c>shop.col.shop</c>）の場所に入手日を出していた。
+    /// その幅は使う人が入手日のために合わせた物なので、新しい入手日の列（<c>shop.col.acquired</c>）へ移す（使う人の調整を消さない）。
+    /// 移すのは前の版が書いた形のときだけ：ショップの列の並びをまだ覚えていない（新しい版で一度も選んでいない）。
+    /// 移したらすぐ書く（書かずにいると、ショップの列の幅を新しい意味で変えた後の起動で、それを入手日へ移してしまう）
+    /// </summary>
+    internal static bool CarryOverShopAcquired(Dictionary<string, double> widths, UiState state)
+    {
+        if (widths.ContainsKey("shop.col.acquired")
+            || !widths.TryGetValue("shop.col.shop", out var old)
+            || state.ItemListColumns?.ContainsKey("shop") == true)
+        {
+            return false;
+        }
+
+        widths["shop.col.acquired"] = old;
+        return true;
+    }
 
     private void ScheduleSave()
     {

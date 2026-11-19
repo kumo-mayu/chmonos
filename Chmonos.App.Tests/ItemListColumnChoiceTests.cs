@@ -151,6 +151,42 @@ public class ItemListColumnChoiceTests
     });
 
     [Fact]
+    public Task 前の版でショップの画面の入手日に合わせた幅は_新しい入手日の列へ移して書く() => TestApp.Run(async app =>
+    {
+        await app.StartAsync();
+
+        // 前の版は、ショップの画面のショップの列（shop.col.shop）の場所に入手日を出していた
+        await app.Services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeUiState(state => state with
+        {
+            PaneWidths = new Dictionary<string, double> { ["shop.col.shop"] = 330 },
+            ItemListColumns = null,
+        }));
+        var widths = new PaneWidths(app.Services.SettingsStore, app.Services.Commands) { SaveDelay = TimeSpan.Zero };
+        Assert.Equal(330, new ItemListColumns(widths, "shop", hasSelect: true, shopHeader: "ショップ").WidthOf("acquired").Width);
+        await UiThread.Until(
+            () => app.Services.UiState.PaneWidths.TryGetValue("shop.col.acquired", out var saved) && saved == 330,
+            "移した幅が ui-state に書かれる");
+    });
+
+    [Fact]
+    public void 入手日の幅を移すのは前の版が書いた形のときだけ()
+    {
+        var state = new Core.Models.UiState();
+
+        // 入手日の幅がもうある・ショップの列の幅が無い：移さない
+        Assert.False(PaneWidths.CarryOverShopAcquired(new() { ["shop.col.shop"] = 330, ["shop.col.acquired"] = 150 }, state));
+        Assert.False(PaneWidths.CarryOverShopAcquired(new() { ["folder.col.shop"] = 330 }, state));
+
+        // 新しい版でショップの列を選んだ後のショップの列の幅は、ショップの列の物（入手日へ移さない）
+        var chosen = state with { ItemListColumns = new Dictionary<string, IReadOnlyList<string>> { ["shop"] = ["select", "name", "shop"] } };
+        Assert.False(PaneWidths.CarryOverShopAcquired(new() { ["shop.col.shop"] = 330 }, chosen));
+
+        var widths = new Dictionary<string, double> { ["shop.col.shop"] = 330 };
+        Assert.True(PaneWidths.CarryOverShopAcquired(widths, state));
+        Assert.Equal(330, widths["shop.col.acquired"]);
+    }
+
+    [Fact]
     public Task 一覧の列は並びのとおりに組まれ_選び直すと足し引きされる() => TestApp.Run(async app =>
     {
         var columns = (await app.StartAsync()).Search.ListColumns;
