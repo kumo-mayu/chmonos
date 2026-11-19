@@ -161,7 +161,7 @@ flowchart LR
 | 商品名 | 名前の枠 | なぞる | 選んで写す | いつも | ItemName・ItemView.xaml:590 |
 | ショップ名 | 名前の枠 | クリック・なぞる・中クリック | ショップの画面へ（中クリックは BOOTH のショップのページ） | いつも | ItemShopLink・ItemView.xaml:610 |
 | 「ID …」 | 名前の枠 | クリック・中クリック | ID をコピー（中クリックは BOOTH の商品ページ） | いつも | ItemIdCopy・ItemView.xaml:624 |
-| 「IDを変える」 | 名前の枠 | クリック → 窓 | 商品のIDを変える窓 | いつも | ItemChangeId・ItemView.xaml:632 |
+| 「IDを変える…」 | IDの右クリックのメニュー | 右クリック・メニューキー・Shift+F10 → 窓 | 商品のIDを変える窓 | いつも | ItemChangeId・ItemView.xaml:624 |
 | 「同じ商品をBOOTHで探す」 | 名前の枠 | クリック → 窓 | 自動で探す | BOOTH で見つからない商品 | ItemFindOnBooth・ItemView.xaml:667 |
 | 「ユーザータグ」「BOOTHのタグ」の三角 | 名前の枠 | クリック | 畳む | いつも | ItemUserTagsExpander／ItemBoothTagsExpander・ItemView.xaml:681,715 |
 | 「残り n を表示」 | BOOTHのタグ | クリック | 全部出す・戻す | タグが多い時 | —・App.xaml:629 |

@@ -476,13 +476,14 @@
                                 <TextBlock Style="{StaticResource Mono}" FontSize="11" Margin="0,0,14,0" VerticalAlignment="Center" ToolTip="{Binding IdCopyTip}">
                                     <Hyperlink Command="{Binding CopyIdCommand}" controls:MiddleClick.Command="{Binding OpenBoothCommand}" TextDecorations="{x:Null}"
                                                Foreground="{DynamicResource TextMuted}">
+                                        <Hyperlink.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="IDを変える…" Command="{Binding ChangeIdCommand}" />
+                                            </ContextMenu>
+                                        </Hyperlink.ContextMenu>
                                         <Run Text="{Binding IdText, Mode=OneWay}" />
                                     </Hyperlink>
                                 </TextBlock>
-                                <Button Content="IDを変える" Style="{StaticResource SmallButton}"
-                                        Padding="7,1" FontSize="10.5" VerticalAlignment="Center"
-                                        Command="{Binding ChangeIdCommand}"
-                                        ToolTip="この商品の中身を別のIDの商品へ移します。移す前に確認できます。" />
                             </StackPanel>
 
                             <!--

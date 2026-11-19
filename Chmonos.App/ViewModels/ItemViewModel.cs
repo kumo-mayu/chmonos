@@ -980,8 +980,8 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// 出ているIDそのものを押せるようにした。
     /// </summary>
     public string IdCopyTip => Item.IsLocalOnly
-        ? "クリックすると仮のIDをコピーします"
-        : "クリックすると商品IDをコピーします";
+        ? "クリックすると仮のIDをコピーします。右クリックでIDを変えられます"
+        : "クリックすると商品IDをコピーします。右クリックでIDを変えられます";
 
     /// <summary>
     /// BOOTHに無い商品として登録したもの。**BOOTHへは問い合わせない。**
