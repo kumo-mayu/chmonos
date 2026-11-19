@@ -195,7 +195,37 @@ internal static partial class Scenes
             Height = ChangesHeight,
         },
 
-        ChangeHistoryDialogScene("item-change-history", "商品ページの「BOOTHでの変化の履歴」の窓：新しい順の5件（未読・重ねた幅・札）と、いちばん新しい件の差分（足した行と消えた行の帯）", select: 0),
+        // 上の帯は本文と一緒に流れ去り、1行の見出しの右端に「変更」の印が出る（ユーザ判断 2026-11-20）
+        new Scene("item-page-changes-compact", "商品ページ：BOOTHで変わった所がある商品を流した所（帯は流れ去り、1行の見出しの右端に「変更」の印）", async context =>
+        {
+            var item = await SeedChangedItemAsync(context, "9900611");
+            var root = await OpenItemAsync(context, item);
+            await ScrollBodyAsync(context, root, OtherOffset);
+            return new Shot(root) { Focus = () => Look.View<ItemView>(root), FocusMargin = 0 };
+        }),
+
+        // 印を押して開く小窓の中身（Popup は別の窓なので、中身を外して撮る。保存した検索の小窓と同じ撮り方）
+        new Scene("item-page-changes-compact-open", "商品ページ：流した後の「変更」の印を押して開く小窓（帯と同じ中身・見出しの幅）", async context =>
+        {
+            var item = await SeedChangedItemAsync(context, "9900612");
+            var root = await OpenItemAsync(context, item);
+            await ScrollBodyAsync(context, root, OtherOffset);
+            var page = Look.View<ItemView>(root) ?? throw new InvalidOperationException("商品ページが出ていません。");
+            var bar = Look.Named<FrameworkElement>(page, "CompactBar") ?? throw new InvalidOperationException("1行の見出しがありません。");
+            var popup = Look.All<System.Windows.Controls.Primitives.Popup>(page).FirstOrDefault(popup => Equals(popup.Tag, "Changes"))
+                ?? throw new InvalidOperationException("「変更」の小窓がありません。");
+            var panel = (FrameworkElement)popup.Child;
+            popup.Child = null;
+            panel.DataContext = context.Screen<ItemViewModel>();
+            panel.Width = bar.ActualWidth;
+            panel.VerticalAlignment = VerticalAlignment.Top;
+            return new Shot(SceneContext.OnSurface(panel));
+        })
+        {
+            Height = 200,
+        },
+
+        ChangeHistoryDialogScene("item-change-history","商品ページの「BOOTHでの変化の履歴」の窓：新しい順の5件（未読・重ねた幅・札）と、いちばん新しい件の差分（足した行と消えた行の帯）", select: 0),
         ChangeHistoryDialogScene("item-change-history-price", "「BOOTHでの変化の履歴」の窓：値段と商品名の件を選んだ所（バリエーションごとの値段・前と後の帯）", select: 1),
         ChangeHistoryDialogScene("item-change-history-old", "「BOOTHでの変化の履歴」の窓：差を持たない前の形の知らせ（要約の1文だけ）を選んだ所", select: 4),
     ];
@@ -381,8 +411,7 @@ internal static partial class Scenes
 
     /// <summary>上の帯（BOOTHで変わったところ）の外枠。</summary>
     private static FrameworkElement? BarOf(FrameworkElement root)
-        => (Look.View<ItemView>(root)?.FindName("ChangeTargetList") as FrameworkElement)?.Parent is FrameworkElement grid
-            && grid.Parent is FrameworkElement inner && inner.Parent is FrameworkElement outer ? outer : null;
+        => Look.View<ItemView>(root)?.FindName("ChangesBar") as FrameworkElement;
 
     /// <summary>部品を囲むカード（型 Card の Border）。</summary>
     private static FrameworkElement? CardOf(FrameworkElement? element)

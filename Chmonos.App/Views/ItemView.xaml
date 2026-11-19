@@ -100,6 +100,138 @@
         <ItemsPanelTemplate x:Key="ChangeMarksPanel">
             <StackPanel Orientation="Horizontal" />
         </ItemsPanelTemplate>
+        <!-- 上の2本の帯の中身。本文の頭の帯と、流した時の1行の見出しの印から開く小窓の、両方で使う（ユーザ判断 2026-11-20） -->
+        <DataTemplate x:Key="UsedUpdateBarContent">
+            <Border BorderThickness="3,0,0,0" BorderBrush="{DynamicResource Warn}" Margin="20,8" Padding="10,0,0,0" Height="28">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding UsedUpdateText}" FontSize="12.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding UsedUpdateText}" AutomationProperties.AutomationId="ItemUsedUpdateText" />
+                    <Button Grid.Column="1" Content="更新履歴を見る" Style="{StaticResource SmallButton}" VerticalAlignment="Center" Margin="12,0,0,0"
+                            Height="27" Padding="9,0" FontSize="11.5"
+                            AutomationProperties.AutomationId="ItemShowUpdateHistory"
+                            Command="{Binding ShowUpdateHistoryCommand}"
+                            Visibility="{Binding HasUpdateHistorySection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                            ToolTip="説明文の更新履歴までスクロールします。" />
+                    <Button Grid.Column="2" Content="確認した" Style="{StaticResource SmallButton}" VerticalAlignment="Center" Margin="6,0,0,0"
+                            Height="27" Padding="9,0" FontSize="11.5"
+                            AutomationProperties.AutomationId="ItemCheckContentUpdate"
+                            Command="{Binding CheckContentUpdateCommand}"
+                            ToolTip="この帯を消します。次の更新でまた出ます。" />
+                </Grid>
+            </Border>
+        </DataTemplate>
+        <!--
+            変わった所を並べ、押すとそこまで流す（メモ17⑤）。**帯の高さは1行に決める**：並びは折り返さず、入り切らない分は
+            「ほか n 件」の一覧へ回す（OneLinePanel）
+        -->
+        <DataTemplate x:Key="ChangesBarContent">
+          <StackPanel>
+            <Border BorderThickness="3,0,0,0" Margin="20,8" Padding="10,0,0,0" Height="28">
+                <Border.Style>
+                    <!-- 線の色は変わった所の中身で決める（足しただけ＝緑・消しただけ＝赤・それ以外＝橙。メモ53②） -->
+                    <Style TargetType="Border">
+                        <Setter Property="BorderBrush" Value="{DynamicResource Warn}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding ChangesBarTone}" Value="{x:Static vm:ChangeTone.Added}">
+                                <Setter Property="BorderBrush" Value="{DynamicResource Good}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding ChangesBarTone}" Value="{x:Static vm:ChangeTone.Removed}">
+                                <Setter Property="BorderBrush" Value="{DynamicResource Bad}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="BOOTHで変わったところ：" FontSize="12.5" VerticalAlignment="Center" Margin="0,0,8,0"
+                               Visibility="{Binding HasUnreadChanges, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <TextBlock Grid.Column="0" Grid.ColumnSpan="2" Text="既読にしました。" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                               Visibility="{Binding IsChangesRead, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <ItemsControl x:Name="ChangeTargetList" Grid.Column="1" ItemsSource="{Binding ChangeTargets}" Focusable="False"
+                                  VerticalAlignment="Center" ClipToBounds="True">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <controls:OneLinePanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <!-- 左の短い線は、その所の印と同じ種類の色（変わった＝橙・足された＝緑・消えた＝赤。価格は変わったと同じ橙） -->
+                            <DataTemplate DataType="{x:Type vm:ChangeTarget}">
+                                <Button Style="{StaticResource SmallButton}" Height="24" Padding="7,0"
+                                        AutomationProperties.AutomationId="ItemChangeTarget" AutomationProperties.Name="{Binding Label}"
+                                        Command="{Binding DataContext.GoToChangeCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                        CommandParameter="{Binding}" ToolTip="{Binding Tip}" ToolTipService.ShowOnDisabled="True">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Rectangle x:Name="Edge" Width="3" Height="12" Margin="0,0,6,0" Fill="{DynamicResource Warn}" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding Tone}" Value="{x:Static vm:ChangeTone.Added}">
+                                        <Setter TargetName="Edge" Property="Fill" Value="{DynamicResource Good}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Tone}" Value="{x:Static vm:ChangeTone.Removed}">
+                                        <Setter TargetName="Edge" Property="Fill" Value="{DynamicResource Bad}" />
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Button Grid.Column="2" Style="{StaticResource SmallButton}" VerticalAlignment="Center" Margin="6,0,0,0"
+                            AutomationProperties.AutomationId="ItemMoreChanges"
+                            Visibility="{Binding (controls:OneLinePanel.HiddenCount), ElementName=ChangeTargetList, Converter={x:Static vm:ZeroToCollapsedConverter.Instance}}"
+                            ToolTip="変わったところをすべて表示します。"
+                            Click="OnMoreChangesClick">
+                        <!-- 数を文にするのは中の TextBlock で。ボタンの型が中身を直に出すので、ContentStringFormat は効かず「1」だけが出た -->
+                        <TextBlock Text="{Binding (controls:OneLinePanel.HiddenCount), ElementName=ChangeTargetList, StringFormat=ほか {0} 件 ▾}" />
+                        <Button.ContextMenu>
+                            <ContextMenu ItemsSource="{Binding ChangeTargets}">
+                                <ContextMenu.ItemContainerStyle>
+                                    <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+                                        <Setter Property="Header" Value="{Binding Label}" />
+                                        <Setter Property="Command" Value="{Binding DataContext.GoToChangeCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                        <Setter Property="CommandParameter" Value="{Binding}" />
+                                    </Style>
+                                </ContextMenu.ItemContainerStyle>
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
+                    <!-- 帯がある間にいちばんやってほしいことなので主のボタン（メモ17④）。押した後も同じ幅で残し、押せなくする -->
+                    <!-- 既読にする前に、通知の画面で前と後を見比べる道（ユーザ指示 2026-10-06）。既読にする操作より軽いので左に置く -->
+                    <Button Grid.Column="3" Content="通知で確認する" Style="{StaticResource SmallButton}" VerticalAlignment="Center" Margin="12,0,0,0"
+                            Height="27" Padding="9,0" FontSize="11.5"
+                            AutomationProperties.AutomationId="ItemShowChangesInInbox"
+                            Command="{Binding ShowChangesInInboxCommand}"
+                            Visibility="{Binding HasUnreadChanges, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                            ToolTip="この商品の更新の通知を開きます。" />
+                    <Button Grid.Column="4" Content="既読にする" Style="{StaticResource PrimaryButton}" VerticalAlignment="Center" Margin="6,0,0,0"
+                            Height="27" Padding="9,0" FontSize="11.5"
+                            AutomationProperties.AutomationId="ItemMarkChangesRead"
+                            Command="{Binding MarkChangesReadCommand}"
+                            Visibility="{Binding HasUnreadChanges, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                            ToolTip="印を消して、通知も既読にします。" />
+                </Grid>
+            </Border>
+            <!--
+                「既読にする」の失敗（ui-empty-and-errors.md「知らせの置き場」。前は窓だった）。
+                帯は1行の高さに決めてある（ユーザ指示 2026-10-03）ので、出ていない間は場所を取らない。
+                書けなかったときだけの知らせで、出るのは押した直後（本文が動いても、押した人が何が起きたか分かる）
+            -->
+            <controls:AreaNoticeLine DataContext="{Binding ChangesNotice}" Margin="33,-6,20,6"
+                                     Visibility="{Binding HasText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+          </StackPanel>
+        </DataTemplate>
         </ResourceDictionary>
     </UserControl.Resources>
 
@@ -161,148 +293,6 @@
         </Border>
 
         <!--
-            使っている商品に新しい版が出たら促す帯（docs/spec/used-updates.md・ユーザ判断 2026-11-06）。
-            既読とは別：通知を読んでも、新しい版を取り込むか「確認した」を押すまで残す。高さは下の帯と同じ1行
-        -->
-        <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
-                Visibility="{Binding ShowsUsedUpdateBar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-            <Border BorderThickness="3,0,0,0" BorderBrush="{DynamicResource Warn}" Margin="20,8" Padding="10,0,0,0" Height="28">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="{Binding UsedUpdateText}" FontSize="12.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                               ToolTip="{Binding UsedUpdateText}" AutomationProperties.AutomationId="ItemUsedUpdateText" />
-                    <Button Grid.Column="1" Content="更新履歴を見る" Style="{StaticResource SmallButton}" VerticalAlignment="Center" Margin="12,0,0,0"
-                            Height="27" Padding="9,0" FontSize="11.5"
-                            AutomationProperties.AutomationId="ItemShowUpdateHistory"
-                            Command="{Binding ShowUpdateHistoryCommand}"
-                            Visibility="{Binding HasUpdateHistorySection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                            ToolTip="説明文の更新履歴までスクロールします。" />
-                    <Button Grid.Column="2" Content="確認した" Style="{StaticResource SmallButton}" VerticalAlignment="Center" Margin="6,0,0,0"
-                            Height="27" Padding="9,0" FontSize="11.5"
-                            AutomationProperties.AutomationId="ItemCheckContentUpdate"
-                            Command="{Binding CheckContentUpdateCommand}"
-                            ToolTip="この帯を消します。次の更新でまた出ます。" />
-                </Grid>
-            </Border>
-        </Border>
-
-        <!--
-            BOOTH で変わった所がある間だけ出す帯（メモ7-①）。印は「既読にする」を押すまで残す（ユーザ判断 2026-10-02）。
-            流す本文の外に置くのは、下へ流しても「既読にする」に届くように。
-            変わった所を並べ、押すとそこまで流す（メモ17⑤）。**帯の高さは1行に決める**：並びは折り返さず、入り切らない分は
-            「ほか n 件」の一覧へ回す（OneLinePanel）。既読にした後も、このページを開いている間は同じ高さで残す
-            （帯が伸び縮み・消えると、その分だけ本文が一気に動く。ユーザ指示 2026-10-03）
-        -->
-        <Border DockPanel.Dock="Top" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
-                Visibility="{Binding ShowsChangesBar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-          <StackPanel>
-            <Border BorderThickness="3,0,0,0" Margin="20,8" Padding="10,0,0,0" Height="28">
-                <Border.Style>
-                    <!-- 線の色は変わった所の中身で決める（足しただけ＝緑・消しただけ＝赤・それ以外＝橙。メモ53②） -->
-                    <Style TargetType="Border">
-                        <Setter Property="BorderBrush" Value="{DynamicResource Warn}" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding ChangesBarTone}" Value="{x:Static vm:ChangeTone.Added}">
-                                <Setter Property="BorderBrush" Value="{DynamicResource Good}" />
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding ChangesBarTone}" Value="{x:Static vm:ChangeTone.Removed}">
-                                <Setter Property="BorderBrush" Value="{DynamicResource Bad}" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Border.Style>
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="BOOTHで変わったところ：" FontSize="12.5" VerticalAlignment="Center" Margin="0,0,8,0"
-                               Visibility="{Binding HasUnreadChanges, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                    <TextBlock Grid.Column="0" Grid.ColumnSpan="2" Text="既読にしました。" Style="{StaticResource Caption}" VerticalAlignment="Center"
-                               Visibility="{Binding IsChangesRead, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                    <ItemsControl x:Name="ChangeTargetList" Grid.Column="1" ItemsSource="{Binding ChangeTargets}" Focusable="False"
-                                  VerticalAlignment="Center" ClipToBounds="True">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <controls:OneLinePanel />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <!-- 左の短い線は、その所の印と同じ種類の色（変わった＝橙・足された＝緑・消えた＝赤。価格は変わったと同じ橙） -->
-                            <DataTemplate DataType="{x:Type vm:ChangeTarget}">
-                                <Button Style="{StaticResource SmallButton}" Height="24" Padding="7,0"
-                                        AutomationProperties.AutomationId="ItemChangeTarget" AutomationProperties.Name="{Binding Label}"
-                                        Command="{Binding DataContext.GoToChangeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                        CommandParameter="{Binding}" ToolTip="{Binding Tip}" ToolTipService.ShowOnDisabled="True">
-                                    <StackPanel Orientation="Horizontal">
-                                        <Rectangle x:Name="Edge" Width="3" Height="12" Margin="0,0,6,0" Fill="{DynamicResource Warn}" VerticalAlignment="Center" />
-                                        <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                </Button>
-                                <DataTemplate.Triggers>
-                                    <DataTrigger Binding="{Binding Tone}" Value="{x:Static vm:ChangeTone.Added}">
-                                        <Setter TargetName="Edge" Property="Fill" Value="{DynamicResource Good}" />
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding Tone}" Value="{x:Static vm:ChangeTone.Removed}">
-                                        <Setter TargetName="Edge" Property="Fill" Value="{DynamicResource Bad}" />
-                                    </DataTrigger>
-                                </DataTemplate.Triggers>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    <Button Grid.Column="2" Style="{StaticResource SmallButton}" VerticalAlignment="Center" Margin="6,0,0,0"
-                            AutomationProperties.AutomationId="ItemMoreChanges"
-                            Visibility="{Binding (controls:OneLinePanel.HiddenCount), ElementName=ChangeTargetList, Converter={x:Static vm:ZeroToCollapsedConverter.Instance}}"
-                            ToolTip="変わったところをすべて表示します。"
-                            Click="OnMoreChangesClick">
-                        <!-- 数を文にするのは中の TextBlock で。ボタンの型が中身を直に出すので、ContentStringFormat は効かず「1」だけが出た -->
-                        <TextBlock Text="{Binding (controls:OneLinePanel.HiddenCount), ElementName=ChangeTargetList, StringFormat=ほか {0} 件 ▾}" />
-                        <Button.ContextMenu>
-                            <ContextMenu ItemsSource="{Binding ChangeTargets}">
-                                <ContextMenu.ItemContainerStyle>
-                                    <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
-                                        <Setter Property="Header" Value="{Binding Label}" />
-                                        <Setter Property="Command" Value="{Binding DataContext.GoToChangeCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
-                                        <Setter Property="CommandParameter" Value="{Binding}" />
-                                    </Style>
-                                </ContextMenu.ItemContainerStyle>
-                            </ContextMenu>
-                        </Button.ContextMenu>
-                    </Button>
-                    <!-- 帯がある間にいちばんやってほしいことなので主のボタン（メモ17④）。押した後も同じ幅で残し、押せなくする -->
-                    <!-- 既読にする前に、通知の画面で前と後を見比べる道（ユーザ指示 2026-10-06）。既読にする操作より軽いので左に置く -->
-                    <Button Grid.Column="3" Content="通知で確認する" Style="{StaticResource SmallButton}" VerticalAlignment="Center" Margin="12,0,0,0"
-                            Height="27" Padding="9,0" FontSize="11.5"
-                            AutomationProperties.AutomationId="ItemShowChangesInInbox"
-                            Command="{Binding ShowChangesInInboxCommand}"
-                            Visibility="{Binding HasUnreadChanges, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                            ToolTip="この商品の更新の通知を開きます。" />
-                    <Button Grid.Column="4" Content="既読にする" Style="{StaticResource PrimaryButton}" VerticalAlignment="Center" Margin="6,0,0,0"
-                            Height="27" Padding="9,0" FontSize="11.5"
-                            AutomationProperties.AutomationId="ItemMarkChangesRead"
-                            Command="{Binding MarkChangesReadCommand}"
-                            Visibility="{Binding HasUnreadChanges, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
-                            ToolTip="印を消して、通知も既読にします。" />
-                </Grid>
-            </Border>
-            <!--
-                「既読にする」の失敗（ui-empty-and-errors.md「知らせの置き場」。前は窓だった）。
-                帯は1行の高さに決めてある（ユーザ指示 2026-10-03）ので、出ていない間は場所を取らない。
-                書けなかったときだけの知らせで、出るのは押した直後（本文が動いても、押した人が何が起きたか分かる）
-            -->
-            <controls:AreaNoticeLine DataContext="{Binding ChangesNotice}" Margin="33,-6,20,6"
-                                     Visibility="{Binding HasText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-          </StackPanel>
-        </Border>
-
-        <!--
             **横にも送れるようにする。**左の列には下限（LeftPane.MinPixels）があるので、窓が狭いと
             右の列（商品名・ID・種類・対応アバター・ローカルファイル）が
             幅0まで潰れて**到達できなくなる**（900pxで実測）。
@@ -332,8 +322,29 @@
                 いつでも横スクロールが出てしまうため
             -->
             <!-- フォルダビューに組み込んだときは、最小の幅と左の列の幅を窓に合わせる（BodyMinWidth） -->
-            <Border Padding="20" MinWidth="{Binding BodyMinWidth}"
-                    Width="{Binding ViewportWidth, ElementName=Body}">
+            <!--
+                上の2本の帯（使っている商品の新しい版・BOOTHで変わったところ）は本文と一緒に流す（ユーザ判断 2026-11-20）。
+                流していない時は今までどおり一番上に見え、流すと本文と一緒に上へ去るので、出し入れで本文が跳ねない。
+                流した後は1行の見出し（CompactBar）の右端の「更新」「変更」の印から、同じ中身（UsedUpdateBarContent・ChangesBarContent）を開く。
+                帯の外枠は Surface の地で幅いっぱい（前と同じ見た目）。画面内検索では探さない（中身は本文ではない）
+            -->
+            <StackPanel MinWidth="{Binding BodyMinWidth}" Width="{Binding ViewportWidth, ElementName=Body}">
+            <!-- 使っている商品に新しい版が出たら促す帯（docs/spec/used-updates.md・ユーザ判断 2026-11-06）。高さは下の帯と同じ1行 -->
+            <Border x:Name="UsedUpdateBar" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
+                    views:FindInPage.IsSkipped="True"
+                    Visibility="{Binding ShowsUsedUpdateBar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource UsedUpdateBarContent}" Focusable="False" />
+            </Border>
+            <!--
+                BOOTH で変わった所がある間だけ出す帯（メモ7-①）。印は「既読にする」を押すまで残す（ユーザ判断 2026-10-02）。
+                既読にした後も、このページを開いている間は同じ高さで残す（帯が伸び縮み・消えると、その分だけ本文が一気に動く。ユーザ指示 2026-10-03）
+            -->
+            <Border x:Name="ChangesBar" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
+                    views:FindInPage.IsSkipped="True"
+                    Visibility="{Binding ShowsChangesBar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ChangesBarContent}" Focusable="False" />
+            </Border>
+            <Border Padding="20">
             <!-- 覚えた左の幅は窓が狭いと頭打ちにする（右の最小 320 を割らないように。PaneGrid） -->
             <controls:PaneGrid Pane="{Binding LeftPane}">
                 <Grid.ColumnDefinitions>
@@ -1116,11 +1127,71 @@
                 </StackPanel>
             </controls:PaneGrid>
             </Border>
+            </StackPanel>
         </controls:InsetScrollViewer>
 
         <!-- 名前と星・絵は商品ページの持ち主から。ショップ名は頭の段と同じく押すとショップの画面へ -->
         <views:ItemCompactBar x:Name="CompactBar" Page="{Binding}" ItemName="{Binding Name}" ShopName="{Binding ShopName}"
-                              ShopCommand="{Binding OpenShopCommand}" ShopBoothCommand="{Binding OpenShopInBoothCommand}" IdPrefix="Item" />
+                              ShopCommand="{Binding OpenShopCommand}" ShopBoothCommand="{Binding OpenShopInBoothCommand}" IdPrefix="Item">
+            <!--
+                流した後も上の2本の帯に届く印（ユーザ判断 2026-11-20）。帯は本文と一緒に流れ去るので、帯がある間だけ印を出し、
+                押すと見出しのすぐ下に帯と同じ中身を開く。開け閉めは ItemView.xaml.cs（OnBarMarkChecked）で、印と小窓は Tag で組にする（見出しの部品の中なので x:Name を付けられない）。並びは帯と同じ上から順
+            -->
+            <views:ItemCompactBar.Trailing>
+                <StackPanel Orientation="Horizontal">
+                    <ToggleButton Tag="UsedUpdate" Height="27" Padding="9,0" FontSize="11.5" Margin="8,0,0,0"
+                                  Checked="OnBarMarkChecked" Unchecked="OnBarMarkUnchecked"
+                                  Visibility="{Binding ShowsUsedUpdateBar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                  AutomationProperties.AutomationId="ItemCompactUsedUpdate" AutomationProperties.Name="使っている商品の新しい版"
+                                  ToolTip="使っている商品の新しい版の知らせを表示します。">
+                        <StackPanel Orientation="Horizontal">
+                            <Rectangle Width="3" Height="12" Margin="0,0,6,0" Fill="{DynamicResource Warn}" VerticalAlignment="Center" />
+                            <TextBlock Text="更新" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </ToggleButton>
+                    <ToggleButton Tag="Changes" Height="27" Padding="9,0" FontSize="11.5" Margin="6,0,0,0"
+                                  Checked="OnBarMarkChecked" Unchecked="OnBarMarkUnchecked"
+                                  Visibility="{Binding ShowsChangesBar, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
+                                  AutomationProperties.AutomationId="ItemCompactChanges" AutomationProperties.Name="BOOTHで変わったところ"
+                                  ToolTip="BOOTHで変わったところを表示します。">
+                        <StackPanel Orientation="Horizontal">
+                            <!-- 線の色は帯の左の線と同じ（足しただけ＝緑・消しただけ＝赤・それ以外＝橙） -->
+                            <Rectangle Width="3" Height="12" Margin="0,0,6,0" VerticalAlignment="Center">
+                                <Rectangle.Style>
+                                    <Style TargetType="Rectangle">
+                                        <Setter Property="Fill" Value="{DynamicResource Warn}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ChangesBarTone}" Value="{x:Static vm:ChangeTone.Added}">
+                                                <Setter Property="Fill" Value="{DynamicResource Good}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding ChangesBarTone}" Value="{x:Static vm:ChangeTone.Removed}">
+                                                <Setter Property="Fill" Value="{DynamicResource Bad}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Rectangle.Style>
+                            </Rectangle>
+                            <TextBlock Text="変更" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </ToggleButton>
+                    <!-- 見出しの幅いっぱいに、見出しのすぐ下へ開く（幅は開く時に見出しに合わせる。OneLinePanel が1行に収める幅が要る） -->
+                    <Popup Tag="UsedUpdate" StaysOpen="False" Placement="Bottom" Opened="OnBarPopupOpened" Closed="OnBarPopupClosed">
+                        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderStrong}" BorderThickness="1"
+                                KeyboardNavigation.TabNavigation="Cycle" PreviewKeyDown="OnBarPopupKeyDown"
+                                AutomationProperties.AutomationId="ItemCompactUsedUpdatePanel">
+                            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource UsedUpdateBarContent}" Focusable="False" />
+                        </Border>
+                    </Popup>
+                    <Popup Tag="Changes" StaysOpen="False" Placement="Bottom" Opened="OnBarPopupOpened" Closed="OnBarPopupClosed">
+                        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderStrong}" BorderThickness="1"
+                                KeyboardNavigation.TabNavigation="Cycle" PreviewKeyDown="OnBarPopupKeyDown"
+                                AutomationProperties.AutomationId="ItemCompactChangesPanel">
+                            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ChangesBarContent}" Focusable="False" />
+                        </Border>
+                    </Popup>
+                </StackPanel>
+            </views:ItemCompactBar.Trailing>
+        </views:ItemCompactBar>
         </Grid>
     </DockPanel>
 </UserControl>

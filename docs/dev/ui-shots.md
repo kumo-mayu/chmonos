@@ -99,7 +99,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | 流した位置を保つ（次・戻る・進む・開き直す） | `item-page-next-after-scroll`・`item-page-back-*`・`item-page-forward-after-back`・`item-page-reopen-after-scroll`・`item-page-files-*` |
 | 欄の下の知らせ（出る前・出た後） | `item-page-notices-none`・`item-page-notices-shown` |
 | ユーザータグ（小分類・畳んだ） | `item-page-user-tags`・`item-page-user-tags-folded` |
-| BOOTHで変わった所（帯・足しただけ・消しただけ・既読） | `item-page-changes`・`item-page-changes-*` |
+| BOOTHで変わった所（帯・足しただけ・消しただけ・既読・流した後の「変更」の印と開いた中身） | `item-page-changes`・`item-page-changes-*`（印は `item-page-changes-compact`・`-compact-open`） |
 | 「BOOTHでの変化の履歴」の窓（並び・値段と名前・前の形の知らせ） | `item-change-history`・`item-change-history-*` |
 | 購入の日付 | `item-page-purchase-dates` |
 | フォルダビュー・改変の画面に組み込んだ商品ページ | `folder-item-*`・`modification-item-*` |

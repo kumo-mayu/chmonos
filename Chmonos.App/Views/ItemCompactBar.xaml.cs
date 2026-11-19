@@ -83,6 +83,16 @@ public partial class ItemCompactBar : UserControl
         private set => SetValue(HasShopCommandKey, value);
     }
 
+    /// <summary>右端に足す物（無ければ何も出さない）。中の結び付けは <see cref="Page"/> を見る。</summary>
+    public static readonly DependencyProperty TrailingProperty = DependencyProperty.Register(
+        nameof(Trailing), typeof(object), typeof(ItemCompactBar));
+
+    public object? Trailing
+    {
+        get => GetValue(TrailingProperty);
+        set => SetValue(TrailingProperty, value);
+    }
+
     public string IdPrefix
     {
         get => (string)GetValue(IdPrefixProperty);

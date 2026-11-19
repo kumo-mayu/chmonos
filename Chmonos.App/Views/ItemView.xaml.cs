@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using Chmonos.App.Controls;
 using Chmonos.App.ViewModels;
 
@@ -30,6 +31,13 @@ public partial class ItemView : UserControl
 
         // 出す境目は商品名の段（星と名前）の下端。ショップ名の行はその下にあり、帯にも出すので、境目に含めない
         _compactHeader = new CompactHeaderTracker(Body, NameAnchor, CompactBar);
+        CompactBar.IsVisibleChanged += (_, _) =>
+        {
+            if (!CompactBar.IsVisible)
+            {
+                CloseBarPopups();
+            }
+        };
 
         // 人が触ったら、戻す先を追うのをやめる。触った後に中身が伸びて（見出しを開いた・ファイルを足した）、
         // 前の位置へ引き戻されると、見ている所が勝手に動く。時計で打ち切らないのは、読み込みの長さが商品で違うため
@@ -322,6 +330,81 @@ public partial class ItemView : UserControl
         }
     }
 
+    // ---- 流した後の1行の見出しの「更新」「変更」の印（ユーザ判断 2026-11-20） ----
+
+    /// <summary>見出しの右端に足した印（ToggleButton）と小窓（Popup）。見出しの部品の中なので名前で引けず、Tag で組にする。</summary>
+    private IEnumerable<T> BarMarkParts<T>() where T : FrameworkElement
+        => (CompactBar.Trailing as Panel)?.Children.OfType<T>() ?? [];
+
+    private Popup PopupOf(object mark) => BarMarkParts<Popup>().First(popup => Equals(popup.Tag, ((FrameworkElement)mark).Tag));
+
+    private ToggleButton MarkOf(Popup popup) => BarMarkParts<ToggleButton>().First(mark => Equals(mark.Tag, popup.Tag));
+
+    /// <summary>印を押したら、見出しのすぐ下に見出しと同じ幅で帯の中身を開く。もう一方は閉じる（重ねて開かない）。</summary>
+    private void OnBarMarkChecked(object sender, RoutedEventArgs e)
+    {
+        var popup = PopupOf(sender);
+        foreach (var other in BarMarkParts<Popup>().Where(other => other != popup))
+        {
+            other.IsOpen = false;
+        }
+
+        popup.PlacementTarget = CompactBar;
+        if (popup.Child is FrameworkElement panel)
+        {
+            panel.Width = CompactBar.ActualWidth;
+        }
+
+        popup.IsOpen = true;
+    }
+
+    private void OnBarMarkUnchecked(object sender, RoutedEventArgs e) => PopupOf(sender).IsOpen = false;
+
+    /// <summary>
+    /// 開いている間は印を押しても素通りさせる（外を押した扱いで閉じた直後に、同じ押しで開き直すのを防ぐ。保存した検索の小窓と同じ）。
+    /// キーで開いた人が中のボタンに届くように、中の最初の物へ移る
+    /// </summary>
+    private void OnBarPopupOpened(object? sender, EventArgs e)
+    {
+        if (sender is Popup popup)
+        {
+            MarkOf(popup).IsHitTestVisible = false;
+            popup.Child?.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.First));
+        }
+    }
+
+    private void OnBarPopupClosed(object? sender, EventArgs e)
+    {
+        if (sender is Popup popup)
+        {
+            var mark = MarkOf(popup);
+            mark.IsChecked = false;
+            mark.IsHitTestVisible = true;
+        }
+    }
+
+    /// <summary>Esc で閉じて印へ戻る。</summary>
+    private void OnBarPopupKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == System.Windows.Input.Key.Escape
+            && BarMarkParts<Popup>().FirstOrDefault(popup => popup.Child == sender) is { } popup)
+        {
+            popup.IsOpen = false;
+            MarkOf(popup).Focus();
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>見出しが引っ込んだ（上まで戻した）・変わった所へ流した時は、開いた中身を閉じる（帯が本文の頭に見えている）。</summary>
+    private void CloseBarPopups()
+    {
+        foreach (var popup in BarMarkParts<Popup>())
+        {
+            popup.IsOpen = false;
+        }
+    }
+
+
     // ---- BOOTH で変わった所（メモ17） ----
 
     /// <summary>上の帯の「ほか n 件」：入り切らなかった分も含めて、変わった所を全部並べる。</summary>
@@ -343,6 +426,7 @@ public partial class ItemView : UserControl
     /// </summary>
     private void RevealChange(ChangeTarget target)
     {
+        CloseBarPopups();
         CancelRestore();
         ProgressiveItems.FeedAllNow(Body);
         Body.UpdateLayout();
