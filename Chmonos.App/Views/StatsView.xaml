@@ -150,6 +150,11 @@
                     期間（ユーザ判断 2026-11-18・open.md 104）。「年を選ぶ」は右に年の欄、「開始と終了を選ぶ」は右に日の欄2つ（カレンダーは検索の日付の条件と同じ部品）
                 -->
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <!-- 読み直し。ほかの画面の「読み直す」と同じ小さいボタンで、ここは帯が狭いので記号だけにする（名前は同じ「読み直す」） -->
+                    <Button Content="↺" Style="{StaticResource SmallButton}" Width="27" Padding="0" FontSize="17" Margin="0,0,8,0"
+                            VerticalAlignment="Center" Command="{Binding RefreshCommand}"
+                            ToolTip="集計し直します。"
+                            AutomationProperties.Name="読み直す" AutomationProperties.AutomationId="StatsRefresh" />
                     <ComboBox VerticalAlignment="Center" Width="150"
                               AutomationProperties.Name="集計する期間" AutomationProperties.AutomationId="StatsRange"
                               ItemsSource="{x:Static vm:StatsViewModel.Ranges}"

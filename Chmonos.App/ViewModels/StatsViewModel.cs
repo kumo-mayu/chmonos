@@ -699,23 +699,45 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
 
     public bool HasBacklog => Backlog.Count > 0;
 
+    /// <summary>
+    /// 今の集計を取り消して、全商品から読み直す（上の帯の ↺。ユーザ案 2026-11-18）。
+    /// 集計は画面を作った時に1回だけなので、取り込みや編集の後に見るには別の画面へ行って戻るしか無かった。
+    /// 期間・開いている欄はそのまま
+    /// </summary>
+    public RelayCommand RefreshCommand => _refreshCommand ??= new RelayCommand(() =>
+    {
+        IsLoading = true;
+        LoadAsync().Forget();
+    });
+
+    private RelayCommand? _refreshCommand;
+
+    /// <summary>読み込み中の取り消し。読み直しで前の読み込みを止める（画面を離れた時の <see cref="_leaving"/> とつなぐ）。</summary>
+    private CancellationTokenSource? _loadCts;
+
     private async Task LoadAsync()
     {
+        var cts = CancellationTokenSource.CreateLinkedTokenSource(_leaving.Token);
+        Interlocked.Exchange(ref _loadCts, cts)?.Cancel();
+
         // 読めなかったときも「読み込み中」を下ろす。成功した道でしか下ろしていなかったので、
         // 壊れた商品が1件あるだけで画面が空のまま戻らなかった（失敗そのものはログに残る）
         try
         {
-            await LoadCoreAsync();
+            await LoadCoreAsync(cts.Token);
         }
         finally
         {
-            RunOnUiThread(() => IsLoading = false);
+            // 読み直しで取り消された読み込みは下ろさない（新しい読み込みの「集計しています…」を消してしまう）
+            if (ReferenceEquals(_loadCts, cts))
+            {
+                RunOnUiThread(() => IsLoading = false);
+            }
         }
     }
 
-    private async Task LoadCoreAsync()
+    private async Task LoadCoreAsync(CancellationToken token)
     {
-        var token = _leaving.Token;
         // アバターの欄は検索と同じ設定で、持っていないバリエーションの分を外す（open.md 106）
         var useDetected = _services.Settings.UseDetectedVariationTargets;
         // 全商品は1回だけ読み、期間を替えるたびには読み直さない（open.md 104）。期間の集計も読み込みと同じ裏で済ませる
