@@ -168,7 +168,8 @@ public sealed class NotificationService : INotificationService
                 .Select(orphan => orphan.IsSub ? $"{orphan.Top}／{orphan.Sub}" : orphan.Top)
                 .ToList();
 
-            var missingAttributes = item.Local.Attributes.Keys
+            // 値はまだの名前も参照（マスタに無ければ、編集の画面に出ないまま残る）
+            var missingAttributes = item.Local.Attributes.Keys.Concat(ItemAttributes.Pending(item.Local))
                 .Where(name => !attributes.Contains(name))
                 .Distinct(StringComparer.CurrentCultureIgnoreCase)
                 .ToList();

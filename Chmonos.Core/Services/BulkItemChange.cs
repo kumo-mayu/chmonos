@@ -78,22 +78,23 @@ public abstract record BulkItemChange
         }
     }
 
-    /// <summary>属性を外して未評価に戻す（キーを消す。0 にはしない）。</summary>
+    /// <summary>
+    /// 属性を値を付けずに足す（付いているが値はまだ。ユーザ判断 2026-11-20）。値は編集の画面で「未評価」の行から付ける。
+    /// 既に付いている商品（値がある・値はまだ）は何もしない——値を 50 などで埋めると、付けただけか評価したかが分からなくなる。
+    /// </summary>
+    public sealed record AddAttribute(string Name) : BulkItemChange
+    {
+        public override IReadOnlyCollection<LocalField> Owns => LocalOwners.Attributes;
+
+        public override LocalBlock? Apply(LocalBlock current) => ItemAttributes.AddPending(current, [Name]);
+    }
+
+    /// <summary>属性を外して付いていない状態に戻す（値も、値はまだも消す。0 にはしない）。</summary>
     public sealed record RemoveAttribute(string Name) : BulkItemChange
     {
         public override IReadOnlyCollection<LocalField> Owns => LocalOwners.Attributes;
 
-        public override LocalBlock? Apply(LocalBlock current)
-        {
-            if (!current.Attributes.ContainsKey(Name))
-            {
-                return null;
-            }
-
-            var table = new Dictionary<string, int>(current.Attributes, AttributeNames.Comparer);
-            table.Remove(Name);
-            return current with { Attributes = table };
-        }
+        public override LocalBlock? Apply(LocalBlock current) => ItemAttributes.Without(current, Name);
     }
 
     public sealed record SetFavorite(bool Value) : BulkItemChange

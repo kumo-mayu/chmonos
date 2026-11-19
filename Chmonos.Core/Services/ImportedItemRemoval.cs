@@ -132,6 +132,7 @@ public sealed class ImportedItemRemoval(DataStore store)
             || local.ImageRoles?.Count > 0
             || local.UserTags?.Count > 0
             || local.Attributes?.Count > 0
+            || local.PendingAttributes?.Count > 0
             || !string.IsNullOrEmpty(local.Memo)
             || local.VariationTargets?.Count > 0
             || local.Purchases?.Count > 0

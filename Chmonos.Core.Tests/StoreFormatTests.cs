@@ -143,7 +143,7 @@ public class StoreFormatTests : IDisposable
     [Fact]
     public void 版1の保存先は古いが読める()
     {
-        Assert.Equal(2, StoreFormat.Current);
+        Assert.Equal(3, StoreFormat.Current);
         Assert.Equal(StoreFormat.Verdict.Older, StoreFormat.Check(1));
         Assert.Equal(StoreFormat.Verdict.Older, StoreFormat.Check(StoreFormat.StoreVersion(_root)));
     }

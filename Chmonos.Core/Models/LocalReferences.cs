@@ -185,6 +185,7 @@ public static class LocalReferences
         "UserTags[].Top",
         "UserTags[].Subs",
         "Attributes",
+        "PendingAttributes",
         "Memo",
         "Avatars[].Name",
         "Avatars[].Source",

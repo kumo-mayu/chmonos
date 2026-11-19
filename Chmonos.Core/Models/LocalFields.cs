@@ -68,7 +68,8 @@ public static class LocalFields
                 LocalField.ThumbnailImage => result with { ThumbnailImage = incoming.ThumbnailImage },
                 LocalField.ImageRoles => result with { ImageRoles = incoming.ImageRoles },
                 LocalField.UserTags => result with { UserTags = incoming.UserTags },
-                LocalField.Attributes => result with { Attributes = incoming.Attributes },
+                // 値はまだの名前も属性の一部（値を付けると移る間柄なので、片方だけ重ねると食い違う）
+                LocalField.Attributes => result with { Attributes = incoming.Attributes, PendingAttributes = incoming.PendingAttributes },
                 LocalField.Memo => result with { Memo = incoming.Memo },
                 LocalField.Avatars => result with { Avatars = incoming.Avatars },
                 LocalField.AvatarBases => result with { AvatarBases = incoming.AvatarBases },

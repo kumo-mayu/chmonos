@@ -168,22 +168,19 @@ internal static class ApiClassify
         return local with { UserTags = tags };
     }
 
-    /// <summary>名指しした属性だけ書く（null は外して未評価に戻す。キーが無いのと 0 は別）。ほかの属性はそのまま。</summary>
+    /// <summary>
+    /// 名指しした属性だけ書く（null は外して付いていない状態に戻す。キーが無いのと 0 は別）。ほかの属性はそのまま。
+    /// 値を書けば「値はまだ」から外れ、null は「値はまだ」も外す（画面のまとめて編集と同じ。<see cref="ItemAttributes"/>）。
+    /// </summary>
     public static LocalBlock ApplyAttributes(LocalBlock local, IReadOnlyList<(string Name, int? Value)> values)
     {
-        var table = new Dictionary<string, int>(local.Attributes, AttributeNames.Comparer);
         foreach (var (name, value) in values)
         {
-            if (value is { } set)
-            {
-                table[name] = set;
-            }
-            else
-            {
-                table.Remove(name);
-            }
+            local = value is { } set
+                ? ItemAttributes.WithValue(local, name, set)
+                : ItemAttributes.Without(local, name) ?? local;
         }
 
-        return local with { Attributes = table };
+        return local;
     }
 }
