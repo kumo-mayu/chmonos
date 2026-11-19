@@ -285,6 +285,43 @@ public sealed class InboxArchiveViewTests
     });
 
     /// <summary>
+    /// 初めて「商品」へ切り替えて全部の月の目録を作っている間に「変更の種類」へ切り替えても、種類の欄と一覧が食い違わない
+    /// （2026-11-19 の Codex の点検 3回目の 2：後の読みが、最初の種類を選ぶ前に全部の種類で絞っていた）。順は gate で決める
+    /// </summary>
+    [Fact]
+    public Task 目録を作っている間に種類へ切り替えても_選んだ種類だけを並べる() => TestApp.Run(async app =>
+    {
+        await app.Store.NotificationArchive.AppendAsync(
+        [
+            Record("sep-update", At(9, 1)),
+            Record("sep-tag", At(9, 2), "タグ「作り物」", NotificationKind.OrphanTag) with { ItemId = null },
+        ]);
+        await app.Store.NotificationArchive.AppendAsync([Record("oct-update", At(10, 1))]);
+        var (_, archive) = await OpenArchiveAsync(app);
+
+        var entered = new TaskCompletionSource();
+        var gate = new TaskCompletionSource();
+        archive.CatalogBuiltForTests = () =>
+        {
+            entered.TrySetResult();
+            return gate.Task;
+        };
+
+        archive.IsItemLevel = true;
+        var itemLoad = archive.Pending;
+        await entered.Task;
+        archive.IsKindLevel = true;
+        var kindLoad = archive.Pending;
+        gate.SetResult();
+        await itemLoad;
+        await kindLoad;
+
+        Assert.Equal(NotificationKind.ItemUpdated, archive.SelectedKind!.Kind);
+        Assert.Equal(["oct-update", "sep-update"], Ids(archive));
+        Assert.Equal("2 件", archive.CountText);
+    });
+
+    /// <summary>
     /// 一番上を「商品」にすると、商品を選ぶまでは何も並べず、選ぶとすべての月からその商品の通知を新しい順に並べる。
     /// 候補は商品の知らせの題（商品名）。同じ名前の別の商品は ID を添えて分ける
     /// </summary>

@@ -424,34 +424,44 @@ public sealed class InboxArchiveViewModel : ViewModelBase
         await ApplyFilterAsync();
     }
 
-    /// <summary>全部の月の目録。初めて頼まれた時に裏で作り、種類と商品の欄を埋める。</summary>
-    private async Task<NotificationArchiveCatalog> AllMonthsAsync()
+    /// <summary>
+    /// 全部の月の目録。初めて頼まれた時に裏で作り、種類と商品の欄を埋める。
+    /// 目録・候補・種類・最初の種類の選択までを1つの Task にし、どの読みもその全部が済んでから絞りの条件を取る
+    /// （2026-11-19 の Codex の点検 3回目の 2 まで、目録だけを分け合っていた。商品へ切り替えて作っている間に種類へ切り替えると、
+    /// 後の読みが種類を選ぶ前に絞り、欄は最初の種類なのに一覧は全部の種類が混ざった）
+    /// </summary>
+    private Task<NotificationArchiveCatalog> AllMonthsAsync() => _allMonths ??= BuildAllMonthsAsync();
+
+    private async Task<NotificationArchiveCatalog> BuildAllMonthsAsync()
     {
-        if (_allMonths is null)
+        var catalog = await Task.Run(() => _services.Store.NotificationArchive.CatalogAsync());
+        if (CatalogBuiltForTests is { } built)
         {
-            _allMonths = Task.Run(() => _services.Store.NotificationArchive.CatalogAsync());
-            var catalog = await _allMonths;
-
-            // 候補と種類の数えは全部の知らせを回るので、数千件でも画面を止めないよう裏で数える
-            var (choices, kinds) = await Task.Run(() => (catalog.ItemChoices(), catalog.Kinds()));
-            _itemChoices = choices;
-            OnPropertyChanged(nameof(ItemCandidates));
-            foreach (var (kind, count) in kinds)
-            {
-                Kinds.Add(new ArchiveKindChoice(kind, $"{InboxViewModel.KindLabel(kind)}（{count:N0}）"));
-            }
-
-            // 選んだだけで読み直さない（読み直すのは呼んだ側。ここで読み直すと、読みが2本になり先の方が待たれない）
-            if (_selectedKind is null && Kinds.Count > 0)
-            {
-                _selectedKind = Kinds[0];
-                OnPropertyChanged(nameof(SelectedKind));
-                OnPropertyChanged(nameof(HeadLabel));
-            }
+            await built();
         }
 
-        return await _allMonths;
+        // 候補と種類の数えは全部の知らせを回るので、数千件でも画面を止めないよう裏で数える
+        var (choices, kinds) = await Task.Run(() => (catalog.ItemChoices(), catalog.Kinds()));
+        _itemChoices = choices;
+        OnPropertyChanged(nameof(ItemCandidates));
+        foreach (var (kind, count) in kinds)
+        {
+            Kinds.Add(new ArchiveKindChoice(kind, $"{InboxViewModel.KindLabel(kind)}（{count:N0}）"));
+        }
+
+        // 選んだだけで読み直さない（読み直すのは待っている側。ここで読み直すと、読みが2本になり先の方が待たれない）
+        if (_selectedKind is null && Kinds.Count > 0)
+        {
+            _selectedKind = Kinds[0];
+            OnPropertyChanged(nameof(SelectedKind));
+            OnPropertyChanged(nameof(HeadLabel));
+        }
+
+        return catalog;
     }
+
+    /// <summary>試験だけが使う：全部の月の目録ができた後、候補と種類を作る前に待つ（作っている間に見方を変える順を作る）。</summary>
+    internal Func<Task>? CatalogBuiltForTests { get; set; }
 
     private async Task ApplyFilterAsync()
     {
