@@ -13,9 +13,10 @@
         DataContext は ItemViewModel（編集画面では、今開いている商品の分）か ModificationViewModel（改変の写真・ユーザ指示 2026-09-13）。
         どちらも IGalleryHost と、同じ名前の値・コマンドを持つ。商品にしか無い物（サムネイルの指名・役割・取得の案内）は、改変では false の値で隠す
     -->
-                    <Border Style="{StaticResource Card}" ClipToBounds="True">
+                    <Border Style="{StaticResource Card}" ClipToBounds="True" SizeChanged="OnCardSizeChanged">
                         <StackPanel>
-                            <Grid Height="420" Background="{DynamicResource ImageBack}">
+                            <!-- 高さは欄の幅に合わせて決める（OnCardSizeChanged・BigImageHeight。ユーザ判断 2026-11-20）。420 は狭い時の値で、前はいつもこの高さだった -->
+                            <Grid x:Name="BigImage" Height="420" Background="{DynamicResource ImageBack}">
                                 <!--
                                     絵を送る矢印。**普段は出さない。**
                                     常に置いておくと絵の上に黒い箱が居座るので、
