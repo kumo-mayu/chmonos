@@ -6,8 +6,8 @@ namespace Chmonos.App.ViewModels;
 
 /// <summary>
 /// アバターの管理の「変換」の一覧の上の「追加した組」の節（<c>docs/spec/conversion.md</c>「人が足す組」・ユーザ判断 2026-11-20）。
-/// 組（<c>conversion-pairs.json</c>）を全部並べ（元 → 先・メモ・×）、「組を追加」の行で元と先の両方にアバターか共通素体を選んで足す。
-/// 前はアバターの詳細に置いていたが、元がいつもそのアバターで、共通素体を元にできなかった（ユーザ判断 2026-11-20：「変換」の側で編集する）。
+/// 組（<c>conversion-pairs.json</c>）をプロファイルの商品と同じ形の行で並べ（元 → 先と短いメモ）、行を選ぶと右に組の中身（元・先・メモ・外す）を出す。
+/// 「組を追加」の行で元と先の両方にアバターか共通素体を選び、「追加」を押した時だけ足す（ユーザ判断 2026-11-20：候補を決めた瞬間に足すのをやめた）。
 /// 「逆も」は置かない（逆はもう1つの組として足す）。書き込みは <see cref="UiCommand.ChangeConversionPairs"/> 1本。
 /// </summary>
 public sealed class ConversionPairEditor : ViewModelBase
@@ -22,7 +22,10 @@ public sealed class ConversionPairEditor : ViewModelBase
     /// <summary>メモを書いた後（アバターの詳細の札の吹き出しだけが変わる）。</summary>
     private readonly Action? _memoWritten;
 
-    /// <summary>行ごとのメモの自動保存。書く先（行）と文は打った時点で決める（<see cref="MemoAutoSave{TOwner}"/>）。</summary>
+    /// <summary>選んだ行が替わった（プロファイルの商品の選びと、右に出す物を入れ替える）。</summary>
+    private readonly Action<ConversionPairRow?>? _selectionChanged;
+
+    /// <summary>行のメモの自動保存。書く先（行）と文は打った時点で決める（<see cref="MemoAutoSave{TOwner}"/>）。</summary>
     private readonly MemoAutoSave<ConversionPairRow> _memo;
 
     /// <summary>候補に出した共通素体の行から素体の名前を引く表（アバターと同じ名前の素体を取り違えない）。</summary>
@@ -35,39 +38,35 @@ public sealed class ConversionPairEditor : ViewModelBase
     private string _fromText = string.Empty;
     private string _toText = string.Empty;
     private bool _isExpanded = true;
+    private ConversionPairRow? _selectedRow;
 
     public ConversionPairEditor(
         AppServiceContainer services,
         Services.ThumbnailLoader? thumbnails = null,
         Func<string, ItemRecord?>? findItem = null,
         Action? written = null,
-        Action? memoWritten = null)
+        Action? memoWritten = null,
+        Action<ConversionPairRow?>? selectionChanged = null,
+        Func<ConversionEnd, bool>? canOpen = null,
+        Action<ConversionEnd>? open = null)
     {
         _services = services;
         _thumbnails = thumbnails;
         _findItem = findItem;
         _written = written;
         _memoWritten = memoWritten;
+        _selectionChanged = selectionChanged;
+        CanOpen = canOpen ?? (_ => false);
+        Open = open ?? (_ => { });
         _memo = new MemoAutoSave<ConversionPairRow>(SaveMemoAsync);
         AddCommand = new RelayCommand(() => AddAsync().Forget());
-
-        // 先の欄で候補を決めたら、そのまま足す（Enter は入力の確定・ui-input.md）。元の欄は選んだ語を残すだけ
-        CommitToCommand = new RelayCommand(parameter => CommitToAsync(parameter as string).Forget());
     }
 
-    /// <summary>
-    /// 先の欄で候補を決めた。決めた語を先に入れてから足す（欄の文字の結び付けが先に届く事に頼らない）。
-    /// 元がまだ決まっていなければ足さずに待つ（先から埋める人に「選んでください」を出すと、間違えたように見える）
-    /// </summary>
-    internal Task CommitToAsync(string? text)
-    {
-        if (text is not null)
-        {
-            ToText = text;
-        }
+    /// <summary>端（アバター・共通素体）へ移れるか。登録簿に無いアバター・消えた素体は移れない（右の元・先を押せなくする）。</summary>
+    internal Func<ConversionEnd, bool> CanOpen { get; }
 
-        return EndOf(FromText) is null ? Task.CompletedTask : AddAsync();
-    }
+    /// <summary>端のアバター・共通素体へ移る（アバターの管理の中で見方を替えて選ぶ）。</summary>
+    internal Action<ConversionEnd> Open { get; }
 
     /// <summary>組の行（足した順）。</summary>
     public IReadOnlyList<ConversionPairRow> Rows { get; private set; } = [];
@@ -83,6 +82,33 @@ public sealed class ConversionPairEditor : ViewModelBase
         get => _isExpanded;
         set => SetField(ref _isExpanded, value);
     }
+
+    /// <summary>
+    /// 選んでいる組（右に中身を出す）。プロファイルの商品の選びとはどちらか1つ（<see cref="AvatarsViewModel"/> が入れ替える）。
+    /// 選び直す前に待っているメモを書き切る：自動保存の待ちは1つしか持てず、別の組で打ち始めると前の組に打った文が消える
+    /// </summary>
+    public ConversionPairRow? SelectedRow
+    {
+        get => _selectedRow;
+        set
+        {
+            if (ReferenceEquals(_selectedRow, value))
+            {
+                return;
+            }
+
+            _memo.Flush();
+            _selectedRow = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasSelection));
+            _selectionChanged?.Invoke(value);
+        }
+    }
+
+    public bool HasSelection => SelectedRow is not null;
+
+    /// <summary>戻るで「変換」へ戻した時に選び直す組（初めて読んだ時に1回だけ使う）。</summary>
+    internal ConversionPair? SelectOnLoad { get; set; }
 
     /// <summary>元と先を選ぶ欄の候補（アバターと、「（共通素体）」を添えた共通素体）。</summary>
     public IReadOnlyList<string> Suggestions { get; private set; } = [];
@@ -124,11 +150,11 @@ public sealed class ConversionPairEditor : ViewModelBase
         }
     }
 
-    /// <summary>「追加」。元と先の欄の文字から組を作って足す。</summary>
+    /// <summary>
+    /// 「追加」（欄の Enter も同じ）。元と先の欄の文字から組を作って足す。候補を決めただけでは足さない
+    /// （ユーザ判断 2026-11-20：先の候補を選んだ瞬間に足されるのは、選び間違いを直す間が無かった）
+    /// </summary>
     public RelayCommand AddCommand { get; }
-
-    /// <summary>先の欄で候補を決めたとき。</summary>
-    public RelayCommand CommitToCommand { get; }
 
     /// <summary>足せなかった・書けなかったときだけ出る1行。</summary>
     public AreaNotice Notice { get; } = new();
@@ -143,7 +169,7 @@ public sealed class ConversionPairEditor : ViewModelBase
 
     /// <summary>
     /// ファイルと登録簿から読み直す（「変換」に入った時・登録簿を読み直した時）。組は素体の改名・削除と商品 ID の変更でも書き換わるので、
-    /// 読み直さないと古い行の × が何も外さない
+    /// 読み直さないと古い行の「この組を外す」が何も外さない
     /// </summary>
     public void Reload() => ReloadAsync().Forget();
 
@@ -157,10 +183,15 @@ public sealed class ConversionPairEditor : ViewModelBase
         Rebuild(_services.Store.ConversionPairs.Load());
     }
 
-    private void Rebuild(ConversionPairFile file)
+    /// <summary>
+    /// 行を作り直す。選んでいた組は端で引き直して選び直す（行は新しい物に替わる）。消えた組（外した・読み替えで落ちた）なら選びを外す
+    /// </summary>
+    private void Rebuild(ConversionPairFile file, ConversionPair? select = null)
     {
         var registry = _services.CachedAvatars.Load();
         var names = AvatarNames.Map(registry.Entries);
+        var wanted = select ?? _selectedRow?.Pair ?? SelectOnLoad;
+        SelectOnLoad = null;
         Rows = [.. file.Pairs
             .Where(pair => !pair.IsEmpty)
             .Select(pair => new ConversionPairRow(this, pair, ConversionPairText.NameOf(pair.From, names), ConversionPairText.NameOf(pair.To, names)))];
@@ -198,6 +229,20 @@ public sealed class ConversionPairEditor : ViewModelBase
         OnPropertyChanged(nameof(HasRows));
         OnPropertyChanged(nameof(HeaderText));
         OnPropertyChanged(nameof(Suggestions));
+
+        // 行は新しい物に替わったので、同じ組でも選び直したと必ず知らせる（ListBox は一覧の差し替えで選びを外す）。
+        // 待っているメモは呼ぶ側が先に書き切っている
+        var previous = _selectedRow;
+        var next = wanted is null ? null : Rows.FirstOrDefault(row => row.Pair.SameEnds(wanted));
+        if (previous is null && next is null)
+        {
+            return;
+        }
+
+        _selectedRow = next;
+        OnPropertyChanged(nameof(SelectedRow));
+        OnPropertyChanged(nameof(HasSelection));
+        _selectionChanged?.Invoke(next);
     }
 
     /// <summary>候補の文字から端を引く。素体の表を先に見る（同じ名前のアバターと取り違えない）。</summary>
@@ -208,7 +253,8 @@ public sealed class ConversionPairEditor : ViewModelBase
 
     /// <summary>
     /// 元と先の欄から組を足す。足さない理由（候補に無い・同じ物同士・既にある）はここで言う。
-    /// Core の <see cref="ConversionPairs.Add"/> も同じ物を黙って足さない（錠の中の今の値で判定する）が、理由は返さないので画面で先に見る
+    /// Core の <see cref="ConversionPairs.Add"/> も同じ物を黙って足さない（錠の中の今の値で判定する）が、理由は返さないので画面で先に見る。
+    /// 足した組は選んで右に出す（同じ画面の共通素体の「追加」と同じ。既にある組なら、その組を選ぶ）
     /// </summary>
     internal async Task AddAsync()
     {
@@ -228,23 +274,38 @@ public sealed class ConversionPairEditor : ViewModelBase
         if (Rows.FirstOrDefault(row => row.Pair.SameEnds(pair)) is { } known)
         {
             Notice.Warn($"「{known.Text}」は既にあります。");
+            SelectedRow = known;
             return;
         }
 
-        if (await WriteThenRebuildAsync(file => ConversionPairs.Add(file, pair)))
+        if (await WriteThenRebuildAsync(file => ConversionPairs.Add(file, pair), select: pair))
         {
             // 同じ元から続けて足せるように、元は残して先だけ空にする
             ToText = string.Empty;
         }
     }
 
+    /// <summary>
+    /// 外す。外した組を選んでいたなら、同じ位置の次の組（最後なら前の組）を選ぶ。組が無くなったら選びを外す
+    /// （右はプロファイルの商品へ戻る・<see cref="AvatarsViewModel"/>）
+    /// </summary>
     internal async Task RemoveAsync(ConversionPairRow row)
-        => await WriteThenRebuildAsync(file => ConversionPairs.Remove(file, row.Pair));
+    {
+        var index = Rows.ToList().IndexOf(row);
+        var wasSelected = ReferenceEquals(row, _selectedRow);
+        ConversionPair? next = null;
+        if (wasSelected && index >= 0)
+        {
+            next = Rows.Skip(index + 1).FirstOrDefault()?.Pair ?? (index > 0 ? Rows[index - 1].Pair : null);
+        }
+
+        await WriteThenRebuildAsync(file => ConversionPairs.Remove(file, row.Pair), select: next);
+    }
 
     /// <summary>
     /// 足す・外す。先に待っているメモを書き切る（書き切らずに書いた後の値で作り直すと、打ったばかりのメモが古い文の行に戻る）
     /// </summary>
-    private async Task<bool> WriteThenRebuildAsync(Func<ConversionPairFile, ConversionPairFile> change)
+    private async Task<bool> WriteThenRebuildAsync(Func<ConversionPairFile, ConversionPairFile> change, ConversionPair? select)
     {
         await _memo.FlushAsync();
         if (await RunAsync(change) is not { } written)
@@ -252,16 +313,16 @@ public sealed class ConversionPairEditor : ViewModelBase
             return false;
         }
 
-        Rebuild(written);
+        Rebuild(written, select);
         _written?.Invoke();
         return true;
     }
 
-    /// <summary>行の欄で打った（行から呼ぶ）。</summary>
+    /// <summary>右の欄で打った（行から呼ぶ）。</summary>
     internal void MemoEdited(ConversionPairRow row, string text) => _memo.Edited(row, text);
 
     /// <summary>
-    /// 打った時点の行の組へメモを書く。行は作り直さずにその場で組を差し替える（作り直すと、次の行のメモへ移ったフォーカスが飛ぶ）
+    /// 打った時点の行の組へメモを書く。行は作り直さずにその場で組を差し替える（作り直すと選びとメモの欄のフォーカスが飛ぶ）
     /// </summary>
     private async Task SaveMemoAsync(ConversionPairRow row, string text)
     {
@@ -299,7 +360,9 @@ public sealed class ConversionPairEditor : ViewModelBase
     }
 }
 
-/// <summary>「追加した組」の1行（元 → 先・メモ・×）。</summary>
+/// <summary>
+/// 「追加した組」の1行（左はプロファイルの商品と同じ形で「元 → 先」と短いメモ）。選ぶと右に、元・先（押して移る）・メモ・「この組を外す」を出す。
+/// </summary>
 public sealed class ConversionPairRow : ViewModelBase
 {
     private readonly ConversionPairEditor _owner;
@@ -313,6 +376,8 @@ public sealed class ConversionPairRow : ViewModelBase
         ToName = toName;
         _memoText = pair.Memo ?? string.Empty;
         RemoveCommand = new RelayCommand(() => owner.RemoveAsync(this).Forget());
+        OpenFromCommand = new RelayCommand(() => owner.Open(Pair.From), () => owner.CanOpen(Pair.From));
+        OpenToCommand = new RelayCommand(() => owner.Open(Pair.To), () => owner.CanOpen(Pair.To));
     }
 
     /// <summary>今の組（メモを書いた後はその場で差し替える）。外す・メモを書く時は端で当てるので、メモが古くても同じ組を指す。</summary>
@@ -327,10 +392,9 @@ public sealed class ConversionPairRow : ViewModelBase
     /// <summary>使うツールの名前（ファイルを直して書いた物だけ。画面では書かない）。</summary>
     public string? Tool => Pair.Tool;
 
-    /// <summary>行の名前の後ろに添える「・ツール名」。無ければ空（Run は隠せないので、区切りごと文字で出し分ける）。</summary>
-    public string ToolText => string.IsNullOrWhiteSpace(Tool) ? string.Empty : $"・{Tool}";
+    public bool HasTool => !string.IsNullOrWhiteSpace(Tool);
 
-    /// <summary>メモの欄（押さずに残る・I9）。</summary>
+    /// <summary>右の欄のメモ（押さずに残る・I9）。</summary>
     public string MemoText
     {
         get => _memoText;
@@ -338,12 +402,28 @@ public sealed class ConversionPairRow : ViewModelBase
         {
             if (SetField(ref _memoText, value ?? string.Empty))
             {
+                OnPropertyChanged(nameof(MemoPreview));
+                OnPropertyChanged(nameof(HasMemo));
                 _owner.MemoEdited(this, _memoText);
             }
         }
     }
 
+    /// <summary>左の行に添えるメモ（最初の行だけ。長さは行の幅で切る）。</summary>
+    public string MemoPreview => _memoText
+        .Split('\n')
+        .Select(line => line.Trim())
+        .FirstOrDefault(line => line.Length > 0) ?? string.Empty;
+
+    public bool HasMemo => MemoPreview.Length > 0;
+
+    /// <summary>右の「この組を外す」。</summary>
     public RelayCommand RemoveCommand { get; }
+
+    /// <summary>右の元の名前。そのアバター・共通素体へ移る（登録簿に無い物は押せない）。</summary>
+    public RelayCommand OpenFromCommand { get; }
+
+    public RelayCommand OpenToCommand { get; }
 }
 
 /// <summary>組の書き方（「変換」の節とアバターの詳細の札で同じにする）。</summary>

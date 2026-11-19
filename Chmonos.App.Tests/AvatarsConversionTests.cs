@@ -304,6 +304,49 @@ public class AvatarsConversionTests
     });
 
     /// <summary>
+    /// 追加した組もプロファイルの商品と同じに右で見る（ユーザ判断 2026-11-20）。右はどちらか1つ。組の元のアバターを押すとアバターへ移り、
+    /// 戻ると同じ組を選んだ「変換」へ戻る。戻った後に一覧を作り直しても、決めていない商品へ選びを奪わない
+    /// </summary>
+    [Fact]
+    public Task 組を選ぶと右は組になり_元へ移って戻ると同じ組を選び_商品を選ぶと組の選びが外れる() => TestApp.Run(async app =>
+    {
+        await app.Store.ConversionPairs.SaveAsync(new ConversionPairFile
+        {
+            Pairs = [new ConversionPair { From = ConversionEnd.Avatar("9800401"), To = ConversionEnd.Base("作り物の消えた素体") }],
+        });
+        var avatars = await OpenAsync(app);
+        avatars.ShowConversionModeCommand.Execute(null);
+        Assert.Equal("9900861", avatars.SelectedConversion!.ItemId);
+
+        var row = Assert.Single(avatars.ConversionPairs.Rows);
+        avatars.ConversionPairs.SelectedRow = row;
+        Assert.Null(avatars.SelectedConversion);
+        Assert.True(avatars.ShowsConversionPairDetail);
+        Assert.False(avatars.ShowsConversionDetail);
+
+        // 登録簿に無い共通素体へは移れない
+        Assert.False(row.OpenToCommand.CanExecute(null));
+        Assert.True(row.OpenFromCommand.CanExecute(null));
+        row.OpenFromCommand.Execute(null);
+        Assert.False(avatars.IsConversionMode);
+        Assert.Equal("9800401", avatars.Selected?.ItemId);
+
+        app.Main.GoBack();
+        var restored = Assert.IsType<AvatarsViewModel>(app.Main.CurrentViewModel);
+        Assert.True(restored.IsConversionMode);
+        await UiThread.Until(() => restored.HasConversionItems, "変換の一覧ができる");
+        await app.SettleAsync();
+        Assert.Equal("アオイ → 作り物の消えた素体（共通素体）", restored.ConversionPairs.SelectedRow?.Text);
+        Assert.Null(restored.SelectedConversion);
+        Assert.True(restored.ShowsConversionPairDetail);
+
+        restored.SelectedConversion = Row(restored, "9900862");
+        Assert.Null(restored.ConversionPairs.SelectedRow);
+        Assert.False(restored.ShowsConversionPairDetail);
+        Assert.True(restored.ShowsConversionDetail);
+    });
+
+    /// <summary>
     /// 保存に失敗したら次の商品へ進まない（件16）。進むと、失敗の知らせを置いた商品から離れ、
     /// 決めていないのに決めたように見える。書き込みだけを止める（読むのは通る）ので、画面の読み直しも通る。
     /// </summary>

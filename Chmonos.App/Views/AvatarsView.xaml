@@ -67,6 +67,21 @@
             <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
             <Setter Property="AutomationProperties.AutomationId" Value="AvatarBaseRow" />
         </Style>
+        <!-- 「変換」の追加した組の行。見た目はプロファイルの商品の行と同じ既定の行で、読み上げの名前は「元 → 先」（右クリックの項目は無い） -->
+        <Style x:Key="ConversionPairRowStyle" TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+            <Setter Property="AutomationProperties.Name" Value="{Binding Text}" />
+            <Setter Property="AutomationProperties.AutomationId" Value="AvatarsConversionPairRow" />
+        </Style>
+        <!-- 組の右の欄の元・先。押せる（移れる）時はリンクの色、登録簿から消えた物は普通の字で押せない -->
+        <Style x:Key="ConversionPairEndLink" TargetType="Button" BasedOn="{StaticResource HubLink}">
+            <Setter Property="Foreground" Value="{DynamicResource Link}" />
+            <Setter Property="FontSize" Value="13" />
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="{DynamicResource Text}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
         <!-- 一覧の1行。選ぶと右に詳細が出る -->
         <DataTemplate x:Key="AvatarRow" DataType="{x:Type vm:AvatarRowViewModel}">
             <Grid Margin="0,0,0,2">
@@ -451,8 +466,8 @@
 
                         <!--
                             人が足す変換の組（ユーザ判断 2026-11-20・avatar2avatar）。プロファイルの無いツールでも、元と先の両方にアバターか共通素体を選んで足す。
-                            前はアバターの詳細にあり、元がいつもそのアバターだった。畳めるようにし、行は高さに上限を付けて中で流す
-                            （組が増えてもプロファイルの一覧を押し潰さない）。「逆も」は置かない（逆はもう1つの組で足す）
+                            行はプロファイルの商品と同じ形（字だけ・同じ選び方）で、選ぶと右に組の中身（元・先・メモ・外す）を出す（ユーザ判断 2026-11-20）。
+                            畳めるようにし、一覧は高さに上限を付けて中で流す（組が増えてもプロファイルの一覧を押し潰さない）。「逆も」は置かない（逆はもう1つの組で足す）
                         -->
                         <Expander DockPanel.Dock="Top" Margin="14,10,14,0" DataContext="{Binding ConversionPairs}"
                                   Style="{StaticResource TriangleExpander}" IsExpanded="{Binding IsExpanded, Mode=TwoWay}"
@@ -465,53 +480,51 @@
                                 <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="2,0,0,6"
                                            Visibility="{Binding HasRows, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}"
                                            Text="プロファイルが無くても、元のアバター用の衣装を先に着せられる組を追加できます。" />
-                                <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                                              Visibility="{Binding HasRows, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                    <controls:ContentItemsControl ItemsSource="{Binding Rows}" AutomationProperties.AutomationId="AvatarsConversionPairRows">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate DataType="{x:Type vm:ConversionPairRow}">
-                                                <DockPanel Margin="0,0,0,8">
-                                                    <Button DockPanel.Dock="Right" Command="{Binding RemoveCommand}" VerticalAlignment="Top"
-                                                            AutomationProperties.AutomationId="AvatarsConversionPairRemove"
-                                                            AutomationProperties.Name="{Binding Text, StringFormat={}{0}を外す}"
-                                                            ToolTip="この組を外します。" Style="{StaticResource RejectMarkButton}" />
-                                                    <StackPanel>
-                                                        <TextBlock FontSize="{StaticResource FontSizeSmall}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text}"
-                                                                   AutomationProperties.AutomationId="AvatarsConversionPair">
-                                                            <Run Text="{Binding Text, Mode=OneWay}" /><Run Text="{Binding ToolText, Mode=OneWay}" Foreground="{DynamicResource TextMuted}" />
-                                                        </TextBlock>
-                                                        <Grid Margin="0,3,0,0">
-                                                            <TextBox Padding="6,3" MaxLength="2000" Text="{Binding MemoText, UpdateSourceTrigger=PropertyChanged}"
-                                                                     AutomationProperties.AutomationId="AvatarsConversionPairMemo"
-                                                                     AutomationProperties.Name="{Binding Text, StringFormat={}{0}のメモ}" />
-                                                            <TextBlock Text="メモ" Margin="9,0,0,0" Style="{StaticResource InputPlaceholder}"
-                                                                       Visibility="{Binding MemoText, Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
-                                                        </Grid>
-                                                    </StackPanel>
-                                                </DockPanel>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </controls:ContentItemsControl>
-                                </ScrollViewer>
+                                <ListBox ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
+                                         ItemContainerStyle="{StaticResource ConversionPairRowStyle}"
+                                         BorderThickness="0" Background="Transparent" MaxHeight="220"
+                                         HorizontalContentAlignment="Stretch"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                         AutomationProperties.Name="追加した組" AutomationProperties.AutomationId="AvatarsConversionPairRows"
+                                         Visibility="{Binding HasRows, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type vm:ConversionPairRow}">
+                                            <!-- プロファイルの商品の行と同じ字の大きさ・間（下の ConversionItemRowViewModel の行） -->
+                                            <StackPanel Margin="0,3,0,5">
+                                                <TextBlock Text="{Binding Text}" FontSize="12.5" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text}" />
+                                                <TextBlock Text="{Binding MemoPreview}" Style="{StaticResource Caption}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"
+                                                           Visibility="{Binding HasMemo, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
 
-                                <!-- 組を追加：元と先を候補付きの欄で選ぶ（左の欄は狭いので縦に積む）。先の欄で候補を決めると、そのまま足す -->
-                                <TextBlock Text="組を追加" Style="{StaticResource Caption}" Margin="2,2,0,4" />
-                                <controls:SuggestBox Source="{Binding Suggestions}" Text="{Binding FromText, Mode=TwoWay}"
-                                                     IconSelector="{Binding IconSelector}" InfoSelector="{Binding InfoSelector}"
-                                                     GroupHeadings="{Binding GroupHeadings}"
-                                                     AllowNew="False" KeepsCommittedText="True" Placeholder="元のアバターか共通素体"
-                                                     AutomationProperties.AutomationId="AvatarsConversionPairFrom" />
-                                <TextBlock Text="↓" HorizontalAlignment="Center" Foreground="{DynamicResource TextMuted}" Margin="0,2" />
-                                <DockPanel>
-                                    <Button DockPanel.Dock="Right" Content="追加" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
-                                            Command="{Binding AddCommand}" AutomationProperties.AutomationId="AvatarsConversionPairAdd"
-                                            ToolTip="元の衣装を先に着せられる組を追加します。" />
-                                    <controls:SuggestBox Source="{Binding Suggestions}" Text="{Binding ToText, Mode=TwoWay}" CommitCommand="{Binding CommitToCommand}"
+                                <!--
+                                    組を追加：元と先を候補付きの欄で選び（左の欄は狭いので縦に積む）、「追加」を押した時だけ足す（ユーザ判断 2026-11-20）。
+                                    候補を決めても足さないので、欄に CommitCommand を付けない。Enter は「追加」と同じ（候補が出ている間の Enter は候補を決めるだけ）
+                                -->
+                                <StackPanel Margin="0,4,0,0" AutomationProperties.AutomationId="AvatarsConversionPairAddArea">
+                                    <StackPanel.InputBindings>
+                                        <KeyBinding Key="Enter" Command="{Binding AddCommand}" />
+                                    </StackPanel.InputBindings>
+                                    <TextBlock Text="組を追加" Style="{StaticResource Caption}" Margin="2,2,0,4" />
+                                    <controls:SuggestBox Source="{Binding Suggestions}" Text="{Binding FromText, Mode=TwoWay}"
                                                          IconSelector="{Binding IconSelector}" InfoSelector="{Binding InfoSelector}"
                                                          GroupHeadings="{Binding GroupHeadings}"
-                                                         AllowNew="False" KeepsCommittedText="True" Placeholder="先のアバターか共通素体"
-                                                         AutomationProperties.AutomationId="AvatarsConversionPairTo" />
-                                </DockPanel>
+                                                         AllowNew="False" KeepsCommittedText="True" Placeholder="元のアバターか共通素体"
+                                                         AutomationProperties.AutomationId="AvatarsConversionPairFrom" />
+                                    <TextBlock Text="↓" HorizontalAlignment="Center" Foreground="{DynamicResource TextMuted}" Margin="0,2" />
+                                    <DockPanel>
+                                        <Button DockPanel.Dock="Right" Content="追加" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
+                                                Command="{Binding AddCommand}" AutomationProperties.AutomationId="AvatarsConversionPairAdd"
+                                                ToolTip="元の衣装を先に着せられる組を追加します。" />
+                                        <controls:SuggestBox Source="{Binding Suggestions}" Text="{Binding ToText, Mode=TwoWay}"
+                                                             IconSelector="{Binding IconSelector}" InfoSelector="{Binding InfoSelector}"
+                                                             GroupHeadings="{Binding GroupHeadings}"
+                                                             AllowNew="False" KeepsCommittedText="True" Placeholder="先のアバターか共通素体"
+                                                             AutomationProperties.AutomationId="AvatarsConversionPairTo" />
+                                    </DockPanel>
+                                </StackPanel>
                                 <TextBlock DataContext="{Binding Notice}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" Margin="2,4,0,0"
                                            AutomationProperties.AutomationId="AvatarsConversionPairNotice" />
                             </StackPanel>
@@ -1417,6 +1430,66 @@
                                             AutomationProperties.AutomationId="AvatarsConversionLater"
                                             ToolTip="何も変えずに、次の商品へ進みます。" />
                                 </WrapPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!--
+                            「追加した組」を選んだときの右の欄（ユーザ判断 2026-11-20：組もプロファイルの商品と同じに右で見る）。
+                            元と先は押すとそのアバター・共通素体へ移る（登録簿から消えた物は押せない）。メモはここで直し、押さずに残る
+                        -->
+                        <Border Style="{StaticResource Card}" Padding="22,18" DataContext="{Binding ConversionPairs.SelectedRow}"
+                                AutomationProperties.AutomationId="AvatarsConversionPairDetail"
+                                Visibility="{Binding DataContext.ShowsConversionPairDetail, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                            <StackPanel>
+                                <TextBlock Text="{Binding Text}" FontSize="15" FontWeight="Bold" TextWrapping="Wrap"
+                                           AutomationProperties.AutomationId="AvatarsConversionPairTitle" />
+                                <TextBlock Text="元のアバター用の衣装を、先に着せられる組です。" Style="{StaticResource Caption}" Margin="0,4,0,0" TextWrapping="Wrap" />
+
+                                <Grid Margin="0,14,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Text="元" Style="{StaticResource SectionLabel}" Margin="0,0,14,6" VerticalAlignment="Center" />
+                                    <Button Grid.Row="0" Grid.Column="1" Style="{StaticResource ConversionPairEndLink}" Margin="0,0,0,6"
+                                            Command="{Binding OpenFromCommand}" ToolTip="このアバター・共通素体を開きます。"
+                                            AutomationProperties.AutomationId="AvatarsConversionPairFromLink"
+                                            AutomationProperties.Name="{Binding FromName, StringFormat={}元の{0}を開く}">
+                                        <TextBlock Text="{Binding FromName}" TextWrapping="Wrap" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                    </Button>
+                                    <TextBlock Grid.Row="1" Text="先" Style="{StaticResource SectionLabel}" Margin="0,0,14,6" VerticalAlignment="Center" />
+                                    <Button Grid.Row="1" Grid.Column="1" Style="{StaticResource ConversionPairEndLink}" Margin="0,0,0,6"
+                                            Command="{Binding OpenToCommand}" ToolTip="このアバター・共通素体を開きます。"
+                                            AutomationProperties.AutomationId="AvatarsConversionPairToLink"
+                                            AutomationProperties.Name="{Binding ToName, StringFormat={}先の{0}を開く}">
+                                        <TextBlock Text="{Binding ToName}" TextWrapping="Wrap" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                    </Button>
+                                    <!-- ツールの名前はファイルを直して書いた物だけ（画面では書かない）。あれば読めるように出す -->
+                                    <TextBlock Grid.Row="2" Text="ツール" Style="{StaticResource SectionLabel}" Margin="0,0,14,6" VerticalAlignment="Center"
+                                               Visibility="{Binding HasTool, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Tool}" TextWrapping="Wrap" Margin="0,0,0,6"
+                                               Visibility="{Binding HasTool, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                </Grid>
+
+                                <!-- 打ち終えて少し待つと残る（アバターのメモと同じ）。選び直す・外す・離れる前に書き切る -->
+                                <TextBlock Text="メモ" Style="{StaticResource SectionLabel}" Margin="0,14,0,8" />
+                                <TextBox Width="420" Height="56" Padding="7,5" HorizontalAlignment="Left"
+                                         TextWrapping="Wrap" AcceptsReturn="True"
+                                         VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
+                                         MaxLength="2000" Text="{Binding MemoText, UpdateSourceTrigger=PropertyChanged}"
+                                         AutomationProperties.AutomationId="AvatarsConversionPairMemo"
+                                         AutomationProperties.Name="{Binding Text, StringFormat={}{0}のメモ}"
+                                         ToolTip="直す所や使うツールなどを残せます。" />
+
+                                <Button Content="この組を外す" Style="{StaticResource DangerButton}" HorizontalAlignment="Left" Margin="0,16,0,0"
+                                        Command="{Binding RemoveCommand}"
+                                        AutomationProperties.AutomationId="AvatarsConversionPairRemove"
+                                        ToolTip="外しても、左の「組を追加」からまた追加できます。" />
                             </StackPanel>
                         </Border>
                     </StackPanel>

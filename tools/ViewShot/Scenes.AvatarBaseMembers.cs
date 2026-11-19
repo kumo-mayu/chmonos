@@ -113,7 +113,7 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
-        new Scene("avatars-conversion-pairs-edit", "アバターの管理：変換の一覧の上の「追加した組」（元 → 先・メモ・×と、組を追加の行。共通素体を元にした組を含む）", async context =>
+        new Scene("avatars-conversion-pairs-edit", "アバターの管理：変換の一覧の上の「追加した組」（プロファイルの商品と同じ形の行・元 → 先と短いメモと、組を追加の行と「追加」。共通素体を元にした組を含む）", async context =>
         {
             await SeedConversionPairsAsync(context);
             var (avatars, root) = await OpenBaseMembersAsync(context);
@@ -124,6 +124,24 @@ internal static partial class Scenes
             if (avatars.ConversionPairs.Rows.Count != 3)
             {
                 throw new InvalidOperationException("追加した組の行が3つ並ばない");
+            }
+
+            return new Shot(root);
+        }),
+
+        new Scene("avatars-conversion-pair-detail", "アバターの管理：「変換」で追加した組を選んだ右の欄（元・先のリンク・ツールの名前・メモ・この組を外す）", async context =>
+        {
+            await SeedConversionPairsAsync(context);
+            var (avatars, root) = await OpenBaseMembersAsync(context);
+            avatars.ShowConversionModeCommand.Execute(null);
+            await context.SettleAsync();
+
+            // 元はリンク（移れる）、先の MARUBODY は共通素体の一覧にあるのでリンク。ツールの名前の行も出る組
+            avatars.ConversionPairs.SelectedRow = avatars.ConversionPairs.Rows[1];
+            await context.SettleAsync();
+            if (!avatars.ShowsConversionPairDetail || avatars.SelectedConversion is not null)
+            {
+                throw new InvalidOperationException("右に組の中身が出ない");
             }
 
             return new Shot(root);

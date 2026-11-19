@@ -515,6 +515,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     /// <param name="openConversion">戻るで「変換」へ戻すとき、変換の見方で開く。</param>
     /// <param name="selectConversionItemId">そのとき選んでおく商品（一覧から消えていれば、決めていない最初の商品）。</param>
     /// <param name="rightItemId">戻るで開き直す時、右の欄に重ねていた商品（open.md 95 行）。左の選びが決まった後に重ね直す。</param>
+    /// <param name="selectConversionPair">戻るで「変換」へ戻す時、選んでおく追加した組（端で引く。消えていれば決めていない最初の商品）。</param>
     public AvatarsViewModel(
         AppServiceContainer services,
         MainViewModel main,
@@ -522,7 +523,8 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         string? selectBaseName = null,
         bool openConversion = false,
         string? selectConversionItemId = null,
-        string? rightItemId = null)
+        string? rightItemId = null,
+        ConversionPair? selectConversionPair = null)
     {
         _services = services;
         _main = main;
@@ -610,6 +612,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         // 読み終わるまでアバターの見方で見えないよう、先に変換の見方にしておく（一覧は読み終わってから並ぶ）
         if (openConversion)
         {
+            ConversionPairs.SelectOnLoad = selectConversionPair;
             IsConversionMode = true;
         }
 
@@ -931,6 +934,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         OnPropertyChanged(nameof(ShowsNoBases));
         OnPropertyChanged(nameof(ShowsBaseDetail));
         OnPropertyChanged(nameof(ShowsConversionDetail));
+        OnPropertyChanged(nameof(ShowsConversionPairDetail));
         OnPropertyChanged(nameof(ShowsNoConversionItems));
     }
 
@@ -1382,7 +1386,8 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     /// 行そのものでなく ID で比べる。行で比べると、重ねたページで書き込むたびに閉じてしまう
     /// </summary>
     private string LeftKey()
-        => IsConversionMode ? "conversion:" + SelectedConversion?.ItemId
+        => IsConversionMode && _conversionPairs?.SelectedRow is { } pair ? "conversion-pair:" + pair.Text
+            : IsConversionMode ? "conversion:" + SelectedConversion?.ItemId
             : IsBaseMode ? "base:" + SelectedBase?.Name
             : "avatar:" + Selected?.ItemId;
 
