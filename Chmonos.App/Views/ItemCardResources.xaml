@@ -435,7 +435,7 @@
                                                 -->
                                                 <TextBlock Text="{Binding SizeText}" Style="{StaticResource Mono}" FontSize="11"
                                                            VerticalAlignment="Center"
-                                                           Visibility="{Binding IsOwned, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                           Visibility="{Binding ShowsSize, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                 <!--
                                                     並びは左から字の少ない順：所持・未編集・更新あり・取り込み中・見つからない（一部見つからない）（ユーザ判断 2026-10-06）。
                                                     BadgeOverflowPanel は右（後ろ）の札から丸にするので、幅を取る札ほど先に丸になり、丸は右の端に続けて並ぶ（札と丸が混ざっても順は同じ）
@@ -553,6 +553,21 @@
                                             <RotateTransform Angle="45" />
                                         </Border.RenderTransform>
                                         <TextBlock Text="未所持" Foreground="{DynamicResource OnAccent}" FontSize="11" FontWeight="Bold"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+
+                                    <!--
+                                        取り外し中の襷（ユーザ判断 2026-11-20）。手元の物が全部、今つながっていないドライブの上にあるとき。
+                                        未所持と同じ形・同じ場所で、色だけ灰色（無くなったのではない）。未所持とは同時に出ない（所持のまま印だけ足す）
+                                    -->
+                                    <Border Width="150" Height="22" Background="{DynamicResource DetachedFill}"
+                                            HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="-45,0,0,19"
+                                            RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False"
+                                            Visibility="{Binding IsDetached, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                        <Border.RenderTransform>
+                                            <RotateTransform Angle="45" />
+                                        </Border.RenderTransform>
+                                        <TextBlock Text="取り外し中" Foreground="{DynamicResource OnAccent}" FontSize="11" FontWeight="Bold"
                                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                                     </Border>
                                     </Grid>
@@ -1121,11 +1136,11 @@
         </Border>
     </DataTemplate>
 
-    <!-- ショップ。フォルダの行は場所 -->
+    <!-- ショップ（記録の店名。ショップ画面のカードは2行目に入手日を入れるので、カードの ShopName は使わない）。フォルダの行は場所 -->
     <DataTemplate x:Key="ItemListShopCell">
         <Border Style="{StaticResource ItemListCellFrame}">
         <Grid VerticalAlignment="Center">
-            <TextBlock Text="{Binding ShopName}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis"
+            <TextBlock Text="{Binding ListRow.Shop}" Style="{StaticResource Caption}" TextTrimming="CharacterEllipsis"
                        Visibility="{Binding IsFolder, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
             <TextBlock Text="{Binding Path}" Style="{StaticResource Mono}" FontSize="10.5" Foreground="{DynamicResource TextMuted}"
                        TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}"
@@ -1185,7 +1200,7 @@
     </DataTemplate>
 
     <!--
-        検索のリストだけの列（ユーザ判断 2026-10-04・案C）：ユーザータグ・属性（設定で選んだ物）・払った額・対応の数。
+        前は検索のリストだけの列（ユーザ判断 2026-10-04・案C）：ユーザータグ・属性（設定で選んだ物）・払った額・対応の数。今はどの画面でも選べる（ItemListColumnCatalog）。
         中身はカードの札と同じ CardInfo（幅で変えない ListInfo）。切れた分は吹き出しで全文
     -->
     <DataTemplate x:Key="ItemListTagsCell">
@@ -1211,35 +1226,4 @@
         </Border>
     </DataTemplate>
 
-    <!--
-        リストの列。幅は入れ物の画面の ListColumns に結び、見出しの境目のドラッグで全部の行が同じ幅で変わる。
-        1つの GridView は1つの一覧にしか付けられないので、使うたびに作る（x:Shared="False"）
-    -->
-    <GridView x:Key="ItemListGridView" x:Shared="False" AllowsColumnReorder="False">
-        <GridViewColumn Width="{Binding ListColumns.SelectWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListSelectCell}" />
-        <GridViewColumn Width="{Binding ListColumns.IconWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListIconCell}" />
-        <GridViewColumn Header="★" Width="{Binding ListColumns.FavWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListFavCell}" />
-        <GridViewColumn Header="名前" Width="{Binding ListColumns.NameWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListNameCell}" />
-        <GridViewColumn Header="{Binding ListColumns.ShopHeader}" Width="{Binding ListColumns.ShopWidth, Mode=TwoWay}"
-                        CellTemplate="{StaticResource ItemListShopCell}" />
-        <GridViewColumn Header="状態" Width="{Binding ListColumns.ChipsWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListChipsCell}" />
-    </GridView>
-
-    <!--
-        検索のリストの列。ほかの画面（フォルダ・ショップ）の列は変えない——足した4列はカードを作らずに中身を比べるための物で、
-        狭い右の欄（フォルダ）では横に送るだけになる。足した列は名前の直後に置く（幅 1280 の窓で送らずに見える所）
-    -->
-    <GridView x:Key="SearchItemListGridView" x:Shared="False" AllowsColumnReorder="False">
-        <GridViewColumn Width="{Binding ListColumns.SelectWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListSelectCell}" />
-        <GridViewColumn Width="{Binding ListColumns.IconWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListIconCell}" />
-        <GridViewColumn Header="★" Width="{Binding ListColumns.FavWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListFavCell}" />
-        <GridViewColumn Header="名前" Width="{Binding ListColumns.NameWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListNameCell}" />
-        <GridViewColumn Header="ユーザータグ" Width="{Binding ListColumns.TagsWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListTagsCell}" />
-        <GridViewColumn Header="属性" Width="{Binding ListColumns.AttributesWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListAttributesCell}" />
-        <GridViewColumn Header="払った額" Width="{Binding ListColumns.PaidWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListPaidCell}" />
-        <GridViewColumn Header="対応" Width="{Binding ListColumns.AvatarsWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListAvatarsCell}" />
-        <GridViewColumn Header="{Binding ListColumns.ShopHeader}" Width="{Binding ListColumns.ShopWidth, Mode=TwoWay}"
-                        CellTemplate="{StaticResource ItemListShopCell}" />
-        <GridViewColumn Header="状態" Width="{Binding ListColumns.ChipsWidth, Mode=TwoWay}" CellTemplate="{StaticResource ItemListChipsCell}" />
-    </GridView>
 </ResourceDictionary>

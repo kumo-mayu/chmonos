@@ -212,7 +212,18 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
     }
 
     /// <summary>画面遷移のために親を後から渡す（生成順の都合でコンストラクタでは受け取れない）。</summary>
-    public void AttachMain(MainViewModel main) => _main = main;
+    public void AttachMain(MainViewModel main)
+    {
+        _main = main;
+
+        // リストの列（使った改変の数・新しい版・アバターの名前）の材料。検索・フォルダ・ショップのカードはどれもここの決め方を指す。
+        // 引くのは列を描くときだけ（改変は主の画面の見張りが持つ答えを使い、行ごとに読まない）
+        var sources = new ItemListRowSources(
+            () => _main?.UsedItems.Current ?? Core.Services.UsedItems.Empty,
+            itemId => _itemsById.GetValueOrDefault(itemId)?.DisplayName);
+        _cardInfo.RowSources = sources;
+        _plainCardInfo.RowSources = sources;
+    }
 
     /// <summary>
     /// 商品を開く。**ここで検索の履歴を1件積む**（ユーザ指示）。
@@ -657,6 +668,9 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
                         NoteItemSaved(item);
                     }
                 }
+
+                // 手元の物が全部取り外し中の商品の帯。ディスクを見るので、カードを作った後に裏で確かめる
+                RefreshDetached();
 
                 // 全件の読み込みと検索対象の文字列作りが出したゴミを、ここでOSへ返させる（#71）
                 Chmonos.App.Services.MemoryTrim.Request();

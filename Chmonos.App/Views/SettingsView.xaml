@@ -130,6 +130,18 @@
                             <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="220,4,0,0"
                                        Text="アプリ全体の文字と絵をまとめて大きくします。下のショートカットでも変えられます。" />
 
+                            <!-- 流した時に上へ重ねる1行の見出し（ショップ・商品ページ・編集）の大きさ（ユーザ判断 2026-11-20） -->
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="上に出る見出しの大きさ" Style="{StaticResource RowLabel}" Width="220" />
+                                <ComboBox controls:SettingDefault.Key="CompactHeaderPercent" Width="120" ItemsSource="{x:Static vm:SettingsViewModel.CompactHeaderOptions}"
+                                          DisplayMemberPath="Label" SelectedValuePath="Percent"
+                                          SelectedValue="{Binding CompactHeaderPercent, Mode=TwoWay}"
+                                          AutomationProperties.AutomationId="Settings.CompactHeaderSize"
+                                          AutomationProperties.Name="上に出る見出しの大きさ" />
+                            </StackPanel>
+                            <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="220,4,0,0"
+                                       Text="下へ流したとき、画面の上に出る1行の見出しを大きくします。" />
+
                             <!-- ドラッグで変えた画面の幅を全部戻す（ユーザ判断 2026-09-14：1か所は境目のダブルクリック、全部はここ） -->
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="画面の幅" Style="{StaticResource RowLabel}" Width="220" />

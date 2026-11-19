@@ -458,11 +458,7 @@
                             <VirtualizingStackPanel />
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemContainerStyle>
-                        <Style TargetType="ContentPresenter">
-                            <Setter Property="MaxWidth" Value="{StaticResource ReadingMaxWidth}" />
-                        </Style>
-                    </ItemsControl.ItemContainerStyle>
+                    <!-- 幅は窓いっぱいに使う（ユーザ判断 2026-11-20）。ItemContainerStyle の MaxWidth はやめた -->
                     <ItemsControl.Resources>
                         <!-- 先頭の行：月の見出し（行の枠の上側）。読めない所があればここで言う -->
                         <DataTemplate DataType="{x:Type vm:ArchiveHeadLine}">
@@ -529,11 +525,7 @@
                             <VirtualizingStackPanel />
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemContainerStyle>
-                        <Style TargetType="ContentPresenter">
-                            <Setter Property="MaxWidth" Value="{StaticResource ReadingMaxWidth}" />
-                        </Style>
-                    </ItemsControl.ItemContainerStyle>
+                    <!-- 幅は窓いっぱいに使う（ユーザ判断 2026-11-20） -->
                     <ItemsControl.Resources>
                         <!-- 先頭の1行：状況の文（この画面そのものに結ぶ） -->
                         <DataTemplate DataType="{x:Type vm:InboxViewModel}">

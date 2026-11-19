@@ -36,6 +36,12 @@ public sealed partial class MainViewModel : ViewModelBase
         // 表示の大きさ。主の窓はこの後に作られ、作るときに倍率を読む（App.xaml の AppZoomTransform）
         AppZoom.Initialize(services);
 
+        // 前のバックアップの書きかけが残ったときの帯
+        WatchLeftBackupWriting();
+
+        // 1行の見出しの大きさ。帯は開くときに資源を読む（App.xaml の CompactHeaderHeight）
+        Controls.CompactHeader.Apply(services.Settings.CompactHeaderPercent);
+
         // 検索画面は使い捨てにせず1つだけ持ち回る。
         // 商品ページから戻った時に、絞り込み条件やスクロール位置を保つため。
         // 通信の様子はアプリに1つ。常設の行も取り込み画面も、ここを見る

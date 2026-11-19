@@ -194,6 +194,9 @@ internal sealed class TestApp
     /// <summary>出すはずだった、除外の解除の窓。</summary>
     public List<ExclusionListViewModel> ExclusionDialogs { get; } = [];
 
+    /// <summary>出すはずだった、商品ページの「BOOTHでの変化の履歴」の窓（窓は出ない。読むだけの窓なので答えは無い）。</summary>
+    public List<ChangeHistoryViewModel> ChangeHistoryDialogs { get; } = [];
+
     /// <summary>出すはずだったサブ画面（ファイルの割り振り）の窓。窓は作らず、前に出した回数と閉じるを控える。</summary>
     public List<FakeSubWindow> SubWindows { get; } = [];
 
@@ -375,6 +378,11 @@ internal sealed class TestApp
             {
                 app.SearchScopes.Add(model);
                 return app.PickSearchScope(model);
+            };
+            ChangeHistoryWindow.Intercept = model =>
+            {
+                app.ChangeHistoryDialogs.Add(model);
+                return Task.CompletedTask;
             };
             ExclusionDialog.Intercept = model =>
             {
@@ -591,6 +599,7 @@ internal sealed class TestApp
             ChoiceQuestion.Intercept = null;
             ResetSettingsDialogViewModel.Intercept = null;
             ExclusionDialog.Intercept = null;
+            ChangeHistoryWindow.Intercept = null;
 
             // 開いたままのサブ画面は閉じる（置き場の知らせを外す。次の試験へ持ち越さない）
             foreach (var window in SubWindows.Where(window => !window.IsClosed))

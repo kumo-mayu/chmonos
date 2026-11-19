@@ -754,8 +754,8 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
 
     public RelayCommand ShowListCommand => _showList ??= new RelayCommand(() => IsListMode = true);
 
-    /// <summary>ショップの列には入手日を出す（カードの2行目と同じ。店名は全部同じで意味が無い）。</summary>
-    public ItemListColumns ListColumns => _listColumns ??= new ItemListColumns(_services.PaneWidths, "shop", hasSelect: true, shopHeader: "入手日");
+    /// <summary>既定ではショップの列の代わりに入手日の列を出す（カードの2行目と同じ。店名は全部同じで意味が無い。<see cref="ItemListColumnCatalog.DefaultsOf"/>）。</summary>
+    public ItemListColumns ListColumns => _listColumns ??= new ItemListColumns(_services.PaneWidths, "shop", hasSelect: true, shopHeader: "ショップ");
 
     // ---- まとめて操作（検索・フォルダビューと同じ帯。動線の点検 C1） ----
     // 2026-09-15 にリストにしたとき選ぶ列を付けず、ショップだけまとめて選べなかった。
@@ -1071,6 +1071,7 @@ public sealed class ShopViewModel : ViewModelBase, IItemCardHost, IPendingWrites
                 ShopName = AcquiredText(entry),
                 SizeText = entry.IsOwned ? Core.Models.DisplayText.Size(entry.SizeBytes) : "未取得",
                 IsOwned = entry.IsOwned,
+                IsDetached = _main.Search.IsDetached(entry.Item.Id),
                 NeedsEdit = entry.Item.Local.UserTags.Count == 0,
                 InfoContext = _main.Search.PlainCardInfo,
                 HasUpdate = updatedIds.Contains(entry.Item.Id),

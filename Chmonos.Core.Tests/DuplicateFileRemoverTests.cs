@@ -133,4 +133,100 @@ public sealed class DuplicateFileRemoverTests : IDisposable
         Assert.True(result.Removed);
         Assert.Equal([a], _deleted);
     }
+
+    private Task SaveWithFolderAsync(string id, string zip, string folder)
+        => _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = id,
+            Booth = new BoothBlock(),
+            Local = new LocalBlock
+            {
+                LocalFiles = [new LocalFileRecord { Hash = "zip", Paths = [zip], SizeBytes = 3 }],
+                LocalFolders = [new LocalFolderRecord { Path = folder, FileCount = 1, TotalBytes = 10 }],
+            },
+        });
+
+    private string MakeFolder(string name, bool withFile)
+    {
+        var folder = Path.Combine(_root, "files", name);
+        Directory.CreateDirectory(folder);
+        if (withFile)
+        {
+            File.WriteAllText(Path.Combine(folder, "中身.txt"), "x");
+        }
+
+        return folder;
+    }
+
+    /// <summary>zip と展開したフォルダの組：展開したフォルダが残るなら、zip だけを送る。フォルダには触らない。</summary>
+    [Fact]
+    public async Task zipと展開したフォルダの組は_zipだけを送りフォルダは残す()
+    {
+        var zip = Make("衣装.zip", "zip");
+        var folder = MakeFolder("衣装", withFile: true);
+        await SaveWithFolderAsync("9901011", zip, folder);
+
+        var result = await Remover().RemoveArchiveAsync("9901011", zip);
+
+        Assert.True(result.Removed);
+        Assert.Equal([zip], _deleted);
+        Assert.True(Directory.Exists(folder));
+        Assert.True(File.Exists(Path.Combine(folder, "中身.txt")));
+    }
+
+    /// <summary>集計の後に展開したフォルダを手で消していた。zip が最後の1つなので送らない。</summary>
+    [Fact]
+    public async Task 展開したフォルダが今は無ければ_zipを送らない()
+    {
+        var zip = Make("衣装.zip", "zip");
+        var folder = Path.Combine(_root, "files", "衣装");
+        await SaveWithFolderAsync("9901012", zip, folder);
+
+        var result = await Remover().RemoveArchiveAsync("9901012", zip);
+
+        Assert.False(result.Removed);
+        Assert.Empty(_deleted);
+        Assert.True(File.Exists(zip));
+    }
+
+    [Fact]
+    public async Task 展開したフォルダが空なら_zipを送らない()
+    {
+        var zip = Make("衣装.zip", "zip");
+        var folder = MakeFolder("衣装", withFile: false);
+        await SaveWithFolderAsync("9901013", zip, folder);
+
+        var result = await Remover().RemoveArchiveAsync("9901013", zip);
+
+        Assert.False(result.Removed);
+        Assert.True(File.Exists(zip));
+    }
+
+    [Fact]
+    public async Task zipの名前と合わないフォルダだけなら_zipを送らない()
+    {
+        var zip = Make("衣装.zip", "zip");
+        var folder = MakeFolder("別の物", withFile: true);
+        await SaveWithFolderAsync("9901014", zip, folder);
+
+        var result = await Remover().RemoveArchiveAsync("9901014", zip);
+
+        Assert.False(result.Removed);
+        Assert.True(File.Exists(zip));
+    }
+
+    [Fact]
+    public async Task 記録に無いzipや中身が違うzipは送らない()
+    {
+        var zip = Make("衣装.zip", "zip");
+        var folder = MakeFolder("衣装", withFile: true);
+        await SaveWithFolderAsync("9901015", zip, folder);
+        var stranger = Make("他.zip", "zip");
+
+        Assert.False((await Remover().RemoveArchiveAsync("9901015", stranger)).Removed);
+
+        File.WriteAllText(zip, "changed");
+        Assert.False((await Remover().RemoveArchiveAsync("9901015", zip)).Removed);
+        Assert.Empty(_deleted);
+    }
 }

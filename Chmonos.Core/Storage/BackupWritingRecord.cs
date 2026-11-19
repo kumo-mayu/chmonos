@@ -69,8 +69,12 @@ public static class BackupWritingRecord
     /// 使う人のファイルを指され得る。完全に消すと取り戻せない。ごみ箱へ送れないときは <see cref="Scanning.NotRecyclableException"/> を投げる。
     /// 渡さなければ完全に消す（試験）。片付けられたかは、後で在るかどうかで見る
     /// </param>
+    /// <param name="onLeft">
+    /// ごみ箱へ送れないので書きかけを**残した**とき、その場所を知らせる（起動後の帯で使う人へ場所を言う。ユーザ判断 2026-11-20）。
+    /// 記録はこの後に外すので、知らせる機会はこの1回だけになる
+    /// </param>
     /// <returns>書きかけを片付けたか。</returns>
-    public static bool CleanUp(string root, Action<string>? discard = null)
+    public static bool CleanUp(string root, Action<string>? discard = null, Action<string>? onLeft = null)
     {
         var recordPath = Path.Combine(root, FileName);
         if (!File.Exists(recordPath))
@@ -123,6 +127,7 @@ public static class BackupWritingRecord
         {
             // ごみ箱へ送れない場所は、次の起動でも送れない。毎回試すと、入りきらない大きさでは起動のたびに Windows が聞いてくる
             AppLog.Warn("バックアップの書き出し", $"前の書きかけをごみ箱へ送れないので残した：{temporary}（{exception.Message}）");
+            onLeft?.Invoke(temporary);
             End(root);
             return false;
         }

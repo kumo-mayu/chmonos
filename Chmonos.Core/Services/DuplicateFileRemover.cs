@@ -119,6 +119,74 @@ public sealed class DuplicateFileRemover
         return new DuplicateRemoval(path, Removed: true, Reason: null, FreedBytes: size, ChangedItemIds: changed);
     }
 
+    /// <summary>
+    /// zip と、それを展開したフォルダの組（<see cref="DuplicateKind.ArchiveAndUnpacked"/>）で、**zip だけ**をごみ箱へ送る
+    /// （ユーザ判断 2026-11-20。展開したフォルダには触らない）。
+    /// 集計は古い写しなので、送る直前に今の記録とディスクで確かめ直す：同じ商品に、zip と名前が合う展開先のフォルダが
+    /// 記録に在り・今ディスクに在り・中身が空でないと分かるまでは送らない（展開先を手で消した後に zip を送ると、最後の1つを送る）。
+    /// zip の中身が記録と同じかは、ハッシュを取り直して照らす
+    /// </summary>
+    public async Task<DuplicateRemoval> RemoveArchiveAsync(string itemId, string path, CancellationToken cancellationToken = default)
+    {
+        var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
+        if (loaded.FailedItemIds.Count > 0 || loaded.SkippedMalformed > 0)
+        {
+            return Refused(path, "読めない商品の記録があり、展開したフォルダが在るか確かめられないので削除しません。通知の画面から直せます。");
+        }
+
+        var item = loaded.Items.FirstOrDefault(candidate => candidate.Id == itemId);
+        var record = item?.Local.OwnedFiles.FirstOrDefault(file => file.Paths.Any(
+            place => string.Equals(Normalized(place), Normalized(path), StringComparison.OrdinalIgnoreCase)));
+        if (item is null || record is null)
+        {
+            return Refused(path, "記録に無い場所なので削除しません。統計を読み直してください。");
+        }
+
+        if (!File.Exists(path))
+        {
+            return Refused(path, "ファイルが見つかりません。");
+        }
+
+        if (new FileInfo(path).Length != record.SizeBytes)
+        {
+            return Refused(path, "記録と大きさが違うので削除しません。");
+        }
+
+        // 残る方（展開したフォルダ）を先に確かめる。名前の合わせ方は集計と同じ
+        var archiveName = Path.GetFileName(path);
+        var unpacked = item.Local.LocalFolders.FirstOrDefault(folder =>
+            Directory.Exists(folder.Path)
+            && UnpackedFolderDetector.FindMatchingArchive(Path.GetFileName(folder.Path.TrimEnd('\\', '/')), [archiveName]) is not null
+            && Directory.EnumerateFileSystemEntries(folder.Path).Any());
+        if (unpacked is null)
+        {
+            return Refused(path, "展開したフォルダが手元に見つからないので、削除しません。");
+        }
+
+        if (!string.Equals(await _hash(path, cancellationToken), record.Hash, StringComparison.OrdinalIgnoreCase))
+        {
+            return Refused(path, "記録と中身が違うので削除しません。");
+        }
+
+        try
+        {
+            await _deleteFile(path, cancellationToken);
+        }
+        catch (NotRecyclableException exception)
+        {
+            return Refused(path, exception.Message);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            Diagnostics.AppLog.Error("zip を消す", exception);
+            return Refused(path, FailureText.Cause(exception));
+        }
+
+        // 消した場所の記録は見回りが外す。展開したフォルダの記録はそのまま残る
+        var changed = _sweep is null ? null : await _sweep.NoteFilesAsync(cancellationToken: cancellationToken);
+        return new DuplicateRemoval(path, Removed: true, Reason: null, FreedBytes: record.SizeBytes, ChangedItemIds: changed);
+    }
+
     private static DuplicateRemoval Refused(string path, string reason) => new(path, Removed: false, reason, FreedBytes: 0);
 
     private static string Normalized(string path)

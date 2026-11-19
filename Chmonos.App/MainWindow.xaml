@@ -902,6 +902,28 @@
             </Border>
 
             <!--
+                前のバックアップの書きかけが、ごみ箱の無いドライブに残った知らせ（ユーザ判断 2026-11-20）。消していないので、場所を言い、
+                エクスプローラで開けるようにする。起動のこの1回だけ（記録は外した後）なので、閉じるまで出す。長い場所は「…」で切り、乗せると全文
+            -->
+            <Border DockPanel.Dock="Bottom" Background="{DynamicResource WarnSoft}"
+                    BorderBrush="{DynamicResource WarnBorder}" BorderThickness="0,1,0,0" Padding="18,0"
+                    Visibility="{Binding HasLeftBackupWriting, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                <DockPanel Height="32">
+                    <Button DockPanel.Dock="Right" Content="×" ContentTemplate="{StaticResource CrossGlyph}" Style="{StaticResource SmallButton}" Margin="6,0,0,0" VerticalAlignment="Center"
+                            Command="{Binding DismissLeftBackupWritingCommand}" AutomationProperties.Name="バックアップの書きかけの知らせを閉じる"
+                            AutomationProperties.AutomationId="LeftBackupWritingClose"
+                            ToolTip="この知らせを閉じます。書きかけのファイルは残ります。" />
+                    <Button DockPanel.Dock="Right" Content="エクスプローラで開く" Style="{StaticResource SmallButton}" VerticalAlignment="Center"
+                            Command="{Binding RevealLeftBackupWritingCommand}" AutomationProperties.AutomationId="LeftBackupWritingReveal"
+                            ToolTip="書きかけのファイルを選んだ状態で、エクスプローラを開きます。" />
+                    <TextBlock Text="{Binding LeftBackupWritingText}" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                               AutomationProperties.AutomationId="LeftBackupWritingText"
+                               Foreground="{DynamicResource Warn}" TextTrimming="CharacterEllipsis" Margin="0,0,10,0"
+                               ToolTip="{Binding LeftBackupWritingText}" />
+                </DockPanel>
+            </Border>
+
+            <!--
                 カードの右クリックで非表示にした知らせ（点検 2026-09-23・動線の点検 B2）。戻せる操作なので窓では聞かず、
                 戻す場所とその場の解除をここに出す（登録の帯と同じ場所・同じ見た目）。押すか閉じるまで残す
             -->

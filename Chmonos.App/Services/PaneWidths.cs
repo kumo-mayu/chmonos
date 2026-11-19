@@ -1,5 +1,6 @@
 using System.Windows;
 using Chmonos.Core.Commands;
+using Chmonos.Core.Models;
 using Chmonos.Core.Services;
 
 namespace Chmonos.App.Services;
@@ -21,7 +22,7 @@ public sealed class PaneWidths(SettingsService settings, CommandHandler commands
     /// 最小：一覧は名前が「…」だけにならない幅、商品ページの左は絵と説明が読める幅、編集の右は入力欄のラベルと値が1行に並ぶ幅。
     /// 最大：一覧は反対側に詳細が読める幅を残す、商品ページの左は右の列（最小320）を残す。
     /// </summary>
-    public static readonly IReadOnlyDictionary<string, Pane> All = new Dictionary<string, Pane>(StringComparer.Ordinal)
+    public static readonly IReadOnlyDictionary<string, Pane> All = WithListColumns(new Dictionary<string, Pane>(StringComparer.Ordinal)
     {
         ["nav"] = new(208, 180, 320),
         ["search.filter"] = new(286, 240, 480),
@@ -31,7 +32,11 @@ public sealed class PaneWidths(SettingsService settings, CommandHandler commands
         ["avatars.list"] = new(360, 280, 640),
         ["tags.list"] = new(340, 260, 600),
         ["attributes.list"] = new(340, 260, 600),
-        ["item.left"] = new(660, 460, 1100),
+        // 商品ページの左の最小は 260（ユーザ判断 2026-11-20「左の列の下限を下げ、狭い窓では画像の列を細くする」）。
+        // 窓の最小の幅 900 でナビを開いたとき、本文の下限（左の最小＋400＝660）が欄の幅（約 675）に収まり、横に送らずに右の列まで見える値。
+        // 前の 460 では本文の下限が 860 になり、幅 900 では画像の列が幅の大半を取って、右の列は横に流さないと見えなかった。
+        // 左の列は覚えた幅のままでも「欄 − 右の最小」で頭打ちになる（PaneColumn.Ceiling）ので、狭い窓では画像の列だけが細くなる
+        ["item.left"] = new(660, 260, 1100),
         ["modification.left"] = new(660, 460, 1100),
         ["edit.right"] = new(480, 380, 800),
 
@@ -82,7 +87,27 @@ public sealed class PaneWidths(SettingsService settings, CommandHandler commands
         ["shop.col.name"] = new(420, 160, 1000),
         ["shop.col.shop"] = new(200, 80, 600),
         ["shop.col.chips"] = new(220, 100, 420),
-    };
+        // ショップの入手日の列（前はショップの列の場所に入手日を入れていた）。前のショップの列と同じ幅から始める
+        ["shop.col.acquired"] = new(200, 80, 600),
+    });
+
+    /// <summary>
+    /// リストの列を選べる画面（<see cref="ViewModels.ItemListColumnCatalog.Screens"/>）の、上に書いていない列の幅を列の一覧から足す
+    /// （ユーザ判断 2026-11-20：列を自分で選ぶ）。上に書いた画面ごとの値（検索の名前を狭くするなど）が先。
+    /// 鍵が無いと <see cref="Get"/> が落ちるので、列を足したらここで必ず入る形にする
+    /// </summary>
+    private static Dictionary<string, Pane> WithListColumns(Dictionary<string, Pane> panes)
+    {
+        foreach (var screen in ViewModels.ItemListColumnCatalog.Screens)
+        {
+            foreach (var column in ViewModels.ItemListColumnCatalog.All)
+            {
+                panes.TryAdd($"{screen}.col.{column.Key}", new Pane(column.Width, column.MinWidth, column.MaxWidth));
+            }
+        }
+
+        return panes;
+    }
 
     private readonly object _gate = new();
     private Dictionary<string, double>? _current;
@@ -140,6 +165,50 @@ public sealed class PaneWidths(SettingsService settings, CommandHandler commands
         })).Forget();
     }
 
+    private Dictionary<string, IReadOnlyList<string>>? _listColumns;
+
+    /// <summary>
+    /// その画面のリストに出す列（左からの並び。ui-state.json の <c>itemListColumns</c>・ユーザ判断 2026-11-20）。
+    /// 畳んだ欄と同じく、画面は開くたびに作り直すが、ここは起動の間ずっと居るので手元に持つ
+    /// （書くのは裏なので、変えてすぐ別の画面へ行って戻ると、ファイルから読み直す形では古い並びを読み得る）
+    /// </summary>
+    public IReadOnlyList<string> ListColumns(string screen)
+    {
+        lock (_gate)
+        {
+            return ListColumnsMap().GetValueOrDefault(screen) ?? ViewModels.ItemListColumnCatalog.DefaultsOf(screen);
+        }
+    }
+
+    /// <summary>出す列と並びを覚える。幅（<see cref="Set"/>）とは別に持つので、列を外しても幅は消えない。</summary>
+    public void SetListColumns(string screen, IReadOnlyList<string> columns)
+    {
+        IReadOnlyList<string> keys = [.. columns];
+        lock (_gate)
+        {
+            if (ListColumnsMap().TryGetValue(screen, out var before) && before.SequenceEqual(keys, StringComparer.Ordinal))
+            {
+                return;
+            }
+
+            ListColumnsMap()[screen] = keys;
+        }
+
+        // 書くときは今のファイルの値に当てる（ほかの画面の並びを、手元の控えで潰さない）
+        commands.ExecuteAsync(new UiCommand.ChangeUiState(state =>
+        {
+            var map = new Dictionary<string, IReadOnlyList<string>>(state.ItemListColumns ?? new Dictionary<string, IReadOnlyList<string>>(), StringComparer.Ordinal)
+            {
+                [screen] = keys,
+            };
+            return state with { ItemListColumns = map };
+        })).Forget();
+    }
+
+    private Dictionary<string, IReadOnlyList<string>> ListColumnsMap()
+        => _listColumns ??= (settings.UiState.ItemListColumns ?? new Dictionary<string, IReadOnlyList<string>>())
+            .ToDictionary(pair => pair.Key, pair => ViewModels.ItemListColumnCatalog.Normalize(pair.Key, pair.Value), StringComparer.Ordinal);
+
     private HashSet<string> Collapsed()
         => _collapsed ??= new HashSet<string>(settings.UiState.CollapsedPanes ?? [], StringComparer.Ordinal);
 
@@ -190,7 +259,37 @@ public sealed class PaneWidths(SettingsService settings, CommandHandler commands
     public event Action? AllReset;
 
     private Dictionary<string, double> Current()
-        => _current ??= new Dictionary<string, double>(settings.UiState.PaneWidths, StringComparer.Ordinal);
+    {
+        if (_current is null)
+        {
+            _current = new Dictionary<string, double>(settings.UiState.PaneWidths, StringComparer.Ordinal);
+            if (CarryOverShopAcquired(_current, settings.UiState))
+            {
+                ScheduleSave();
+            }
+        }
+
+        return _current;
+    }
+
+    /// <summary>
+    /// 列を選べるようにする前（2026-11-20 より前）、ショップの画面はショップの列（<c>shop.col.shop</c>）の場所に入手日を出していた。
+    /// その幅は使う人が入手日のために合わせた物なので、新しい入手日の列（<c>shop.col.acquired</c>）へ移す（使う人の調整を消さない）。
+    /// 移すのは前の版が書いた形のときだけ：ショップの列の並びをまだ覚えていない（新しい版で一度も選んでいない）。
+    /// 移したらすぐ書く（書かずにいると、ショップの列の幅を新しい意味で変えた後の起動で、それを入手日へ移してしまう）
+    /// </summary>
+    internal static bool CarryOverShopAcquired(Dictionary<string, double> widths, UiState state)
+    {
+        if (widths.ContainsKey("shop.col.acquired")
+            || !widths.TryGetValue("shop.col.shop", out var old)
+            || state.ItemListColumns?.ContainsKey("shop") == true)
+        {
+            return false;
+        }
+
+        widths["shop.col.acquired"] = old;
+        return true;
+    }
 
     private void ScheduleSave()
     {
