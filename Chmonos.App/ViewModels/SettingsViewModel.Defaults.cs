@@ -74,6 +74,8 @@ public sealed partial class SettingsViewModel
             s => s with { ShowSortDividers = Defaults.ShowSortDividers }, (vm, v) => vm.ShowSortDividers = v),
         [nameof(ShowAcquiredSortDividers)] = Flag(vm => vm.ShowAcquiredSortDividers, Defaults.ShowAcquiredSortDividers,
             s => s with { ShowAcquiredSortDividers = Defaults.ShowAcquiredSortDividers }, (vm, v) => vm.ShowAcquiredSortDividers = v),
+        [nameof(ShortYenInKanji)] = Flag(vm => vm.ShortYenInKanji, Defaults.ShortYenInKanji,
+            s => s with { ShortYenInKanji = Defaults.ShortYenInKanji }, (vm, v) => vm.ShortYenInKanji = v),
         [nameof(PlaceNewConditionNearSameKind)] = Flag(vm => vm.PlaceNewConditionNearSameKind, Defaults.PlaceNewConditionNearSameKind,
             s => s with { PlaceNewConditionNearSameKind = Defaults.PlaceNewConditionNearSameKind }, (vm, v) => vm.PlaceNewConditionNearSameKind = v),
         [nameof(SearchHistoryCount)] = Number(vm => vm.SearchHistoryCount, Defaults.SearchHistoryCount, "件",

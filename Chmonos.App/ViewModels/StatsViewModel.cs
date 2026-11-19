@@ -987,8 +987,8 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         var peak = source.Count == 0 ? 0 : source.Max(bar => bar.Period.SpentYen);
         var scale = RoundUpAxis(peak);
 
-        AxisTopText = $"¥{Format(scale)}";
-        AxisMidText = $"¥{Format(scale / 2)}";
+        AxisTopText = $"¥{Core.Models.DisplayText.ShortYen(scale, ShortYenInKanji)}";
+        AxisMidText = $"¥{Core.Models.DisplayText.ShortYen(scale / 2, ShortYenInKanji)}";
 
         for (var index = 0; index < source.Count; index++)
         {
@@ -1004,7 +1004,7 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
                 SpentYen = period.SpentYen,
                 ItemCount = period.ItemCount,
                 BarHeight = scale == 0 ? 0 : period.SpentYen / (double)scale * SpendBarViewModel.ChartHeight,
-                ValueLabel = (isPeak || isLast) && period.SpentYen > 0 ? $"¥{Format(period.SpentYen)}" : string.Empty,
+                ValueLabel = (isPeak || isLast) && period.SpentYen > 0 ? $"¥{Core.Models.DisplayText.ShortYen(period.SpentYen, ShortYenInKanji)}" : string.Empty,
                 IsPeak = isPeak,
             });
         }
@@ -1616,13 +1616,8 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
         return ((long)Math.Floor(peak / (double)step) + 1) * step;
     }
 
-    /// <summary>金額の短い表記。桁が多いと軸に収まらないので k / M で畳む。</summary>
-    private static string Format(long yen) => yen switch
-    {
-        >= 1_000_000 => $"{yen / 1_000_000d:0.#}M",
-        >= 1_000 => $"{yen / 1_000d:0.#}k",
-        _ => $"{yen:N0}",
-    };
+    /// <summary>金額の短い表記を千・万・億にするか（設定。表記は <see cref="Core.Models.DisplayText.ShortYen"/>）。</summary>
+    private bool ShortYenInKanji => _services.Settings.ShortYenInKanji;
 
 }
 

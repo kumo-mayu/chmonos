@@ -106,6 +106,7 @@ public sealed partial class SettingsViewModel
         _placeNewConditionNearSameKind = settings.PlaceNewConditionNearSameKind;
         _showSortDividers = settings.ShowSortDividers;
         _showAcquiredSortDividers = settings.ShowAcquiredSortDividers;
+        _shortYenInKanji = settings.ShortYenInKanji;
         _thumbnailRole = settings.ThumbnailRole;
         _gallerySwitchOnHover = settings.GallerySwitchOnHover;
         _fileOrder = settings.FileOrder;
