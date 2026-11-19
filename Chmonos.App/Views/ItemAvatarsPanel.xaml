@@ -369,7 +369,7 @@
                                                         Command="{Binding OpenCommand}"
                                                         AutomationProperties.AutomationId="ItemAvatarViaConversionChip"
                                                         AutomationProperties.Name="{Binding Name, StringFormat={}{0}を開く}"
-                                                        ToolTip="{Binding ViaTooltip}">
+                                                        ToolTip="{Binding ViaTooltip}" ToolTipOpening="OnChipToolTipOpening">
                                                     <Border.InputBindings>
                                                         <MouseBinding MouseAction="LeftClick" Command="{Binding OpenCommand}" />
                                                     </Border.InputBindings>

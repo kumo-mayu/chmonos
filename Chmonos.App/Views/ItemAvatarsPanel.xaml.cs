@@ -40,7 +40,7 @@ public partial class ItemAvatarsPanel : UserControl
             });
         }
 
-        panel.Children.Add(new TextBlock { Text = row.SourceTooltip, TextWrapping = TextWrapping.Wrap });
+        panel.Children.Add(new TextBlock { Text = row.HoverText, TextWrapping = TextWrapping.Wrap });
         chip.ToolTip = panel;
     }
 

@@ -189,6 +189,22 @@ public class SmallTextTests
             unconfirmedOwned.SourceTooltip);
     }
 
+    /// <summary>
+    /// 乗せたときの吹き出しは札の種類ごとの言い方で出す。前は絵を入れて作り直す所が出どころの文を固定で使い、
+    /// 素体経由の札に乗せると「〇〇から読み取りました」と、記録した対応のように言っていた（2026-11-20）
+    /// </summary>
+    [Fact]
+    public void 素体経由と変換経由の札に乗せた吹き出しは_読み取ったとは言わず_経由の言い方で言う()
+    {
+        var record = new AvatarRow { ItemId = "1000001", Name = "作り物のアバター", SourceText = "商品の説明" };
+        var viaBase = new ViaBaseAvatarRow { ItemId = "1000002", Name = "作り物の仲間", SourceText = "商品の説明", BaseName = "作り物の素体" };
+        var viaConversion = new ViaConversionAvatarRow { ItemId = "1000003", Name = "作り物の変換先", SourceText = "商品の説明", SourceName = "作り物のアバター" };
+
+        Assert.Equal(record.SourceTooltip, record.HoverText);
+        Assert.Equal("共通素体「作り物の素体」経由です。押すとこのアバターを開きます", viaBase.HoverText);
+        Assert.Equal("「作り物のアバター」用を、プロファイルで変換できる見込みです。押すとこのアバターを開きます", viaConversion.HoverText);
+    }
+
     [Fact]
     public void 手で足したか確認済みにした対応アバターの吹き出しは_読み取ったとは言わず_手で確認したと言う()
     {

@@ -615,6 +615,13 @@ public class AvatarRow : ChipTile
             ? $"{SourceText}から読み取りました（未確認）。押すとこのアバターを開きます"
             : $"{SourceText}から読み取りました。押すとこのアバターを開きます");
 
+    /// <summary>
+    /// 乗せたときの吹き出しの文。記録した対応は出どころ、素体経由・変換経由の札はその札の言い方で言う。
+    /// 乗せたときに絵の入った吹き出しへ作り直す所（ItemAvatarsPanel）が、札の種類を問わずこれを使う——前は出どころの文を固定で使い、
+    /// 素体経由の札に乗せると「〇〇から読み取りました」が出ていた（2026-11-20 に担当が見つけた）
+    /// </summary>
+    public virtual string HoverText => SourceTooltip;
+
     /// <summary>出どころが手入力か（手で足した・確認済みにした）。吹き出しの言い方を分ける。</summary>
     public bool IsManual { get; init; }
 
@@ -639,6 +646,8 @@ public sealed class ViaBaseAvatarRow : AvatarRow
 
     public string ViaTooltip => VariationNote + (IsOwned ? "持っているアバターです。" : string.Empty)
         + $"共通素体「{BaseName}」経由です。押すとこのアバターを開きます";
+
+    public override string HoverText => ViaTooltip;
 }
 
 /// <summary>
@@ -657,6 +666,8 @@ public sealed class ViaConversionAvatarRow : AvatarRow
         + $"「{SourceName}」用を、プロファイルで変換できる見込みです。"
         + (OtherSources > 0 ? $"ほかに {OtherSources} 体のアバター用からも変換できます。" : string.Empty)
         + "押すとこのアバターを開きます";
+
+    public override string HoverText => ViaTooltip;
 }
 
 /// <summary>
