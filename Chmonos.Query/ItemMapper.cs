@@ -76,6 +76,7 @@ public static class ItemMapper
             CompatibleAvatars = Compatible(item, snapshot),
             UserTags = local.UserTags.Select(tag => new UserTagRef(tag.Top, tag.Subs)).ToList(),
             Attributes = local.Attributes,
+            PendingAttributes = local.PendingAttributes,
             Memo = local.Memo,
             Files = local.LocalFiles
                 .Where(file => includes.HasFlag(ItemIncludes.AllFiles) || FileState(file) is "present" or "missing")
