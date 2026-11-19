@@ -143,7 +143,15 @@
                           <Grid Margin="0,0,14,14">
                           <Button AutomationProperties.AutomationId="ShopCard" Style="{x:Null}" Command="{Binding OpenCommand}" Cursor="Hand"
                                   FocusVisualStyle="{StaticResource CardFocusVisual}"
-                                  AutomationProperties.Name="{Binding Name}">
+                                  AutomationProperties.Name="{Binding Name}"
+                                  ToolTipService.IsEnabled="{Binding HasMemoTip}">
+                            <!-- メモに字がある時だけ、乗せるとメモを出す（ユーザ指示 2026-11-18）。ショップの画面の1行の見出しの吹き出しと同じ折り返し・幅 -->
+                            <Button.ToolTip>
+                                <ToolTip>
+                                    <TextBlock Text="{Binding MemoTip}" TextWrapping="Wrap" MaxWidth="420"
+                                               AutomationProperties.AutomationId="ShopCardMemoTip" />
+                                </ToolTip>
+                            </Button.ToolTip>
                             <!-- 右クリック（ユーザ指示 2026-09-20・M2）。押したときと同じ2つの行き先を出す -->
                             <Button.ContextMenu>
                                 <ContextMenu>
