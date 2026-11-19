@@ -216,11 +216,11 @@ public sealed class ApiPluginMenuTests
         Assert.Equal([cards[0].Item.Id, cards[2].Item.Id], search.SelectedItemIdsForPlugins());
         Assert.Same(app.Services.PluginMenus, search.PluginMenus);
 
-        // 帯に置く「プラグイン」のボタンは、項目がいくつあっても1つ（帯を長くしない）
+        // 帯の「プラグイン」は、項目がいくつあっても「その他 ▾」の中の1行（帯を長くしない。ユーザ判断 2026-11-20 で「その他」へ畳んだ）
         var template = (System.Windows.DataTemplate)new ItemCardResources()["ItemSelectionBar"];
         var bar = (System.Windows.FrameworkElement)template.LoadContent();
-        var buttons = Descendants(bar).OfType<Button>().Where(button => AutomationProperties.GetAutomationId(button) == "SelectionBar.Plugins").ToList();
-        Assert.Single(buttons);
+        var more = Descendants(bar).OfType<Button>().Single(button => AutomationProperties.GetAutomationId(button) == "SelectionBar.More");
+        Assert.Single(more.ContextMenu.Items.OfType<System.Windows.Controls.MenuItem>(), item => AutomationProperties.GetAutomationId(item) == "SelectionBar.More.Plugins");
         await Task.CompletedTask;
     });
 

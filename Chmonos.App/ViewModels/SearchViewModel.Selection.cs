@@ -17,9 +17,6 @@ public sealed partial class SearchViewModel
 
     public RelayCommand SendSelectionToEditCommand { get; }
 
-    /// <summary>選んだ物をまとめてお気に入りに追加（#44）。</summary>
-    public RelayCommand AddSelectionToFavoritesCommand { get; }
-
     /// <summary>選んだ物をまとめて改変に足す（#44）。</summary>
     public RelayCommand AddSelectionToModificationCommand { get; }
 
@@ -69,8 +66,15 @@ public sealed partial class SearchViewModel
         sending => IsSendingToUnity = sending,
         text => UnityQueueText = text);
 
-    /// <summary>帯を出すか。選んでいる間と、Unity へ送っている間。</summary>
-    public bool ShowsSelectionBar => HasSelection || IsSendingToUnity;
+    /// <summary>帯を出すか。選んでいる間と、Unity へ送っている間と、BOOTH から取得し直している間（止める口を残す）。</summary>
+    public bool ShowsSelectionBar => HasSelection || IsSendingToUnity || Bulk.IsRefreshing;
+
+    /// <summary>帯の「お気に入り ▾」「タグ・属性 ▾」「その他 ▾」（ユーザ判断 2026-11-20。3つの画面で共通の中身）。</summary>
+    public SelectionBulkActions Bulk => _bulk ??= new SelectionBulkActions(
+        _services, _main, () => SelectedCards(), items => NoteItemsChanged(items, keepSelection: true),
+        () => OnPropertyChanged(nameof(ShowsSelectionBar)));
+
+    private SelectionBulkActions? _bulk;
 
     /// <summary>送るのをやめる（E7）。送信は1本ずつなので、どの画面から押しても同じ物が止まる。</summary>
     public RelayCommand StopUnityCommand => _stopUnity ??= new RelayCommand(Services.UnityImportQueue.Stop);
@@ -92,26 +96,6 @@ public sealed partial class SearchViewModel
         var cards = _matches.Where(card => card.IsSelected).ToList();
         cards.AddRange(_cards.Values.Where(card => card.IsSelected && !cards.Contains(card)));
         return cards;
-    }
-
-    /// <summary>
-    /// 選んだ物に星を付ける。付いている物はそのまま（外す操作ではない）。
-    /// 選択は解かない——続けて「改変に足す」などをしたいことがある。
-    /// </summary>
-    private async Task AddSelectionToFavoritesAsync()
-    {
-        // 書けなかった物は1件ずつ窓にしない（ドライブが外れていると選んだ数だけ窓が出る）。最初の失敗を1回だけ出す
-        string? firstFailure = null;
-        foreach (var card in SelectedCards().Where(card => !card.IsFavorite).ToList())
-        {
-            var failure = await TryToggleFavoriteAsync(card);
-            firstFailure ??= failure;
-        }
-
-        if (firstFailure is not null)
-        {
-            Tell("お気に入り", firstFailure, failed: true);
-        }
     }
 
     /// <summary>
@@ -170,6 +154,7 @@ public sealed partial class SearchViewModel
         OnPropertyChanged(nameof(ShowsSelectionBar));
         OnPropertyChanged(nameof(SelectionText));
         OnPropertyChanged(nameof(CanOpenFilePool));
+        _bulk?.NoteSelectionChanged();
 
         // 1件でも選ぶと「選ぶ操作」が主になる。カード全体が選択の的になり、
         // 中を見るのは専用のボタンへ移る（カードごとに知らせる必要がある）

@@ -657,14 +657,15 @@
     -->
     <DataTemplate x:Key="ItemSelectionBar">
         <Border Background="{DynamicResource AccentSoft}"
-                BorderBrush="{DynamicResource AccentBorder}" BorderThickness="0,1,0,0" Padding="18,8">
+                BorderBrush="{DynamicResource AccentBorder}" BorderThickness="0,1,0,0" Padding="18,8"
+                SizeChanged="OnSelectionBarSizeChanged">
             <!--
                 幅が足りなければボタンの塊を次の行へ送り、塊の中でも折り返す（検索の結果の上の帯と同じ SplitRowPanel）。
                 前は左の文と右のボタンを同じ升に重ねて置き、900 幅の窓でボタンが左の「n 件を選択中」に乗って両端が切れた。
                 ボタンの上下の 2 は折り返したときの行の間。その分、帯の上下の余白を 10 → 8 にして1行のときの高さを変えない
             -->
             <controls:SplitRowPanel MinLeftWidth="90" Gap="12">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" SizeChanged="OnSelectionBarSizeChanged">
                     <TextBlock Text="{Binding SelectionText}" FontWeight="Bold" FontSize="12.5"
                                AutomationProperties.AutomationId="SelectionBar.Text"
                                Foreground="{DynamicResource AccentText}" VerticalAlignment="Center"
@@ -685,35 +686,35 @@
                             AutomationProperties.Name="Unityへ送るのを中止"
                             Visibility="{Binding IsSendingToUnity, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                             ToolTip="送るのをやめます。Unityに残った画面は「Cancel」で閉じてください。" />
+                    <!--
+                        まとめた操作の件数（「5件に追加しました（2件は既に付いていました）」・ユーザ判断 2026-11-20）と、BOOTH から取得している進み具合。
+                        窓にしないのは、続けて別の操作をする流れを止めないため
+                    -->
+                    <TextBlock Text="{Binding Bulk.StatusText}" FontSize="12" Margin="14,0,0,0"
+                               AutomationProperties.AutomationId="SelectionBar.Status"
+                               Foreground="{DynamicResource AccentText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="420"
+                               ToolTip="{Binding Bulk.StatusText}"
+                               Visibility="{Binding Bulk.HasStatusText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}" />
+                    <Button Content="中止" Style="{StaticResource SmallButton}" Margin="10,0,0,0"
+                            VerticalAlignment="Center"
+                            Command="{Binding Bulk.StopCommand}"
+                            AutomationProperties.AutomationId="SelectionBar.StopRefresh"
+                            AutomationProperties.Name="BOOTHからの取得を中止"
+                            Visibility="{Binding Bulk.IsRefreshing, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}"
+                            ToolTip="今の1件を取得し終えてから止めます。" />
                 </StackPanel>
                 <!--
                     ボタンの間は、どれも**右の余白**で取る（左の余白で取ると、折り返した行の先頭のボタンだけ左へ余白ぶん引っ込み、
                     段ごとに左端がずれた。幅900で 530／540px・メモ「選択の帯の左端のずれ」）
                 -->
-                <WrapPanel HorizontalAlignment="Right"
+                <WrapPanel HorizontalAlignment="Right" IsVisibleChanged="OnSelectionButtonsVisibleChanged"
                            Visibility="{Binding HasSelection, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                     <!--
-                        選んだ物のうち未読の更新がある商品をまとめて既読にする（ユーザ判断 2026-10-02「4は入れましょう」）。
-                        選んだ物に未読の更新が無ければ出さない（カードの右クリックの「既読にする」と同じ出し方。更新のある商品は少なく、
-                        いつも押せないボタンを並べると帯が狭い窓で詰まる）。出し入れで他のボタンが動かないよう、右寄せの並びの左端に置く。
-                        帯を使う画面（検索・フォルダの右・ショップの中）の入れ物が HasSelectedUpdates を持つ
+                        並びはユーザ判断 2026-11-20：選ぶ・外す｜お気に入り ▾｜タグ・属性 ▾｜改変に追加…｜Unityへ送る…｜その他 ▾｜まとめて編集する。
+                        前は「既読にする」「プラグイン ▾」「ファイルを割り振る」をボタンで並べ、出し入れで帯の長さが変わった。
+                        たまにしか使わない物は「その他 ▾」へ畳み、使えない物は消さずに押せなくする（出し入れで他のボタンが動かない）。
+                        「▾」のボタンは押すとメニューを開く（MenuButton。メニューの DataContext は帯の入れ物の画面）
                     -->
-                    <Button Content="既読にする" Style="{StaticResource SmallButton}" Margin="0,2,10,2"
-                            AutomationProperties.AutomationId="SelectionBar.MarkRead"
-                            AutomationProperties.Name="選んだ商品を既読にする"
-                            Command="{Binding MarkSelectionReadCommand}"
-                            ToolTip="選んだ商品の更新の通知を既読にします。"
-                            Visibility="{Binding HasSelectedUpdates, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}" />
-                    <!--
-                        プラグインが足した項目（plan 44 の②）。項目がいくつあっても1つのボタンに畳み、押すとソフトごとの段を開く
-                        （帯を長くしない。ボタンの数を増やすと狭い窓で3段に折り返す）。足したソフトが無ければ出さない。
-                        「既読にする」と同じく、出し入れでほかのボタンが動かないよう右寄せの並びの左端に置く
-                    -->
-                    <Button Content="プラグイン ▾" Style="{StaticResource SmallButton}" Margin="0,2,10,2"
-                            AutomationProperties.AutomationId="SelectionBar.Plugins"
-                            Click="OnPluginSelectionClick"
-                            ToolTip="選んだ商品を、プラグインが追加した操作に渡します。"
-                            Visibility="{Binding PluginMenus.HasSelectionMenus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}" />
                     <!-- 未確定の画面と同じ名前にする（B8）。どちらも見えている分に効くので、言い分ける必要はない -->
                     <Button Content="すべて選択" Style="{StaticResource SmallButton}" Margin="0,2,7,2"
                             AutomationProperties.AutomationId="SelectionBar.SelectAll"
@@ -724,39 +725,87 @@
                             AutomationProperties.AutomationId="SelectionBar.Clear"
                             Command="{Binding ClearSelectionCommand}"
                             ToolTip="選択をすべて解除します（Esc / Ctrl + Shift + A）" />
-                    <!-- まとめて入れる先（#44）。どれも選んだ物だけに効く -->
-                    <Button Content="お気に入りに追加" Style="{StaticResource SmallButton}" Margin="0,2,7,2"
-                            AutomationProperties.AutomationId="SelectionBar.AddToFavorites"
-                            AutomationProperties.Name="選んだ商品をお気に入りに追加"
-                            Command="{Binding AddSelectionToFavoritesCommand}"
-                            ToolTip="選んだ商品に星を付けます。付いているものはそのままです。" />
+                    <!-- 反転は入れない（ユーザ判断 2026-11-20）。既に入っている物・入っていない物は何もせず、後で件数を出す -->
+                    <Button Content="お気に入り ▾" Style="{StaticResource SmallButton}" Margin="0,2,7,2"
+                            AutomationProperties.AutomationId="SelectionBar.Favorites"
+                            Click="OnSelectionMenuClick" PreviewKeyDown="OnSelectionMenuKeyDown">
+                        <Button.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="お気に入りに追加" Command="{Binding Bulk.AddFavoritesCommand}"
+                                          AutomationProperties.AutomationId="SelectionBar.Favorites.Add" />
+                                <MenuItem Header="お気に入りから外す" Command="{Binding Bulk.RemoveFavoritesCommand}" Style="{StaticResource DangerMenuItem}"
+                                          AutomationProperties.AutomationId="SelectionBar.Favorites.Remove" />
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
+                    <Button Content="タグ・属性 ▾" Style="{StaticResource SmallButton}" Margin="0,2,7,2"
+                            AutomationProperties.AutomationId="SelectionBar.Tags"
+                            Click="OnSelectionMenuClick" PreviewKeyDown="OnSelectionMenuKeyDown">
+                        <Button.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="タグを追加…" Command="{Binding Bulk.AddTagCommand}"
+                                          AutomationProperties.AutomationId="SelectionBar.Tags.Add" />
+                                <MenuItem Header="タグ・属性を削除…" Command="{Binding Bulk.RemoveTagCommand}" Style="{StaticResource DangerMenuItem}"
+                                          AutomationProperties.AutomationId="SelectionBar.Tags.Remove" />
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
                     <Button Content="改変に追加…" Style="{StaticResource SmallButton}" Margin="0,2,7,2"
                             AutomationProperties.AutomationId="SelectionBar.AddToModification"
                             Command="{Binding AddSelectionToModificationCommand}"
                             ToolTip="どの改変に追加するかを選んでから、選んだ商品をまとめて追加します。" />
-                    <Button Content="全てUnityへ送る…" Style="{StaticResource SmallButton}" Margin="0,2,10,2"
+                    <Button Content="全てUnityへ送る…" Style="{StaticResource SmallButton}" Margin="0,2,7,2"
                             AutomationProperties.AutomationId="SelectionBar.SendToUnity"
                             Command="{Binding SendSelectionToUnityCommand}"
                             ToolTip="開いているUnityへ1件ずつ送ります。取り込み画面を閉じると次へ進みます。" />
-                    <!--
-                        選んだ商品の間でファイルを割り振るサブ画面（plan 30）。別の窓が開くだけで聞き返さないので「…」は付けない（ui-dialogs.md）。
-                        1件では割り振る相手がいないので押せなくし、吹き出しで言う
-                    -->
-                    <Button Content="ファイルを割り振る" Margin="0,2,10,2"
-                            AutomationProperties.AutomationId="SelectionBar.FilePool"
-                            Command="{Binding OpenFilePoolCommand}"
-                            IsEnabled="{Binding CanOpenFilePool, FallbackValue=False}"
-                            ToolTipService.ShowOnDisabled="True">
-                        <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource SmallButton}">
-                                <Setter Property="ToolTip" Value="選んだ商品のファイルを、別のウィンドウで商品の間に付け外しします。" />
-                                <Style.Triggers>
-                                    <Trigger Property="IsEnabled" Value="False">
-                                        <Setter Property="ToolTip" Value="2件以上の商品を選ぶと使えます。" />
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
+                    <Button Content="その他 ▾" Style="{StaticResource SmallButton}" Margin="0,2,10,2"
+                            AutomationProperties.AutomationId="SelectionBar.More"
+                            Click="OnSelectionMenuClick" PreviewKeyDown="OnSelectionMenuKeyDown">
+                        <Button.ContextMenu>
+                            <ContextMenu Opened="OnSelectionMoreOpened">
+                                <!-- 帯が1行に入り切らないときに畳んだボタン（SelectionBarFold）。畳んでいなければ出さない -->
+                                <MenuItem Header="改変に追加…" Command="{Binding AddSelectionToModificationCommand}" Visibility="Collapsed"
+                                          AutomationProperties.AutomationId="SelectionBar.More.Folded.AddToModification" />
+                                <MenuItem Header="全てUnityへ送る…" Command="{Binding SendSelectionToUnityCommand}" Visibility="Collapsed"
+                                          AutomationProperties.AutomationId="SelectionBar.More.Folded.SendToUnity" />
+                                <Separator Visibility="Collapsed" AutomationProperties.AutomationId="SelectionBar.More.FoldedSeparator" />
+                                <!-- 探すのは選んだ物のうち見つからないファイルを持つ商品だけ。その数を出す（ユーザ判断 2026-11-20） -->
+                                <MenuItem Header="{Binding Bulk.FindMissingText}" Command="{Binding Bulk.FindMissingCommand}"
+                                          AutomationProperties.AutomationId="SelectionBar.More.FindMissing" />
+                                <!--
+                                    選んだ商品の間でファイルを割り振るサブ画面（plan 30）。別の窓が開くだけで聞き返さないので「…」は付けない（ui-dialogs.md）。
+                                    1件では割り振る相手がいないので押せなくする
+                                -->
+                                <MenuItem Header="ファイルを割り振る" Command="{Binding OpenFilePoolCommand}"
+                                          IsEnabled="{Binding CanOpenFilePool, FallbackValue=False}"
+                                          AutomationProperties.AutomationId="SelectionBar.FilePool" />
+                                <MenuItem Header="既読にする" Command="{Binding MarkSelectionReadCommand}"
+                                          AutomationProperties.AutomationId="SelectionBar.MarkRead" />
+                                <!-- プラグインが足した項目（plan 44 の②）。中身は開くたびに組む。足したソフトが無ければ出さない -->
+                                <MenuItem Header="プラグイン"
+                                          AutomationProperties.AutomationId="SelectionBar.More.Plugins"
+                                          Visibility="{Binding PluginMenus.HasSelectionMenus, Converter={x:Static vm:BoolToVisibilityConverter.Instance}, FallbackValue=Collapsed}" />
+                                <Separator />
+                                <MenuItem Header="非表示にする" Command="{Binding Bulk.HideCommand}"
+                                          AutomationProperties.AutomationId="SelectionBar.More.Hide" />
+                                <MenuItem Header="表示に戻す" Command="{Binding Bulk.UnhideCommand}"
+                                          AutomationProperties.AutomationId="SelectionBar.More.Unhide" />
+                                <MenuItem Header="更新の通知を入れる" Command="{Binding Bulk.NotifyOnCommand}"
+                                          AutomationProperties.AutomationId="SelectionBar.More.NotifyOn" />
+                                <MenuItem Header="更新の通知を切る" Command="{Binding Bulk.NotifyOffCommand}"
+                                          AutomationProperties.AutomationId="SelectionBar.More.NotifyOff" />
+                                <Separator />
+                                <MenuItem Header="IDをコピー" Command="{Binding Bulk.CopyIdsCommand}"
+                                          AutomationProperties.AutomationId="SelectionBar.More.CopyIds" />
+                                <MenuItem Header="リンクをコピー" Command="{Binding Bulk.CopyLinksCommand}"
+                                          AutomationProperties.AutomationId="SelectionBar.More.CopyLinks" />
+                                <Separator />
+                                <MenuItem Header="BOOTHの情報を取得し直す…" Command="{Binding Bulk.RefreshFromBoothCommand}"
+                                          AutomationProperties.AutomationId="SelectionBar.More.Refresh" />
+                                <MenuItem Header="対応アバターを確認済みにする" Command="{Binding Bulk.ConfirmAvatarsCommand}"
+                                          AutomationProperties.AutomationId="SelectionBar.More.ConfirmAvatars" />
+                            </ContextMenu>
+                        </Button.ContextMenu>
                     </Button>
                     <Button Content="まとめて編集する" Style="{StaticResource PrimaryButton}" Height="27" Margin="0,2"
                             AutomationProperties.AutomationId="SelectionBar.Edit"
