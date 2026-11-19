@@ -41,15 +41,14 @@ public sealed record DuplicateGroup
     /// <summary>
     /// 1つ残して他を消したら空く量。
     ///
-    /// <see cref="DuplicateKind.ArchiveAndUnpacked"/> では**展開したフォルダを消す前提**の値。
-    /// zipは配布物そのもので、消しても展開し直せないが、
-    /// 展開したものはzipから作り直せる。逆向きは選べるが、既定はこちら。
+    /// <see cref="DuplicateKind.ArchiveAndUnpacked"/> では **zip をごみ箱へ移す前提**の値（zip の大きさ）。
+    /// 画面から移せるのは zip だけで、展開したフォルダは触らない（ユーザ判断 2026-11-20）。
     /// </summary>
     public required long ReclaimableBytes { get; init; }
 
     /// <summary>
     /// <see cref="DuplicateKind.ArchiveAndUnpacked"/> の zip の大きさ（記録の値）。zip だけをごみ箱へ移す時に空く量
-    /// （ユーザ判断 2026-11-20）。<see cref="ReclaimableBytes"/> は展開したフォルダを消す前提の値で、zip だけを移す操作の量とは違う。
+    /// （ユーザ判断 2026-11-20）。この種類では <see cref="ReclaimableBytes"/> と同じ値。確認の窓に出す。
     /// 別の種類の組では 0
     /// </summary>
     public long ArchiveBytes { get; init; }
@@ -200,8 +199,9 @@ public static class DuplicateFinder
                         new DuplicatePlace(item.Id, item.DisplayName, folder.Path),
                     ],
 
-                    // 展開した方を消す前提。zipは配布物そのもので作り直せない
-                    ReclaimableBytes = folder.TotalBytes,
+                    // 画面から移せるのは zip だけなので、空く量も zip の大きさにする。展開したフォルダの大きさで数えると、
+                    // 行・合計・並び（空く量の多い順）が実際に空く量とずれる（ユーザ判断 2026-11-20：A）
+                    ReclaimableBytes = archiveFile.SizeBytes,
                     ArchiveBytes = archiveFile.SizeBytes,
                 };
             }

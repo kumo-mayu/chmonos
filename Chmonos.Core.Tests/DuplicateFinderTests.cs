@@ -100,9 +100,8 @@ public sealed class DuplicateFinderTests
 
         Assert.Equal(DuplicateKind.ArchiveAndUnpacked, group.Kind);
         Assert.Equal("Wendy_ver1.01", group.Label);
-        // 展開した方を消す前提。zipは配布物そのもので作り直せない
-        Assert.Equal(900, group.ReclaimableBytes);
-        // zip だけを移す時に空く量（統計の行に出す）。zip の記録の大きさ
+        // 移せるのは zip だけなので、空く量（行・合計・並び）は zip の記録の大きさ。展開したフォルダの 900 ではない
+        Assert.Equal(200, group.ReclaimableBytes);
         Assert.Equal(200, group.ArchiveBytes);
     }
 

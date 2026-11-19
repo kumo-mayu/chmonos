@@ -157,7 +157,7 @@ public sealed class StatsDuplicateRemoveTests
             Kind = DuplicateKind.ArchiveAndUnpacked,
             Label = "x",
             UnitBytes = 900,
-            ReclaimableBytes = 900,
+            ReclaimableBytes = 200,
             ArchiveBytes = 200,
             Places = [new DuplicatePlace("1", "a", @"C:\x.zip"), new DuplicatePlace("1", "a", @"C:\x")],
         };
@@ -182,7 +182,7 @@ public sealed class StatsDuplicateRemoveTests
             Kind = DuplicateKind.ArchiveAndUnpacked,
             Label = "x",
             UnitBytes = 900,
-            ReclaimableBytes = 900,
+            ReclaimableBytes = 2048,
             ArchiveBytes = 2048,
             Places = [new DuplicatePlace("1000001", "a", @"C:\none\x.zip"), new DuplicatePlace("1000001", "a", @"C:\none\x")],
         };

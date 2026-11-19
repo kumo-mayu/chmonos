@@ -73,9 +73,8 @@ public sealed class DuplicateRowViewModel(
 {
     public string Label { get; } = group.Label;
 
-    // zip と展開したフォルダの組は、移せるのが zip だけなので zip の大きさを出す（ユーザ判断 2026-11-20）
-    public string ReclaimText { get; } = Core.Models.DisplayText.Size(
-        group.Kind == DuplicateKind.ArchiveAndUnpacked ? group.ArchiveBytes : group.ReclaimableBytes) + " 空きます";
+    // zip と展開したフォルダの組は、ReclaimableBytes が既に zip の大きさ（移せるのが zip だけ。ユーザ判断 2026-11-20）
+    public string ReclaimText { get; } = Core.Models.DisplayText.Size(group.ReclaimableBytes) + " 空きます";
 
     /// <summary>
     /// 何が起きているかの一言。消し方が違うので種類を言い分ける。
