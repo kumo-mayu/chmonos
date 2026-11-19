@@ -135,6 +135,91 @@ public class ItemListColumnChoiceTests
     });
 
     [Fact]
+    public Task 列を1つ左右へ動かし_端では動かず_選ぶ列は左端のまま_並びは画面ごとに覚える() => TestApp.Run(async app =>
+    {
+        var columns = (await app.StartAsync()).Search.ListColumns;
+        Assert.Equal(["select", "icon", "fav", "name", "tags", "attrs", "paid", "avatars", "shop", "chips"], columns.Order);
+
+        // 左端の列（選ぶ列の次）は左へ、右端は右へ動かせない。選ぶ列はどちらにも動かせない
+        Assert.False(columns.CanMove("icon", -1));
+        Assert.True(columns.CanMove("icon", 1));
+        Assert.False(columns.CanMove("chips", 1));
+        Assert.True(columns.CanMove("chips", -1));
+        Assert.False(columns.CanMove("select", 1));
+        Assert.False(columns.CanMove("select", -1));
+
+        columns.Move("name", -1);
+        Assert.Equal(["select", "icon", "name", "fav", "tags", "attrs", "paid", "avatars", "shop", "chips"], columns.Order);
+        columns.Move("icon", -1);
+        columns.Move("chips", 1);
+        Assert.Equal(["select", "icon", "name", "fav", "tags", "attrs", "paid", "avatars", "shop", "chips"], columns.Order);
+
+        // 選ぶ列の左へは行けない（動かそうとしても何も起きない）
+        columns.Move("select", 1);
+        Assert.Equal("select", columns.Order[0]);
+
+        await UiThread.Until(
+            () => app.Services.UiState.ItemListColumns?.TryGetValue("search", out var saved) == true && saved.ToList().IndexOf("name") < saved.ToList().IndexOf("fav"),
+            "動かした並びが ui-state に書かれる");
+        Assert.False(app.Services.UiState.ItemListColumns!.ContainsKey("folder"));
+        Assert.Equal(columns.Order, new ItemListColumns(app.Services.PaneWidths, "search", hasSelect: true, shopHeader: "ショップ").Order);
+    });
+
+    /// <summary>列を指す見出し。<c>Column</c> は GridView の表示が決める読み取り専用の値なので、反射で入れる（窓を開かずに試すため）。</summary>
+    private static GridViewColumnHeader HeaderOf(GridViewColumn column)
+    {
+        var header = new GridViewColumnHeader();
+        var key = (DependencyPropertyKey)typeof(GridViewColumnHeader)
+            .GetField("ColumnPropertyKey", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!.GetValue(null)!;
+        header.SetValue(key, column);
+        return header;
+    }
+
+    [Fact]
+    public Task 見出しのメニューに_この列を左へ右へ_があり_開いた見出しの列に効き_端では押せない() => TestApp.Run(async app =>
+    {
+        var columns = (await app.StartAsync()).Search.ListColumns;
+        var list = new ListView();
+        list.Resources.MergedDictionaries.Add(new Views.ItemCardResources());
+        ItemListColumnsView.SetColumns(list, columns);
+        var menu = ((GridView)list.View).ColumnHeaderContextMenu;
+
+        // 見出しを指さずに開いた（余白）：動かす列が無いので両方押せない
+        menu.RaiseEvent(new RoutedEventArgs(ContextMenu.OpenedEvent, menu));
+        var left = menu.Items.OfType<MenuItem>().Single(item => System.Windows.Automation.AutomationProperties.GetAutomationId(item) == "ItemListColumnsMenu.MoveLeft");
+        var right = menu.Items.OfType<MenuItem>().Single(item => System.Windows.Automation.AutomationProperties.GetAutomationId(item) == "ItemListColumnsMenu.MoveRight");
+        Assert.Equal("この列を左へ", left.Header);
+        Assert.Equal("この列を右へ", right.Header);
+        Assert.False(left.IsEnabled);
+        Assert.False(right.IsEnabled);
+
+        // 見出しの列を指して開いた（Shift+F10・メニューキーでも、焦点のある見出しが PlacementTarget になる）。
+        // 列は選ぶ・絵・星・名前…の順。名前の列は左右とも動かせる
+        var gridColumns = ((GridView)list.View).Columns;
+        menu.PlacementTarget = HeaderOf(gridColumns[3]);
+        menu.RaiseEvent(new RoutedEventArgs(ContextMenu.OpenedEvent, menu));
+        left = menu.Items.OfType<MenuItem>().Single(item => System.Windows.Automation.AutomationProperties.GetAutomationId(item) == "ItemListColumnsMenu.MoveLeft");
+        right = menu.Items.OfType<MenuItem>().Single(item => System.Windows.Automation.AutomationProperties.GetAutomationId(item) == "ItemListColumnsMenu.MoveRight");
+        Assert.True(left.IsEnabled);
+        Assert.True(right.IsEnabled);
+        left.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent, left));
+        Assert.Equal(["select", "icon", "name", "fav"], columns.Order.Take(4));
+
+        // 左端の列（絵）は左へ押せない。動かした後に開き直すと、その列の今の位置で決まる
+        menu.PlacementTarget = HeaderOf(((GridView)list.View).Columns[1]);
+        menu.RaiseEvent(new RoutedEventArgs(ContextMenu.OpenedEvent, menu));
+        left = menu.Items.OfType<MenuItem>().Single(item => System.Windows.Automation.AutomationProperties.GetAutomationId(item) == "ItemListColumnsMenu.MoveLeft");
+        Assert.False(left.IsEnabled);
+
+        // 右端の列（状態）は右へ押せない
+        var last = ((GridView)list.View).Columns.Count - 1;
+        menu.PlacementTarget = HeaderOf(((GridView)list.View).Columns[last]);
+        menu.RaiseEvent(new RoutedEventArgs(ContextMenu.OpenedEvent, menu));
+        right = menu.Items.OfType<MenuItem>().Single(item => System.Windows.Automation.AutomationProperties.GetAutomationId(item) == "ItemListColumnsMenu.MoveRight");
+        Assert.False(right.IsEnabled);
+    });
+
+    [Fact]
     public Task 列の幅は列ごとに覚え_範囲に収める() => TestApp.Run(async app =>
     {
         var columns = (await app.StartAsync()).Search.ListColumns;
@@ -224,7 +309,7 @@ public class ItemListColumnChoiceTests
 
         // 開いたときに中身を作る（見出しの無い所で開いた扱い：出した列は右端へ）
         menu.RaiseEvent(new RoutedEventArgs(ContextMenu.OpenedEvent, menu));
-        var groups = menu.Items.OfType<MenuItem>().ToList();
+        var groups = menu.Items.OfType<MenuItem>().Where(item => item.Tag is not int).ToList();
         Assert.Equal(ItemListColumnCatalog.Headings, groups.Select(group => (string)group.Header));
         var items = groups.SelectMany(group => group.Items.OfType<MenuItem>()).ToDictionary(item => (string)item.Tag);
         Assert.Equal(ItemListColumnCatalog.All.Count - 1, items.Count);
