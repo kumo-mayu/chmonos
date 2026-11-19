@@ -236,6 +236,7 @@ public sealed partial class ResolveViewModel
         _main.ResolveSearch.PropertyChanged += OnSearchStateChanged;
         _main.ResolveSearch.Ended += OnSearchEnded;
         _services.CandidateSearches.Remembered += OnCandidateSearchRemembered;
+        _services.SettingsStore.Changed += OnSettingsChanged;
     }
 
     private void UnsubscribeQueue()
@@ -245,5 +246,6 @@ public sealed partial class ResolveViewModel
         _main.ResolveSearch.PropertyChanged -= OnSearchStateChanged;
         _main.ResolveSearch.Ended -= OnSearchEnded;
         _services.CandidateSearches.Remembered -= OnCandidateSearchRemembered;
+        _services.SettingsStore.Changed -= OnSettingsChanged;
     }
 }

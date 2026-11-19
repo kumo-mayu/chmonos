@@ -113,6 +113,29 @@ public class ResolvePrefetchTests
         Assert.NotNull(app.Services.CandidateSearches.Find(other));
     });
 
+    /// <summary>
+    /// 先に検索しておく設定があることを、切のときだけ候補の欄で知らせる（ユーザのメモ 2026-11-18）。
+    /// 開いたまま設定が変わっても出し分けを直し、「設定」のリンクは設定の画面へ移る
+    /// </summary>
+    [Fact]
+    public Task 先回りの設定が切なら候補の欄で知らせ_入れると消え_リンクで設定の画面へ移る() => TestApp.Run(async app =>
+    {
+        var path = app.NewFile(@"dl\作り物の衣装.zip");
+        await app.Store.Unresolved.SaveAsync([Unresolved(path)]);
+        var (main, resolve) = await OpenResolveAsync(app);
+        Assert.True(resolve.ShowsPrefetchSettingNote);
+        Assert.Equal("設定" + ResolveViewModel.PrefetchSettingNote, "設定の「未確定の候補を先に検索しておく」を入れると、自動検索を裏で先に済ませておけます。");
+
+        await app.ChangeSettingsAsync(settings => settings with { PrefetchCandidateSearch = true });
+        await UiThread.Until(() => !resolve.ShowsPrefetchSettingNote, "入れたら消える");
+        await app.ChangeSettingsAsync(settings => settings with { PrefetchCandidateSearch = false });
+        await UiThread.Until(() => resolve.ShowsPrefetchSettingNote, "切ったら戻る");
+
+        resolve.ShowSettingsCommand.Execute(null);
+        Assert.IsType<SettingsViewModel>(main.CurrentViewModel);
+        await app.SettleAsync();
+    });
+
     [Fact]
     public Task 先回りは既定でオフで_入れると未確定の新しい順に引いて控え_切ると止まる() => TestApp.Run(async app =>
     {
