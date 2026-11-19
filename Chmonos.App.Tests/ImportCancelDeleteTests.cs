@@ -45,7 +45,7 @@ public class ImportCancelDeleteTests
 
         var question = Assert.Single(app.Choices);
         Assert.Equal("中断して、この取り込みで新しく登録した 1 件を削除する", question.Second);
-        Assert.Equal("この取り込みで登録した 1 件を削除しました。ファイル 1 件を未確定に戻しました。", main.Import.StackNotice);
+        Assert.Equal("この取り込みで登録した 1 件を削除し、ファイル 1 件を未確定に戻しました。", main.Import.StackNotice);
         Assert.Null(await app.Store.Items.LoadAsync(Created));
         Assert.True(File.Exists(created));
         Assert.True(File.Exists(held));

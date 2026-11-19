@@ -1459,16 +1459,17 @@ public sealed partial class ImportViewModel : ViewModelBase
     {
         // 止める前に取り込みが最後まで終わっていると、記録はもう空
         { Deleted: 0, Kept: 0 } => "削除する商品はありませんでした。",
-        { Kept: 0 } => $"この取り込みで登録した {removed.Deleted} 件を削除しました。" + ReturnedText(removed),
-        _ => $"この取り込みで登録した {removed.Deleted} 件を削除しました。名前やメモが入っていた {removed.Kept} 件は残しました。" + ReturnedText(removed),
+        { Kept: 0 } => DeletedSentence(removed),
+        _ => DeletedSentence(removed) + $"名前やメモが入っていた {removed.Kept} 件は残しました。",
     };
 
     /// <summary>
-    /// 消した商品のファイルを未確定に戻した数（open 119・ユーザ判断 2026-11-20）。どこへ行ったかを言わないと、
+    /// 消した数と、そのファイルを未確定に戻した数を1文で（open 119・ユーザ判断 2026-11-20）。どこへ行ったかを言わないと、
     /// 窓で「未確定に戻します」と読んだ人が探せない。0件（実体が無い・ほかの商品が持つ）なら言わない
     /// </summary>
-    private static string ReturnedText(Core.Services.ImportedItemsRemoved removed)
-        => removed.ReturnedFiles > 0 ? $"ファイル {removed.ReturnedFiles} 件を未確定に戻しました。" : string.Empty;
+    private static string DeletedSentence(Core.Services.ImportedItemsRemoved removed) => removed.ReturnedFiles > 0
+        ? $"この取り込みで登録した {removed.Deleted} 件を削除し、ファイル {removed.ReturnedFiles} 件を未確定に戻しました。"
+        : $"この取り込みで登録した {removed.Deleted} 件を削除しました。";
 
     private void OnUnpackedRowChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
     {
