@@ -28,6 +28,9 @@ public sealed class DeferredCardHost : ContentControl
 
     internal bool IsRealized => _realized;
 
+    /// <summary>中身を作って受け持っている商品。外されたときの目印に使う（そのときにはもう DataContext が切れている）。</summary>
+    private object? _realizedItem;
+
     /// <summary>
     /// 一度中身を作ったことのある商品（カードの ViewModel）。入れ物が作り直されたとき、後回しにせずその場で作る目印。
     /// 弱い参照の表なので、一覧から消えたカードを持ち続けない
@@ -48,8 +51,15 @@ public sealed class DeferredCardHost : ContentControl
                 // 上へ1段流すたびに、WPF の一覧が一番下の行の入れ物を作り直していた。後回しにすると、次に画面のスレッドが
                 // 空くまでの1コマだけ中身の無い枠が見え、一番下のカードが点滅した（ユーザの報告。ホイールで4回撮って3回出た）。
                 // 1枚なら約2ms。初めて見る行がまとめて入るとき（速く流している）は今どおり4枚ずつ後回しにする
-                if (DataContext is { } item && CardBuildQueue.IsIdle && RealizedBefore.TryGetValue(item, out _)
-                    && CardBuildQueue.TryTakeImmediateSlot(Dispatcher))
+                //
+                // 同じ画面の仕事の中で、いま外された入れ物と同じ商品なら、4枚の枠と「ほかに待つカードが無い」の条件を当てずに作る（2026-11-19）。
+                // 一番下の行が丸ごと作り直されるのは、見えていたカードの入れ替えでしかない。行が5枚以上（広い窓・小さいカード）だと、
+                // 4枚の枠を使い切った5枚目から順番待ちに回り、末尾の行の右のカードが流すたびに空の枠になっていた（足跡：5列で、1段ごとに5枚目が順番待ち）。
+                // 外された数より多くは作らないので、1回の量は見えていた行の枚数まで（1枚約2ms・8列で約16ms）。前に見た行を速く戻すときに
+                // 入ってくる行は、外したのとは別の仕事で入るので、今どおり4枚までにする（5列・401件で速く戻して、1回にその場で作ったのは最大8枚）
+                if (DataContext is { } item && RealizedBefore.TryGetValue(item, out _)
+                    && (CardBuildQueue.TakeJustTornDown(item)
+                        || (CardBuildQueue.IsIdle && CardBuildQueue.TryTakeImmediateSlot(Dispatcher))))
                 {
                     Realize();
                     return;
@@ -59,12 +69,28 @@ public sealed class DeferredCardHost : ContentControl
             }
         };
 
+        // 作ったカードの入れ物が外されたら、その商品を「いま外された」として覚える。外れた時点の DataContext はもう切れている
+        // （WPF の一覧が入れ物を外すと、中の DataContext は「切れた項目」に変わる。足跡で確かめた）ので、作ったときの商品を使う
+        Unloaded += (_, _) =>
+        {
+            if (_realized && _realizedItem is { } item)
+            {
+                CardBuildQueue.NoteTornDown(item, Dispatcher);
+            }
+        };
+
         // 作った後に別のカードを受け持つことになったら、中身も差し替える
         DataContextChanged += (_, e) =>
         {
             if (_realized)
             {
                 Content = e.NewValue;
+
+                // 外されるときに来る「切れた項目」では覚え直さない（外された印に使うのは、それまで受け持っていた商品）
+                if (e.NewValue is { } next && next != System.Windows.Data.BindingOperations.DisconnectedSource)
+                {
+                    _realizedItem = next;
+                }
             }
         };
     }
@@ -115,6 +141,7 @@ public sealed class DeferredCardHost : ContentControl
         if (_realized && !IsKeyboardFocusWithin)
         {
             _realized = false;
+            _realizedItem = null;
             Content = null;
             ContentTemplate = null;
         }
@@ -131,6 +158,7 @@ public sealed class DeferredCardHost : ContentControl
         if (DataContext is { } item)
         {
             RealizedBefore.AddOrUpdate(item, RealizedBefore);
+            _realizedItem = item;
         }
 
         // 中身を渡すのは作るときだけ。先に渡すと、見た目が当たるまでの間に型の名前を出す文字の部品が作られて見えてしまう
@@ -182,6 +210,34 @@ internal static class CardBuildQueue
 
         return true;
     }
+
+    /// <summary>
+    /// この画面の仕事の中で外された、作ってあったカードの商品。次に画面のスレッドが空いたら忘れる。
+    /// 同じ物（参照）で引くので、別の商品が同じ値に見えても混ざらない
+    /// </summary>
+    private static readonly HashSet<object> JustTornDown = new(ReferenceEqualityComparer.Instance);
+    private static bool _tornDownResetScheduled;
+
+    /// <summary>作ってあったカードの入れ物が外された。同じ仕事の中で同じ商品の入れ物が入ってきたら、待たせずに作る。</summary>
+    public static void NoteTornDown(object item, Dispatcher dispatcher)
+    {
+        JustTornDown.Add(item);
+        if (!_tornDownResetScheduled)
+        {
+            _tornDownResetScheduled = true;
+
+            // 入れ物の外しと入れ直しは、同じ並べ直しの後に続けて知らされる（足跡で、外れた2〜3ms後に入っていた）。
+            // 順番待ちと同じ Background で忘れるので、後の仕事で入ってきた（速く戻した）行には効かない
+            dispatcher.BeginInvoke(DispatcherPriority.Background, () =>
+            {
+                JustTornDown.Clear();
+                _tornDownResetScheduled = false;
+            });
+        }
+    }
+
+    /// <summary>この仕事の中で外された商品なら真を返し、印を消す（1回の外しにつき1枚だけ作る）。</summary>
+    public static bool TakeJustTornDown(object item) => JustTornDown.Remove(item);
 
     public static void Enqueue(DeferredCardHost host)
     {
