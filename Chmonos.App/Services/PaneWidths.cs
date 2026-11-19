@@ -31,7 +31,11 @@ public sealed class PaneWidths(SettingsService settings, CommandHandler commands
         ["avatars.list"] = new(360, 280, 640),
         ["tags.list"] = new(340, 260, 600),
         ["attributes.list"] = new(340, 260, 600),
-        ["item.left"] = new(660, 460, 1100),
+        // 商品ページの左の最小は 260（ユーザ判断 2026-11-20「左の列の下限を下げ、狭い窓では画像の列を細くする」）。
+        // 窓の最小の幅 900 でナビを開いたとき、本文の下限（左の最小＋400＝660）が欄の幅（約 675）に収まり、横に送らずに右の列まで見える値。
+        // 前の 460 では本文の下限が 860 になり、幅 900 では画像の列が幅の大半を取って、右の列は横に流さないと見えなかった。
+        // 左の列は覚えた幅のままでも「欄 − 右の最小」で頭打ちになる（PaneColumn.Ceiling）ので、狭い窓では画像の列だけが細くなる
+        ["item.left"] = new(660, 260, 1100),
         ["modification.left"] = new(660, 460, 1100),
         ["edit.right"] = new(480, 380, 800),
 
