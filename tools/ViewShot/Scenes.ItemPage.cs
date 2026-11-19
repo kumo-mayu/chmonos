@@ -330,6 +330,32 @@ internal static partial class Scenes
             await context.SettleAsync();
             return new Shot(root) { Focus = () => Look.View<ItemView>(root), FocusMargin = 0 };
         }),
+
+        // 「IDを変える」をボタンからIDの右クリックのメニューへ移した（2026-11-19）。ボタンが無い事を絵で、メニューの項目の
+        // 命令が付く事（右クリック・メニューキーで開いた時に押せる事）を、開いて読んだ値で確かめる
+        new Scene("item-page-id-menu", "商品ページ：IDの行（「IDを変える」のボタンが無い）と、IDの右クリックのメニューの項目の命令", async context =>
+        {
+            var (item, _) = await SeedLongItemAsync(context);
+            var root = await OpenItemAsync(context, item);
+            var view = Look.View<ItemView>(root)!;
+            var idText = Look.All<TextBlock>(view)
+                .First(block => block.Inlines.OfType<System.Windows.Documents.Hyperlink>()
+                    .Any(link => System.Windows.Automation.AutomationProperties.GetAutomationId(link) == "ItemIdCopy"));
+            var hyperlink = idText.Inlines.OfType<System.Windows.Documents.Hyperlink>().First();
+            var menu = hyperlink.ContextMenu!;
+            menu.PlacementTarget = idText;
+            menu.IsOpen = true;
+            await context.SettleAsync();
+            var entry = menu.Items.OfType<MenuItem>().Single();
+            context.Notices.Add($"メニュー［{entry.Header}］命令あり={entry.Command is not null}・押せる={entry.IsEnabled}・Tab で止まる={hyperlink.Focusable}");
+            menu.IsOpen = false;
+            if (Look.All<Button>(view).Any(button => Equals(button.Content, "IDを変える")))
+            {
+                throw new InvalidOperationException("「IDを変える」のボタンが残っている");
+            }
+
+            return new Shot(root) { Focus = () => idText, FocusMargin = 60 };
+        }),
     ];
 
     private static async Task<FrameworkElement> OpenItemAsync(SceneContext context, ItemRecord item)

@@ -632,16 +632,17 @@
                                     <Hyperlink Command="{Binding CopyIdCommand}" controls:MiddleClick.Command="{Binding OpenBoothCommand}" TextDecorations="{x:Null}"
                                                AutomationProperties.AutomationId="ItemIdCopy"
                                                Foreground="{DynamicResource TextMuted}">
+                                        <!-- 「IDを変える」はほとんどしない操作なのでボタンにせず、IDの右クリックに置く（ユーザ指示 2026-11-14）。
+                                             Hyperlink は Tab で止まり、メニューキー・Shift+F10 でも開く -->
+                                        <Hyperlink.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="IDを変える…" AutomationProperties.AutomationId="ItemChangeId"
+                                                          Command="{Binding ChangeIdCommand}" />
+                                            </ContextMenu>
+                                        </Hyperlink.ContextMenu>
                                         <Run Text="{Binding IdText, Mode=OneWay}" />
                                     </Hyperlink>
                                 </TextBlock>
-
-                                <!-- IDのすぐ隣に置く。「このIDを変えたい」と思った場所にある -->
-                                <Button Content="IDを変える" Style="{StaticResource SmallButton}" Margin="0,0,14,0"
-                                        AutomationProperties.AutomationId="ItemChangeId"
-                                        Padding="7,1" FontSize="10.5" VerticalAlignment="Center"
-                                        Command="{Binding ChangeIdCommand}"
-                                        ToolTip="この商品の中身を別のIDの商品へ移します。移す前に確認できます。" />
 
                                 <TextBlock Text="{Binding PublishedText}" Style="{StaticResource Mono}" FontSize="11" Margin="0,0,14,0" />
                                 <TextBlock Text="{Binding WishText}" Style="{StaticResource Mono}" FontSize="11" />
@@ -987,9 +988,18 @@
                                                     </Grid.ColumnDefinitions>
     
                                                     <StackPanel Grid.Column="0" Margin="0,0,10,0">
-                                                        <TextBlock Text="{Binding Name}" FontSize="12.5"
-                                                                   MaxWidth="440" HorizontalAlignment="Left"
-                                                                   TextTrimming="CharacterEllipsis" />
+                                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                                                            <TextBlock Text="{Binding Name}" FontSize="12.5"
+                                                                       MaxWidth="360" VerticalAlignment="Center"
+                                                                       TextTrimming="CharacterEllipsis" />
+                                                            <!-- 改変の側の行と同じ札・同じ判定（UsedUpdates.IsMemberBehind） -->
+                                                            <Border BorderBrush="{DynamicResource Warn}" BorderThickness="1" CornerRadius="4" Padding="5,0" Margin="8,0,0,0"
+                                                                    VerticalAlignment="Center" AutomationProperties.AutomationId="ItemUsedInModificationBehind"
+                                                                    ToolTip="この改変で使ったファイルより新しい版があります。"
+                                                                    Visibility="{Binding IsBehind, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                                <TextBlock Text="新しい版あり" FontSize="10" Foreground="{DynamicResource Warn}" />
+                                                            </Border>
+                                                        </StackPanel>
                                                         <TextBlock Text="{Binding Detail}" Style="{StaticResource Caption}"
                                                                    MaxWidth="440" HorizontalAlignment="Left"
                                                                    Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />

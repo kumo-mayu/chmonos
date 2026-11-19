@@ -342,7 +342,7 @@ public sealed partial class ItemViewModel
         ? "ファイルごと消します。元に戻せません。"
         : "自分で追加した画像だけ消せます";
 
-    public string AddImageTip => "この商品に画像を追加";
+    public string AddImageTip => "この商品に画像を追加します。ドロップやCtrl+Vでも追加できます。";
 
     // ---- 画像の役割 ----
 

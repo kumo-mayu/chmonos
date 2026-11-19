@@ -58,6 +58,33 @@ public class UsedUpdatePromptTests
         Assert.NotNull((await app.Store.Items.LoadAsync(Costume))!.Local.ContentUpdate!.CheckedAt);
     });
 
+    /// <summary>open.md「この商品を使った改変に新しい版の有無が出ない」。改変の行と同じ判定で、商品ページの行にも出す。</summary>
+    [Fact]
+    public Task 商品ページの_この商品を使った改変の行に_新しい版ありを出し_確認したで消える() => TestApp.Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item(Avatar, "作り物のアバター"));
+        await app.AddItemAsync(UpdatedCostume());
+        var main = await app.StartAsync();
+        await AddModificationAsync(app, fileHash: null);
+
+        var page = await OpenItemAsync(app, main);
+
+        var row = Assert.Single(page.UsedInModifications);
+        Assert.True(row.IsBehind);
+
+        // 改変の側の判定と同じ値になる（取り違えて別の判定を書いていないこと）
+        var member = row.Record.UsedMembers.Single();
+        Assert.Equal(UsedUpdates.IsMemberBehind(page.Item, member, row.Record.AvatarItemId, app.Services.CachedAvatars.Load()), row.IsBehind);
+
+        // 使った事のある更新でない行（更新を見つける前の物でなければ）は出さない：更新の無い商品
+        var quiet = new ItemViewModel(Make.Item("9907409", "作り物の更新の無い衣装"), app.Services, main, main.Thumbnails);
+        Assert.False(quiet.IsBehindIn(row.Record, app.Services.CachedAvatars.Load()));
+
+        page.CheckContentUpdateCommand.Execute(null);
+        await UiThread.Until(() => !page.ShowsUsedUpdateBar, "帯が消える");
+        await UiThread.Until(() => page.UsedInModifications.Count == 1 && !page.UsedInModifications[0].IsBehind, "行の札が消える");
+    });
+
     [Fact]
     public Task 検索の更新通知ありで_使っている商品の中身の更新だけに絞れる() => TestApp.Run(async app =>
     {

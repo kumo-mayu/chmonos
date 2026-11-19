@@ -338,6 +338,13 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
             ? AvatarBaseIcons.Load(_services, baseName, _main.Search.FindItem, _thumbnails.LoadForTile)
             : _avatarIdsByName.TryGetValue(name, out var id) ? AvatarIcon(id, _thumbnails.LoadForTile) : null;
 
+    /// <summary>アバター1体の絵（商品IDから）。編集の画面のバリエーションの対応を足す欄の候補が、同じ絵を使う。</summary>
+    public System.Windows.Media.ImageSource? AvatarIconOf(string avatarItemId) => AvatarIcon(avatarItemId, _thumbnails.LoadForTile);
+
+    /// <summary>共通素体の絵（素体の名前から）。</summary>
+    public System.Windows.Media.ImageSource? BaseIconOf(string baseName)
+        => AvatarBaseIcons.Load(_services, baseName, _main.Search.FindItem, _thumbnails.LoadForTile);
+
     private System.Windows.Media.Imaging.BitmapSource? AvatarIcon(
         string avatarItemId,
         Func<string, System.Windows.Media.Imaging.BitmapSource?> load)
@@ -980,8 +987,8 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// 出ているIDそのものを押せるようにした。
     /// </summary>
     public string IdCopyTip => Item.IsLocalOnly
-        ? "クリックすると仮のIDをコピーします"
-        : "クリックすると商品IDをコピーします";
+        ? "クリックすると仮のIDをコピーします。右クリックでIDを変えられます"
+        : "クリックすると商品IDをコピーします。右クリックでIDを変えられます";
 
     /// <summary>
     /// BOOTHに無い商品として登録したもの。**BOOTHへは問い合わせない。**

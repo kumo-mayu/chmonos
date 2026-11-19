@@ -79,6 +79,32 @@ public sealed class ShopCardViewModel : ViewModelBase
     /// <summary>ショップのメモ（shops.json）。一覧の検索で、ショップ名と合わせて探す。</summary>
     public string? Memo { get; init; }
 
+    /// <summary>カードの吹き出しに出すメモの行数の上限。ショップの画面の吹き出しは全文を出す（上限が無い）ので、そろえる値が無く、先頭の数行で足りる量として10行にした [推測]。</summary>
+    internal const int MemoTipMaxLines = 10;
+
+    /// <summary>メモに字があるか（無ければカードに吹き出しを出さない）。</summary>
+    public bool HasMemoTip => !string.IsNullOrWhiteSpace(Memo);
+
+    /// <summary>
+    /// カードに乗せた時のメモ（ユーザ指示 2026-11-18）。空行は詰めず、先頭から <see cref="MemoTipMaxLines"/> 行まで。
+    /// 続きがあれば最後に「…」を付ける。全文はショップの画面にある。
+    /// </summary>
+    public string MemoTip
+    {
+        get
+        {
+            if (!HasMemoTip)
+            {
+                return string.Empty;
+            }
+
+            var lines = Memo!.Replace("\r\n", "\n").Trim().Split('\n');
+            return lines.Length <= MemoTipMaxLines
+                ? string.Join('\n', lines)
+                : string.Join('\n', lines.Take(MemoTipMaxLines)) + "\n…";
+        }
+    }
+
     private SearchHaystack? _haystack;
 
     /// <summary>検索欄で探す材料。名前もメモも作った後は変わらないので、初めて探すときに1度だけ作る。</summary>
