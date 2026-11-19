@@ -245,6 +245,12 @@ internal sealed class TestApp
     /// <summary>出すはずだった、BOOTHに無い商品の名前の窓。</summary>
     public List<LocalItemNameDialogViewModel> LocalItemNameDialogs { get; } = [];
 
+    /// <summary>選択の帯の「タグ・属性」の窓への答え（窓は出ない）。選ぶ物は窓の Type で決める。既定は「キャンセル」。</summary>
+    public Func<BulkTagDialogViewModel, bool> AnswerBulkTag { get; set; } = _ => false;
+
+    /// <summary>出すはずだった、選択の帯の「タグ・属性」の窓。</summary>
+    public List<BulkTagDialogViewModel> BulkTagDialogs { get; } = [];
+
     /// <summary>選ぶ窓（<see cref="ChoiceQuestion"/>）への答え（窓は出ない）。既定はキャンセル——答えを決めていない問いで、書き換えが黙って走らないように</summary>
     public Func<ChoiceRequest, Views.ChoiceDialogResult> Choose { get; set; } = _ => Views.ChoiceDialogResult.Cancel;
 
@@ -421,6 +427,11 @@ internal sealed class TestApp
                 app.LocalItemNameDialogs.Add(model);
                 return app.NameLocalItem(model);
             };
+            BulkTagDialogViewModel.Intercept = model =>
+            {
+                app.BulkTagDialogs.Add(model);
+                return app.AnswerBulkTag(model);
+            };
 
             // 裏の取得は既定で切る：作り物の BOOTH は「無い」としか答えないので、走らせると
             // 置いた商品に「BOOTHで見つからない」の印が付いて、確かめたい物と関係なく中身が変わる
@@ -582,6 +593,7 @@ internal sealed class TestApp
             RenameDialogAsk.Intercept = null;
             ModificationNameDialogViewModel.Intercept = null;
             LocalItemNameDialogViewModel.Intercept = null;
+            BulkTagDialogViewModel.Intercept = null;
             // Run で差し替えた口は全部ここで戻す（点検24：この2つだけ戻しておらず、TestApp を使わない試験が
             // 同じ入口を呼ぶと前の試験の答えを使い、走らせる順で結果が変わり得た）
             ChoiceQuestion.Intercept = null;

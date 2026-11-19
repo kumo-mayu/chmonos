@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -440,31 +441,62 @@ public partial class ItemCardResources : ResourceDictionary
     internal static Services.PluginMenuService? PluginMenusOf(DependencyObject? target)
         => target is null ? null : (Window.GetWindow(target)?.DataContext as MainViewModel)?.PluginMenus;
 
-    /// <summary>
-    /// 複数選択の帯の「プラグイン ▾」（plan 44 の②）。帯を項目で長くしないよう、いつも1つのボタンに畳み、押すとソフトごとの段を開く。
-    /// 選んだ商品は帯を持つ画面から読む（押した時点の選択）
-    /// </summary>
-    private void OnPluginSelectionClick(object sender, RoutedEventArgs e)
+    /// <summary>選択の帯の「▾」のボタン（お気に入り・タグ・属性・その他）。押すとボタンの下にメニューを開く。</summary>
+    private void OnSelectionMenuClick(object sender, RoutedEventArgs e) => Controls.MenuButton.OpenBelow(sender, e);
+
+    private void OnSelectionMenuKeyDown(object sender, KeyEventArgs e) => Controls.MenuButton.OpenOnArrowDown(sender, e);
+
+    /// <summary>選び始めてボタンが出た。帯の幅は変わらないので、ここで畳むかを決める。</summary>
+    private void OnSelectionButtonsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
-        if (sender is not Button { DataContext: IPluginSelectionSource source } button)
+        if (e.NewValue is true && (sender as FrameworkElement)?.Parent is FrameworkElement { Parent: Border bar })
+        {
+            SelectionBarFold.Apply(bar);
+        }
+    }
+
+    /// <summary>帯の幅か左の文の幅が変わった。1行に入り切らなければ右寄りのボタンを「その他」へ畳む（<see cref="SelectionBarFold"/>）。</summary>
+    private void OnSelectionBarSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (!e.WidthChanged)
         {
             return;
         }
 
+        // 帯の Border 自身か、その中の左の文の塊（SplitRowPanel の子）から来る
+        var bar = sender as Border ?? ((sender as FrameworkElement)?.Parent as FrameworkElement)?.Parent as Border;
+        if (bar is not null)
+        {
+            SelectionBarFold.Apply(bar);
+        }
+    }
+
+    /// <summary>
+    /// 「その他 ▾」の「プラグイン」（plan 44 の②）。中身は開くたびに、帯を持つ画面の今の選択で組む（ソフトごとの段）。
+    /// 前は帯の「プラグイン ▾」ボタンだったが、帯の並びを決め直したときに「その他」へ畳んだ（ユーザ判断 2026-11-20）
+    /// </summary>
+    private void OnSelectionMoreOpened(object sender, RoutedEventArgs e)
+    {
+        if (sender is ContextMenu opened)
+        {
+            SelectionBarFold.ShowFolded(opened);
+        }
+
+        if (sender is not ContextMenu { DataContext: IPluginSelectionSource source } menu
+            || menu.Items.OfType<MenuItem>().FirstOrDefault(item => AutomationProperties.GetAutomationId(item) == "SelectionBar.More.Plugins") is not { } plugins)
+        {
+            return;
+        }
+
+        plugins.Items.Clear();
         var service = source.PluginMenus;
         var ids = source.SelectedItemIdsForPlugins();
-        var menu = new ContextMenu();
         foreach (var item in PluginMenuItems.SoftwareItems(service, service.Build(Chmonos.Api.PluginMenus.WhereSelection, ids), Chmonos.Api.PluginMenus.WhereSelection, ids))
         {
-            menu.Items.Add(item);
+            plugins.Items.Add(item);
         }
 
-        if (menu.Items.Count == 0)
-        {
-            return;
-        }
-
-        PluginMenuItems.OpenOnce(button, menu, e);
+        plugins.IsEnabled = plugins.Items.Count > 0;
     }
 
     /// <summary>お気に入りの星（#70）。カードのクリックへは流さない——流すと商品ページへ移ってしまう。</summary>

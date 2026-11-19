@@ -109,18 +109,30 @@ public sealed class MissingFileFinder
     /// 商品の書き換えは商品ごとの錠の中・控えの書き換えは控えの錠の中で今の値に当てるので、取り込みと重なっても互いの分を消さない。
     /// </remarks>
     /// <param name="progress">今どこを見ているか（見たファイル数・全体は分からないので数だけ）。**裏のスレッドから呼ばれる。**</param>
+    /// <param name="itemIds">
+    /// 探す商品（商品ページ・検索の選択の帯から。ユーザ判断 2026-11-20）。null なら全商品、空なら何も探さない。
+    /// 同じ中身を名指ししていない商品も持っていても、その商品の記録には触らない（場所の差し替えも、見つからなかった日時も）。
+    /// 名指しした商品のためだけに押した操作で、ほかの商品が黙って変わると、どこで何が起きたかを人が追えない
+    /// </param>
     public Task<MissingFileSearchResult> FindAsync(
         IReadOnlyList<string> folders,
         IProgress<(int Hashed, string? Detail)>? progress = null,
-        CancellationToken cancellationToken = default)
-        => Task.Run(() => FindCoreAsync(folders, progress, cancellationToken));
+        CancellationToken cancellationToken = default,
+        IReadOnlyCollection<string>? itemIds = null)
+        => Task.Run(() => FindCoreAsync(folders, progress, itemIds, cancellationToken));
 
     private async Task<MissingFileSearchResult> FindCoreAsync(
         IReadOnlyList<string> folders,
         IProgress<(int Hashed, string? Detail)>? progress,
+        IReadOnlyCollection<string>? itemIds,
         CancellationToken cancellationToken)
     {
         var loaded = await _store.Items.LoadAllAsync(cancellationToken: cancellationToken);
+
+        // 探す相手だけに絞る。登録フォルダの重なりの判定（registeredFolders）は全商品のままにする：
+        // ほかの商品が登録しているフォルダを、名指しした商品の移った先の候補に出さないため
+        var wanted = itemIds is null ? null : new HashSet<string>(itemIds, StringComparer.Ordinal);
+        IReadOnlyList<ItemRecord> targets = wanted is null ? loaded.Items : [.. loaded.Items.Where(item => wanted.Contains(item.Id))];
 
         // 中身（ハッシュ）→ その中身を持っているはずの商品と、今そこに無いパス
         //
@@ -136,7 +148,7 @@ public sealed class MissingFileFinder
         // 場所の1つでも外付けの上なら「無くなった」とは言えないので、探す物に入れない（LocalFilePresence と同じ決まり）
         var probe = new FilePresenceProbe(volumes: _volumes?.Snapshot());
         var missing = new Dictionary<string, MissingEntry>(StringComparer.OrdinalIgnoreCase);
-        foreach (var item in loaded.Items)
+        foreach (var item in targets)
         {
             // 古い版（同じ場所で新しい中身に置き換わった物）は探さない（2026-10-05・点検の8）。毎回「見つかりませんでした」と数えていた
             foreach (var file in item.Local.LocalFiles.Where(file => !file.Detached && !file.IsOldVersion))
@@ -159,7 +171,7 @@ public sealed class MissingFileFinder
         }
 
         // 見つからない登録フォルダも、同じ範囲で候補を探す（見つからない・移動の点検 10-A）。差し替えは人が選んだときだけ
-        var missingFolders = MissingFoldersOf(loaded.Items, probe);
+        var missingFolders = MissingFoldersOf(targets, probe);
         var registeredFolders = new RegisteredFolderSet(
             loaded.Items.SelectMany(item => item.Local.LocalFolders).Select(folder => folder.Path));
         var measuredFolders = new List<MeasuredFolder>();

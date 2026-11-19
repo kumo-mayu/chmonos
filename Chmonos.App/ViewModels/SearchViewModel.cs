@@ -117,7 +117,6 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
         SelectAllCommand = new RelayCommand(SelectAllShown);
         ClearSelectionCommand = new RelayCommand(ClearSelection);
         SendSelectionToEditCommand = new RelayCommand(SendSelectionToEdit, () => SelectedCount > 0);
-        AddSelectionToFavoritesCommand = new RelayCommand(() => AddSelectionToFavoritesAsync().Forget(), () => SelectedCount > 0);
         AddSelectionToModificationCommand = new RelayCommand(() => AddSelectionToModificationAsync().Forget(), () => SelectedCount > 0);
         SendSelectionToUnityCommand = new RelayCommand(() => SendSelectionToUnityAsync().Forget(), () => SelectedCount > 0 && !IsSendingToUnity);
         // 行き先が無いものは押せなくする（ユーザ指示 2026-09-20・R1）。押しても黙って何も起きなかった。

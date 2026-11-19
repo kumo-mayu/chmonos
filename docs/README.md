@@ -73,6 +73,7 @@
 | [search-filters.md](spec/search-filters.md) | 検索の絞り込み：条件の種類と意味・同じ種類を複数・「除く」・見出しのメニュー・編集状況・照らし方と選択肢の件数・入口と履歴 |
 | [search-recent.md](spec/search-recent.md) | 検索の条件「最近」：最後にそれをしてからの日数の帯とスライダ2本・帯の範囲（一週間〜全期間）・はみ出しの寄せ方・除くと記録の無い商品・表示順のボタン |
 | [search-saved.md](spec/search-saved.md) | 保存した検索：保存する物・「条件を追加」の隣のボタンから開く一覧・保存の小窓・呼び出して置き換える決まり・キーボード |
+| [search-selection.md](spec/search-selection.md) | 選んだときの下の帯：並び・入り切らないときに「その他」へ畳む・タグと属性の足す・外す・その他の中身・書き方 |
 | [item-page.md](spec/item-page.md) | 商品ページ、画像（自分で足す・サムネイルの指名）、手元のファイル、購入記録、編集画面 |
 | [item-page-text-menu.md](spec/item-page-text-menu.md) | 説明文・メモの右クリック：リンクを開く・コピー・商品として登録、選んだ範囲の商品をまとめて登録（26 の窓） |
 | [avatars.md](spec/avatars.md) | 対応アバターの検出、登録簿、所有アバター |
