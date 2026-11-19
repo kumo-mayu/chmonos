@@ -44,6 +44,34 @@ public partial class ItemAvatarsPanel : UserControl
         chip.ToolTip = panel;
     }
 
+    /// <summary>
+    /// 共通素体の札に乗せたとき、素体の絵をその場で読んで出す（対応アバターの札と同じ 160 の大きさ）。
+    /// 絵の無い素体は、札と同じ名前だけの吹き出しになるので出さない。× の説明から上がってきた物は触らない
+    /// </summary>
+    private void OnBaseChipToolTipOpening(object sender, ToolTipEventArgs e)
+    {
+        if (!ReferenceEquals(e.Source, sender)
+            || sender is not FrameworkElement { DataContext: ViewModels.AvatarBaseRow row } chip
+            || chip.ToolTip is Image)
+        {
+            return;
+        }
+
+        if (row.Icon is not { } icon)
+        {
+            e.Handled = true;
+            return;
+        }
+
+        chip.ToolTip = new Image
+        {
+            Source = icon,
+            Width = 160,
+            Height = 160,
+            Stretch = System.Windows.Media.Stretch.Uniform,
+        };
+    }
+
     /// <summary>「＋ 追加」で入力欄が出たら、すぐ打てるようにフォーカスを移す（押してからもう一度入力欄を押させない）。</summary>
     private void OnAddBoxVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
     {

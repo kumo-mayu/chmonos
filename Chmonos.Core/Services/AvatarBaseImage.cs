@@ -45,6 +45,18 @@ public static class AvatarBaseImage
             : null;
     }
 
+    /// <summary>
+    /// 素体の名前から絵の場所（候補の行・札など、名前しか持たない所の口）。比べ方は <see cref="AvatarBaseNames.Same"/>、消した素体は飛ばす。
+    /// 登録簿にグループの無い素体（アバターの記録の素体名だけにある物）は絵を持てないので null（画面は頭の字）。
+    ///
+    /// 登録簿は絵を引くその時の物を渡す。候補を組んだ時のグループを掴んだままにすると、画像を変えた・外した後に
+    /// 片付けた古いファイルを指して絵が消える
+    /// </summary>
+    public static string? IconPath(AppPaths paths, AvatarRegistry registry, string? baseName, Func<string, ItemRecord?> findItem, bool showRemoved)
+        => registry.BaseGroups.FirstOrDefault(group => !group.Rejected && AvatarBaseNames.Same(group.Name, baseName)) is { } group
+            ? IconPath(paths, group, findItem, showRemoved)
+            : null;
+
     /// <summary>アプリが付ける形のファイル名か（区切りを含まず、<see cref="UserImageName.Prefix"/> で始まる）。</summary>
     public static bool IsValidName(string? fileName)
         => !string.IsNullOrEmpty(fileName)

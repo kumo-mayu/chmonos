@@ -54,6 +54,84 @@ internal static partial class Scenes
 
             return new Shot(root);
         }),
+
+        // open.md 73 行の続き（ユーザ指示 2026-11-18）：素体を選ぶ・探す欄の候補にも素体の絵を出す。
+        // 候補の入れ物はポップアップで撮れないので、本物の画面の候補・群・絵の引き方で中身だけを並べる（SuggestPanel）
+        new Scene("suggest-base-icons", "素体の候補の絵：商品ページの対応アバターを追加／変換のつなぎ先を選ぶ欄／検索の対応アバター／アバターの詳細の共通素体（画像を付けた素体は絵、無い素体は頭の字）", async context =>
+        {
+            const string hash = "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD";
+            await context.Fake.ItemAsync("9800401", "作り物のアバター「アオイ」", images: 1);
+            await context.Seed.Avatars.SaveAsync(new AvatarRegistry
+            {
+                Entries =
+                [
+                    new AvatarRegistryEntry { ItemId = "9800401", BoothName = "作り物のアバター「アオイ」", DisplayName = "アオイ", Category = "3Dキャラクター", BaseName = "作り物の素体", IsOwnedManually = true },
+                    new AvatarRegistryEntry { ItemId = "9800402", BoothName = "作り物のアバター「モモ」", DisplayName = "モモ", Category = "3Dキャラクター" },
+                ],
+                BaseGroups = [new AvatarBaseGroup { Name = "作り物の素体", IsManual = true }, new AvatarBaseGroup { Name = "画像の無い素体", IsManual = true }],
+            });
+            new Chmonos.Core.Storage.UnityPackagePathStore(Chmonos.Core.Storage.AppPaths.Default).Add(hash, "Profile.unitypackage",
+            [
+                new Chmonos.Core.Services.UnityPackageAsset("00000000000000000000000000000001", "Assets/OutfitRetargetingSystem/Editor/config_template2fakeaoi.json"),
+            ]);
+            var item = await context.Fake.ItemAsync("9900251", "作り物のプロファイル", record => record with
+            {
+                Local = record.Local with
+                {
+                    LocalFiles =
+                    [
+                        new LocalFileRecord
+                        {
+                            Hash = hash,
+                            Paths = [@"D:\fake\profile.zip"],
+                            SizeBytes = 1,
+                            Contents = ["Profile.unitypackage"],
+                            UnityPackages = [new UnityPackageSummary { Entry = "Profile.unitypackage", Roots = ["Assets/OutfitRetargetingSystem"] }],
+                        },
+                    ],
+                },
+            });
+
+            var main = await context.StartAsync();
+            await SceneContext.UntilAsync(() => !main.Search.IsLoading && main.Search.TotalCount == 2, "商品を読み終える");
+            var picked = WriteGradientPng();
+            try
+            {
+                await context.Services.Avatars.SetBaseImageAsync("作り物の素体", await File.ReadAllBytesAsync(picked));
+            }
+            finally
+            {
+                File.Delete(picked);
+            }
+
+            var page = new ItemViewModel(item, context.Services, main, main.Thumbnails);
+
+            // 検索の画面は載せないので、条件を足しても入力欄にフォーカスが入らず、候補の小窓は開かない（開いたまま終わると後始末が固まる）
+            var avatarModule = (ListModule)AddModule(main.Search, SearchModuleKind.Avatar);
+            var searchSuggestions = avatarModule.Suggestions.ToList();
+            main.ShowAvatarsCommand.Execute(null);
+            var avatars = context.Screen<AvatarsViewModel>();
+            await SceneContext.UntilAsync(() => !avatars.IsLoading && avatars.BaseNames.Count == 2, "素体の候補が並ぶ");
+            if (!page.Conversion.ShowsConversion)
+            {
+                throw new InvalidOperationException("プロファイルの商品なのに変換扱いの欄が出ていない。");
+            }
+
+            var host = new StackPanel { Orientation = Orientation.Horizontal };
+            host.Children.Add(SuggestPanel("商品ページの「対応アバターを追加」", page.SupportSuggestions, string.Empty,
+                page.SupportSuggestInfoSelector, page.SupportGroupHeadings, width: 240, icons: page.AvatarIconSelector));
+            host.Children.Add(SuggestPanel("変換のつなぎ先を選ぶ欄", page.Conversion.TargetSuggestions, string.Empty,
+                page.Conversion.TargetInfoSelector, page.Conversion.TargetGroupHeadings, width: 220, icons: page.Conversion.TargetIconSelector));
+            host.Children.Add(SuggestPanel("検索の条件「対応アバター」", searchSuggestions, string.Empty,
+                avatarModule.InfoSelector!, avatarModule.GroupHeadings, width: 260, icons: avatarModule.IconSelector));
+            host.Children.Add(SuggestPanel("アバターの詳細の「共通素体」", [.. avatars.BaseNames], string.Empty,
+                _ => null, null, width: 240, icons: avatars.BaseIconSelector));
+            return new Shot(SceneContext.OnSurface(host, 20));
+        })
+        {
+            Width = null,
+            Height = null,
+        },
     ];
 
     private static async Task<(AvatarsViewModel Avatars, FrameworkElement Root)> OpenBaseImageAsync(SceneContext context)

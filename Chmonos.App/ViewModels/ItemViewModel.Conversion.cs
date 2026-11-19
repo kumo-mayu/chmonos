@@ -14,7 +14,8 @@ public partial class ItemViewModel
         _services,
         command => RunItemCommandCoreAsync(command, Conversion.Notice),
         () => IsEditLocked,
-        ItemConversionEditor.IconsFrom(_services, _main));
+        _thumbnails,
+        _main.Search.FindItem);
 
     /// <summary>対応アバターを組み直すたびに呼ぶ（書いた後の読み直し・取り込みの後など、組み直す道を全部通るため）。</summary>
     private void BuildConversion(AvatarRegistry registry, IReadOnlyDictionary<string, string> names)
