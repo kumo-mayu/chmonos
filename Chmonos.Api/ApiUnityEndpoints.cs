@@ -73,7 +73,7 @@ internal static partial class ApiEndpoints
             var (record, rows) = await PlanAsync(state, id, context.RequestAborted);
             return ApiHost.Json(new UnitySendPlan(record.Id, record.UnityProject, rows.Select(PlanRowOf).ToList()), json.UnitySendPlan);
         })
-            .Answers<UnitySendPlan>("改変の使ったものを順に Unity へ送るときの、行ごとの送り方（送る物・選ぶ候補・送れない理由）")
+            .Answers<UnitySendPlan>("改変の使ったものを順に Unity へ送るときの、行ごとの送り方（送る物・選ぶ候補・送れない理由）。行は送る順（アプリの設定の「使ったものを送る順」）")
             .WithDescription("誤りの code：modificationNotFound");
 
         app.MapPost("/v1/modifications/{id}/send-to-unity", async (ApiState state, ApiWriter writer, ChangeFeed feed, HttpContext context, string id) =>
@@ -140,8 +140,11 @@ internal static partial class ApiEndpoints
             items[itemId] = await state.Store.Items.LoadAsync(itemId, cancellationToken);
         }
 
+        // 送る順は画面と同じ設定で決める（商品ごとか記録の順か）。設定は今のファイルから読む（控えは書き換えの直後に古い）
+        var byItem = !state.Store.Settings.Load().SendModificationInRecordOrder;
+
         // 送れる物を数えるのにディスクを見る（ファイルが今も在るか）
-        var rows = await Task.Run(() => ModificationSendPlan.RowsOf(record, itemId => items.GetValueOrDefault(itemId)), cancellationToken);
+        var rows = await Task.Run(() => ModificationSendPlan.RowsOf(record, itemId => items.GetValueOrDefault(itemId), byItem), cancellationToken);
         return (record, rows);
     }
 

@@ -294,7 +294,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         OpenProjectFolderCommand = new RelayCommand(
             () => ExplorerReveal.RevealAsync(Record.UnityProject).Forget(), () => HasProject);
         SendAllToUnityCommand = new RelayCommand(
-            // 外した行は送らない（今は使っていない物）。**入れた順に送る**——逆の順で見せていても、見えている順では送らない（メモ26-①）
+            // 外した行は送らない（今は使っていない物）。順は設定の「使ったものを送る順」——逆の順で見せていても、見えている順では送らない（メモ26-①）
             () => SendToUnityAsync(RowsToSendAll(), "使ったものを順にUnityへ送る").Forget(),
             () => HasMembers && !IsSendingToUnity);
 
@@ -676,7 +676,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     private RelayCommand? _stopUnity;
 
     /// <summary>
-    /// 使ったものを**並びの順に**（＝導入の順、依存物が先）Unity へ1件ずつ送る（#69・ユーザ判断）。
+    /// 使ったものを**渡された順に**（設定の送る順。商品ごとか記録の順で、どちらも依存物が先）Unity へ1件ずつ送る（#69・ユーザ判断）。
     /// 改変を作り直すとき、記録した順に入れ直せば同じものが組める。
     ///
     /// 送り先は、紐付けたプロジェクトが開いていればそこ。開いていなければ選ばせ、
@@ -766,7 +766,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
         {
             // 数えているのは unitypackage の数（使ったものの数ではない。1つの商品から2つ送ることがある）
             var text = where + "\n\n"
-                + $"unitypackage {fixedCount} 件を入れた順に送ります。"
+                + (SendsByItem && rows.Count > 1 ? $"unitypackage {fixedCount} 件を、商品ごとに入れた順で送ります。" : $"unitypackage {fixedCount} 件を入れた順に送ります。")
                 + "Unityの取り込み画面で「Import」か「Cancel」を押すと、次の1件が表示されます。"
                 + (nothing.Count > 0 ? $"\n\n手元に送れるものが無い {nothing.Count} 件は飛ばします。" : string.Empty);
 
@@ -864,8 +864,15 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
     /// <summary>入れた順（記録の並び）の行。送る・数えるのはこちら——見せている順で送ると、依存物より先に本体が入る。</summary>
     internal IReadOnlyList<ModificationMemberRowViewModel> RowsInRecordOrder() => [.. Members.OrderBy(row => row.Index)];
 
-    /// <summary>「使ったものを順にUnityへ送る」で送る行（入れた順・外した行を除く）。</summary>
-    internal IReadOnlyList<ModificationMemberRowViewModel> RowsToSendAll() => [.. RowsInRecordOrder().Where(row => ModificationSendPlan.Sends(row.Member))];
+    /// <summary>
+    /// 「使ったものを順にUnityへ送る」で送る行（外した行を除く）。順は設定の「使ったものを送る順」で、外から使う API と同じ決め方
+    /// （<see cref="ModificationSendPlan.InSendOrder{T}"/>：商品ごとか記録の順）
+    /// </summary>
+    internal IReadOnlyList<ModificationMemberRowViewModel> RowsToSendAll() => ModificationSendPlan.InSendOrder(
+        RowsInRecordOrder().Where(row => ModificationSendPlan.Sends(row.Member)), row => row.Member.ItemId, SendsByItem);
+
+    /// <summary>送る順が商品ごとか（設定の <see cref="AppSettings.SendModificationInRecordOrder"/> の逆）。</summary>
+    private bool SendsByItem => !_services.Settings.SendModificationInRecordOrder;
 
     // ---- 使ったものを見せる順（メモ26-①・ユーザ判断 2026-10-04） ----
     //
@@ -884,7 +891,7 @@ public sealed class ModificationViewModel : ViewModelBase, IGalleryHost, IItemCa
 
     /// <summary>並びの上の説明。逆の順のときは、送る順が見えている順と違うことを言う。</summary>
     public string MembersOrderText => _isReversed
-        ? "入れた順の逆に並べています。Unityへは入れた順に送ります。"
+        ? SendsByItem ? "入れた順の逆に並べています。Unityへは商品ごとに、入れた順で送ります。" : "入れた順の逆に並べています。Unityへは入れた順に送ります。"
         : "上から順に入れた記録です。依存するものが先に来るように並べ替えられます。";
 
     private void SetReversed(bool reversed)

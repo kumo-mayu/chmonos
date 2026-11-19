@@ -82,6 +82,7 @@
     止める：`POST /v1/unity/sends/{sendId}/cancel`。送りごとの止める合図を送る部品に渡し、画面の「中止」と同じ止まり方（3秒まで待って 200、待ちきれなければ 202）。404 `unitySendNotFound`・409 `unitySendEnded`。
     まとめて送る：`GET /v1/modifications/{id}/send-plan`（行ごとに send・choose・unavailable）と `POST /v1/modifications/{id}/send-to-unity`（`{"project"?, "choices"?: [{index, zipHash?, entry}]}`）。
     行の決め方は画面と同じ部品（Core の `ModificationSendPlan`）。選んだ物は送る前に行へ記録し、1つの列で送る。選ぶ行に選んだ物が無ければ 400 `choiceRequired`（どの行かを言う）。
+    行は送る順（アプリの設定の「使ったものを送る順」。既定は商品ごと。画面と同じ値・2026-11-20）。
     Unity が閉じた送りは `editorClosed` で、「使った」の足跡を付けない（前は取り込みの窓を出した後に閉じると imported と答えていた）
   - **画面で開く**（段4）：`POST /v1/items/{id}/show`。窓を開いて（画面無しなら作って）商品のページを表示する。データは変えないが使う人の画面を動かすので、書き込みの許しで守る。開けなければ 503 `windowUnavailable`
   - **エクスプローラで開く**（段4）：`POST /v1/items/{id}/reveal`（`{"path"?}`）。開き方は画面と同じ（フォルダ・zip は中を、ほかは選んだ状態で）。場所はファイル（外した物を除く）とフォルダで、

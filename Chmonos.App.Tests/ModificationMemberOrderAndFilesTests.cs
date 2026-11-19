@@ -75,7 +75,7 @@ public class ModificationMemberOrderAndFilesTests
         // 記録の並びは変えない
         var stored = await app.Services.Modifications.LoadAsync(detail.Record.Id);
         Assert.Equal([Shader, Costume, Hair], stored!.Members.Select(member => member.ItemId));
-        Assert.Equal("入れた順の逆に並べています。Unityへは入れた順に送ります。", detail.MembersOrderText);
+        Assert.Equal("入れた順の逆に並べています。Unityへは商品ごとに、入れた順で送ります。", detail.MembersOrderText);
 
         detail.ShowInsertOrderCommand.Execute(null);
         await app.SettleAsync();
@@ -106,9 +106,39 @@ public class ModificationMemberOrderAndFilesTests
         var reopened = new ModificationViewModel(record, app.Services, main, main.Thumbnails);
         await UiThread.Until(() => reopened.Members.Count == 3, "使ったものが並ぶ");
 
-        var planned = Core.Services.ModificationSendPlan.RowsOf(record, _ => null);
+        var planned = Core.Services.ModificationSendPlan.RowsOf(record, _ => null, byItem: true);
         Assert.Equal([0, 2], reopened.RowsToSendAll().Select(row => row.Index));
         Assert.Equal(reopened.RowsToSendAll().Select(row => row.Index), planned.Select(row => row.Index));
+    });
+
+    /// <summary>
+    /// 送る順は設定で選ぶ（ユーザ判断 2026-11-20）。商品ごと（既定）は、商品が記録に初めて出る順・同じ商品の中は記録の順。
+    /// 記録の順は記録のまま。どちらも外した行は送らず、外から使う API と同じ行を同じ順で送る
+    /// </summary>
+    [Theory]
+    [InlineData(false, new[] { 0, 3, 1 })]
+    [InlineData(true, new[] { 0, 1, 3 })]
+    public Task 送る順は設定で_商品ごとか記録の順を選べる(bool recordOrder, int[] expected) => TestApp.Run(async app =>
+    {
+        var (main, detail) = await OpenAsync(app,
+            Make.Item(Shader, "作り物のシェーダー"), Make.Item(Costume, "作り物の衣装"), Make.Item(Hair, "作り物の髪"));
+
+        // 同じ商品を離して2回入れた記録（シェーダー・衣装・髪（外す）・シェーダー）
+        await app.Services.Commands.ExecuteAsync(new UiCommand.AddModificationMember(
+            detail.Record.Id, new ModificationMember { ItemId = Shader, Package = "Second.unitypackage" }));
+        var added = (await app.Services.Modifications.LoadAsync(detail.Record.Id))!;
+        await app.Services.Commands.ExecuteAsync(new UiCommand.SetModificationMemberDetached(added.Id, added.Members[2], true));
+        if (recordOrder)
+        {
+            await app.ChangeSettingsAsync(settings => settings with { SendModificationInRecordOrder = true });
+        }
+
+        var record = (await app.Services.Modifications.LoadAsync(detail.Record.Id))!;
+        var reopened = new ModificationViewModel(record, app.Services, main, main.Thumbnails);
+        await UiThread.Until(() => reopened.Members.Count == 4, "使ったものが並ぶ");
+
+        Assert.Equal(expected, reopened.RowsToSendAll().Select(row => row.Index));
+        Assert.Equal(expected, Core.Services.ModificationSendPlan.RowsOf(record, _ => null, byItem: !recordOrder).Select(row => row.Index));
     });
 
     [Fact]

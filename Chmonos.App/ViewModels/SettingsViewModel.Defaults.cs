@@ -108,6 +108,10 @@ public sealed partial class SettingsViewModel
         [nameof(ProjectManagerShown)] = new(vm => vm.ProjectManager, Defaults.ProjectManager,
             vm => vm.ProjectManagers.First(option => option.Value == Defaults.ProjectManager).Label,
             s => s with { ProjectManager = Defaults.ProjectManager }, vm => vm.ProjectManager = Defaults.ProjectManager),
+        [nameof(SendModificationInRecordOrder)] = new(vm => vm.SendModificationInRecordOrder, Defaults.SendModificationInRecordOrder,
+            _ => Defaults.SendModificationInRecordOrder ? "記録の順" : "商品ごと",
+            s => s with { SendModificationInRecordOrder = Defaults.SendModificationInRecordOrder },
+            vm => vm.SendModificationInRecordOrder = Defaults.SendModificationInRecordOrder),
         [nameof(OscPort)] = Number(vm => vm.OscPort, Defaults.OscPort, string.Empty,
             s => s with { OscPort = Defaults.OscPort }, (vm, v) => vm.OscPort = v),
 

@@ -180,6 +180,14 @@ public sealed record AppSettings
     public int OscPort { get; init; } = Services.VrcOsc.DefaultPort;
 
     /// <summary>
+    /// 改変の「使ったものを順にUnityへ送る」を、記録の通りの順で送るか（ユーザ判断 2026-11-20・open.md「1商品1欄」）。
+    /// 偽（既定）は**商品ごと**：商品はその商品が記録に初めて出る順、同じ商品の中は記録の順（<see cref="Services.ModificationSendPlan.InSendOrder{T}"/>）。
+    /// 画面で同じ商品の行を1つの欄にまとめたので、見える順と送る順を揃えるのが既定。依存物を別の商品の間に挟んだ記録をそのまま再現したい人のために、記録の順も残す。
+    /// 列挙にしないのは、保存する列挙に値を足すと前の版がファイルごと読めなくなるため（data-format.md「形式を上げる変更」）
+    /// </summary>
+    public bool SendModificationInRecordOrder { get; init; }
+
+    /// <summary>
     /// Unity へ送るとき、送る前の確認と送った結果を窓で出さず、結果を Windows の通知で知らせるか（ユーザ判断 2026-11-03）。
     /// 何度も送る人には、毎回の確認と、Unity の手前へ主の窓が戻ってくる結果の窓が邪魔になる。
     /// 送れなかったときと、別のプロジェクトへ送る・飛ばす物があるときの確認は、オンでも窓で出す（読まずに進むと困る物）。

@@ -360,6 +360,9 @@ public sealed class ApiUnitySendsTests
     public Task 送り方は行ごとに_送る物か選ぶ候補か送れない理由を返す() => TestApp.Run(async app =>
     {
         var (id, shaderZip, costumeZip) = await MakeModificationAsync(app);
+
+        // 行ごとの中身を記録の位置で見るので、記録の順で送る設定にする（既定の商品ごとの順は、まとめて送る試験で見る）
+        await app.ChangeSettingsAsync(settings => settings with { SendModificationInRecordOrder = true });
         using var client = await StartApiAsync(app, new FakeUnity());
         try
         {
@@ -442,13 +445,14 @@ public sealed class ApiUnitySendsTests
             await UiThread.Until(() => app.Services.ApiUnity!.Find(sendId)?.EndedAt is not null, "送り終える");
             var done = JsonDocument.Parse(await client.GetStringAsync($"/v1/unity/sends/{sendId}")).RootElement;
 
-            // 画面と同じ順（記録の順・外した行を除く）で、1つの列にまとめて送る。同じ包みを使った行が2つあれば2回送る（画面と同じ）
+            // 画面と同じ順（既定の商品ごと：商品は記録に初めて出る順・同じ商品の中は記録の順。外した行を除く）で、1つの列にまとめて送る。
+            // 同じ包みを使った行が2つあれば2回送る（画面と同じ）
             Assert.Equal(
-                ["Shader.unitypackage", "Costume_v2.unitypackage", "Hair.unitypackage", "Shader.unitypackage"],
+                ["Shader.unitypackage", "Shader.unitypackage", "Costume_v2.unitypackage", "Hair.unitypackage"],
                 Assert.Single(unity.Runs));
             Assert.Equal("imported", done.GetProperty("state").GetString());
             Assert.Equal(
-                ["imported", "imported", "cancelled", "skipped", "imported"],
+                ["imported", "imported", "imported", "cancelled", "skipped"],
                 done.GetProperty("steps").EnumerateArray().Select(step => step.GetProperty("state").GetString()));
 
             // 選んだ物は、その行に記録する（画面の選ぶ窓と同じ形）
