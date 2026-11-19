@@ -5,8 +5,8 @@ using Chmonos.Core.Models;
 namespace Chmonos.App.Tests;
 
 /// <summary>
-/// 人が足す変換の組の画面（<c>docs/spec/conversion.md</c>「人が足す組」・ユーザ判断 2026-11-20）：アバターの管理の詳細の
-/// 「このアバターの衣装を着せられるアバター」と、商品ページの「変換経由」の吹き出し。名前・ID は作り物。
+/// 人が足す変換の組の画面（<c>docs/spec/conversion.md</c>「人が足す組」・ユーザ判断 2026-11-20）：アバターの管理の「変換」の
+/// 「追加した組」（元 → 先・メモ・×・組を追加）、アバターの詳細の読むだけの札、商品ページの「変換経由」の吹き出し。名前・ID は作り物。
 /// </summary>
 public class ConversionPairEditorTests
 {
@@ -39,44 +39,118 @@ public class ConversionPairEditorTests
         return avatars;
     }
 
+    private static ConversionPair Pair(ConversionEnd from, ConversionEnd to) => new() { From = from, To = to };
+
     [Fact]
-    public Task 候補から選ぶと組を足して札に出し_外すと消える() => TestApp.Run(async app =>
+    public Task 変換で元に共通素体と先にアバターを選んで足し_行に元から先で出し_外すと消える() => TestApp.Run(async app =>
     {
         var avatars = await OpenAvatarsAsync(app);
+        avatars.ShowConversionModeCommand.Execute(null);
         var pairs = avatars.ConversionPairs;
 
-        // 見せているアバター自身は候補に出さない。共通素体は「（共通素体）」を添えて出す
-        Assert.DoesNotContain("アオイ", pairs.Suggestions);
+        // 元と先のどちらにも、アバターと「（共通素体）」を添えた共通素体を出す
+        Assert.Contains("アオイ", pairs.Suggestions);
         Assert.Contains("作り物素体（共通素体）", pairs.Suggestions);
 
-        await pairs.AddAsync("モモ");
-        await pairs.AddAsync("作り物素体（共通素体）");
+        pairs.FromText = "作り物素体（共通素体）";
+        pairs.ToText = "モモ";
+        await pairs.AddAsync();
+        pairs.FromText = "アオイ";
+        pairs.ToText = "作り物素体（共通素体）";
+        await pairs.AddAsync();
 
-        Assert.Equal(["モモ", "作り物素体（共通素体）"], pairs.Rows.Select(row => row.Name));
+        Assert.Equal(["作り物素体（共通素体） → モモ", "アオイ → 作り物素体（共通素体）"], pairs.Rows.Select(row => row.Text));
+        Assert.Equal("追加した組（2）", pairs.HeaderText);
         Assert.Equal(
-            [new ConversionPair { From = ConversionEnd.Avatar(Aoi), To = ConversionEnd.Avatar(Momo) }, new ConversionPair { From = ConversionEnd.Avatar(Aoi), To = ConversionEnd.Base("作り物素体") }],
+            [Pair(ConversionEnd.Base("作り物素体"), ConversionEnd.Avatar(Momo)), Pair(ConversionEnd.Avatar(Aoi), ConversionEnd.Base("作り物素体"))],
             app.Store.ConversionPairs.Load().Pairs);
 
+        // 同じ元から続けて足せるように、元は残して先だけ空にする
+        Assert.Equal("アオイ", pairs.FromText);
+        Assert.Equal(string.Empty, pairs.ToText);
+
         pairs.Rows[0].RemoveCommand.Execute(null);
-        await UiThread.Until(() => pairs.Rows.Count == 1, "外した札が消える");
-        Assert.Equal(ConversionEnd.Base("作り物素体"), Assert.Single(app.Store.ConversionPairs.Load().Pairs).To);
+        await UiThread.Until(() => pairs.Rows.Count == 1, "外した行が消える");
+        Assert.Equal(Pair(ConversionEnd.Avatar(Aoi), ConversionEnd.Base("作り物素体")), Assert.Single(app.Store.ConversionPairs.Load().Pairs));
     });
 
     [Fact]
-    public Task 候補に無い文字は足さずにそう言い_ほかのアバターの組は札に出さない() => TestApp.Run(async app =>
+    public Task 候補に無い_同じ物同士_既にある組は足さずに理由を言う() => TestApp.Run(async app =>
+    {
+        await app.Store.ConversionPairs.SaveAsync(new ConversionPairFile { Pairs = [Pair(ConversionEnd.Avatar(Momo), ConversionEnd.Avatar(Aoi))] });
+        var avatars = await OpenAvatarsAsync(app);
+        avatars.ShowConversionModeCommand.Execute(null);
+        var pairs = avatars.ConversionPairs;
+
+        pairs.FromText = "作り物の知らないアバター";
+        pairs.ToText = "アオイ";
+        await pairs.AddAsync();
+        Assert.Equal("候補からアバターか共通素体を選んでください。", pairs.Notice.Text);
+
+        pairs.FromText = "アオイ";
+        await pairs.AddAsync();
+        Assert.Equal("元と先に同じ物は選べません。", pairs.Notice.Text);
+
+        pairs.FromText = "モモ";
+        await pairs.AddAsync();
+        Assert.Equal("「モモ → アオイ」は既にあります。", pairs.Notice.Text);
+
+        // 打ち直すと消える
+        pairs.ToText = "アオ";
+        Assert.False(pairs.Notice.HasText);
+        Assert.Single(app.Store.ConversionPairs.Load().Pairs);
+    });
+
+    [Fact]
+    public Task 行のメモは押さずに組へ残り_ツールは残して行は作り直さない() => TestApp.Run(async app =>
     {
         await app.Store.ConversionPairs.SaveAsync(new ConversionPairFile
         {
-            Pairs = [new ConversionPair { From = ConversionEnd.Avatar(Momo), To = ConversionEnd.Avatar(Aoi) }],
+            Pairs = [Pair(ConversionEnd.Avatar(Aoi), ConversionEnd.Avatar(Momo)) with { Tool = "作り物のツール" }],
         });
         var avatars = await OpenAvatarsAsync(app);
+        avatars.ShowConversionModeCommand.Execute(null);
         var pairs = avatars.ConversionPairs;
+        var row = Assert.Single(pairs.Rows);
+        Assert.Equal(string.Empty, row.MemoText);
 
-        await pairs.AddAsync("作り物の知らないアバター");
+        row.MemoText = "袖は直す";
+        Assert.True(pairs.IsMemoPending);
+        await avatars.FlushPendingWritesAsync();
 
-        Assert.Empty(pairs.Rows);
-        Assert.Equal("候補からアバターか共通素体を選んでください。", pairs.Notice.Text);
-        Assert.Single(app.Store.ConversionPairs.Load().Pairs);
+        var saved = Assert.Single(app.Store.ConversionPairs.Load().Pairs);
+        Assert.Equal("袖は直す", saved.Memo);
+        Assert.Equal("作り物のツール", saved.Tool);
+        Assert.Same(row, Assert.Single(pairs.Rows));
+
+        // アバターの詳細の札は、メモを吹き出しに持つ
+        Assert.Equal("袖は直す", Assert.Single(avatars.ConversionPairSummary.Chips).Memo);
+    });
+
+    [Fact]
+    public Task アバターの詳細はそのアバターが元か先にある組だけを読むだけで並べ_変換で編集で変換へ移る() => TestApp.Run(async app =>
+    {
+        await app.Store.ConversionPairs.SaveAsync(new ConversionPairFile
+        {
+            Pairs =
+            [
+                Pair(ConversionEnd.Avatar(Aoi), ConversionEnd.Avatar(Momo)),
+                Pair(ConversionEnd.Avatar(Momo), ConversionEnd.Avatar(Aoi)),
+                Pair(ConversionEnd.Base("作り物素体"), ConversionEnd.Avatar(Momo)),
+            ],
+        });
+        var avatars = await OpenAvatarsAsync(app);
+        var summary = avatars.ConversionPairSummary;
+
+        Assert.Equal(["アオイ → モモ", "モモ → アオイ"], summary.Chips.Select(chip => chip.Text));
+
+        summary.EditCommand.Execute(null);
+        Assert.True(avatars.IsConversionMode);
+        Assert.Equal(3, avatars.ConversionPairs.Rows.Count);
+
+        // 「変換」で外すと、詳細の札も読み直す
+        await avatars.ConversionPairs.RemoveAsync(avatars.ConversionPairs.Rows[1]);
+        Assert.Equal(["アオイ → モモ"], summary.Chips.Select(chip => chip.Text));
     });
 
     [Fact]

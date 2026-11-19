@@ -36,6 +36,14 @@ public sealed partial class AvatarsViewModel
                 {
                     IsBaseMode = false;
                     SelectedConversion ??= FirstUndecided();
+
+                    // 組はアバターの詳細の札・素体の改名・ID の変更でも変わるので、入るたびに読み直す
+                    ConversionPairs.Reload();
+                }
+                else
+                {
+                    // 離れる時に待っているメモを書き切る（画面を離れる時の書き切りとは別に、見方の切り替えでも残さない）
+                    _conversionPairs?.FlushPendingWritesAsync().Forget();
                 }
 
                 RaiseModes();
@@ -93,13 +101,24 @@ public sealed partial class AvatarsViewModel
     };
 
     /// <summary>
-    /// アバターの詳細の「このアバターの衣装を着せられるアバター」（人が足す変換の組・ユーザ判断 2026-11-20）。
-    /// 書いたら検索を絞り直す（対応アバターの条件の「変換で使える物も含める」が組を使う）
+    /// 「変換」の一覧の上の「追加した組」（人が足す変換の組・ユーザ判断 2026-11-20）。
+    /// 足した・外したら検索を絞り直し（対応アバターの条件の「変換で使える物も含める」が組を使う）、アバターの詳細の札も読み直す
     /// </summary>
     public ConversionPairEditor ConversionPairs => _conversionPairs ??= new ConversionPairEditor(
-        _services, _main.Thumbnails, _main.Search.FindItem, _main.Search.NoteConversionPairsChanged);
+        _services, _main.Thumbnails, _main.Search.FindItem, () =>
+        {
+            _main.Search.NoteConversionPairsChanged();
+            ConversionPairSummary.Refresh();
+        },
+        () => ConversionPairSummary.Refresh());
 
     private ConversionPairEditor? _conversionPairs;
+
+    /// <summary>アバターの詳細の「変換の組」（読むだけ）。「変換で編集」で「変換」の見方へ移る。</summary>
+    public ConversionPairSummary ConversionPairSummary => _conversionPairSummary ??= new ConversionPairSummary(
+        _services, () => IsConversionMode = true);
+
+    private ConversionPairSummary? _conversionPairSummary;
 
     /// <summary>確認待ちのつなぎ先を全部確認済みにして、次の決めていない商品へ（Ctrl+Enter。未確定の「この内容で決める」と同じ流れ）。</summary>
     public RelayCommand DecideSuggestedCommand => _decideSuggestedCommand ??= new RelayCommand(
@@ -353,6 +372,14 @@ public sealed partial class AvatarsViewModel
     /// </summary>
     private void RefreshConversionItems()
     {
+        // 登録簿を読み直した時（素体の改名・削除・ID の変更で組の端も書き換わる）。「変換」を見ていない間は入る時に読む
+        if (IsConversionMode)
+        {
+            _conversionPairs?.Reload();
+        }
+
+        _conversionPairSummary?.Refresh();
+
         var build = ++_conversionBuild;
         var items = _main.Search.SnapshotItems();
         var registry = _services.CachedAvatars.Load();

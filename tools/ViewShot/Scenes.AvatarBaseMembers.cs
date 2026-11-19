@@ -97,24 +97,33 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
-        new Scene("avatars-conversion-pairs", "アバターの管理：アバターの詳細の「このアバターの衣装を着せられるアバター」（足した組の札と、候補付きの欄）", async context =>
+        new Scene("avatars-conversion-pairs", "アバターの管理：アバターの詳細の「変換の組」（このアバターが元か先にある組の札・読むだけと「変換で編集」）", async context =>
         {
-            await context.Seed.ConversionPairs.SaveAsync(new ConversionPairFile
-            {
-                Pairs =
-                [
-                    new ConversionPair { From = ConversionEnd.Avatar("9900602"), To = ConversionEnd.Avatar("9900603") },
-                    new ConversionPair { From = ConversionEnd.Avatar("9900602"), To = ConversionEnd.Base("MARUBODY"), Tool = "作り物のツール" },
-                ],
-            });
+            await SeedConversionPairsAsync(context);
             var (avatars, root) = await OpenBaseMembersAsync(context);
             avatars.Selected = avatars.Rows.First(row => row.ItemId == "9900602");
             await context.SettleAsync();
-            Look.Text(root, "このアバターの衣装を着せられるアバター")!.BringIntoView();
+            Look.Text(root, "変換の組")!.BringIntoView();
             await context.SettleAsync();
-            if (avatars.ConversionPairs.Rows.Count != 2)
+            if (avatars.ConversionPairSummary.Chips.Count != 2)
             {
-                throw new InvalidOperationException("足した組の札が2つ並ばない");
+                throw new InvalidOperationException("このアバターの組の札が2つ並ばない");
+            }
+
+            return new Shot(root);
+        }),
+
+        new Scene("avatars-conversion-pairs-edit", "アバターの管理：変換の一覧の上の「追加した組」（元 → 先・メモ・×と、組を追加の行。共通素体を元にした組を含む）", async context =>
+        {
+            await SeedConversionPairsAsync(context);
+            var (avatars, root) = await OpenBaseMembersAsync(context);
+            avatars.ShowConversionModeCommand.Execute(null);
+            await context.SettleAsync();
+            avatars.ConversionPairs.FromText = "ツムギ";
+            await context.SettleAsync();
+            if (avatars.ConversionPairs.Rows.Count != 3)
+            {
+                throw new InvalidOperationException("追加した組の行が3つ並ばない");
             }
 
             return new Shot(root);
@@ -122,6 +131,18 @@ internal static partial class Scenes
     ];
 
     /// <summary>名前から MARUBODY に推されるアバター1体・手で素体を決めたアバター1体・素体の無いアバター2体と、共通素体2つ。</summary>
+    /// <summary>人が足した変換の組3つ：アオイ→ツムギ（メモ付き）・アオイ→MARUBODY（ツールの名前付き）・作り物の素体→コハク（共通素体が元）。</summary>
+    private static Task SeedConversionPairsAsync(SceneContext context)
+        => context.Seed.ConversionPairs.SaveAsync(new ConversionPairFile
+        {
+            Pairs =
+            [
+                new ConversionPair { From = ConversionEnd.Avatar("9900602"), To = ConversionEnd.Avatar("9900603"), Memo = "袖の長さを直す" },
+                new ConversionPair { From = ConversionEnd.Avatar("9900602"), To = ConversionEnd.Base("MARUBODY"), Tool = "作り物のツール" },
+                new ConversionPair { From = ConversionEnd.Base("作り物の素体"), To = ConversionEnd.Avatar("9900604") },
+            ],
+        });
+
     private static async Task<(AvatarsViewModel Avatars, FrameworkElement Root)> OpenBaseMembersAsync(SceneContext context)
     {
         await context.Seed.Avatars.SaveAsync(new AvatarRegistry
