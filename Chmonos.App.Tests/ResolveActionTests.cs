@@ -151,6 +151,26 @@ public class ResolveActionTests
     });
 
     [Fact]
+    public Task 除外の間に別の行へ移ると_終わったとき除外した行だけが消え_見ている行はそのまま() => TestApp.Run(async app =>
+    {
+        var (_, resolve) = await OpenResolveAsync(app, @"a\first.zip", @"b\second.zip", @"c\third.zip");
+        resolve.Selected = resolve.Files.Single(row => row.FileName == "first.zip");
+
+        // 対象は押した時に決まる。答える間（命令が終わるまで）に別の行を見に行った形を、答えの中で選び直して作る
+        app.Answer = _ =>
+        {
+            resolve.Selected = resolve.Files.Single(row => row.FileName == "third.zip");
+            return MessageBoxResult.OK;
+        };
+        resolve.ExcludeRowCommand.Execute(null);
+        await app.SettleAsync();
+
+        Assert.Equal(["second.zip", "third.zip"], resolve.Files.Select(row => row.FileName).Order());
+        Assert.Equal("third.zip", resolve.Selected!.FileName);
+        Assert.Equal("1 件を管理対象から除外しました。", resolve.ListNoticeText);
+    });
+
+    [Fact]
     public Task BOOTHに無い商品IDを確かめると_そのIDのまま登録する形になり_1件なら窓を出さずに登録する() => TestApp.Run(async app =>
     {
         var (_, resolve) = await OpenResolveAsync(app, @"a\costume.zip");

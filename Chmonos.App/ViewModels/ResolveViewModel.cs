@@ -1322,9 +1322,16 @@ public sealed partial class ResolveViewModel : ViewModelBase, ISelectionScreen, 
             var excluded = await _services.Commands.ExecuteAsync(new UiCommand.ExcludeFiles([.. targets.Select(row => row.File)], reason));
 
             RefreshExcludedCountAsync().Forget();
-            if (targets.Count == 1)
+            // 1件なら次の行へ移る。ただし移るのは、終わったときにまだその行を見ていたときだけ。除外の間に別の行を選んでいると、
+            // AfterSettled はその（除外していない）行を外してしまう（登録の道と同じ。外部の点検20・ユーザ指示 2026-11-20）
+            if (targets.Count == 1 && IsStillViewing(targets[0]))
             {
                 AfterSettled(registered: false);
+            }
+            else if (targets.Count == 1)
+            {
+                RemoveRows(targets, keepSelection: true);
+                ListNoticeText = "1 件を管理対象から除外しました。";
             }
             else
             {
