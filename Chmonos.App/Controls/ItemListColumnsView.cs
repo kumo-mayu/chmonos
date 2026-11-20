@@ -298,7 +298,7 @@ public static class ItemListColumnsView
                 var key = (string)item.Tag;
                 item.IsChecked = columns.IsShown(key);
                 item.IsEnabled = !item.IsChecked || columns.CanHide(key);
-                item.ToolTip = item.IsEnabled ? null : "ほかの列を表示すると外せます。";
+                item.ToolTip = item.IsEnabled ? null : "ほかの列を表示すると非表示にできます。";
                 ToolTipService.SetShowOnDisabled(item, true);
             }
         }
