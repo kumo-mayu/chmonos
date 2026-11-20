@@ -202,7 +202,7 @@ public sealed class ListModule : SearchModule
         _includeMatches = includeMatches;
         AllowsAnd = allowsAnd;
         Placeholder = placeholder;
-        EmptyText = emptyText;
+        _emptyText = emptyText;
         _matches = matches;
         FlagLabel = flagLabel;
         _flagDefault = flagDefault;
@@ -256,7 +256,24 @@ public sealed class ListModule : SearchModule
 
     protected override void OnOrdinalChanged() => OnPropertyChanged(nameof(InputName));
 
-    public string EmptyText { get; }
+    private readonly string _emptyText;
+    private string? _waitingText;
+
+    /// <summary>候補が無いときの文。候補をまだ読んでいる間は <see cref="WaitingText"/> に替える（読む前の空を「無い」と言わない）。</summary>
+    public string EmptyText => _waitingText ?? _emptyText;
+
+    /// <summary>候補を読んでいる間の文（改変プロジェクトの「改変を読んでいます…」）。null なら読み終わっている。</summary>
+    public string? WaitingText
+    {
+        get => _waitingText;
+        internal set
+        {
+            if (SetField(ref _waitingText, value))
+            {
+                OnPropertyChanged(nameof(EmptyText));
+            }
+        }
+    }
 
     /// <summary>補助の切り替え（対応アバターの「素体経由の対応も含める」）。</summary>
     public string? FlagLabel { get; }
