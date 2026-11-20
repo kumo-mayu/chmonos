@@ -498,11 +498,12 @@
                         <StackPanel DockPanel.Dock="Top" Margin="14,12,14,0" DataContext="{Binding ConversionPairs}"
                                     Visibility="{Binding DataContext.IsConversionMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <Grid>
-                                <TextBox Padding="8,6" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                                <TextBox x:Name="ConversionPairSearchBox" Padding="8,6" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged, Delay=200}"
                                          AutomationProperties.Name="名前・ID・呼び方で探す" AutomationProperties.AutomationId="AvatarsConversionPairSearch"
                                          ToolTip="追加した組を、元と先の名前・ID・呼び方で絞り込みます。" />
+                                <!-- 案内は欄そのものの字で出し分ける。Query は打ってから 200ms 遅れて入るので、それで決めると打った字と重なった（ユーザ判断 2026-11-20・①） -->
                                 <TextBlock Text="名前・ID・呼び方で探す" Margin="11,0,0,0" Style="{StaticResource InputPlaceholder}"
-                                           Visibility="{Binding Query, Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
+                                           Visibility="{Binding Text.IsEmpty, ElementName=ConversionPairSearchBox, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             </Grid>
                             <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
                                 <TextBlock Text="探す所" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="2,0,8,0" />
@@ -688,12 +689,15 @@
 
                         <Grid DockPanel.Dock="Top" Margin="14,12,14,10"
                               Visibility="{Binding IsAvatarMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                            <TextBox Padding="8,6" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                            <TextBox x:Name="AvatarSearchBox" Padding="8,6" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged, Delay=200}"
                                  AutomationProperties.Name="名前・ID・呼び方で探す"
                                      ToolTip="アバター名・商品ID・BOOTHでの正式名・呼び方で絞り込みます。" />
-                            <!-- 空欄のままだと何を入れる欄か分からないので、内側に案内を出す -->
+                            <!--
+                                空欄のままだと何を入れる欄か分からないので、内側に案内を出す。
+                                出し分けは欄そのものの字で（Query は 200ms 遅れて入るので、それで決めると打った字と重なった。ユーザ判断 2026-11-20・①）
+                            -->
                             <TextBlock Text="名前・ID・呼び方で探す" Margin="11,0,0,0" Style="{StaticResource InputPlaceholder}"
-                                       Visibility="{Binding Query, Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
+                                       Visibility="{Binding Text.IsEmpty, ElementName=AvatarSearchBox, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                         </Grid>
 
                         <!--
@@ -707,11 +711,12 @@
                         -->
                         <Grid DockPanel.Dock="Top" Margin="14,12,14,0"
                               Visibility="{Binding IsBaseMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                            <TextBox Padding="8,6" Text="{Binding BaseQuery, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                            <TextBox x:Name="BaseSearchBox" Padding="8,6" Text="{Binding BaseQuery, UpdateSourceTrigger=PropertyChanged, Delay=200}"
                                      AutomationProperties.Name="名前で探す" AutomationProperties.AutomationId="AvatarBaseSearch"
                                      ToolTip="共通素体の名前で絞り込みます。" />
+                            <!-- 案内は欄そのものの字で出し分ける（BaseQuery は 200ms 遅れて入る。ユーザ判断 2026-11-20・①） -->
                             <TextBlock Text="名前で探す" Margin="11,0,0,0" Style="{StaticResource InputPlaceholder}"
-                                       Visibility="{Binding BaseQuery, Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
+                                       Visibility="{Binding Text.IsEmpty, ElementName=BaseSearchBox, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                         </Grid>
 
                         <DockPanel DockPanel.Dock="Top" Margin="14,12,14,0"
