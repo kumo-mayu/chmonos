@@ -155,7 +155,7 @@ public class ConversionItemGroupTests
 
         Assert.Equal(["9900871", "9900874", "9900873", "9900872", "9900875"], Rows(avatars).Select(row => row.ItemId));
         Assert.Equal(["決めていない", "決めていない", "途中", "決めた", "扱わない"], Rows(avatars).Select(row => row.Group));
-        Assert.Equal(["決めていない（2）", "途中（1）", "決めた（1）", "扱わない（1）"], avatars.ConversionItems.Groups.Cast<System.Windows.Data.CollectionViewGroup>().Select(group => group.Name));
+        Assert.Equal(["決めていない（2）", "途中（1）", "決めた（1）", "扱わない（1）"], avatars.ConversionItems.Groups.Cast<System.Windows.Data.CollectionViewGroup>().Select(group => group.Name.ToString()));
     });
 
     [Fact]

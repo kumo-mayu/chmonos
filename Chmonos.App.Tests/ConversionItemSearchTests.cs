@@ -113,7 +113,7 @@ public class ConversionItemSearchTests
         => [.. avatars.ConversionItems.Cast<ConversionItemRowViewModel>().Select(row => row.ItemId)];
 
     private static IReadOnlyList<string> Headings(AvatarsViewModel avatars)
-        => [.. avatars.ConversionItems.Groups.Cast<System.Windows.Data.CollectionViewGroup>().Select(group => (string)group.Name)];
+        => [.. avatars.ConversionItems.Groups.Cast<System.Windows.Data.CollectionViewGroup>().Select(group => group.Name.ToString()!)];
 
     [Fact]
     public Task 語を打つと商品の一覧も絞り_群の見出しは当たった数と全部_当たらない群は出さない() => TestApp.Run(async app =>
