@@ -126,6 +126,31 @@ internal static partial class Scenes
             return FiltersShot(root);
         }),
 
+        // 札が2行を超えたときの畳んだ姿と広げた姿（ユーザ判断 2026-11-20「チップのままで、折り畳めるようにしよう。一覧できることも大切だ。」）
+        new Scene("search-chips-fold", "検索の絞り込み：札の多い条件（上：ショップを2行で切って「ほか n 件」／下：BOOTHタグを広げて「折りたたむ」）", async context =>
+        {
+            var (search, root) = await StartCatalogFiltersAsync(context);
+            var names = new[]
+            {
+                "作り物の工房", "布屋", "作り物スタジオ", "小物の店", "髪型の店", "作り物の靴屋",
+                "アクセサリーの作り物", "夏服の店", "作り物の帽子屋", "眼鏡の店", "作り物のしっぽ屋", "上着の店", "作り物の小道具", "とても長い名前の作り物のショップ",
+            };
+            // ショップを2つ足そうとすると2つ目が並びに入らなかった（2026-11-20 の撮影で失敗）ので、畳んだ姿はショップ、広げた姿は BOOTHタグで撮る
+            foreach (var (kind, expanded) in new[] { (SearchModuleKind.Shop, false), (SearchModuleKind.BoothTag, true) })
+            {
+                var shops = (ListModule)AddModule(search, kind);
+                for (var i = 0; i < names.Length; i++)
+                {
+                    shops.AddKey($"fold-shop-{i}", text: names[i]);
+                }
+
+                shops.Fold.IsExpanded = expanded;
+            }
+
+            await context.SettleAsync();
+            return FiltersShot(root);
+        }),
+
         new Scene("search-unity-open-projects", "検索の絞り込み：Unityプロジェクト（開いているプロジェクトのボタンが複数・とても長い名前）", async context =>
         {
             var (search, root) = await StartCatalogFiltersAsync(context);

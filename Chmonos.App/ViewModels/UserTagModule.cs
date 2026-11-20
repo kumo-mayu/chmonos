@@ -218,6 +218,7 @@ public sealed class UserTagTopRow : ViewModelBase
     private bool _matchAll;
     private int _count = -1;
     private RelayCommand? _add;
+    private ChipFold? _fold;
 
     public UserTagTopRow(string top)
     {
@@ -232,6 +233,9 @@ public sealed class UserTagTopRow : ViewModelBase
     public RelayCommand? RemoveCommand { get; set; }
 
     public ObservableCollection<ListChip> Chips { get; } = [];
+
+    /// <summary>小分類の札の並びを2行で畳む状態。</summary>
+    public ChipFold Fold => _fold ??= new ChipFold(Chips);
 
     /// <summary>まだ足していない小分類と「小分類なし」。</summary>
     public ObservableCollection<string> Suggestions { get; } = [];
@@ -366,7 +370,14 @@ public sealed class UserTagTopRow : ViewModelBase
 
         if (_subs.FirstOrDefault(sub => string.Equals(sub, trimmed, StringComparison.CurrentCultureIgnoreCase)) is { } known)
         {
+            var before = Chips.Count;
             AddChip(known, known, notify: true);
+
+            // 「小分類なし」は先頭に入っていつも見えるので広げない。小分類は末尾に入り、畳んでいると隠れ得る
+            if (Chips.Count > before)
+            {
+                Fold.RevealAdded();
+            }
         }
     }
 
