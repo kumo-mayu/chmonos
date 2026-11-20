@@ -53,6 +53,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | カレンダー（日付の条件） | `calendar` |
 | 読み込み中（最初の1コマ。明るい色だけ） | `catalog-search-first-frame` |
 | 「条件を追加」のメニュー（見出しの一覧と見出しごとの下の段） | `search-add-menu`（ポップアップの中身を外して横に並べる・2026-10-06） |
+| リストの列の見出しの右クリック（「この列を左へ・右へ・非表示」と列のサブメニュー） | `search-list-column-menu`（開いたメニューを VisualBrush で写す。ContextMenu は親を持てないので外せない・2026-11-20） |
 | カードの右クリック・「…」 | **描けない**（ポップアップ。右クリックは U3 の担当） |
 
 ## 検索の条件（02-search-modules）

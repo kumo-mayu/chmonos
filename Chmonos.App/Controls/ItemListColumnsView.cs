@@ -72,6 +72,10 @@ public static class ItemListColumnsView
 
         private const string MoveLeftId = MenuAutomationId + ".MoveLeft";
         private const string MoveRightId = MenuAutomationId + ".MoveRight";
+        private const string HideId = MenuAutomationId + ".Hide";
+
+        /// <summary>「この列を非表示」。押せるかは開くたびに今の並びで決める（最後の1列は外せない）。</summary>
+        private MenuItem? _hide;
 
         public Host(ListView list)
         {
@@ -199,6 +203,19 @@ public static class ItemListColumnsView
             // キーボードだけでも並べ替えられるように（ドラッグの代わり。ユーザ判断 2026-11-20）。端の列では押せない
             AddMoveItem(menu, "この列を左へ", MoveLeftId, -1);
             AddMoveItem(menu, "この列を右へ", MoveRightId, 1);
+
+            // 押した見出しの列をその場で外す（ユーザのメモ 2026-11-20：下のサブメニューから同じ列を探すより早い）。
+            // 戻すのは同じメニューの下のサブメニューから
+            _hide = new MenuItem { Header = "この列を非表示" };
+            AutomationProperties.SetAutomationId(_hide, HideId);
+            _hide.Click += (_, _) =>
+            {
+                if (_columns is { } columns && _target is { } key)
+                {
+                    columns.SetShown(key, false);
+                }
+            };
+            menu.Items.Add(_hide);
             menu.Items.Add(new Separator());
 
             var index = 0;
@@ -264,6 +281,16 @@ public static class ItemListColumnsView
             foreach (var move in menu.Items.OfType<MenuItem>().Where(item => item.Tag is int))
             {
                 move.IsEnabled = _target is { } target && columns.CanMove(target, (int)move.Tag);
+            }
+
+            if (_hide is { } hide)
+            {
+                // 選ぶ列はメニューで外せない（まとめて操作する画面の左端にいつも置く）。見出しの無い余白で開いたときは指す列が無い
+                hide.IsEnabled = _target is { } target && target != ItemListColumnCatalog.Select && columns.CanHide(target);
+                hide.ToolTip = _target is { } shown && shown != ItemListColumnCatalog.Select && columns.IsShown(shown) && !hide.IsEnabled
+                    ? "ほかの列を表示すると非表示にできます。"
+                    : null;
+                ToolTipService.SetShowOnDisabled(hide, true);
             }
 
             foreach (var item in menu.Items.OfType<MenuItem>().SelectMany(group => group.Items.OfType<MenuItem>()))

@@ -220,6 +220,57 @@ public class ItemListColumnChoiceTests
     });
 
     [Fact]
+    public Task 見出しのメニューの_この列を非表示_は開いた見出しの列を外し_最後の1列と選ぶ列と余白では押せない() => TestApp.Run(async app =>
+    {
+        var columns = (await app.StartAsync()).Search.ListColumns;
+        var list = new ListView();
+        list.Resources.MergedDictionaries.Add(new Views.ItemCardResources());
+        ItemListColumnsView.SetColumns(list, columns);
+        var menu = ((GridView)list.View).ColumnHeaderContextMenu;
+        MenuItem Hide() => menu.Items.OfType<MenuItem>().Single(item => System.Windows.Automation.AutomationProperties.GetAutomationId(item) == "ItemListColumnsMenu.Hide");
+        void OpenOn(string key)
+        {
+            var view = (GridView)list.View;
+            menu.PlacementTarget = HeaderOf(view.Columns[columns.Order.ToList().IndexOf(key)]);
+            menu.RaiseEvent(new RoutedEventArgs(ContextMenu.OpenedEvent, menu));
+        }
+
+        // 見出しを指さずに開いた（余白）：外す列が無いので押せない
+        menu.RaiseEvent(new RoutedEventArgs(ContextMenu.OpenedEvent, menu));
+        Assert.Equal("この列を非表示", Hide().Header);
+        Assert.False(Hide().IsEnabled);
+
+        // 選ぶ列はメニューで外さない
+        OpenOn("select");
+        Assert.False(Hide().IsEnabled);
+
+        // 属性の見出しで押すと、属性の列だけが消え、ui-state に書かれる。サブメニューのチェックも外れる
+        OpenOn("attrs");
+        Assert.True(Hide().IsEnabled);
+        Hide().RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent, Hide()));
+        Assert.False(columns.IsShown("attrs"));
+        Assert.DoesNotContain(((GridView)list.View).Columns, column => (string)column.Header == "属性");
+        await UiThread.Until(
+            () => app.Services.UiState.ItemListColumns?.TryGetValue("search", out var saved) == true && !saved.Contains("attrs"),
+            "外した列が ui-state から消える");
+        OpenOn("name");
+        var items = menu.Items.OfType<MenuItem>().SelectMany(group => group.Items.OfType<MenuItem>()).ToDictionary(item => (string)item.Tag);
+        Assert.False(items["attrs"].IsChecked);
+
+        // 最後の1列は押せない
+        foreach (var key in columns.Order.Where(key => key is not "select" and not "name").ToList())
+        {
+            columns.SetShown(key, false);
+        }
+
+        OpenOn("name");
+        Assert.False(Hide().IsEnabled);
+        Assert.Equal("ほかの列を表示すると非表示にできます。", Hide().ToolTip);
+        Hide().RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent, Hide()));
+        Assert.True(columns.IsShown("name"));
+    });
+
+    [Fact]
     public Task 列の幅は列ごとに覚え_範囲に収める() => TestApp.Run(async app =>
     {
         var columns = (await app.StartAsync()).Search.ListColumns;
@@ -309,7 +360,7 @@ public class ItemListColumnChoiceTests
 
         // 開いたときに中身を作る（見出しの無い所で開いた扱い：出した列は右端へ）
         menu.RaiseEvent(new RoutedEventArgs(ContextMenu.OpenedEvent, menu));
-        var groups = menu.Items.OfType<MenuItem>().Where(item => item.Tag is not int).ToList();
+        var groups = menu.Items.OfType<MenuItem>().Where(item => item.HasItems).ToList();
         Assert.Equal(ItemListColumnCatalog.Headings, groups.Select(group => (string)group.Header));
         var items = groups.SelectMany(group => group.Items.OfType<MenuItem>()).ToDictionary(item => (string)item.Tag);
         Assert.Equal(ItemListColumnCatalog.All.Count - 1, items.Count);
