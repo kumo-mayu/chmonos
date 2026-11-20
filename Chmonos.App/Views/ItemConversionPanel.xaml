@@ -49,9 +49,34 @@
                                          ToolTip="変換経由の対応アバターに使わなくなります。" />
         </WrapPanel>
 
-        <!-- 中のプロファイルごとの行：名前・向き・つなぎ先の札（決まっていなければ選ぶ欄） -->
-        <ItemsControl ItemsSource="{Binding Rows}" Margin="0,10,0,0" Focusable="False"
-                      AutomationProperties.AutomationId="ItemConversionRows">
+        <!--
+            中のプロファイルごとの行：名前・向き・つなぎ先の札（決まっていなければ選ぶ欄）。
+            プロファイルの多い商品（数百。ユーザ判断 2026-11-20・③）でも軽いよう、高さに上限を付けて中で流し、見えている行だけ作る
+            （外の ScrollViewer の中では仮想化が効かず、400個で開くのに約2.6秒・行を全部作っていた。docs/dev/wpf.md「一覧と速さ」）。
+            上限の 480 は、ふつうの商品（プロファイル十数個まで）の行が全部収まる高さで、少ない商品の見た目は変わらない。
+            行の使い回し（Recycling）はしない：選ぶ欄は打ちかけの字を行に結んでいないので、使い回すと別の行に字が残る。
+            端に着いた後のホイールは外へ渡す（欄の上で右の欄を送れなくならないように）
+        -->
+        <controls:ContentItemsControl ItemsSource="{Binding Rows}" Margin="0,10,0,0" Focusable="False" MaxHeight="480"
+                      AutomationProperties.AutomationId="ItemConversionRows"
+                      controls:ForwardWheel.AtEdges="True"
+                      VirtualizingPanel.IsVirtualizing="True"
+                      VirtualizingPanel.VirtualizationMode="Standard"
+                      VirtualizingPanel.ScrollUnit="Pixel"
+                      ScrollViewer.CanContentScroll="True">
+            <ItemsControl.Template>
+                <ControlTemplate TargetType="ItemsControl">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                  CanContentScroll="True" Focusable="False">
+                        <ItemsPresenter />
+                    </ScrollViewer>
+                </ControlTemplate>
+            </ItemsControl.Template>
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <VirtualizingStackPanel />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
                 <DataTemplate DataType="{x:Type vm:ConversionTargetRow}">
                     <!--
@@ -167,7 +192,7 @@
                     </StackPanel>
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
-        </ItemsControl>
+        </controls:ContentItemsControl>
         <!--
             外したつなぎ先（ユーザ判断 2026-11-09）。対応アバターの「消したもの」と同じく、普段は畳んで末尾に置き、1件ずつ戻せる。
             戻すと確認済みになる（人が決めた値なので）

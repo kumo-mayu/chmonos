@@ -157,6 +157,27 @@ public class ItemConversionSettingTests
         Assert.False(page.Conversion.Rows.Single(row => row.ProfileText == "fakebase").IsUnconfirmed);
     });
 
+    /// <summary>
+    /// ユーザ判断 2026-11-20・③：プロファイル数百の商品で、1つ確認済みにするたびに全部の行を作り直していた。中身の変わらない行は同じ物のまま残す
+    /// （画面は残った行の部品を作り直さない）。変わった行だけ新しくする
+    /// </summary>
+    [Fact]
+    public Task 確認済みにしても_中身の変わらない行は同じ物のまま残る() => TestApp.Run(async app =>
+    {
+        var page = await OpenAsync(app, new ConversionSetting { Targets = [SuggestedBase] });
+        var rows = page.Conversion.Rows;
+        var unset = rows.Single(row => row.ProfileText == "fakeaoi");
+        var confirmed = rows.Single(row => row.ProfileText == "fakebase");
+
+        confirmed.ConfirmCommand!.Execute(null);
+        await app.SettleAsync();
+        await UiThread.Until(() => !page.Conversion.Rows.Single(row => row.ProfileText == "fakebase").IsUnconfirmed, "確認済みが入る");
+
+        Assert.Same(rows, page.Conversion.Rows);
+        Assert.Same(unset, page.Conversion.Rows.Single(row => row.ProfileText == "fakeaoi"));
+        Assert.NotSame(confirmed, page.Conversion.Rows.Single(row => row.ProfileText == "fakebase"));
+    });
+
     [Fact]
     public Task 選ぶ欄でアバターを選ぶと_そのプロファイルのつなぎ先を確認済みで書く() => TestApp.Run(async app =>
     {
