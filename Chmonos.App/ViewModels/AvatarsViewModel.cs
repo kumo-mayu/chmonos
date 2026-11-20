@@ -237,6 +237,17 @@ public sealed class AvatarBaseRowViewModel : ViewModelBase
         return hits.Count > 0;
     }
 
+    /// <summary>
+    /// 候補で選んだアバター（ID）が入っているか（ユーザ判断 2026-11-20・⑤）。名前でなく ID で当てるので、同じ名前の別のアバターの素体は当たらない。
+    /// 当たれば何で当たったかに、そのアバターを添える
+    /// </summary>
+    public bool MatchMember(AvatarRowViewModel member)
+    {
+        var hit = Summary.MemberIds.Contains(member.ItemId, StringComparer.Ordinal);
+        MatchNote = hit ? $"アバター「{member.Name}」" : string.Empty;
+        return hit;
+    }
+
     private string _matchNote = string.Empty;
 
     /// <summary>入ったアバターで当たった時の「何で当たったか」（「アバター「A」」「アバター「A」ほか 2 体」）。名前で当たった・語が空の時は空。</summary>
@@ -1019,6 +1030,13 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
                 return;
             }
 
+            // 候補で選んだアバターの ID の絞りは、欄の字が選んだ候補の字のままの間だけ（打ち直すと名前で当てる絞りに戻る。ユーザ判断 2026-11-20・⑤）。
+            // 欄は Delay=200 で遅れて同じ字を書き戻すが、同じ字なら SetField で止まるので外れない
+            if (_pickedBaseAvatarId is not null && !string.Equals(_baseQuery, _pickedBaseText, StringComparison.Ordinal))
+            {
+                _pickedBaseAvatarId = null;
+            }
+
             // 打ち直すと「既にあります」は消す（足す欄だった時と同じ）
             AddBaseNote.Clear();
 
@@ -1048,14 +1066,31 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     {
         var query = _baseQuery.Trim();
         var rows = _all.ToDictionary(row => row.ItemId, StringComparer.Ordinal);
-        ShownBases.ReplaceAll(Bases.Where(row => row.Match(
-            query, query.Length == 0 ? [] : [.. row.Summary.MemberIds.Select(id => rows.GetValueOrDefault(id)).OfType<AvatarRowViewModel>()])));
+
+        // 候補で選んだアバターは、その ID が入った素体だけ（同じ名前の別のアバターの素体を出さない）。登録簿の読み直しで消えていれば名前で当てる
+        if (_pickedBaseAvatarId is { } pickedId && rows.TryGetValue(pickedId, out var picked))
+        {
+            ShownBases.ReplaceAll(Bases.Where(row => row.MatchMember(picked)));
+        }
+        else
+        {
+            ShownBases.ReplaceAll(Bases.Where(row => row.Match(
+                query, query.Length == 0 ? [] : [.. row.Summary.MemberIds.Select(id => rows.GetValueOrDefault(id)).OfType<AvatarRowViewModel>()])));
+        }
+
         OnPropertyChanged(nameof(ShowsNoMatchingBases));
     }
 
+    /// <summary>候補で選んだアバターの ID（欄の字が <see cref="_pickedBaseText"/> の間だけ、この ID で絞る）。</summary>
+    private string? _pickedBaseAvatarId;
+
+    private string _pickedBaseText = string.Empty;
+
     /// <summary>
-    /// 探して足す欄の候補：どれかの素体に入ったアバターの名前（持っている物が先→名前の順）。素体の名前は候補にしない
-    /// （新しく名付ける欄に今ある名前を並べると重複を誘う。ui-input.md）。同じ名前のアバターは1つにまとめる（選ぶと、その名前で絞るだけなので）
+    /// 探して足す欄の候補：どれかの素体に入ったアバター（持っている物が先→名前の順）。素体の名前は候補にしない
+    /// （新しく名付ける欄に今ある名前を並べると重複を誘う。ui-input.md）。
+    /// 同じ名前でもアバター（ID）が違えば分けて出す（ユーザ判断 2026-11-20・⑤：前は1つにまとめ、絵はどちらか一方の物だった）。
+    /// 欄は候補を字で引くので、重なる名前には見分けの字を添える（<see cref="BaseCandidateTexts"/>）
     /// </summary>
     public IReadOnlyList<string> BaseSearchCandidates { get; private set; } = [];
 
@@ -1064,14 +1099,35 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     private void RebuildBaseSearchCandidates()
     {
         var members = Bases.SelectMany(row => row.Summary.MemberIds).ToHashSet(StringComparer.Ordinal);
-        _baseSearchRows = _all
+        var rows = _all
             .Where(row => members.Contains(row.ItemId))
             .OrderByDescending(row => row.IsOwned)
             .ThenBy(row => row.Name, StringComparer.CurrentCulture)
-            .GroupBy(row => row.Name, StringComparer.CurrentCulture)
-            .ToDictionary(group => group.Key, group => group.First(), StringComparer.CurrentCulture);
+            .ThenBy(row => row.ItemId, StringComparer.Ordinal)
+            .ToList();
+        _baseSearchRows = BaseCandidateTexts(rows.Select(row => (row.Name, row.Summary.Entry.ShopName, row.ItemId)).ToList())
+            .Select((text, index) => (Text: text, Row: rows[index]))
+            .ToDictionary(pair => pair.Text, pair => pair.Row, StringComparer.CurrentCulture);
         BaseSearchCandidates = [.. _baseSearchRows.Keys];
         OnPropertyChanged(nameof(BaseSearchCandidates));
+    }
+
+    /// <summary>
+    /// 候補の字。名前が1つだけならそのまま。同じ名前が2体以上なら、ショップ名を添え（名前に既に付いていなければ。登録簿の名前は、
+    /// ショップ名が分かる物には既に付けてある：<c>AvatarNames.Map</c>）、それでも重なる物（ショップ名が分からない・同じショップ）は ID を添える。
+    /// 群（所持・未所持）は見出しで、絵は頭で見分けられるが、欄は候補を字で引くので字も分ける
+    /// </summary>
+    internal static IReadOnlyList<string> BaseCandidateTexts(IReadOnlyList<(string Name, string? Shop, string ItemId)> avatars)
+    {
+        var comparer = StringComparer.CurrentCulture;
+        var nameCounts = avatars.GroupBy(avatar => avatar.Name, comparer).ToDictionary(group => group.Key, group => group.Count(), comparer);
+        var withShop = avatars
+            .Select(avatar => nameCounts[avatar.Name] > 1 && avatar.Shop?.Trim() is { Length: > 0 } shop && !avatar.Name.EndsWith($"（{shop}）", StringComparison.Ordinal)
+                ? $"{avatar.Name}（{shop}）"
+                : avatar.Name)
+            .ToList();
+        var shopCounts = withShop.GroupBy(text => text, comparer).ToDictionary(group => group.Key, group => group.Count(), comparer);
+        return [.. withShop.Select((text, index) => shopCounts[text] > 1 ? $"{avatars[index].Name}（ID {avatars[index].ItemId}）" : text)];
     }
 
     /// <summary>候補の群（所持アバター／未所持アバター）と、名前以外で当たる語。素体の側からアバターを足す欄の候補と同じ作り</summary>
@@ -1099,9 +1155,22 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             return;
         }
 
-        if (_baseSearchRows.ContainsKey(text))
+        if (_baseSearchRows.TryGetValue(text, out var picked))
         {
-            BaseQuery = text;
+            // 選んだ候補のアバター（ID）が入った素体だけに絞る（ユーザ判断 2026-11-20・⑤）。欄の字が既に同じなら setter は動かないので、ここで絞り直す
+            _pickedBaseAvatarId = picked.ItemId;
+            _pickedBaseText = text;
+            if (string.Equals(BaseQuery, text, StringComparison.Ordinal))
+            {
+                var keep = SelectedBase;
+                RefilterBases();
+                SelectedBase = keep is not null && ShownBases.Contains(keep) ? keep : ShownBases.FirstOrDefault();
+            }
+            else
+            {
+                BaseQuery = text;
+            }
+
             return;
         }
 
