@@ -206,7 +206,7 @@ public static class SearchConditions
         "hidden" => item.Local.IsHidden,
         "local" => item.IsLocalOnly,
 
-        // 所持の定義そのまま（条件「所持」の「すべて見つからない商品は未所持とする」の既定＝切と同じ）
+        // 所持の定義そのまま（条件「所持」の「ファイルがすべて見つからない商品は未所持とする」の既定＝切と同じ）
         "owned" => item.IsOwned,
         "r18" or "r-18" => item.Booth.IsAdult,
 

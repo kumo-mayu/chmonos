@@ -139,7 +139,7 @@ public static class SearchModuleConditions
             _ => true,
         }),
 
-        // 「すべて見つからない商品は未所持とする」（ユーザ判断 2026-10-06・案A。既定は切＝所持の定義のまま）：
+        // 「ファイルがすべて見つからない商品は未所持とする」（ユーザ判断 2026-10-06・案A。既定は切＝所持の定義のまま）：
         // 記録のファイル・フォルダが全部見つからない商品は手元に何も無いので、使う人には未所持と同じ
         SearchModuleKind.Owned => new(["owned", "unowned", BothKey], BothKey, (item, _, key, allMissingIsUnowned) => key switch
         {
