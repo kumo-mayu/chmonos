@@ -239,6 +239,74 @@ public class ConversionPairSearchTests
     });
 
     [Fact]
+    public Task 左の欄を畳んでいる間は_左にしか無い空の文を右に出す() => TestApp.Run(async app =>
+    {
+        // アバターは1体、共通素体は0、プロファイルの商品も0
+        await app.Store.Avatars.SaveAsync(new AvatarRegistry { Entries = [Avatar(Aoi, "アオイ")] });
+        var main = await app.StartAsync();
+        main.ShowAvatarsCommand.Execute(null);
+        var avatars = Assert.IsType<AvatarsViewModel>(main.CurrentViewModel);
+        await UiThread.Until(() => !avatars.IsLoading && avatars.Rows.Count > 0, "アバターの読み込みが済む");
+
+        var changed = new List<string?>();
+        avatars.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        // 広げている間は出さない（左で言う）
+        avatars.ShowConversionModeCommand.Execute(null);
+        Assert.True(avatars.ShowsNoConversionItems);
+        Assert.Equal(string.Empty, avatars.CollapsedEmptyText);
+        Assert.False(avatars.HasCollapsedEmpty);
+
+        // 畳むと、変換の「商品がまだ無い」を右に出す
+        avatars.ListPane.IsCollapsed = true;
+        Assert.Contains(nameof(AvatarsViewModel.CollapsedEmptyText), changed);
+        Assert.StartsWith("変換ツールのプロファイルを含む商品はまだありません", avatars.CollapsedEmptyText);
+        Assert.True(avatars.HasCollapsedEmpty);
+        Assert.False(avatars.CollapsedEmptyCanClear);
+
+        // 共通素体：1つも無い（作り方を言う）
+        avatars.ShowBaseModeCommand.Execute(null);
+        Assert.StartsWith("共通素体はまだありません", avatars.CollapsedEmptyText);
+        Assert.False(avatars.CollapsedEmptyCanClear);
+
+        // 「アバター」の見方は右に元からある空の文なので、ここでは出さない
+        avatars.ShowAvatarModeCommand.Execute(null);
+        Assert.Equal(string.Empty, avatars.CollapsedEmptyText);
+
+        // 広げ直すと消える
+        avatars.ShowConversionModeCommand.Execute(null);
+        avatars.ListPane.IsCollapsed = false;
+        Assert.Equal(string.Empty, avatars.CollapsedEmptyText);
+    });
+
+    [Fact]
+    public Task 畳んだ左の欄で探して0件なら_その文と絞り込みを消すボタンを右に出す() => TestApp.Run(async app =>
+    {
+        await app.Store.Avatars.SaveAsync(new AvatarRegistry
+        {
+            Entries = [Avatar(Aoi, "アオイ")],
+            BaseGroups = [new AvatarBaseGroup { Name = "作り物素体" }],
+        });
+        var main = await app.StartAsync();
+        main.ShowAvatarsCommand.Execute(null);
+        var avatars = Assert.IsType<AvatarsViewModel>(main.CurrentViewModel);
+        await UiThread.Until(() => !avatars.IsLoading && avatars.Rows.Count > 0, "アバターの読み込みが済む");
+        avatars.ShowBaseModeCommand.Execute(null);
+        avatars.ListPane.IsCollapsed = true;
+        Assert.Equal(string.Empty, avatars.CollapsedEmptyText);
+
+        avatars.BaseQuery = "当たらない語";
+        Assert.Equal("打ち込んだ言葉に当てはまる共通素体がありません。", avatars.CollapsedEmptyText);
+        Assert.True(avatars.CollapsedEmptyCanClear);
+
+        // 畳んだまま右のボタンで消せる（探す欄も畳まれて見えない）
+        avatars.CollapsedClearCommand.Execute(null);
+        Assert.Equal(string.Empty, avatars.BaseQuery);
+        Assert.Equal(string.Empty, avatars.CollapsedEmptyText);
+        Assert.False(avatars.CollapsedEmptyCanClear);
+    });
+
+    [Fact]
     public Task 畳んだ左の欄の名前は今の見方の名前() => TestApp.Run(async app =>
     {
         var avatars = await OpenAsync(app);

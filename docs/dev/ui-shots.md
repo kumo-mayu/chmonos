@@ -153,6 +153,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | 変換の一覧の上の「追加した組」（上に組を追加の行と「追加」、並び、元でまとめた見出し（絵・名前・組の数・畳んだ所）、元と先の絵付きの行と短いメモ。共通素体を元にした組） | `avatars-conversion-pairs-edit` |
 | 変換で追加した組を選んだ右の欄（元・先のリンク・ツールの名前・メモ・この組を外す）と、プロファイルの商品の行に並ぶ組の行 | `avatars-conversion-pair-detail`（`Scenes.AvatarViaConversion.cs`。`avatars-conversion` と同じ種） |
 | 変換の組を探す欄（両方・元・先）・共通素体の探して足す欄（素体の名前で絞った所・入ったアバターで当たった行） | `avatars-conversion-pairs-search`・`avatars-bases-search`・`avatars-bases-search-avatar` |
+| 左の一覧を畳んだまま、共通素体を探して0件の文と「絞り込みを消す」を右に出す | `avatars-collapsed-empty` |
 | 共通素体の画像（付けた所・無い所） | `avatars-base-image`・`avatars-base-image-none` |
 | 素体の候補の絵（商品ページの対応アバターを追加・変換のつなぎ先・検索の対応アバター・アバターの詳細の共通素体） | `suggest-base-icons` |
 | 候補（アバター・改変の呼び方） | `suggest-avatar-groups`・`suggest-avatar-divider`・`suggest-modification-alias` |

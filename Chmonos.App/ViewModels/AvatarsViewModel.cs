@@ -495,7 +495,95 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     private PaneColumn? _listPane;
 
     /// <summary>左の一覧の列。ドラッグで幅を変えられる（ユーザ判断 2026-09-14）。</summary>
-    public PaneColumn ListPane => _listPane ??= new PaneColumn(_services.PaneWidths, "avatars.list", remembersCollapse: true);
+    public PaneColumn ListPane => _listPane ??= CreateListPane();
+
+    private PaneColumn CreateListPane()
+    {
+        var pane = new PaneColumn(_services.PaneWidths, "avatars.list", remembersCollapse: true);
+        pane.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(PaneColumn.IsCollapsed))
+            {
+                RaiseCollapsedEmpty();
+            }
+        };
+        // 左の一覧の空の文（ShowsNoBases など）が変わったら、畳んだ時に右へ出す文も追う。
+        // 通知は各所に散っているので、ここで1か所にまとめて拾う（RaiseCollapsedEmpty 自体の名前は拾わない）
+        PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName is nameof(ShowsNoBases) or nameof(ShowsNoMatchingBases) or nameof(ShowsNoConversionItems)
+                or nameof(ShowsNoMatchingConversionItems) or nameof(ConversionItems))
+            {
+                RaiseCollapsedEmpty();
+            }
+        };
+        return pane;
+    }
+
+    // ---- 左の一覧を畳んでいる間の、空の時の文（2026-11-20・調べの B・ユーザ判断「畳んでいる時は空の説明を右に出す」） ----
+    //
+    // 空の説明（共通素体が無い・探して0件・プロファイルの商品が無い）は左の一覧の中にしか無く、畳むと見えなくなって右が空白だった。
+    // 畳んでいる間だけ右の欄の中央に出す（広げている間は左で言うので重ねない）。「アバター」の見方は右の IsEmpty の文が既にあるので対象外
+
+    /// <summary>畳んでいる間に右へ出す空の文。出さない時は空。</summary>
+    public string CollapsedEmptyText
+    {
+        get
+        {
+            if (!ListPane.IsCollapsed || IsEmpty)
+            {
+                return string.Empty;
+            }
+
+            if (ShowsNoBases)
+            {
+                return "共通素体はまだありません。左の一覧を広げて、上の欄に素体の名前を入れると追加できます。";
+            }
+
+            if (ShowsNoMatchingBases)
+            {
+                return "打ち込んだ言葉に当てはまる共通素体がありません。";
+            }
+
+            if (ShowsNoConversionItems)
+            {
+                return "変換ツールのプロファイルを含む商品はまだありません。取り込むと、左の一覧に並びます。";
+            }
+
+            if (ShowsNoMatchingConversionItems)
+            {
+                return "打ち込んだ言葉に当てはまる商品がありません。";
+            }
+
+            return string.Empty;
+        }
+    }
+
+    public bool HasCollapsedEmpty => CollapsedEmptyText.Length > 0;
+
+    /// <summary>探して0件の文の時だけ「絞り込みを消す」を添える（探す欄も畳まれて見えないので、ここから消せるように）。</summary>
+    public bool CollapsedEmptyCanClear => ListPane.IsCollapsed && !IsEmpty && (ShowsNoMatchingBases || ShowsNoMatchingConversionItems);
+
+    public RelayCommand CollapsedClearCommand => _collapsedClearCommand ??= new RelayCommand(() =>
+    {
+        if (IsBaseMode)
+        {
+            ClearBaseQueryCommand.Execute(null);
+        }
+        else
+        {
+            ConversionPairs.ClearQueryCommand.Execute(null);
+        }
+    });
+
+    private RelayCommand? _collapsedClearCommand;
+
+    private void RaiseCollapsedEmpty()
+    {
+        OnPropertyChanged(nameof(CollapsedEmptyText));
+        OnPropertyChanged(nameof(HasCollapsedEmpty));
+        OnPropertyChanged(nameof(CollapsedEmptyCanClear));
+    }
     private readonly MainViewModel _main;
 
     private ManageItemView? _itemView;

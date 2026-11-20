@@ -134,6 +134,17 @@ internal static partial class Scenes
             Console.WriteLine("  共通素体の行の右クリック：削除（その行の削除につながる）");
             return new Shot(root);
         }),
+
+        // 左の一覧を畳んでいる間、左にしか出ない空の文を右に出す（調べの B）。共通素体の見方で探して0件にした所
+        new Scene("avatars-collapsed-empty", "アバターの管理：左の一覧を畳んだまま、共通素体を探して0件の文と「絞り込みを消す」を右に出す", async context =>
+        {
+            var (avatars, root) = await OpenAvatarsAsync(context);
+            avatars.ShowBaseModeCommand.Execute(null);
+            avatars.BaseQuery = "当たらない語";
+            avatars.ListPane.IsCollapsed = true;
+            await context.SettleAsync();
+            return new Shot(root);
+        }),
     ];
 
     private static async Task<Shot> AvatarNoticeAsync(SceneContext context, bool show)

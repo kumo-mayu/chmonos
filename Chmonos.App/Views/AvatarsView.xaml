@@ -1745,6 +1745,18 @@
                                 Command="{Binding ShowImportCommand}" />
                     </StackPanel>
                 </StackPanel>
+                <!--
+                    左の一覧を畳んでいる間、左にしか出ない空の文を右に出す（2026-11-20・調べの B。「共通素体」「変換」の見方。
+                    文は左の一覧の物と同じ。「アバター」の見方は上の IsEmpty の文が出る）。右に商品ページを重ねている間は、その商品ページが上に乗る
+                -->
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="520"
+                            AutomationProperties.AutomationId="AvatarsCollapsedEmpty"
+                            Visibility="{Binding HasCollapsedEmpty, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                    <TextBlock Style="{StaticResource EmptyNote}" Text="{Binding CollapsedEmptyText}" />
+                    <Button Content="絞り込みを消す" Style="{StaticResource SmallButton}" Margin="0,10,0,0" HorizontalAlignment="Center"
+                            Command="{Binding CollapsedClearCommand}"
+                            Visibility="{Binding CollapsedEmptyCanClear, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                </StackPanel>
                 <ContentControl Grid.Column="1" Content="{Binding RightItem}" Focusable="False"
                                 Visibility="{Binding RightItem.IsOpen, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
             </controls:PaneGrid>
