@@ -446,10 +446,12 @@
                     <DockPanel>
                         <!--
                             見る物の切り替え（U16）。以前は共通素体の管理がどのアバターの詳細の下にも付いて回り、
-                            今どちらの話をしているのかが分からなかった
+                            今どちらの話をしているのかが分からなかった。
+                            折り返す（2026-11-20・ユーザ判断④）：幅900の窓では横に並べ切れず「変換（300」で切れ、右端の畳むつまみ（列の内へ 13 はみ出す）と重なった。
+                            右の余白はつまみの 13 と間の分。下の余白 -6 はボタンの下の間 6 を打ち消し、折り返さない時の下の欄との間を前のままにする
                         -->
-                        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="14,14,14,0">
-                            <Button Content="{Binding AvatarModeText}" Command="{Binding ShowAvatarModeCommand}"
+                        <WrapPanel DockPanel.Dock="Top" Margin="14,14,18,-6">
+                            <Button Content="{Binding AvatarModeText}" Command="{Binding ShowAvatarModeCommand}" Margin="0,0,6,6"
                                     ToolTip="アバターを1体ずつ見て、名前・所有・共通素体を設定します。">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource ModeButton}">
@@ -463,7 +465,7 @@
                                     </Style>
                                 </Button.Style>
                             </Button>
-                            <Button Content="{Binding BaseModeText}" Command="{Binding ShowBaseModeCommand}" Margin="6,0,0,0"
+                            <Button Content="{Binding BaseModeText}" Command="{Binding ShowBaseModeCommand}" Margin="0,0,6,6"
                                     ToolTip="複数のアバターが使っている共通の体（素体）を見て、名前や配布商品を設定します。">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource ModeButton}">
@@ -478,7 +480,7 @@
                                 </Button.Style>
                             </Button>
                             <!-- 変換ツールのプロファイルの変換扱いを、未確定のように順に決める（docs/spec/conversion.md・ユーザ判断 2026-11-06） -->
-                            <Button Content="{Binding ConversionModeText}" Command="{Binding ShowConversionModeCommand}" Margin="6,0,0,0"
+                            <Button Content="{Binding ConversionModeText}" Command="{Binding ShowConversionModeCommand}" Margin="0,0,6,6"
                                     AutomationProperties.AutomationId="AvatarsConversionMode"
                                     ToolTip="変換ツールのプロファイルが、どのアバター・共通素体の物かを決めます。">
                                 <Button.Style>
@@ -493,7 +495,7 @@
                                     </Style>
                                 </Button.Style>
                             </Button>
-                        </StackPanel>
+                        </WrapPanel>
 
                         <!--
                             追加した組を探す欄（2026-11-20・ユーザ「元と先、両方を指定できる形の文字列(他のアバター検索UIと同じ形)検索」）。
@@ -768,12 +770,14 @@
                                                                         群は見出しの物（ConversionItemGroupHeader：名前と数。絞っている間は「当たった数/全部」）で分けてある。
                                                                         「決めていない」「途中」の見出しの右に、その群の分だけをまとめて確認済みにするボタン（ユーザ判断 2026-11-20・④。
                                                                         効く相手のそばに置く。確認待ちが無い群には出さない）。押すと対象を並べた窓を出し、外したい物はチェックを外せる。
-                                                                        左の最小の幅では、ボタンは見出しの下へ折り返す
+                                                                        左の最小の幅では、ボタンは見出しの下へ折り返す。
+                                                                        色は主の青（ユーザ判断 2026-11-20・②「認識しにくいので青色でも良いかも」：白いボタンは見出しに紛れた）。
+                                                                        大きさは見出しに収まる小さいボタンのまま（名前の欄の確定と同じ InlinePrimaryButton）
                                                                     -->
                                                                     <WrapPanel>
                                                                         <TextBlock Style="{StaticResource SectionLabel}" Margin="0,0,10,4" VerticalAlignment="Center" Text="{Binding Name.Text, Mode=OneWay}" />
                                                                         <Button Content="{Binding Name.BulkText, Mode=OneWay}" Command="{Binding Name.BulkConfirmCommand}"
-                                                                                Style="{StaticResource SmallButton}" Margin="0,0,0,4" VerticalAlignment="Center"
+                                                                                Style="{StaticResource InlinePrimaryButton}" Margin="0,0,0,4" VerticalAlignment="Center"
                                                                                 AutomationProperties.AutomationId="AvatarsConversionBulk"
                                                                                 ToolTip="この群の確認待ちを一覧で見て、まとめて確認済みにします。"
                                                                                 Visibility="{Binding Name.ShowsBulk, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -1750,13 +1754,22 @@
 
                                 <!-- 打ち終えて少し待つと残る（アバターのメモと同じ）。選び直す・外す・離れる前に書き切る -->
                                 <TextBlock Text="メモ" Style="{StaticResource SectionLabel}" Margin="0,14,0,8" />
-                                <TextBox Width="420" Height="56" Padding="7,5" HorizontalAlignment="Left"
+                                <!--
+                                    幅は上限 420 で、狭い時は欄に合わせて縮む（2026-11-20・ユーザ判断④：決め打ちの 420 だと幅900の窓で右が切れた）。
+                                    TextBox に MaxWidth と Stretch を付けると、上限に当たった時に真ん中へ寄るので、列の上限で左に寄せる
+                                -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" MaxWidth="420" />
+                                    </Grid.ColumnDefinitions>
+                                <TextBox Height="56" Padding="7,5"
                                          TextWrapping="Wrap" AcceptsReturn="True"
                                          VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
                                          MaxLength="2000" Text="{Binding MemoText, UpdateSourceTrigger=PropertyChanged}"
                                          AutomationProperties.AutomationId="AvatarsConversionPairMemo"
                                          AutomationProperties.Name="{Binding Text, StringFormat={}{0}のメモ}"
                                          ToolTip="直す所や使うツールなどを残せます。" />
+                                </Grid>
 
                                 <Button Content="この組を外す" Style="{StaticResource DangerButton}" HorizontalAlignment="Left" Margin="0,16,0,0"
                                         Command="{Binding RemoveCommand}"
