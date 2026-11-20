@@ -234,8 +234,8 @@ public class SearchListTests
             await app.AddItemAsync(Make.Item($"100000{number}", $"作り物の商品{number}"));
         }
 
-        // 見たいのはカードの切り直しだけ。入手日の札は既定で切なので、入手日順では札は升を取らない（札の入る段は SearchSortDividerTests）。
-        // 既定はカテゴリの順で札が升を取るので、入手日を名指しする
+        // 見たいのはカードの切り直しだけ。札は升を取るので切る（札の入る段は SearchSortDividerTests）
+        await app.ChangeSettingsAsync(settings => settings with { ShowSortDividers = false });
         var search = (await app.StartAsync()).Search;
         search.SortField = search.SortFields.First(field => field.Kind == SortKind.AcquiredAt);
 

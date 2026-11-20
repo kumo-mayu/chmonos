@@ -120,14 +120,9 @@ public class SearchSortDividerTests
         Assert.Equal([2, 1, 1], search.ShownDividers.Select(divider => divider.Count));
     });
 
-    /// <summary>入手日：9月に2件・8月に1件・2025年9月に1件・入手日なし1件。入手日の札は既定で切なので、見たいときは入れる。</summary>
-    private static async Task<SearchViewModel> AcquiredMonthsAsync(TestApp app, bool acquiredDividers = true)
+    /// <summary>入手日：9月に2件・8月に1件・2025年9月に1件・入手日なし1件。</summary>
+    private static async Task<SearchViewModel> AcquiredMonthsAsync(TestApp app)
     {
-        if (acquiredDividers)
-        {
-            await app.ChangeSettingsAsync(settings => settings with { ShowAcquiredSortDividers = true });
-        }
-
         static ItemRecord On(ItemRecord item, DateOnly? date) => item with { Local = item.Local with { AcquiredAt = date } };
 
         await app.AddItemAsync(On(Make.Item("1000001", "作り物の商品1", shop: "作り物の店A"), new DateOnly(2026, 9, 3)));
@@ -165,21 +160,8 @@ public class SearchSortDividerTests
     });
 
     [Fact]
-    public Task 入手日の札だけを設定で切ると_入手日順では出ず_ほかの並べ替えでは出る() => TestApp.Run(async app =>
-    {
-        var search = await AcquiredMonthsAsync(app, acquiredDividers: false);
-
-        Assert.Empty(search.ShownDividers);
-        Assert.Equal(search.ListItems, search.DisplayItems.Cast<ItemCardViewModel>());
-
-        SortBy(search, SortKind.Shop);
-        Assert.Equal(["作り物の店A", "作り物の店B"], search.ShownDividers.Select(divider => divider.Label));
-    });
-
-    [Fact]
     public Task 区切りの設定を切ると_入手日の札も_ほかの札も出ない() => TestApp.Run(async app =>
     {
-        // 子（入手日）は入のまま。親が切れていれば子の値によらず出さない
         await app.ChangeSettingsAsync(settings => settings with { ShowSortDividers = false });
         var search = await AcquiredMonthsAsync(app);
 
@@ -208,13 +190,12 @@ public class SearchSortDividerTests
     });
 
     [Fact]
-    public Task 入手日の札は既定で切_ほかの札は既定で出る() => TestApp.Run(async app =>
+    public Task 入手日の札も_ほかの札と同じく既定で出る() => TestApp.Run(async app =>
     {
-        Assert.False(new AppSettings().ShowAcquiredSortDividers);
         Assert.True(new AppSettings().ShowSortDividers);
-        var search = await AcquiredMonthsAsync(app, acquiredDividers: false);
+        var search = await AcquiredMonthsAsync(app);
 
-        Assert.Empty(search.ShownDividers);
+        Assert.NotEmpty(search.ShownDividers);
 
         SortBy(search, SortKind.Shop);
         Assert.Equal(["作り物の店A", "作り物の店B"], search.ShownDividers.Select(divider => divider.Label));
@@ -231,22 +212,19 @@ public class SearchSortDividerTests
     });
 
     [Fact]
-    public Task 設定の画面で入手日の札を入れると_保存され_開いている一覧にも出る() => TestApp.Run(async app =>
+    public Task 設定の画面で区切りを切ると_保存され_開いている入手日順の一覧からも札が消える() => TestApp.Run(async app =>
     {
-        var search = await AcquiredMonthsAsync(app, acquiredDividers: false);
+        var search = await AcquiredMonthsAsync(app);
         var main = app.Main;
         main.ShowSettingsCommand.Execute(null);
         var settings = Assert.IsType<SettingsViewModel>(main.CurrentViewModel);
         await UiThread.Until(() => !settings.IsLoading, "設定を読み終わる");
-        Assert.False(settings.ShowAcquiredSortDividers);
-        Assert.Empty(main.Search.ShownDividers);
+        Assert.True(settings.ShowSortDividers);
+        Assert.NotEmpty(main.Search.ShownDividers);
 
-        settings.ShowAcquiredSortDividers = true;
-        await UiThread.Until(() => app.Services.Settings.ShowAcquiredSortDividers, "設定を保存する");
-        await UiThread.Until(() => main.Search.ShownDividers.Any(), "一覧を組み直す");
-
-        // 親は入のまま（子だけを入れた）
-        Assert.True(app.Services.Settings.ShowSortDividers);
+        settings.ShowSortDividers = false;
+        await UiThread.Until(() => !app.Services.Settings.ShowSortDividers, "設定を保存する");
+        await UiThread.Until(() => !main.Search.ShownDividers.Any(), "一覧を組み直す");
     });
 
     [Fact]

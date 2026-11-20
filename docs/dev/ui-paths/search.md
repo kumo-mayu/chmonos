@@ -140,7 +140,7 @@ flowchart LR
 | 別表記の札「「x」を a・b としても探しました。」 | 見るだけ | 何として探したかを言う | 別表記で広げた時 | WidenedText・SV:2040付近 |
 | 「読み直す」（吹き出し「開いているUnityの中を調べ直します」） | 押す | 開いている Unity の中を調べ直して絞り直す | 「開いているUnity」で絞っている時 | SearchOpenUnityReload・SV:2045付近 |
 | 開いている Unity の状態の文／条件の要約（FilterSummary） | 見るだけ | 今どの Unity を見ているか・効いている条件の要約 | Unity スイッチ時／条件が効いている時 | SV:2050-2070 |
-| 「表示順」のボタン（今の項目名） | 押す／Enter・Space・↓ | 項目のメニューが開き、今の項目に止まる。「属性 ▸」は → で子。一番下に線で分けたチェック付きの「まとまりごとに区切りを表示」（入手日順なら入手日の設定、ほかは全体の設定を切り替える。UiCommand.ChangeSettings）。選ぶと並べ替え、次の起動へ引き継ぐ（UiCommand.ChangeUiState で searchSort を保存） | いつも。選べない項目は押せず吹き出し | SearchSortField・SV:2076・SearchView.Sort.cs |
+| 「表示順」のボタン（今の項目名） | 押す／Enter・Space・↓ | 項目のメニューが開き、今の項目に止まる。「属性 ▸」は → で子。一番下に線で分けたチェック付きの「まとまりごとに区切りを表示」（設定の「並べ替えたとき、まとまりごとに区切りを表示」と同じ1つを切り替える。UiCommand.ChangeSettings）。選ぶと並べ替え、次の起動へ引き継ぐ（UiCommand.ChangeUiState で searchSort を保存） | いつも。選べない項目は押せず吹き出し | SearchSortField・SV:2076・SearchView.Sort.cs |
 | 向きの2つ（「新しい順」「古い順」など。文言は項目で変わる） | 押す | 昇降を替える（同上で保存） | いつも | SearchSortDescending／SearchSortAscending・SV:2100付近 |
 | カード／リストの切替（吹き出し「絵の大きなカードで並べます」／「1行ずつ並べます。列の幅は見出しの境目をドラッグで変えられます」） | 押す | 一覧の形を替える。画面ごとに覚える（ui-state の itemListScreens） | いつも | ItemViewMode.Cards／ItemViewMode.List・SV:2120付近 |
 | 右下の大きさのスライダー（「カードの大きさ」／「行の高さ」） | ドラッグ | カードの大きさ・リストの行の高さを替える（画面ごとに覚える。設定で全画面で1つにもできる） | いつも（形で名前が替わる） | ItemCardSize／ItemListRowHeight・SV:2154・ICR:800 |

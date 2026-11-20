@@ -106,7 +106,6 @@ public sealed partial class SettingsViewModel
         _placeNewConditionNearSameKind = settings.PlaceNewConditionNearSameKind;
         _smoothScrolling = settings.SmoothScrolling;
         _showSortDividers = settings.ShowSortDividers;
-        _showAcquiredSortDividers = settings.ShowAcquiredSortDividers;
         _shortYenInKanji = settings.ShortYenInKanji;
         _compactHeaderPercent = CompactHeaderSize.Normalize(settings.CompactHeaderPercent);
         Controls.CompactHeader.Apply(_compactHeaderPercent);
