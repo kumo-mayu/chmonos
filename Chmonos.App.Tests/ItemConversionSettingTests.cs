@@ -105,6 +105,9 @@ public class ItemConversionSettingTests
         // 推した理由は商品ページには出さない（アバターの管理の「変換」だけ）
         Assert.All(page.Conversion.Rows, row => Assert.False(row.HasReason));
 
+        // 札の右クリックの「開く」も商品ページには出さない（アバターの管理の「変換」だけが口を渡す）
+        Assert.All(page.Conversion.Rows, row => Assert.False(row.HasOpen));
+
         Assert.Contains("アオイ", page.Conversion.TargetSuggestions);
         Assert.Contains("作り物の素体（共通素体）", page.Conversion.TargetSuggestions);
     });

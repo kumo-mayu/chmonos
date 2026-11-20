@@ -67,8 +67,24 @@
             <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
             <Setter Property="AutomationProperties.AutomationId" Value="AvatarBaseRow" />
         </Style>
-        <!-- 「変換」の追加した組の行。見た目はプロファイルの商品の行と同じ既定の行で、読み上げの名前は「元 → 先」（右クリックの項目は無い） -->
+        <!--
+            「変換」の追加した組の行と、元のまとまりの見出しの右クリック：元・先のアバター・共通素体へ移る（ユーザ判断 2026-11-20
+            「共通素体から共通素体のページに飛べた方が良い」）。行を押すと組を選び、見出しを押すと畳むので、移る口は右クリックに置く。
+            右の組の欄の元・先の名前と同じ移り方で、登録簿・素体の一覧に無い物は押せない
+        -->
+        <ContextMenu x:Key="ConversionPairRowMenu">
+            <MenuItem Header="元を開く" Command="{Binding OpenFromCommand}" AutomationProperties.AutomationId="ConversionPairRowMenu.OpenFrom"
+                      controls:MenuTips.Disabled="アバターの管理にある物だけ開けます" />
+            <MenuItem Header="先を開く" Command="{Binding OpenToCommand}" AutomationProperties.AutomationId="ConversionPairRowMenu.OpenTo"
+                      controls:MenuTips.Disabled="アバターの管理にある物だけ開けます" />
+        </ContextMenu>
+        <ContextMenu x:Key="ConversionPairGroupMenu">
+            <MenuItem Header="開く" Command="{Binding OpenCommand}" AutomationProperties.AutomationId="ConversionPairGroupMenu.Open"
+                      controls:MenuTips.Disabled="アバターの管理にある物だけ開けます" />
+        </ContextMenu>
+        <!-- 「変換」の追加した組の行。見た目はプロファイルの商品の行と同じ既定の行で、読み上げの名前は「元 → 先」 -->
         <Style x:Key="ConversionPairRowStyle" TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+            <Setter Property="ContextMenu" Value="{StaticResource ConversionPairRowMenu}" />
             <Setter Property="AutomationProperties.Name" Value="{Binding Text}" />
             <Setter Property="AutomationProperties.AutomationId" Value="AvatarsConversionPairRow" />
             <Style.Triggers>
@@ -78,6 +94,7 @@
                 -->
                 <DataTrigger Binding="{Binding IsGroupHeader}" Value="True">
                     <Setter Property="Focusable" Value="False" />
+                    <Setter Property="ContextMenu" Value="{StaticResource ConversionPairGroupMenu}" />
                     <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
                     <Setter Property="AutomationProperties.AutomationId" Value="AvatarsConversionPairGroupRow" />
                     <Setter Property="Template">

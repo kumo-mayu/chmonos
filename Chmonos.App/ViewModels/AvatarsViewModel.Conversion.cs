@@ -181,6 +181,9 @@ public sealed partial class AvatarsViewModel
         _services, RunConversionCommandAsync, () => false, _main.Thumbnails, _main.Search.FindItem)
     {
         ShowsReasons = true,
+
+        // つなぎ先の札の右クリックの「開く」は、組の端と同じ移り方（ユーザ判断 2026-11-20「共通素体から共通素体のページに飛べた方が良い」）
+        OpenTarget = (CanOpenConversionEnd, OpenConversionEnd),
     };
 
     /// <summary>
