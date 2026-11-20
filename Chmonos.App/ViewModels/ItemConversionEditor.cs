@@ -186,9 +186,18 @@ public sealed class ItemConversionEditor : ViewModelBase
     /// （同じ名前のアバターと取り違えない）
     /// </summary>
     public Func<string, System.Windows.Media.ImageSource?> TargetIconSelector => text =>
-        _thumbnails is not { } thumbnails ? null
-        : _basesBySuggestion.TryGetValue(text, out var baseName) ? AvatarBaseIcons.Load(_services, baseName, FindItem, thumbnails.LoadForTile)
-        : _avatarIdsBySuggestion.TryGetValue(text, out var id) ? AvatarIcon(id, thumbnails.LoadForTile)
+        _thumbnails is { } thumbnails ? TargetIconOf(text, thumbnails.LoadForTile) : null;
+
+    /// <summary>
+    /// つなぎ先の候補の頭の絵に乗せた時の大きな絵（ユーザ判断 2026-11-20・①）。乗せた時に初めて読む。
+    /// 同じ部品なので商品ページの欄にも出る（つなぎ先の札の絵と同じ扱い）
+    /// </summary>
+    public Func<string, Action, System.Windows.Media.ImageSource?> TargetHoverIconSelector => (text, onLoaded) =>
+        _thumbnails is { } thumbnails ? TargetIconOf(text, path => thumbnails.PeekForCard(path, onLoaded)) : null;
+
+    private System.Windows.Media.Imaging.BitmapSource? TargetIconOf(string text, Func<string, System.Windows.Media.Imaging.BitmapSource?> load)
+        => _basesBySuggestion.TryGetValue(text, out var baseName) ? AvatarBaseIcons.Load(_services, baseName, FindItem, load)
+        : _avatarIdsBySuggestion.TryGetValue(text, out var id) ? AvatarIcon(id, load)
         : null;
 
     private ItemRecord? FindItem(string itemId) => _findItem?.Invoke(itemId);

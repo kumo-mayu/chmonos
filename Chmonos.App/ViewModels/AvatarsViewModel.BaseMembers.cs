@@ -45,10 +45,15 @@ public sealed partial class AvatarsViewModel
 
     /// <summary>候補の頭の絵。一覧の行と同じ探し方（持っていれば商品の1枚目、無ければ控えの1枚）</summary>
     public Func<string, System.Windows.Media.ImageSource?> MemberIconSelector => text =>
-        AvatarSuggestionText.IdOf(text) is { } id
-        && AvatarImageSync.IconPath(_services.Paths, id, _main.Search.FindItem(id), _services.Settings.ShowRemovedBoothImages) is { } path
-            ? _main.Thumbnails.LoadForTile(path)
-            : null;
+        MemberIconPath(text) is { } path ? _main.Thumbnails.LoadForTile(path) : null;
+
+    /// <summary>その候補の頭の絵に乗せた時の大きな絵（ユーザ判断 2026-11-20・①）。乗せた時に初めて読む</summary>
+    public Func<string, Action, System.Windows.Media.ImageSource?> MemberHoverIconSelector => (text, onLoaded) =>
+        MemberIconPath(text) is { } path ? _main.Thumbnails.PeekForCard(path, onLoaded) : null;
+
+    private string? MemberIconPath(string text) => AvatarSuggestionText.IdOf(text) is { } id
+        ? AvatarImageSync.IconPath(_services.Paths, id, _main.Search.FindItem(id), _services.Settings.ShowRemovedBoothImages)
+        : null;
 
     private AvatarRowViewModel? RowOf(string itemId) => _all.FirstOrDefault(row => row.ItemId == itemId);
 

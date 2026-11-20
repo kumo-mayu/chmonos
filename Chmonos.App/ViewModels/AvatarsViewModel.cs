@@ -713,6 +713,10 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     public Func<string, System.Windows.Media.ImageSource?> BaseIconSelector => name =>
         AvatarBaseIcons.Load(_services, name, _main.Search.FindItem, _main.Thumbnails.LoadForTile);
 
+    /// <summary>その候補の頭の絵に乗せた時の大きな絵（ユーザ判断 2026-11-20・①）。乗せた時に初めて読む</summary>
+    public Func<string, Action, System.Windows.Media.ImageSource?> BaseHoverIconSelector => (name, onLoaded) =>
+        AvatarBaseIcons.Load(_services, name, _main.Search.FindItem, path => _main.Thumbnails.PeekForCard(path, onLoaded));
+
     public RelayCommand DetectCommand { get; }
 
     /// <summary>候補付きの欄から共通素体を決める（I6）。</summary>
@@ -1162,10 +1166,15 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
     /// <summary>候補の頭の絵（素体の側からアバターを足す欄と同じ探し方）。</summary>
     public Func<string, System.Windows.Media.ImageSource?> BaseSearchIconSelector => text =>
-        _baseSearchRows.TryGetValue(text, out var row)
-        && AvatarImageSync.IconPath(_services.Paths, row.ItemId, _main.Search.FindItem(row.ItemId), _services.Settings.ShowRemovedBoothImages) is { } path
-            ? _main.Thumbnails.LoadForTile(path)
-            : null;
+        BaseSearchIconPath(text) is { } path ? _main.Thumbnails.LoadForTile(path) : null;
+
+    /// <summary>その候補の頭の絵に乗せた時の大きな絵（ユーザ判断 2026-11-20・①）。乗せた時に初めて読む</summary>
+    public Func<string, Action, System.Windows.Media.ImageSource?> BaseSearchHoverIconSelector => (text, onLoaded) =>
+        BaseSearchIconPath(text) is { } path ? _main.Thumbnails.PeekForCard(path, onLoaded) : null;
+
+    private string? BaseSearchIconPath(string text) => _baseSearchRows.TryGetValue(text, out var row)
+        ? AvatarImageSync.IconPath(_services.Paths, row.ItemId, _main.Search.FindItem(row.ItemId), _services.Settings.ShowRemovedBoothImages)
+        : null;
 
     /// <summary>
     /// 探して足す欄で Enter（か候補を押した）。アバターの候補を選んだ時はその名前で絞るだけで、それ以外の語は素体として足す
