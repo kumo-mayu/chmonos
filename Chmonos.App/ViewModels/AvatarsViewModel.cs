@@ -214,6 +214,9 @@ public sealed class AvatarBaseRowViewModel : ViewModelBase
 
     public string Name => Summary.Group.Name;
 
+    /// <summary>共通素体の見方の探す欄の照らし（名前だけ・大文字小文字は区別しない。組を探す欄の素体の端と同じ）。</summary>
+    public bool Matches(string query) => Name.Contains(query, StringComparison.CurrentCultureIgnoreCase);
+
     private string _nameInput = string.Empty;
 
     /// <summary>
@@ -930,6 +933,8 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     private void RaiseModes()
     {
         OnPropertyChanged(nameof(IsAvatarMode));
+        OnPropertyChanged(nameof(ListPaneLabel));
+        OnPropertyChanged(nameof(ShowsNoMatchingBases));
         OnPropertyChanged(nameof(ShowsAvatarDetail));
         OnPropertyChanged(nameof(ShowsNoBases));
         OnPropertyChanged(nameof(ShowsBaseDetail));
@@ -947,6 +952,60 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
     /// <summary>素体を見ようとしたが1つも無いとき。空欄ではなく作り方を出す。</summary>
     public bool ShowsNoBases => IsBaseMode && !HasBases;
+
+    /// <summary>
+    /// 左の一覧を畳んだ帯の名前（2026-11-20・ユーザ「画面に対して正しいものを表示したい」）。今の見方の名前にする。
+    /// 決め打ちの「アバター」だと、共通素体・変換を見ていても帯は「アバター」と出ていた
+    /// </summary>
+    public string ListPaneLabel => IsBaseMode ? "共通素体" : IsConversionMode ? "変換" : "アバター";
+
+    // ---- 共通素体を探す欄（2026-11-20・ユーザ「共通素体の画面にもアバター検索は付けましょう。」） ----
+    //
+    // 欄の形は「アバター」の見方の探す欄と同じ。当てるのは素体の名前だけ（素体を使うアバターの名前では当てない。
+    // 当てると、なぜその素体が残ったかが行に出ない。アバターの素体はアバターの詳細で分かる）。
+    // Bases は全部の素体のまま持つ（改名の統合先・足す時の「既にあります」・組の端へ移れるかが全部を見る）。絞るのは一覧に出す物だけ
+
+    private string _baseQuery = string.Empty;
+
+    /// <summary>共通素体の見方の探す欄の語。</summary>
+    public string BaseQuery
+    {
+        get => _baseQuery;
+        set
+        {
+            if (!SetField(ref _baseQuery, value ?? string.Empty))
+            {
+                return;
+            }
+
+            // 一覧を差し替えると ListBox が選びに null を書き戻すことがあるので、先に控えておく。
+            // 当たらなくなった素体を選んでいたら、当たる最初の素体へ（「アバター」の見方の探す欄と同じ）
+            var keep = SelectedBase;
+            RefilterBases();
+            var next = keep is not null && ShownBases.Contains(keep) ? keep : ShownBases.FirstOrDefault();
+            if (!ReferenceEquals(SelectedBase, next))
+            {
+                SelectedBase = next;
+            }
+        }
+    }
+
+    /// <summary>共通素体の見方の一覧に出す素体（探す欄に当たる物）。</summary>
+    public RangeObservableCollection<AvatarBaseRowViewModel> ShownBases { get; } = [];
+
+    /// <summary>素体はあるのに、語に当てはまる素体が無い。</summary>
+    public bool ShowsNoMatchingBases => IsBaseMode && HasBases && ShownBases.Count == 0;
+
+    public RelayCommand ClearBaseQueryCommand => _clearBaseQueryCommand ??= new RelayCommand(() => BaseQuery = string.Empty);
+
+    private RelayCommand? _clearBaseQueryCommand;
+
+    private void RefilterBases()
+    {
+        var query = _baseQuery.Trim();
+        ShownBases.ReplaceAll(query.Length == 0 ? Bases : Bases.Where(row => row.Matches(query)));
+        OnPropertyChanged(nameof(ShowsNoMatchingBases));
+    }
 
     public RelayCommand ShowAvatarModeCommand => _showAvatarModeCommand ??= new RelayCommand(() =>
     {
@@ -1120,6 +1179,15 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         get => _selectedBase;
         set
         {
+            // 絞りで外れた素体を選んだ（組の端・足した素体・戻る）なら、そのときだけ絞りを外す（「アバター」の見方と同じ）。
+            // 選ぶ前に外す：一覧の差し替えの間に ListBox が書き戻す選びを、後から選ぶ値で上書きするため
+            if (value is not null && !ShownBases.Contains(value) && _baseQuery.Length > 0)
+            {
+                _baseQuery = string.Empty;
+                OnPropertyChanged(nameof(BaseQuery));
+                RefilterBases();
+            }
+
             if (SetField(ref _selectedBase, value))
             {
                 SyncBaseMembers();
@@ -1828,9 +1896,13 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
                 BaseNames.Add(name);
             }
 
-            // 同じ行を入れ直しても、所属の数が変わっていることがあるので必ず知らせ直す
+            // 一覧に出す物を先に新しい行で作り直す（古い行のままだと、選び直した行が絞りで外れたと読んで絞りを外す）
+            RefilterBases();
+
+            // 同じ行を入れ直しても、所属の数が変わっていることがあるので必ず知らせ直す。
+            // 控えた素体が無ければ、絞りに当たる最初の素体（当たる物が無ければ選ばない）
             _selectedBase = null;
-            SelectedBase = Bases.FirstOrDefault(row => row.Name == selectedBaseName) ?? Bases.FirstOrDefault();
+            SelectedBase = Bases.FirstOrDefault(row => row.Name == selectedBaseName) ?? ShownBases.FirstOrDefault();
 
             IsLoading = false;
             Rebuild();

@@ -18,6 +18,7 @@ public class FilterFieldDelayTests
     [InlineData("ShopsView.xaml", "FilterText")]
     [InlineData("AttributeManageView.xaml", "ItemFilter")]
     [InlineData("AvatarsView.xaml", "Query")]
+    [InlineData("AvatarsView.xaml", "BaseQuery")]
     [InlineData("ItemAvatarsPanel.xaml", "AvatarFilter")]
     [InlineData("ResolveView.xaml", "FilterText")]
     public void 打つたびに絞る検索欄は_200ms待ってから絞る(string view, string property)
@@ -25,8 +26,10 @@ public class FilterFieldDelayTests
         var text = File.ReadAllText(Path.Combine(ViewsFolder(), view));
         var bindings = BindingOf(property).Matches(text).Select(match => match.Value).ToList();
 
-        var binding = Assert.Single(bindings);
-        Assert.Contains("Delay=200", binding);
+        // アバターの管理は「アバター」の欄と「変換」の組を探す欄が同じ名前（Query。持ち主の DataContext が違う）なので、
+        // 1つと決めずに、見つかった欄の全部が待つかを見る
+        Assert.NotEmpty(bindings);
+        Assert.All(bindings, binding => Assert.Contains("Delay=200", binding));
     }
 
     /// <summary>

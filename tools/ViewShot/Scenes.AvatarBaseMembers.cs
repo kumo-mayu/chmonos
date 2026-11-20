@@ -132,6 +132,55 @@ internal static partial class Scenes
 
             return new Shot(root);
         }),
+
+        new Scene("avatars-conversion-pairs-search", "アバターの管理：変換の上の組を探す欄（「ツムギ」で両方を探し、覚えた畳みのコハクのまとまりも開いて見せる）と、選んだ組の右の欄の元・先の絵", async context =>
+        {
+            await SeedConversionPairsAsync(context, withFolded: true);
+            await context.Fake.ItemAsync("9900602", "作り物のアバター「アオイ」", images: 1);
+            var (avatars, root) = await OpenBaseMembersAsync(context);
+            avatars.ShowConversionModeCommand.Execute(null);
+            await context.SettleAsync();
+            var pairs = avatars.ConversionPairs;
+            pairs.Groups.Single(group => group.Name == "コハク").IsExpanded = false;
+            pairs.Query = "ツムギ";
+            pairs.SelectedRow = pairs.VisibleRows.First(row => row.FromName == "アオイ");
+            await context.SettleAsync();
+            if (pairs.VisibleRows.Count != 2 || !pairs.Groups.Single(group => group.Name == "コハク").IsExpanded || !avatars.ShowsConversionPairDetail)
+            {
+                throw new InvalidOperationException("「ツムギ」で組が2つ・コハクのまとまりが開いて並ばない");
+            }
+
+            return new Shot(root);
+        }),
+
+        new Scene("avatars-bases-search", "アバターの管理：共通素体の見方の探す欄（素体の名前で絞った所。下に素体を追加する欄）", async context =>
+        {
+            var (avatars, root) = await OpenBaseMembersAsync(context);
+            avatars.ShowBaseModeCommand.Execute(null);
+            avatars.BaseQuery = "maru";
+            await context.SettleAsync();
+            if (avatars.ShownBases.Count != 1 || avatars.SelectedBase?.Name != "MARUBODY")
+            {
+                throw new InvalidOperationException("「maru」で MARUBODY だけが並んで選ばれない");
+            }
+
+            return new Shot(root);
+        }),
+
+        new Scene("avatars-collapsed-conversion", "アバターの管理：変換の見方で左の一覧を畳んだ所（帯の名前が「変換」）", async context =>
+        {
+            await SeedConversionPairsAsync(context);
+            var (avatars, root) = await OpenBaseMembersAsync(context);
+            avatars.ShowConversionModeCommand.Execute(null);
+            avatars.ListPane.ToggleCollapseCommand.Execute(null);
+            await context.SettleAsync();
+            if (!avatars.ListPane.IsCollapsed || Look.Text(root, "変換") is null)
+            {
+                throw new InvalidOperationException("畳んだ帯に「変換」が出ない");
+            }
+
+            return new Shot(root);
+        }),
     ];
 
     /// <summary>名前から MARUBODY に推されるアバター1体・手で素体を決めたアバター1体・素体の無いアバター2体と、共通素体2つ。</summary>
