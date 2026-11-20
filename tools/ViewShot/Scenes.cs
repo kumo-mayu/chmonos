@@ -44,6 +44,7 @@ internal static partial class Scenes
         .. SearchModuleReview,
         .. MatchModeDimScenes,
         .. AddMenuScenes,
+        .. ListColumnMenuScenes,
         .. SortMenuScenes,
         .. SearchKeyScenes,
         .. SavedSearchScenes,
