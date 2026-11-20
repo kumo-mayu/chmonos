@@ -79,6 +79,20 @@ public sealed partial class AvatarsViewModel
     /// <summary>左の一覧（群は「決めていない」「途中」「決めた」「扱わない」の順。並びが群の順になるよう、先に並べてから群に分ける）。</summary>
     public ListCollectionView ConversionItems { get; private set; } = Grouped([]);
 
+    /// <summary>
+    /// 左の欄の探す欄より下の、1つの流れ（ユーザ判断 2026-11-20・①「左側の検索より下で一個で良い」）。先頭に追加した組の節（<see cref="ConversionPairsSection"/>）、
+    /// 続けて <see cref="ConversionItems"/> と同じ行を同じ群で。節も群の1つにして、同じ一覧の中で流す。
+    /// 外に流れを1つ置いて節と一覧を積むと、一覧の高さが無限になって見える行だけ作るのが効かず、数百件の行と絵を全部作る
+    /// </summary>
+    public ListCollectionView ConversionList => _conversionList ??= Listed([]);
+
+    private ListCollectionView? _conversionList;
+
+    /// <summary>追加した組の節（<see cref="ConversionList"/> の先頭の1行）。</summary>
+    public ConversionPairsSection PairsSection => _pairsSection ??= new ConversionPairsSection(ConversionPairs);
+
+    private ConversionPairsSection? _pairsSection;
+
     public bool HasConversionItems => _conversionItems.Count > 0;
 
     /// <summary>変換を見ているのに1件も無いとき。空欄ではなく、何をすれば並ぶかを出す。</summary>
@@ -645,6 +659,8 @@ public sealed partial class AvatarsViewModel
 
         ConversionItems = Grouped(_shownConversionItems);
         OnPropertyChanged(nameof(ConversionItems));
+        _conversionList = Listed(_shownConversionItems);
+        OnPropertyChanged(nameof(ConversionList));
         OnPropertyChanged(nameof(ShowsNoMatchingConversionItems));
         if (keep is not null)
         {
@@ -662,6 +678,14 @@ public sealed partial class AvatarsViewModel
     {
         var view = new ListCollectionView(rows);
         view.GroupDescriptions.Add(new PropertyGroupDescription(nameof(ConversionItemRowViewModel.GroupHeader)));
+        return view;
+    }
+
+    /// <summary>左の欄の流れ：先頭に追加した組の節、続けて行（群は節と、行の見出し）。</summary>
+    private ListCollectionView Listed(List<ConversionItemRowViewModel> rows)
+    {
+        var view = new ListCollectionView(new List<object>([PairsSection, .. rows]));
+        view.GroupDescriptions.Add(ConversionListGrouping.Instance);
         return view;
     }
 
@@ -831,6 +855,33 @@ public sealed class ConversionItemRowViewModel : ViewModelBase
         OnPropertyChanged(nameof(BadgeText));
         OnPropertyChanged(nameof(HasBadge));
     }
+}
+
+/// <summary>
+/// 「変換」の左の流れの先頭の1行：追加した組の節（探す欄より下を1つの流れにするため、節を一覧の1行として持つ。ユーザ判断 2026-11-20・①）。
+/// 選ぶ行ではない（画面は選べない入れ物で出す）。群は自分自身（見出しを出さない群）
+/// </summary>
+public sealed class ConversionPairsSection
+{
+    internal ConversionPairsSection(ConversionPairEditor pairs) => Pairs = pairs;
+
+    public ConversionPairEditor Pairs { get; }
+
+    // 群の入れ物と行の読み上げの名前に使われる（無いと型の名前が読まれる）
+    public override string ToString() => "追加した組";
+}
+
+/// <summary>左の流れの群の分け方：節はそれだけの群、行は見出しの物（<see cref="ConversionItemGroupHeader"/>）で。</summary>
+internal sealed class ConversionListGrouping : System.ComponentModel.GroupDescription
+{
+    public static readonly ConversionListGrouping Instance = new();
+
+    public override object? GroupNameFromItem(object item, int level, System.Globalization.CultureInfo culture) => item switch
+    {
+        ConversionPairsSection section => section,
+        ConversionItemRowViewModel row => row.GroupHeader,
+        _ => null,
+    };
 }
 
 /// <summary>

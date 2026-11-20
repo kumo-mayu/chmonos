@@ -55,6 +55,7 @@ internal static partial class Scenes
         .. AvatarConfirmScenes,
         .. AvatarViaBaseScenes,
         .. AvatarViaConversionScenes,
+        .. ConversionLeftManyScenes,
         .. UsedUpdateScenes,
         .. PluginScenes,
         .. ItemOpenPerfScenes,
