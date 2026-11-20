@@ -55,7 +55,9 @@ public class RightClickActionButtonsTests
 
         Assert.Equal("{Binding RemoveImageCommand}", (string?)menu.Attribute("Command"));
         Assert.Equal("{Binding RemoveImageCommand}", (string?)button.Attribute("Command"));
-        Assert.Contains("DangerButton", (string?)button.Attribute("Style"));
+        // 畳んだ間は隠すので、形は中の Style の BasedOn で付ける（ユーザ判断 2026-11-20）
+        var style = Assert.Single(button.Descendants(), e => e.Name.LocalName == "Style");
+        Assert.Contains("DangerButton", (string?)style.Attribute("BasedOn"));
     }
 
     [Fact]

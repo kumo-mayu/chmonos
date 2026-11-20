@@ -42,7 +42,11 @@ public class DeleteIsRedTests
                 }
 
                 checkedCount++;
-                var style = (string?)element.Attribute("Style") ?? "";
+                // 出し分けのために中に Style を書いた物（ギャラリーの「削除」）は、その BasedOn で見る
+                var style = (string?)element.Attribute("Style")
+                    ?? (string?)element.Elements().FirstOrDefault(e => e.Name.LocalName.EndsWith(".Style"))
+                        ?.Elements().FirstOrDefault(e => e.Name.LocalName == "Style")?.Attribute("BasedOn")
+                    ?? "";
                 var expected = element.Name.LocalName == "Button" ? "DangerButton" : "DangerMenuItem";
                 if (!style.Contains(expected))
                 {

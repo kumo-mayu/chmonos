@@ -231,10 +231,13 @@
                                 小さな絵は、見えている段（と1段先）だけを最初の配置で作り、残りは絵を描いた後に1枚ずつ足す
                                 （ProgressiveItems。ユーザ判断 2026-11-20：最初の数段だけ作り、残りは手の空いた時に作る）。
                                 78枚の商品で、開く時の1回の止まりが3枚より約120〜130ms 長く、その多くが小さな絵の配置と読み上げの木の作り直しだった（2026-11-18 に測った）。
-                                先読みの 62 は1段（枠 54＋間 8）：少し流した所に空きが見えないだけの分。既定の 300 では十段近くを最初に作ってしまう
+                                先読みの 62 は1段（枠 54＋間 8）：少し流した所に空きが見えないだけの分。既定の 300 では十段近くを最初に作ってしまう。
+                                畳んだ間は並びごと隠す（末尾の「足す」枠も。ユーザ判断 2026-11-20：「＋」と「削除」だけ残ると中途半端に見える。
+                                前は「＋」を残していた・2026-11-19）。足すのは大きな絵の右クリックでできる。隠れた並びは ProgressiveItems が全部まとめて足す
                             -->
                             <controls:ContentItemsControl x:Name="Tiles" controls:ProgressiveItems.Source="{Binding GalleryTiles}" controls:ProgressiveItems.LookAheadOverride="62"
-                                                          Margin="10" controls:ArrowGroup.IsEnabled="True">
+                                                          Margin="10" controls:ArrowGroup.IsEnabled="True"
+                                                          Visibility="{Binding GalleryTilesFolded, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <WrapPanel />
@@ -271,11 +274,8 @@
                                                         <Setter Property="BorderBrush" Value="{DynamicResource Border}" />
                                                         <Setter Property="Opacity" Value="0.72" />
                                                         <Style.Triggers>
-                                                            <!-- 「足す」枠は絵ではない。畳んだ間は絵だけを隠し、「＋」は残す（ユーザ判断 2026-11-19・open.md 61） -->
+                                                            <!-- 「足す」枠は絵ではない（畳んだ間は並びごと隠れる） -->
                                                             <DataTrigger Binding="{Binding IsImage}" Value="False">
-                                                                <Setter Property="Visibility" Value="Collapsed" />
-                                                            </DataTrigger>
-                                                            <DataTrigger Binding="{Binding DataContext.GalleryTilesFolded, RelativeSource={RelativeSource AncestorType=ItemsControl}}" Value="True">
                                                                 <Setter Property="Visibility" Value="Collapsed" />
                                                             </DataTrigger>
                                                             <DataTrigger Binding="{Binding IsSelected}" Value="True">
@@ -338,13 +338,28 @@
                             <!--
                                 右クリックの「この画像を削除」と同じ命令（基本の操作は右クリックと画面の両方に置く・ユーザ判断 2026-10-06）。
                                 押せないときも出したまま、理由を吹き出しで言う（右クリックと同じ文）。
-                                画像が1枚も無いときは消す相手がいないので出さない
+                                画像が1枚も無いときは消す相手がいないので出さない。
+                                小さな絵を畳んだ間も出さない（ユーザ判断 2026-11-20：並びと一緒に畳む。消すのは大きな絵の右クリックでできる）
                             -->
-                            <Button Content="削除" AutomationProperties.Name="この画像を削除" Style="{StaticResource DangerButton}" HorizontalAlignment="Left" Margin="12,0,12,10"
+                            <Button Content="削除" AutomationProperties.Name="この画像を削除" HorizontalAlignment="Left" Margin="12,0,12,10"
                                     AutomationProperties.AutomationId="GalleryRemoveImage"
                                     Command="{Binding RemoveImageCommand}"
-                                    ToolTip="{Binding RemoveImageButtonTip}" ToolTipService.ShowOnDisabled="True"
-                                    Visibility="{Binding HasCurrentImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                    ToolTip="{Binding RemoveImageButtonTip}" ToolTipService.ShowOnDisabled="True">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource DangerButton}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding HasCurrentImage}" Value="True" />
+                                                    <Condition Binding="{Binding GalleryTilesFolded}" Value="False" />
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </MultiDataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
 
                             <TextBlock Text="{Binding UserImageText}" Style="{StaticResource Caption}" Margin="12,0,12,4"
                                        Visibility="{Binding HasUserImages, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
