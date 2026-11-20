@@ -129,9 +129,16 @@ public sealed class ConversionPairGroup : ViewModelBase
         From = from;
         Name = name;
         _isExpanded = isExpanded;
+        OpenCommand = new RelayCommand(() => owner.Open(From), () => owner.CanOpen(From));
     }
 
     public ConversionEnd From { get; }
+
+    /// <summary>
+    /// 見出しの右クリックの「開く」：元のアバター・共通素体へ移る（ユーザ判断 2026-11-20「共通素体から共通素体のページに飛べた方が良い」）。
+    /// 見出しを押すと畳むので、移る口は右クリックに置く。右の組の欄の元・先の名前と同じ移り方（登録簿・素体の一覧に無い物は押せない）
+    /// </summary>
+    public RelayCommand OpenCommand { get; }
 
     public string Name { get; }
 

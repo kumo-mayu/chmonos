@@ -1372,8 +1372,10 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         {
             // 絞りで外れた素体を選んだ（組の端・足した素体・戻る）なら、そのときだけ絞りを外す（「アバター」の見方と同じ）。
             // 選ぶ前に外す：一覧の差し替えの間に ListBox が書き戻す選びを、後から選ぶ値で上書きするため
-            if (value is not null && !ShownBases.Contains(value) && _baseQuery.Length > 0)
+            // 候補で選んだアバターの絞り（_pickedBaseAvatarId）も一緒に外す。語だけ外すと、ID の絞りが残って素体が隠れたまま選べなかった
+            if (value is not null && !ShownBases.Contains(value) && (_baseQuery.Length > 0 || _pickedBaseAvatarId is not null))
             {
+                _pickedBaseAvatarId = null;
                 _baseQuery = string.Empty;
                 OnPropertyChanged(nameof(BaseQuery));
                 RefilterBases();

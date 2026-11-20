@@ -415,6 +415,13 @@ public sealed class ItemConversionEditor : ViewModelBase
     /// </summary>
     public bool ShowsReasons { get; init; }
 
+    /// <summary>
+    /// つなぎ先の札の右クリックの「開く」（アバターの管理の「変換」だけが渡す。ユーザ判断 2026-11-20「共通素体から共通素体のページに飛べた方が良い」）。
+    /// アバターならアバターの見方、共通素体なら共通素体の見方でそれを選ぶ。商品ページでは渡さず、項目も出さない
+    /// （商品ページから移る先はアバターの管理で、1件を見に来た所から画面ごと離れる口は置かない）
+    /// </summary>
+    public (Func<ConversionEnd, bool> CanOpen, Action<ConversionEnd> Open)? OpenTarget { get; init; }
+
     /// <summary>商品の1枚目の絵を引く道（アバターの管理と同じ引き方。検索の写しに無い商品は絵が無い）。</summary>
     public static Func<string, System.Windows.Media.ImageSource?> IconsFrom(AppServiceContainer services, MainViewModel main)
         => itemId => AvatarImageSync.IconPath(services.Paths, itemId, main.Search.FindItem(itemId), services.Settings.ShowRemovedBoothImages) is { } path
@@ -492,6 +499,9 @@ public sealed class ItemConversionEditor : ViewModelBase
         RemoveCommand = new RelayCommand(
             () => ChangeAsync(ConversionEdits.Reject(target)).Forget(),
             () => !_isLocked()),
+        OpenCommand = OpenTarget is { } open && EndOf(target) is { } end
+            ? new RelayCommand(() => open.Open(end), () => open.CanOpen(end))
+            : null,
         Direction = DirectionCode(target.Forward, target.Reverse),
 
         // 向きはふつう中のファイルの名前で決まるので、変える口は右クリックだけに置く（ユーザ判断 2026-11-09「普通は使わない」）
@@ -512,6 +522,12 @@ public sealed class ItemConversionEditor : ViewModelBase
             },
             _ => !_isLocked()),
     };
+
+    /// <summary>つなぎ先の端（組の端と同じ形）。素体の名前も ID も無い（壊れた記録）なら null。</summary>
+    private static ConversionEnd? EndOf(ConversionTarget target)
+        => target.BaseName is { } baseName ? ConversionEnd.Base(baseName)
+        : target.AvatarItemId is { } id ? ConversionEnd.Avatar(id)
+        : null;
 
     /// <summary>選ぶ欄で決めたつなぎ先を書く。候補に無い名前は何もしない（候補から選ぶ欄）。</summary>
     private Task<bool> ChooseAsync(ProfileSlug profile, string? text)
@@ -634,6 +650,11 @@ public sealed class ConversionTargetRow
     public RelayCommand? ConfirmCommand { get; init; }
 
     public RelayCommand? RemoveCommand { get; init; }
+
+    /// <summary>札の右クリックの「開く」（つなぎ先のアバター・共通素体へ移る）。持ち主が口を渡さない商品ページでは null で、項目を出さない。</summary>
+    public RelayCommand? OpenCommand { get; init; }
+
+    public bool HasOpen => OpenCommand is not null;
 
     /// <summary>つなぎ先の決まっていない行の、選ぶ欄の確定（引数は選んだ候補の文字列）。</summary>
     public RelayCommand? ChooseCommand { get; init; }
