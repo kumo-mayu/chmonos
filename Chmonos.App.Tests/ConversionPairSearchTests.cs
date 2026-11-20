@@ -198,7 +198,7 @@ public class ConversionPairSearchTests
     });
 
     [Fact]
-    public Task 共通素体の見方の探す欄は素体の名前で絞り_使うアバターの名前では当てない() => TestApp.Run(async app =>
+    public Task 共通素体の見方の探す欄は素体の名前か入ったアバターで絞り_アバターで当たった行には何で当たったかを添える() => TestApp.Run(async app =>
     {
         await app.Store.Avatars.SaveAsync(new AvatarRegistry
         {
@@ -219,8 +219,15 @@ public class ConversionPairSearchTests
 
         // 素体の数（切り替えの「共通素体（n）」）は絞っても全部の数
         Assert.Equal("共通素体（2）", avatars.BaseModeText);
+        Assert.False(avatars.ShownBases.Single().HasMatchNote);
 
+        // 入ったアバターの名前でも当たり、何で当たったかを行に添える（ユーザ判断 2026-11-20・⑤）
         avatars.BaseQuery = "アオイ";
+        var shown = Assert.Single(avatars.ShownBases);
+        Assert.Equal("作り物素体", shown.Name);
+        Assert.Equal("アバター「アオイ」", shown.MatchNote);
+
+        avatars.BaseQuery = "当たらない語";
         Assert.Empty(avatars.ShownBases);
         Assert.True(avatars.ShowsNoMatchingBases);
         Assert.False(avatars.ShowsNoBases);

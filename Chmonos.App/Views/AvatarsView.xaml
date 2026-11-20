@@ -493,16 +493,18 @@
                         <!--
                             追加した組を探す欄（2026-11-20・ユーザ「元と先、両方を指定できる形の文字列(他のアバター検索UIと同じ形)検索」）。
                             欄の見た目・案内の文・当てる語は「アバター」の見方の探す欄と同じ（共通素体は名前）。探す所は、つながったボタンで両方・元・先（既定は両方）。
-                            絞るのは追加した組だけで、プロファイルの商品の一覧は絞らない
+                            追加した組と、下のプロファイルの商品の一覧の両方を絞る（ユーザ判断 2026-11-20・②）。商品は、つなぎ先を向きで元（逆方向）と先（順方向）に分けて当て、
+                            商品名は「両方」の時だけ当てる（ConversionItemSearch）
                         -->
                         <StackPanel DockPanel.Dock="Top" Margin="14,12,14,0" DataContext="{Binding ConversionPairs}"
                                     Visibility="{Binding DataContext.IsConversionMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <Grid>
-                                <TextBox Padding="8,6" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                                <TextBox x:Name="ConversionPairSearchBox" Padding="8,6" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged, Delay=200}"
                                          AutomationProperties.Name="名前・ID・呼び方で探す" AutomationProperties.AutomationId="AvatarsConversionPairSearch"
-                                         ToolTip="追加した組を、元と先の名前・ID・呼び方で絞り込みます。" />
+                                         ToolTip="追加した組とプロファイルの商品を、名前・ID・呼び方で絞り込みます。" />
+                                <!-- 案内は欄そのものの字で出し分ける。Query は打ってから 200ms 遅れて入るので、それで決めると打った字と重なった（ユーザ判断 2026-11-20・①） -->
                                 <TextBlock Text="名前・ID・呼び方で探す" Margin="11,0,0,0" Style="{StaticResource InputPlaceholder}"
-                                           Visibility="{Binding Query, Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
+                                           Visibility="{Binding Text.IsEmpty, ElementName=ConversionPairSearchBox, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                             </Grid>
                             <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
                                 <TextBlock Text="探す所" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="2,0,8,0" />
@@ -510,17 +512,17 @@
                                                              Command="{Binding SetScopeCommand}" CommandParameter="both"
                                                              IsChecked="{Binding IsScopeBoth, Mode=OneWay}"
                                                              AutomationProperties.AutomationId="AvatarsConversionPairSearchBoth"
-                                                             ToolTip="元と先のどちらかに当たる組を出します。" />
+                                                             ToolTip="元と先のどちらかに当たる組と商品を表示します。" />
                                 <controls:CommandRadioButton Content="元" GroupName="ConversionPairSearchScope" Style="{StaticResource SegmentMiddle}"
                                                              Command="{Binding SetScopeCommand}" CommandParameter="from"
                                                              IsChecked="{Binding IsScopeFrom, Mode=OneWay}"
                                                              AutomationProperties.AutomationId="AvatarsConversionPairSearchFrom"
-                                                             ToolTip="元に当たる組だけを出します。" />
+                                                             ToolTip="元に当たる組と商品だけを表示します。" />
                                 <controls:CommandRadioButton Content="先" GroupName="ConversionPairSearchScope" Style="{StaticResource SegmentLast}"
                                                              Command="{Binding SetScopeCommand}" CommandParameter="to"
                                                              IsChecked="{Binding IsScopeTo, Mode=OneWay}"
                                                              AutomationProperties.AutomationId="AvatarsConversionPairSearchTo"
-                                                             ToolTip="先に当たる組だけを出します。" />
+                                                             ToolTip="先に当たる組と商品だけを表示します。" />
                             </StackPanel>
                         </StackPanel>
 
@@ -688,49 +690,39 @@
 
                         <Grid DockPanel.Dock="Top" Margin="14,12,14,10"
                               Visibility="{Binding IsAvatarMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                            <TextBox Padding="8,6" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                            <TextBox x:Name="AvatarSearchBox" Padding="8,6" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged, Delay=200}"
                                  AutomationProperties.Name="名前・ID・呼び方で探す"
                                      ToolTip="アバター名・商品ID・BOOTHでの正式名・呼び方で絞り込みます。" />
-                            <!-- 空欄のままだと何を入れる欄か分からないので、内側に案内を出す -->
+                            <!--
+                                空欄のままだと何を入れる欄か分からないので、内側に案内を出す。
+                                出し分けは欄そのものの字で（Query は 200ms 遅れて入るので、それで決めると打った字と重なった。ユーザ判断 2026-11-20・①）
+                            -->
                             <TextBlock Text="名前・ID・呼び方で探す" Margin="11,0,0,0" Style="{StaticResource InputPlaceholder}"
-                                       Visibility="{Binding Query, Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
+                                       Visibility="{Binding Text.IsEmpty, ElementName=AvatarSearchBox, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                         </Grid>
 
                         <!--
-                            共通素体を手で足す欄（ユーザ判断 2026-09-28）。一覧には検出で見つかった素体しか並ばず、足す口が無かった。
-                            **候補は付けない**（メモ9-⑥ 2026-10-02。「入力欄には候補を付ける」の例外・ui-input.md）。新しい素体を名付ける欄で、
-                            今ある名前を候補に並べても重複を誘うだけだった。Enter か「追加」で足し、今ある名前なら「既にあります」と言う
+                            共通素体を探して足す欄（ユーザ判断 2026-11-20・⑤。前は探す欄と足す欄が縦に2本あった）。タグの管理の小分類の欄と同じく1本にし、右に「追加」。
+                            打つと一覧を絞る（素体の名前か、素体に入ったアバターの名前・ID・正式名・呼び方。アバターで当たった行には何で当たったかを添える）。
+                            候補は素体に入ったアバターの名前で、探すための物（素体の名前は候補にしない。新しく名付ける欄に今ある名前を並べると重複を誘う・ui-input.md）。
+                            Enter：アバターの候補ならその名前で絞り、ほかの語は素体として足す（同じ名前の素体があれば選んで「既にあります」）。「追加」はいつも足す。
+                            打ってすぐの Enter・「追加」は、結び付けの待ち（Delay=200）を先に流し込む（AvatarsView.xaml.cs。SearchAddBox と同じ）
                         -->
-                        <!--
-                            共通素体を探す欄（2026-11-20・ユーザ「共通素体の画面にもアバター検索は付けましょう。」）。欄の形は「アバター」の見方の探す欄と同じ。
-                            当てるのは素体の名前だけ（素体を使うアバターの名前で当てると、なぜ残ったかが行に出ない）
-                        -->
-                        <Grid DockPanel.Dock="Top" Margin="14,12,14,0"
-                              Visibility="{Binding IsBaseMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                            <TextBox Padding="8,6" Text="{Binding BaseQuery, UpdateSourceTrigger=PropertyChanged, Delay=200}"
-                                     AutomationProperties.Name="名前で探す" AutomationProperties.AutomationId="AvatarBaseSearch"
-                                     ToolTip="共通素体の名前で絞り込みます。" />
-                            <TextBlock Text="名前で探す" Margin="11,0,0,0" Style="{StaticResource InputPlaceholder}"
-                                       Visibility="{Binding BaseQuery, Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
-                        </Grid>
-
                         <DockPanel DockPanel.Dock="Top" Margin="14,12,14,0"
                                    Visibility="{Binding IsBaseMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <Button DockPanel.Dock="Right" Content="追加" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
-                                    AutomationProperties.AutomationId="AvatarBaseAdd"
+                                    AutomationProperties.AutomationId="AvatarBaseAdd" Click="BaseAdd_Click"
+                                    ToolTip="打った名前の共通素体を追加します。"
                                     Command="{Binding AddBaseCommand}" />
-                            <Grid>
-                                <TextBox Padding="8,6" MaxLength="60" Text="{Binding NewBaseName, UpdateSourceTrigger=PropertyChanged}"
-                                         AutomationProperties.AutomationId="AvatarBaseAddInput"
-                                         AutomationProperties.Name="追加する共通素体の名前">
-                                    <TextBox.InputBindings>
-                                        <KeyBinding Key="Enter" Command="{Binding AddBaseCommand}" />
-                                    </TextBox.InputBindings>
-                                </TextBox>
-                                <!-- 空欄のままだと何を入れる欄か分からないので、内側に案内を出す（上の検索の欄と同じ） -->
-                                <TextBlock Text="追加する共通素体の名前" Margin="11,0,0,0" Style="{StaticResource InputPlaceholder}"
-                                           Visibility="{Binding NewBaseName, Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
-                            </Grid>
+                            <controls:SuggestBox x:Name="BaseSearchBox" Text="{Binding BaseQuery, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                                                 Source="{Binding BaseSearchCandidates}" CommitCommand="{Binding BaseSearchCommitCommand}"
+                                                 InfoSelector="{Binding BaseSearchInfoSelector}" GroupHeadings="{x:Static vm:AvatarSuggestionText.Headings}"
+                                                 IconSelector="{Binding BaseSearchIconSelector}"
+                                                 AllowNew="False" KeepsCommittedText="True" MaxLength="60"
+                                                 Placeholder="素体・アバターを探す、または素体を追加"
+                                                 PreviewKeyDown="BaseSearchBox_PreviewKeyDown"
+                                                 AutomationProperties.Name="素体・アバターを探す、または素体を追加" AutomationProperties.AutomationId="AvatarBaseSearch"
+                                                 ToolTip="共通素体を、素体の名前か入っているアバターで絞り込みます。" />
                         </DockPanel>
 
                         <TextBlock DockPanel.Dock="Top" DataContext="{Binding AddBaseNote}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" Margin="16,4,14,0"
@@ -830,6 +822,11 @@
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding Name}" FontSize="12.5" TextTrimming="CharacterEllipsis" />
                                                 <TextBlock Text="{Binding MemberText}" Style="{StaticResource Caption}" Margin="0,2,0,0" />
+                                                <!-- 名前でなく入ったアバターで当たった行だけ、何で当たったかを添える（「アバター」の見方の行と同じ色・ユーザ判断 2026-11-20・⑤） -->
+                                                <TextBlock Text="{Binding MatchNote}" Style="{StaticResource Caption}" Margin="0,2,0,0"
+                                                           Foreground="{DynamicResource AccentSoftText}" TextTrimming="CharacterEllipsis"
+                                                           AutomationProperties.AutomationId="AvatarBaseRowMatchNote"
+                                                           Visibility="{Binding HasMatchNote, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                             </StackPanel>
                                         </Grid>
                                     </DataTemplate>
@@ -838,9 +835,13 @@
 
                             <!--
                                 変換ツールのプロファイルを持つ商品（ユーザ判断 2026-11-09：決めていない物を上に群で分ける）。
-                                行は字だけ（多くても数十件。絵を読ませない）。決めていない行には「確認待ち 3・未設定 2」の数を添える
+                                行の頭に商品の絵（ユーザ判断 2026-11-20・③。取り込みの探した結果・通知と同じ ResultThumbnail で、見えた行だけが縮めて読む）。
+                                群で分けると WPF は既定で全行を作るので、上の「アバター」の一覧と同じく見える行だけ作らせる（作った行の分だけ絵を読むため）。
+                                決めていない・途中の行には「確認待ち 3・未設定 2」の数を添える
                             -->
                             <ListBox ItemsSource="{Binding ConversionItems}" SelectedItem="{Binding SelectedConversion, Mode=TwoWay}"
+                                     VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+                                     VirtualizingPanel.VirtualizationMode="Recycling"
                                      ItemContainerStyle="{StaticResource AvatarBaseRowStyle}"
                                      BorderThickness="0" Background="Transparent" Margin="14,0,14,14"
                                      HorizontalContentAlignment="Stretch"
@@ -856,7 +857,8 @@
                                                         <ControlTemplate TargetType="GroupItem">
                                                             <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" Margin="0,8,0,2">
                                                                 <Expander.Header>
-                                                                    <TextBlock Style="{StaticResource SectionLabel}" Margin="0,0,0,4"><Run Text="{Binding Name, Mode=OneWay}" /><Run Text="（" /><Run Text="{Binding ItemCount, Mode=OneWay}" /><Run Text="）" /></TextBlock>
+                                                                    <!-- 群は見出しの字（名前と数。絞っている間は「当たった数/全部」）で分けてある（ConversionItemRowViewModel.GroupHeading） -->
+                                                                    <TextBlock Style="{StaticResource SectionLabel}" Margin="0,0,0,4" Text="{Binding Name, Mode=OneWay}" />
                                                                 </Expander.Header>
                                                                 <ItemsPresenter />
                                                             </Expander>
@@ -869,11 +871,22 @@
                                 </ListBox.GroupStyle>
                                 <ListBox.ItemTemplate>
                                     <DataTemplate DataType="{x:Type vm:ConversionItemRowViewModel}">
-                                        <StackPanel Margin="0,3,0,5">
-                                            <TextBlock Text="{Binding Name}" FontSize="12.5" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="{Binding BadgeText}" Style="{StaticResource Caption}" Foreground="{DynamicResource Warn}" Margin="0,2,0,0"
-                                                       Visibility="{Binding HasBadge, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                        </StackPanel>
+                                        <DockPanel Margin="0,3,0,3">
+                                            <!-- 枠は名前と札の2行の高さの 36（ファイルの割り振りの左の行と同じ）。絵が届くまで・絵の無い商品は頭文字 -->
+                                            <Border DockPanel.Dock="Left" Width="36" Height="36" CornerRadius="4" Margin="0,0,10,0" VerticalAlignment="Center"
+                                                    Background="{DynamicResource ThumbBack}" ClipToBounds="True">
+                                                <Grid>
+                                                    <TextBlock Text="{Binding Picture.Initial}" FontSize="{StaticResource FontSizeHeading}" Foreground="{DynamicResource TextMuted}"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    <Image Source="{Binding Picture.Image}" Stretch="UniformToFill" />
+                                                </Grid>
+                                            </Border>
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Name}" FontSize="12.5" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding BadgeText}" Style="{StaticResource Caption}" Foreground="{DynamicResource Warn}" Margin="0,2,0,0"
+                                                           Visibility="{Binding HasBadge, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                            </StackPanel>
+                                        </DockPanel>
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>
@@ -881,6 +894,15 @@
                             <TextBlock Style="{StaticResource Caption}" Margin="18,16,18,0" TextWrapping="Wrap"
                                        Visibility="{Binding ShowsNoConversionItems, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                        Text="変換ツールのプロファイルを含む商品はまだありません。取り込むと、ここに並びます。" />
+
+                            <!-- 探して0件と、そもそも1件も無いのを言い分ける（追加した組・「アバター」の見方と同じ。語は上の組を探す欄の物） -->
+                            <StackPanel Margin="18,16,18,0" HorizontalAlignment="Left"
+                                        Visibility="{Binding ShowsNoMatchingConversionItems, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Text="打ち込んだ言葉に当てはまる商品がありません。"
+                                           AutomationProperties.AutomationId="AvatarsConversionNoMatch" />
+                                <Button Content="絞り込みを消す" Style="{StaticResource SmallButton}" Margin="0,8,0,0" HorizontalAlignment="Left"
+                                        Command="{Binding ConversionPairs.ClearQueryCommand}" />
+                            </StackPanel>
 
                             <TextBlock Style="{StaticResource Caption}" Margin="18,16,18,0" TextWrapping="Wrap"
                                        Visibility="{Binding ShowsNoBases, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"

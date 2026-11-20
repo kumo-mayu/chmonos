@@ -203,4 +203,20 @@ public partial class AvatarsView : UserControl
         }
     }
 
+    /// <summary>
+    /// 共通素体を探して足す欄で、打ってすぐ Enter を押した。結び付けの待ち（Delay=200）で画面の側の語がまだ前の物のままなので、先に流し込む
+    /// （流し込まないと、決めた後に遅れて届いた語が「既にあります」を消す。SearchAddBox と同じ）
+    /// </summary>
+    private void BaseSearchBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == System.Windows.Input.Key.Enter)
+        {
+            BaseSearchBox.GetBindingExpression(SuggestBox.TextProperty)?.UpdateSource();
+        }
+    }
+
+    /// <summary>「追加」は打った語を足す。打ってすぐ押した時の待ちを、コマンドが動く前（Click は Command より先）に流し込む。</summary>
+    private void BaseAdd_Click(object sender, RoutedEventArgs e)
+        => BaseSearchBox.GetBindingExpression(SuggestBox.TextProperty)?.UpdateSource();
+
 }

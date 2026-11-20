@@ -38,7 +38,7 @@ public sealed class AvatarsNoticePlacementTests
         var avatars = await OpenAsync(app);
         avatars.ShowBaseModeCommand.Execute(null);
 
-        avatars.NewBaseName = "  ";
+        avatars.BaseQuery = "  ";
         avatars.AddBaseCommand.Execute(null);
         await app.SettleAsync();
 
@@ -46,7 +46,7 @@ public sealed class AvatarsNoticePlacementTests
         Assert.True(avatars.AddBaseNote.IsWarning);
         Assert.Equal(string.Empty, avatars.Status);
 
-        avatars.NewBaseName = "作り物の素体";
+        avatars.BaseQuery = "作り物の素体";
         Assert.Equal(string.Empty, avatars.AddBaseNote.Text);
     });
 
@@ -56,7 +56,7 @@ public sealed class AvatarsNoticePlacementTests
         var avatars = await OpenAsync(app);
         avatars.ShowBaseModeCommand.Execute(null);
 
-        avatars.NewBaseName = "作り物の素体";
+        avatars.BaseQuery = "作り物の素体";
         avatars.AddBaseCommand.Execute(null);
         await app.SettleAsync();
         await UiThread.Until(() => avatars.Bases.Count == 1, "足した素体が並ぶ");

@@ -214,8 +214,47 @@ public sealed class AvatarBaseRowViewModel : ViewModelBase
 
     public string Name => Summary.Group.Name;
 
-    /// <summary>共通素体の見方の探す欄の照らし（名前だけ・大文字小文字は区別しない。組を探す欄の素体の端と同じ）。</summary>
-    public bool Matches(string query) => Name.Contains(query, StringComparison.CurrentCultureIgnoreCase);
+    /// <summary>
+    /// 共通素体の見方の探す欄の照らし（ユーザ判断 2026-11-20・⑤）：素体の名前（大文字小文字は区別しない。組を探す欄の素体の端と同じ）か、
+    /// 素体に入ったアバター（「アバター」の見方の探す欄と同じ照らし：名前・商品ID・正式名・呼び方）。
+    /// 名前で当たらずアバターで当たった時は、何で残ったかを <see cref="MatchNote"/> に付ける（付けないと、なぜ残ったかが行に出ない）
+    /// </summary>
+    public bool Match(string query, IReadOnlyList<AvatarRowViewModel> members)
+    {
+        if (query.Length == 0 || Name.Contains(query, StringComparison.CurrentCultureIgnoreCase))
+        {
+            MatchNote = string.Empty;
+            return true;
+        }
+
+        var hits = members.Where(member => member.Matches(query)).Select(member => member.Name).ToList();
+        MatchNote = hits.Count switch
+        {
+            0 => string.Empty,
+            1 => $"アバター「{hits[0]}」",
+            _ => $"アバター「{hits[0]}」ほか {hits.Count - 1} 体",
+        };
+        return hits.Count > 0;
+    }
+
+    private string _matchNote = string.Empty;
+
+    /// <summary>入ったアバターで当たった時の「何で当たったか」（「アバター「A」」「アバター「A」ほか 2 体」）。名前で当たった・語が空の時は空。</summary>
+    public string MatchNote
+    {
+        get => _matchNote;
+        private set
+        {
+            if (_matchNote != value)
+            {
+                _matchNote = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HasMatchNote));
+            }
+        }
+    }
+
+    public bool HasMatchNote => _matchNote.Length > 0;
 
     private string _nameInput = string.Empty;
 
@@ -941,6 +980,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         OnPropertyChanged(nameof(ShowsConversionDetail));
         OnPropertyChanged(nameof(ShowsConversionPairDetail));
         OnPropertyChanged(nameof(ShowsNoConversionItems));
+        OnPropertyChanged(nameof(ShowsNoMatchingConversionItems));
     }
 
     public string AvatarModeText => $"アバター（{_all.Count}）";
@@ -959,10 +999,11 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     /// </summary>
     public string ListPaneLabel => IsBaseMode ? "共通素体" : IsConversionMode ? "変換" : "アバター";
 
-    // ---- 共通素体を探す欄（2026-11-20・ユーザ「共通素体の画面にもアバター検索は付けましょう。」） ----
+    // ---- 共通素体を探して足す欄（2026-11-20・ユーザ「共通素体の画面にもアバター検索は付けましょう。」・ユーザ判断⑤） ----
     //
-    // 欄の形は「アバター」の見方の探す欄と同じ。当てるのは素体の名前だけ（素体を使うアバターの名前では当てない。
-    // 当てると、なぜその素体が残ったかが行に出ない。アバターの素体はアバターの詳細で分かる）。
+    // 探す欄と足す欄を1本にした（タグの管理の小分類と同じ形・ui-input.md）。当てるのは素体の名前と、素体に入ったアバター
+    // （アバターで当たった行には、何で当たったかを添える）。候補は素体に入ったアバターの名前で、探すための物（素体の名前の候補ではない。
+    // 「新しく名付ける欄には候補を付けない」の決まりは、素体の名前に当てている）。
     // Bases は全部の素体のまま持つ（改名の統合先・足す時の「既にあります」・組の端へ移れるかが全部を見る）。絞るのは一覧に出す物だけ
 
     private string _baseQuery = string.Empty;
@@ -977,6 +1018,9 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
             {
                 return;
             }
+
+            // 打ち直すと「既にあります」は消す（足す欄だった時と同じ）
+            AddBaseNote.Clear();
 
             // 一覧を差し替えると ListBox が選びに null を書き戻すことがあるので、先に控えておく。
             // 当たらなくなった素体を選んでいたら、当たる最初の素体へ（「アバター」の見方の探す欄と同じ）
@@ -1003,9 +1047,68 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     private void RefilterBases()
     {
         var query = _baseQuery.Trim();
-        ShownBases.ReplaceAll(query.Length == 0 ? Bases : Bases.Where(row => row.Matches(query)));
+        var rows = _all.ToDictionary(row => row.ItemId, StringComparer.Ordinal);
+        ShownBases.ReplaceAll(Bases.Where(row => row.Match(
+            query, query.Length == 0 ? [] : [.. row.Summary.MemberIds.Select(id => rows.GetValueOrDefault(id)).OfType<AvatarRowViewModel>()])));
         OnPropertyChanged(nameof(ShowsNoMatchingBases));
     }
+
+    /// <summary>
+    /// 探して足す欄の候補：どれかの素体に入ったアバターの名前（持っている物が先→名前の順）。素体の名前は候補にしない
+    /// （新しく名付ける欄に今ある名前を並べると重複を誘う。ui-input.md）。同じ名前のアバターは1つにまとめる（選ぶと、その名前で絞るだけなので）
+    /// </summary>
+    public IReadOnlyList<string> BaseSearchCandidates { get; private set; } = [];
+
+    private Dictionary<string, AvatarRowViewModel> _baseSearchRows = new(StringComparer.CurrentCulture);
+
+    private void RebuildBaseSearchCandidates()
+    {
+        var members = Bases.SelectMany(row => row.Summary.MemberIds).ToHashSet(StringComparer.Ordinal);
+        _baseSearchRows = _all
+            .Where(row => members.Contains(row.ItemId))
+            .OrderByDescending(row => row.IsOwned)
+            .ThenBy(row => row.Name, StringComparer.CurrentCulture)
+            .GroupBy(row => row.Name, StringComparer.CurrentCulture)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.CurrentCulture);
+        BaseSearchCandidates = [.. _baseSearchRows.Keys];
+        OnPropertyChanged(nameof(BaseSearchCandidates));
+    }
+
+    /// <summary>候補の群（所持アバター／未所持アバター）と、名前以外で当たる語。素体の側からアバターを足す欄の候補と同じ作り</summary>
+    public Func<string, Controls.SuggestInfo?> BaseSearchInfoSelector => text =>
+        _baseSearchRows.TryGetValue(text, out var row)
+            ? AvatarSuggestionText.InfoOf(row.Summary.Entry, row.Name, row.IsOwned ? AvatarSuggestionText.OwnedGroup : AvatarSuggestionText.OtherGroup)
+            : null;
+
+    /// <summary>候補の頭の絵（素体の側からアバターを足す欄と同じ探し方）。</summary>
+    public Func<string, System.Windows.Media.ImageSource?> BaseSearchIconSelector => text =>
+        _baseSearchRows.TryGetValue(text, out var row)
+        && AvatarImageSync.IconPath(_services.Paths, row.ItemId, _main.Search.FindItem(row.ItemId), _services.Settings.ShowRemovedBoothImages) is { } path
+            ? _main.Thumbnails.LoadForTile(path)
+            : null;
+
+    /// <summary>
+    /// 探して足す欄で Enter（か候補を押した）。アバターの候補を選んだ時はその名前で絞るだけで、それ以外の語は素体として足す
+    /// （同じ名前の素体があれば足さずに選んで「既にあります」。大分類・属性の欄の Enter と同じ）。
+    /// 候補が開いている間の Enter は、選ばれている候補（最初の行）を決める（SuggestBox の作り）ので、アバターの名前を含む新しい名前は「追加」で足す
+    /// </summary>
+    public RelayCommand BaseSearchCommitCommand => _baseSearchCommitCommand ??= new RelayCommand(parameter =>
+    {
+        if (parameter is not string text)
+        {
+            return;
+        }
+
+        if (_baseSearchRows.ContainsKey(text))
+        {
+            BaseQuery = text;
+            return;
+        }
+
+        AddBaseAsync(text).Forget();
+    });
+
+    private RelayCommand? _baseSearchCommitCommand;
 
     public RelayCommand ShowAvatarModeCommand => _showAvatarModeCommand ??= new RelayCommand(() =>
     {
@@ -1021,25 +1124,8 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
     // アバターを選ばずに、一覧の上の欄から素体だけを足せるようにする
 
     private RelayCommand? _addBaseCommand;
-    private string _newBaseName = string.Empty;
 
-    /// <summary>
-    /// 足す欄。**候補を付けない、ふつうの入力欄**（メモ9-⑥ 2026-10-02。「入力欄には候補を付ける」の例外）。
-    /// 新しい素体を名付ける欄なので、今ある名前を候補に並べても重複を誘うだけだった。今ある名前と同じなら足さずに「既にあります」と言う
-    /// </summary>
-    public string NewBaseName
-    {
-        get => _newBaseName;
-        set
-        {
-            if (SetField(ref _newBaseName, value ?? string.Empty))
-            {
-                AddBaseNote.Clear();
-            }
-        }
-    }
-
-    /// <summary>共通素体を足す欄のすぐ下の知らせ（既にあります・入れてください）</summary>
+    /// <summary>共通素体を探して足す欄のすぐ下の知らせ（既にあります・入れてください）</summary>
     public AreaNotice AddBaseNote { get; } = new();
 
     /// <summary>名前の欄（右の詳細）のすぐ下の知らせ</summary>
@@ -1107,8 +1193,11 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         Status = text;
     }
 
-    /// <summary>一覧の上の欄から共通素体を足す。Enter でも「追加」でも、ここへ来る。</summary>
-    public RelayCommand AddBaseCommand => _addBaseCommand ??= new RelayCommand(() => AddBaseAsync(NewBaseName).Forget());
+    /// <summary>
+    /// 一覧の上の欄の「追加」：打った語をいつも素体として足す（候補のアバターの名前と同じでも。Enter はアバターの候補なら絞るだけ）。
+    /// 打ってすぐ押した時の待ち（Delay=200）は、画面の側が押す前に流し込む
+    /// </summary>
+    public RelayCommand AddBaseCommand => _addBaseCommand ??= new RelayCommand(() => AddBaseAsync(BaseQuery).Forget());
 
     private async Task AddBaseAsync(string? input)
     {
@@ -1151,7 +1240,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         // 欄を空けると知らせも消えるので、知らせは空けた後に出す
         if (outcome != AvatarBaseAddOutcome.AlreadyThere)
         {
-            NewBaseName = string.Empty;
+            BaseQuery = string.Empty;
         }
 
         // 足していないのに「追加しました」と言わない（I2）。もうある素体は、選んで見せる。
@@ -1898,6 +1987,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
             // 一覧に出す物を先に新しい行で作り直す（古い行のままだと、選び直した行が絞りで外れたと読んで絞りを外す）
             RefilterBases();
+            RebuildBaseSearchCandidates();
 
             // 同じ行を入れ直しても、所属の数が変わっていることがあるので必ず知らせ直す。
             // 控えた素体が無ければ、絞りに当たる最初の素体（当たる物が無ければ選ばない）

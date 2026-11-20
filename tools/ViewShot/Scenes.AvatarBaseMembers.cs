@@ -153,7 +153,7 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
-        new Scene("avatars-bases-search", "アバターの管理：共通素体の見方の探す欄（素体の名前で絞った所。下に素体を追加する欄）", async context =>
+        new Scene("avatars-bases-search", "アバターの管理：共通素体の見方の探して足す欄（素体の名前で絞った所。欄の右に「追加」）", async context =>
         {
             var (avatars, root) = await OpenBaseMembersAsync(context);
             avatars.ShowBaseModeCommand.Execute(null);
@@ -162,6 +162,20 @@ internal static partial class Scenes
             if (avatars.ShownBases.Count != 1 || avatars.SelectedBase?.Name != "MARUBODY")
             {
                 throw new InvalidOperationException("「maru」で MARUBODY だけが並んで選ばれない");
+            }
+
+            return new Shot(root);
+        }),
+
+        new Scene("avatars-bases-search-avatar", "アバターの管理：共通素体の探して足す欄に、素体に入ったアバターの名前（「アオイ」）を打った所（行に何で当たったかを添える）", async context =>
+        {
+            var (avatars, root) = await OpenBaseMembersAsync(context);
+            avatars.ShowBaseModeCommand.Execute(null);
+            avatars.BaseQuery = "アオイ";
+            await context.SettleAsync();
+            if (avatars.ShownBases.Count != 1 || avatars.ShownBases[0].MatchNote != "アバター「アオイ」")
+            {
+                throw new InvalidOperationException("「アオイ」で作り物の素体だけが、何で当たったかを添えて並ばない");
             }
 
             return new Shot(root);

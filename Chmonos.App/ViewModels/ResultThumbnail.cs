@@ -22,6 +22,7 @@ public sealed class ResultThumbnail : ViewModelBase
 
     private readonly Func<Task<string?>> _resolve;
     private readonly ThumbnailLoader? _loader;
+    private readonly bool _readsAsTile;
     private State _state;
     private string? _path;
 
@@ -51,11 +52,16 @@ public sealed class ResultThumbnail : ViewModelBase
         }),
         loader);
 
-    public ResultThumbnail(string? itemName, Func<Task<string?>> resolve, ThumbnailLoader? loader)
+    /// <param name="readsAsTile">
+    /// 絵をタイルの控え（<see cref="ThumbnailLoader.PeekForTile"/>）で読む。同じ画面の小さな絵がタイルで読む所（「変換」のプロファイルの商品の行。
+    /// 隣の組の一覧の端の絵がタイル）では、同じ絵を別の大きさでもう1枚控えないように揃える（ユーザ判断 2026-11-20「同じ読み方・同じ控え」）
+    /// </param>
+    public ResultThumbnail(string? itemName, Func<Task<string?>> resolve, ThumbnailLoader? loader, bool readsAsTile = false)
     {
         Initial = AvatarText.InitialOf(itemName);
         _resolve = resolve;
         _loader = loader;
+        _readsAsTile = readsAsTile;
     }
 
     /// <summary>絵が無い（まだ届いていない・商品が消えた）ときに枠へ出す頭文字（ほかの小さな絵と同じ出し方）。</summary>
@@ -79,9 +85,14 @@ public sealed class ResultThumbnail : ViewModelBase
                 return null;
             }
 
-            return _path is { } path && _loader is not null
-                ? _loader.PeekForFill(path, EdgeDip, () => OnPropertyChanged(nameof(Image)))
-                : null;
+            if (_path is not { } path || _loader is null)
+            {
+                return null;
+            }
+
+            return _readsAsTile
+                ? _loader.PeekForTile(path, () => OnPropertyChanged(nameof(Image)))
+                : _loader.PeekForFill(path, EdgeDip, () => OnPropertyChanged(nameof(Image)));
         }
     }
 

@@ -123,7 +123,7 @@ internal static partial class Scenes
             await context.SettleAsync();
 
             // 行の右クリック（メモ9-⑦）：「削除」だけがあり、その行の削除（右の欄の「削除」と同じ確認の窓）につながる
-            var list = Look.All<ListBox>(root).First(box => ReferenceEquals(box.ItemsSource, avatars.Bases));
+            var list = Look.All<ListBox>(root).First(box => ReferenceEquals(box.ItemsSource, avatars.ShownBases));
             var container = Look.All<ListBoxItem>(list).First(item => ReferenceEquals(item.DataContext, avatars.Bases[1]));
             var shown = await MenuItemsAsync(context, container);
             if (shown.Count != 1 || (string)shown[0].Header != "削除" || !ReferenceEquals(shown[0].Command, avatars.Bases[1].DeleteCommand))

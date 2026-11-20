@@ -14,11 +14,24 @@ namespace Chmonos.App.ViewModels;
 public sealed partial class AvatarsViewModel
 {
     internal const string UndecidedGroup = "決めていない";
+
+    /// <summary>
+    /// 1つ以上のプロファイルのつなぎ先を確認済みにしたが、未設定か確認待ちが残る商品（ユーザ判断 2026-11-20・④）。
+    /// プロファイルが何個も入った商品は、分かる範囲で埋めても「決めていない」に入り、手を付けていない商品と見分けが付かなかった
+    /// </summary>
+    internal const string PartialGroup = "途中";
+
     internal const string DecidedGroup = "決めた";
     internal const string NotProfileGroup = "扱わない";
 
     private bool _isConversionMode;
     private List<ConversionItemRowViewModel> _conversionItems = [];
+
+    /// <summary>一覧に出す行（組を探す欄の語に当たる物。絞っていなければ <see cref="_conversionItems"/> と同じ）。</summary>
+    private List<ConversionItemRowViewModel> _shownConversionItems = [];
+
+    /// <summary>選びを外すのが、ListBox の書き戻しでなく画面の側の決めた事か（組を選んだ）。</summary>
+    private bool _clearingConversion;
     private ConversionItemRowViewModel? _selectedConversion;
     private ItemConversionEditor? _conversionEditor;
     private int _conversionBuild;
@@ -63,7 +76,7 @@ public sealed partial class AvatarsViewModel
 
     private RelayCommand? _showConversionModeCommand;
 
-    /// <summary>左の一覧（群は「決めていない」「決めた」「扱わない」の順。並びが群の順になるよう、先に並べてから群に分ける）。</summary>
+    /// <summary>左の一覧（群は「決めていない」「途中」「決めた」「扱わない」の順。並びが群の順になるよう、先に並べてから群に分ける）。</summary>
     public ListCollectionView ConversionItems { get; private set; } = Grouped([]);
 
     public bool HasConversionItems => _conversionItems.Count > 0;
@@ -84,6 +97,13 @@ public sealed partial class AvatarsViewModel
         get => _selectedConversion;
         set
         {
+            // 探す欄の絞りで隠れた商品を選んでいる間は、ListBox が書き戻す null を受けない（選びは絞りで外さない。追加した組と同じ・
+            // ユーザ判断 2026-11-20・②）。受けると、語を打つだけで右の欄が空になる。選びを外すのは組を選んだ時だけ（_clearingConversion）
+            if (value is null && !_clearingConversion && _selectedConversion is { } current && !_shownConversionItems.Contains(current))
+            {
+                return;
+            }
+
             if (SetField(ref _selectedConversion, value))
             {
                 // 右に出すのはプロファイルの商品か追加した組のどちらか1つ（ユーザ判断 2026-11-20：組もプロファイルと同じに右で見る）
@@ -121,16 +141,31 @@ public sealed partial class AvatarsViewModel
     /// 「変換」の一覧の上の「追加した組」（人が足す変換の組・ユーザ判断 2026-11-20）。
     /// 足した・外したら検索を絞り直し（対応アバターの条件の「変換で使える物も含める」が組を使う）、アバターの詳細の札も読み直す
     /// </summary>
-    public ConversionPairEditor ConversionPairs => _conversionPairs ??= new ConversionPairEditor(
-        _services, _main.Thumbnails, _main.Search.FindItem, () =>
+    public ConversionPairEditor ConversionPairs => _conversionPairs ??= CreateConversionPairs();
+
+    private ConversionPairEditor CreateConversionPairs()
+    {
+        var editor = new ConversionPairEditor(
+            _services, _main.Thumbnails, _main.Search.FindItem, () =>
+            {
+                _main.Search.NoteConversionPairsChanged();
+                ConversionPairSummary.Refresh();
+            },
+            () => ConversionPairSummary.Refresh(),
+            ConversionPairSelected,
+            CanOpenConversionEnd,
+            OpenConversionEnd);
+
+        // 組を探す欄の語と探す所は、プロファイルの商品の一覧にも当てる（ユーザ判断 2026-11-20・②「他の段にも適用して良い」）
+        editor.PropertyChanged += (_, args) =>
         {
-            _main.Search.NoteConversionPairsChanged();
-            ConversionPairSummary.Refresh();
-        },
-        () => ConversionPairSummary.Refresh(),
-        ConversionPairSelected,
-        CanOpenConversionEnd,
-        OpenConversionEnd);
+            if (args.PropertyName is nameof(ConversionPairEditor.Query) or nameof(ConversionPairEditor.Scope))
+            {
+                ArrangeConversionItems(keep: SelectedConversion);
+            }
+        };
+        return editor;
+    }
 
     /// <summary>
     /// 組の選びが替わった。組を選んだらプロファイルの商品の選びを外す（右はどちらか1つ）。
@@ -140,7 +175,15 @@ public sealed partial class AvatarsViewModel
     {
         if (row is not null)
         {
-            SelectedConversion = null;
+            _clearingConversion = true;
+            try
+            {
+                SelectedConversion = null;
+            }
+            finally
+            {
+                _clearingConversion = false;
+            }
         }
         else if (IsConversionMode && SelectedConversion is null)
         {
@@ -507,7 +550,9 @@ public sealed partial class AvatarsViewModel
                         // 戻るで開き直したときは、控えた商品を選ぶ（初めの1回だけ）
                         var keepId = SelectedConversion?.ItemId ?? _openConversionWith;
                         _openConversionWith = null;
-                        _conversionItems = task.Result.Select(pair => ConversionItemRowViewModel.Create(pair.Item, pair.Profiles)).ToList();
+                        _conversionItems = task.Result
+                            .Select(pair => ConversionItemRowViewModel.Create(pair.Item, pair.Profiles, ConversionItemPicture(pair.Item)))
+                            .ToList();
                         ArrangeConversionItems(keep: null);
                         _selectedConversion = null;
                         // 組を選んでいる間は、読み直しで商品へ選びを奪わない（右はどちらか1つ）
@@ -529,18 +574,69 @@ public sealed partial class AvatarsViewModel
             .Forget();
     }
 
+    /// <summary>
+    /// プロファイルの商品の行の絵。絵の決め方は検索のカードと同じ（<see cref="ResultThumbnail.PathOf"/>）で、手元の記録を使う
+    /// （<see cref="ResultThumbnail.ForItem"/> と違い、商品をもう一度読まない）。絵の一覧は読み手の写しを使う。
+    /// 絵はタイルの控えで読む（隣の組の一覧の端の絵・ItemRows と同じ読み方と控え。ユーザ判断 2026-11-20）
+    /// </summary>
+    private ResultThumbnail ConversionItemPicture(ItemRecord item)
+    {
+        var loader = _main.Thumbnails;
+        return new ResultThumbnail(item.DisplayName, () => Task.Run(() =>
+        {
+            if (!Chmonos.Core.Storage.StoreIds.IsItemId(item.Id))
+            {
+                return (string?)null;
+            }
+
+            var directory = _services.Paths.ItemImagesDir(item.Id);
+            return ResultThumbnail.PathOf(item, directory, loader.ListFiles(directory), _services.Settings.ThumbnailRole, _services.Settings.ShowRemovedBoothImages);
+        }), loader, readsAsTile: true);
+    }
+
     private IReadOnlyList<ProfileSlug> ProfilesOf(ItemRecord item)
         => ConversionScan.MayHoldProfiles(item) ? _services.Conversion.ProfilesOf(item) : [];
 
-    /// <summary>群の順（決めていない → 決めた → 扱わない）と名前で並べ直す。選んでいる行はそのまま選んでおく。</summary>
+    /// <summary>
+    /// 群の順（決めていない → 途中 → 決めた → 扱わない）と名前で並べ直し、組を探す欄の語で絞って一覧に当てる。選んでいる行はそのまま選んでおく
+    /// （絞りで隠れても選びは外さない。右に出したまま一覧には出さない。追加した組と同じ）。
+    /// </summary>
     private void ArrangeConversionItems(ConversionItemRowViewModel? keep)
     {
         _conversionItems = _conversionItems
             .OrderBy(row => row.GroupRank)
             .ThenBy(row => row.Name, StringComparer.CurrentCulture)
             .ToList();
-        ConversionItems = Grouped(_conversionItems);
+
+        var query = (_conversionPairs?.Query ?? string.Empty).Trim();
+        var scope = _conversionPairs?.Scope ?? ConversionPairSearchScope.Both;
+        if (query.Length == 0)
+        {
+            _shownConversionItems = _conversionItems;
+        }
+        else
+        {
+            var registry = _services.CachedAvatars.Load();
+            var entries = registry.Entries
+                .GroupBy(entry => entry.ItemId, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+            var names = AvatarNames.Map(registry.Entries);
+            _shownConversionItems = [.. _conversionItems.Where(row => ConversionItemSearch.Matches(row.Item, query, scope, entries, names))];
+        }
+
+        // 群の見出しの数：絞っている間は「当たった数/全部」（追加した組の見出しと同じ）。当たる行の無い群は見出しごと出ない
+        var totals = _conversionItems.GroupBy(row => row.Group).ToDictionary(group => group.Key, group => group.Count());
+        var shown = _shownConversionItems.GroupBy(row => row.Group).ToDictionary(group => group.Key, group => group.Count());
+        foreach (var row in _conversionItems)
+        {
+            row.GroupHeading = query.Length == 0
+                ? $"{row.Group}（{totals[row.Group]}）"
+                : $"{row.Group}（{shown.GetValueOrDefault(row.Group)}/{totals[row.Group]}）";
+        }
+
+        ConversionItems = Grouped(_shownConversionItems);
         OnPropertyChanged(nameof(ConversionItems));
+        OnPropertyChanged(nameof(ShowsNoMatchingConversionItems));
         if (keep is not null)
         {
             // 一覧を差し替えると ListBox が選びを外すので、同じ行を選び直したと知らせる
@@ -549,27 +645,102 @@ public sealed partial class AvatarsViewModel
         }
     }
 
+    /// <summary>プロファイルの商品はあるのに、探す欄の語に当てはまる商品が無い（一覧の代わりに1行で言う。追加した組と同じ）。</summary>
+    public bool ShowsNoMatchingConversionItems => IsConversionMode && HasConversionItems && _shownConversionItems.Count == 0;
+
+    /// <summary>群は見出しの字（群の名前と数）で分ける。並びは先に群の順にしてあるので、見出しもその順に出る。</summary>
     private static ListCollectionView Grouped(List<ConversionItemRowViewModel> rows)
     {
         var view = new ListCollectionView(rows);
-        view.GroupDescriptions.Add(new PropertyGroupDescription(nameof(ConversionItemRowViewModel.Group)));
+        view.GroupDescriptions.Add(new PropertyGroupDescription(nameof(ConversionItemRowViewModel.GroupHeading)));
         return view;
     }
 
+    /// <summary>
+    /// 変換を開いた時・組の選びが無くなった時に選ぶ商品。見えている行の決めていない・途中の行 → 見えている最初の行。
+    /// 絞りで1件も見えていなければ、全部の中から（右を空にしない）
+    /// </summary>
     private ConversionItemRowViewModel? FirstUndecided()
-        => _conversionItems.FirstOrDefault(row => row.Group == UndecidedGroup) ?? _conversionItems.FirstOrDefault();
+        => _shownConversionItems.FirstOrDefault(row => row.NeedsDecision)
+            ?? _shownConversionItems.FirstOrDefault()
+            ?? _conversionItems.FirstOrDefault(row => row.NeedsDecision)
+            ?? _conversionItems.FirstOrDefault();
 
-    /// <summary>今の行の後ろから、決めていない行を探して選ぶ（無ければ前から。1件も無ければ今の行のまま）。</summary>
+    /// <summary>
+    /// 今の行の後ろから、決めていない行か途中の行を探して選ぶ（無ければ前から。1件も無ければ今の行のまま）。
+    /// 途中の行も回る（ユーザ判断 2026-11-20・④：「後で」・次への流れは決めていないと途中の両方）。
+    /// 絞っている間は見えている行の中で回る（追加した組の「外した後の次の組」と同じ。隠れた商品へ移ると、何を見ているか一覧で分からない）
+    /// </summary>
     internal void SelectNextUndecided()
     {
+        var rows = _shownConversionItems;
         var current = SelectedConversion;
-        var index = current is null ? -1 : _conversionItems.IndexOf(current);
-        var next = _conversionItems.Skip(index + 1).FirstOrDefault(row => row.Group == UndecidedGroup && !ReferenceEquals(row, current))
-            ?? _conversionItems.Take(Math.Max(index, 0)).FirstOrDefault(row => row.Group == UndecidedGroup);
+        var index = current is null ? -1 : rows.IndexOf(current);
+        var next = rows.Skip(index + 1).FirstOrDefault(row => row.NeedsDecision && !ReferenceEquals(row, current))
+            ?? rows.Take(Math.Max(index, 0)).FirstOrDefault(row => row.NeedsDecision && !ReferenceEquals(row, current));
         if (next is not null)
         {
             SelectedConversion = next;
         }
+    }
+}
+
+/// <summary>
+/// 「変換」のプロファイルの商品を、組を探す欄の語と探す所で照らす（ユーザ判断 2026-11-20・②）。
+/// つなぎ先は、向きで元と先に振り分ける：逆方向は元（その衣装を持っていく側）、順方向は先（着せる側。検索の条件「プロファイル」の
+/// 「変換元は逆方向・変換先は順方向」と同じ）。両方向は両方、向きの分からない物も両方。外したつなぎ先は当てない。
+/// 商品名と商品 ID は元でも先でもないので、探す所が「両方」の時だけ当てる（「元」で選んだのに、名前に先のアバター名を含む商品が残らないように）。
+/// 端の当て方は組と同じ（<see cref="ConversionPairSearch.EndMatches"/>：アバターは名前・ID・正式名・呼び方、共通素体は名前）
+/// </summary>
+public static class ConversionItemSearch
+{
+    public static bool Matches(
+        ItemRecord item, string query, ConversionPairSearchScope scope,
+        IReadOnlyDictionary<string, AvatarRegistryEntry> entries, IReadOnlyDictionary<string, string> names)
+    {
+        if (query.Length == 0)
+        {
+            return true;
+        }
+
+        if (scope == ConversionPairSearchScope.Both
+            && (item.DisplayName.Contains(query, StringComparison.CurrentCultureIgnoreCase) || item.Id.Contains(query, StringComparison.Ordinal)))
+        {
+            return true;
+        }
+
+        foreach (var target in item.Local.Conversion?.Targets ?? [])
+        {
+            if (target.Rejected)
+            {
+                continue;
+            }
+
+            var unknown = !target.Forward && !target.Reverse;
+            var asFrom = target.Reverse || unknown;
+            var asTo = target.Forward || unknown;
+            if (!((scope != ConversionPairSearchScope.To && asFrom) || (scope != ConversionPairSearchScope.From && asTo)))
+            {
+                continue;
+            }
+
+            var end = target.BaseName is { } baseName ? ConversionEnd.Base(baseName)
+                : target.AvatarItemId is { } id ? ConversionEnd.Avatar(id)
+                : null;
+            if (end is null)
+            {
+                continue;
+            }
+
+            var entry = end.AvatarItemId is { } avatarId ? entries.GetValueOrDefault(avatarId) : null;
+            var shown = end.BaseName ?? (end.AvatarItemId is { } shownId ? names.GetValueOrDefault(shownId) ?? shownId : string.Empty);
+            if (ConversionPairSearch.EndMatches(end, shown, entry, query))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 
@@ -582,24 +753,41 @@ public sealed class ConversionItemRowViewModel : ViewModelBase
 
     public string Name { get; private set; } = string.Empty;
 
-    /// <summary>群の名前（「決めていない」「決めた」「扱わない」）。</summary>
+    /// <summary>群の名前（「決めていない」「途中」「決めた」「扱わない」）。</summary>
     public string Group { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// 群の見出しの字（「決めていない（3）」、絞っている間は「決めていない（1/3）」）。一覧は見出しの字で群に分けるので、並べ直す側が付ける
+    /// （群の数え方を絞りの前と後で持ち分けるため。行の書き直しでは変えない）
+    /// </summary>
+    public string GroupHeading { get; internal set; } = string.Empty;
 
     public int GroupRank => Group switch
     {
         AvatarsViewModel.UndecidedGroup => 0,
-        AvatarsViewModel.DecidedGroup => 1,
-        _ => 2,
+        AvatarsViewModel.PartialGroup => 1,
+        AvatarsViewModel.DecidedGroup => 2,
+        AvatarsViewModel.NotProfileGroup => 3,
+        _ => 4,
     };
 
-    /// <summary>決めていない物の数（「確認待ち 3・未設定 2」）。決めた物は空。</summary>
+    /// <summary>まだ決める事が残る（決めていない・途中）。最初に選ぶ行と「後で」・次への流れが回る行。</summary>
+    public bool NeedsDecision => Group is AvatarsViewModel.UndecidedGroup or AvatarsViewModel.PartialGroup;
+
+    /// <summary>決めていない物の数（「確認待ち 3・未設定 2」）。決めていない・途中の行だけに出す（札は群を分ける前と同じ）。</summary>
     public string BadgeText { get; private set; } = string.Empty;
 
     public bool HasBadge => BadgeText.Length > 0;
 
-    public static ConversionItemRowViewModel Create(ItemRecord item, IReadOnlyList<ProfileSlug> profiles)
+    /// <summary>
+    /// 行の頭の商品の絵（ユーザ判断 2026-11-20・③）。取り込みの探した結果・通知・ファイルの割り振りの行と同じ部品で、
+    /// 見えた行だけが初めて場所を決めて縮めて読む（仮想化された一覧で、流しても読むのは見えている行の分だけ）。試験では無し
+    /// </summary>
+    public ResultThumbnail? Picture { get; private init; }
+
+    public static ConversionItemRowViewModel Create(ItemRecord item, IReadOnlyList<ProfileSlug> profiles, ResultThumbnail? picture = null)
     {
-        var row = new ConversionItemRowViewModel { ItemId = item.Id };
+        var row = new ConversionItemRowViewModel { ItemId = item.Id, Picture = picture };
         row.Update(item, profiles);
         return row;
     }
@@ -611,13 +799,18 @@ public sealed class ConversionItemRowViewModel : ViewModelBase
         Name = item.DisplayName;
         var setting = item.Local.Conversion;
         var targets = (setting?.Targets ?? []).Where(target => !target.Rejected).ToList();
-        var unconfirmed = targets.Count(target => !target.Confirmed);
+        var confirmed = targets.Count(target => target.Confirmed);
+        var unconfirmed = targets.Count - confirmed;
         var unset = profiles.Count(profile => !targets.Any(target => string.Equals(target.Slug, profile.Slug, StringComparison.OrdinalIgnoreCase)));
 
+        // 「決めた」の数え方は確認済みのつなぎ先（人が確かめた物）。外しただけ（Rejected）は決めた事に数えない——
+        // 外すとその行は選ぶ欄に戻り、つなぎ先はまだ無いので（ユーザ判断 2026-11-20・④「1つ以上決めた」）
         Group = setting?.Mode == ConversionMode.NotProfile
             ? AvatarsViewModel.NotProfileGroup
-            : unconfirmed + unset > 0 ? AvatarsViewModel.UndecidedGroup : AvatarsViewModel.DecidedGroup;
-        BadgeText = Group == AvatarsViewModel.UndecidedGroup
+            : unconfirmed + unset == 0 ? AvatarsViewModel.DecidedGroup
+            : confirmed > 0 ? AvatarsViewModel.PartialGroup
+            : AvatarsViewModel.UndecidedGroup;
+        BadgeText = NeedsDecision
             ? string.Join("・", new[] { unconfirmed > 0 ? $"確認待ち {unconfirmed}" : null, unset > 0 ? $"未設定 {unset}" : null }.OfType<string>())
             : string.Empty;
 

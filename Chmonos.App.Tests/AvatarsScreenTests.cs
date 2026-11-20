@@ -139,13 +139,13 @@ public sealed class AvatarsScreenTests
         var avatars = await OpenAsync(app, [new AvatarBaseGroup { Name = "作り物の素体A" }]);
         avatars.ShowBaseModeCommand.Execute(null);
 
-        avatars.NewBaseName = "作り物の素体B";
+        avatars.BaseQuery = "作り物の素体B";
         avatars.AddBaseCommand.Execute(null);
         await app.SettleAsync();
         await UiThread.Until(() => avatars.Bases.Count == 2, "足した素体が並ぶ");
 
         Assert.Equal(string.Empty, avatars.AddBaseNote.Text);
-        Assert.Equal(string.Empty, avatars.NewBaseName);
+        Assert.Equal(string.Empty, avatars.BaseQuery);
         Assert.Equal("作り物の素体B", avatars.SelectedBase?.Name);
     });
 
@@ -158,13 +158,13 @@ public sealed class AvatarsScreenTests
         var writes = app.Store.Avatars.WriteCount;
 
         // 綴りの大小が違っても同じ素体
-        avatars.NewBaseName = "作り物の素体a";
+        avatars.BaseQuery = "作り物の素体a";
         avatars.AddBaseCommand.Execute(null);
         await app.SettleAsync();
 
         Assert.Equal("共通素体「作り物の素体A」は既にあります。", avatars.AddBaseNote.Text);
         Assert.Equal("作り物の素体A", avatars.SelectedBase?.Name);
-        Assert.Equal("作り物の素体a", avatars.NewBaseName);
+        Assert.Equal("作り物の素体a", avatars.BaseQuery);
         Assert.Equal(writes, app.Store.Avatars.WriteCount);
         Assert.Equal(2, app.Store.Avatars.Load().BaseGroups.Count);
     });

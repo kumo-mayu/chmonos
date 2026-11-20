@@ -71,7 +71,8 @@ internal static partial class Scenes
             await context.SettleAsync();
             return FiltersShot(root);
         }),
-        new Scene("avatars-conversion","アバターの管理：変換（プロファイルの商品を決めていない／決めた／扱わないの群で並べ、右に変換扱いの欄と次へ進むボタン）", context => AvatarsConversionAsync(context)),
+        new Scene("avatars-conversion","アバターの管理：変換（プロファイルの商品を決めていない／途中／決めた／扱わないの群で並べ、行の頭に商品の絵。右に変換扱いの欄と次へ進むボタン）", context => AvatarsConversionAsync(context)),
+        new Scene("avatars-conversion-search", "アバターの管理：変換の組を探す欄の語（「アオイ」）で、プロファイルの商品の一覧も絞った所（群の見出しは当たった数/全部）", context => AvatarsConversionAsync(context, query: "アオイ")),
         new Scene("avatars-conversion-pair-detail", "アバターの管理：「変換」で追加した組を選んだ右の欄（元・先の絵とリンク・ツールの名前・メモ・この組を外す）と、プロファイルの商品の行に並ぶ組の行", context => AvatarsConversionAsync(context, selectPair: true)),
     ];
 
@@ -79,7 +80,7 @@ internal static partial class Scenes
     /// アバターの管理の「変換」。プロファイルの商品4つ（推した・つなぎ先が無い・決めた・扱わない）。最初の決めていない商品を選んだ所。
     /// <paramref name="selectPair"/> のときは、追加した組2つ（メモ付き・ツールの名前付き）を足して、ツールの名前付きの組を選んだ所（組の行とプロファイルの商品の行を並べて見る）
     /// </summary>
-    private static async Task<Shot> AvatarsConversionAsync(SceneContext context, bool selectPair = false)
+    private static async Task<Shot> AvatarsConversionAsync(SceneContext context, bool selectPair = false, string? query = null)
     {
         if (selectPair)
         {
@@ -170,6 +171,18 @@ internal static partial class Scenes
         // 推した理由と絵が出る商品を選んでおく
         avatars.SelectedConversion = avatars.ConversionItems.Cast<ConversionItemRowViewModel>().First(row => row.ItemId == "9900221");
         await context.SettleAsync();
+
+        if (query is not null)
+        {
+            // 「アオイ」につなぐ商品は、途中の（まとめ）と決めた商品の2つ。つなぎ先の無い商品と扱わない商品は隠れる
+            avatars.ConversionPairs.Query = query;
+            await context.SettleAsync();
+            if (avatars.ConversionItems.Cast<ConversionItemRowViewModel>().Count() != 2)
+            {
+                throw new InvalidOperationException($"「{query}」でプロファイルの商品が2つに絞られない");
+            }
+        }
+
         return new Shot(root);
     }
 
