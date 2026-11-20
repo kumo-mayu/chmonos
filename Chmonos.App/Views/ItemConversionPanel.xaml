@@ -155,6 +155,9 @@
                                                 AutomationProperties.Name="{Binding TargetText, StringFormat={}{0}を確認済みにする}"
                                                 ToolTip="確認済みにします。変換経由に使います。" Style="{StaticResource ConfirmMarkButton}" />
                                     </Grid>
+                                    <!-- つなぎ先の絵（ユーザ判断 2026-11-20・②：左の組の行と同じ絵で、どれに繋がるかを一目で分かるように） -->
+                                    <ContentPresenter Content="{Binding TargetIcon}" ContentTemplate="{StaticResource ConversionEndChipIcon}"
+                                                      VerticalAlignment="Center" AutomationProperties.AutomationId="ItemConversionTargetIcon" />
                                     <TextBlock Text="{Binding TargetText}" FontSize="11.5" VerticalAlignment="Center" />
                                     <Button
                                             Command="{Binding RemoveCommand}"

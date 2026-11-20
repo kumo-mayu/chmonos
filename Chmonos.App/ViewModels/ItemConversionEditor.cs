@@ -127,6 +127,7 @@ public sealed class ItemConversionEditor : ViewModelBase
                 if (old.TryGetValue(fresh[index].Signature, out var same) && same.Count > 0)
                 {
                     fresh[index] = same.Dequeue();
+                    fresh[index].TargetIcon?.Refresh();
                 }
             }
 
@@ -249,6 +250,16 @@ public sealed class ItemConversionEditor : ViewModelBase
                 : target.AvatarItemId is { } id ? () => AvatarIcon(id, thumbnails.LoadForCard) : null;
         }
 
+        // 札の頭の小さな絵（ユーザ判断 2026-11-20・②）。左の組の行と同じ読み方・控え・絵が無い時の升（ConversionEndIcon）。
+        // 場所は描いた行で初めて探す（行は見える分だけ作る・③）。素体の頭の字は「（共通素体）」を添える前の名前から
+        ConversionEndIcon? EndIcon(ConversionTarget target, string name)
+            => target.BaseName is { } baseName
+                ? new ConversionEndIcon(baseName, () => AvatarBaseIcons.PathOf(_services, baseName, FindItem), _thumbnails)
+                : target.AvatarItemId is { } id
+                    ? new ConversionEndIcon(
+                        name, () => AvatarImageSync.IconPath(_services.Paths, id, FindItem(id), _services.Settings.ShowRemovedBoothImages), _thumbnails)
+                    : null;
+
         // 入っているファイル（slug ごと）。控えを読むのは、プロファイルを持つかもしれない商品だけ（ProfilesOf と同じふるい）
         var sources = item is not null && ConversionScan.MayHoldProfiles(item)
             ? _services.Conversion.ProfileSourcesOf(item)
@@ -307,13 +318,13 @@ public sealed class ItemConversionEditor : ViewModelBase
                 rows.Add(EmptyRow(profile, EmptyReason(profile)));
             }
 
-            rows.AddRange(mine.Select(target => TargetRow(target, TargetName(target), ReasonOf(target), IconFactory(target), profile)));
+            rows.AddRange(mine.Select(target => TargetRow(target, TargetName(target), ReasonOf(target), IconFactory(target), EndIcon(target, TargetName(target)), profile)));
         }
 
         // 中のファイルから見つからない（zip を外した・slug の分からない）つなぎ先も、外せるように出す
         rows.AddRange(targets
             .Where(target => !profiles.Any(profile => string.Equals(profile.Slug, target.Slug, StringComparison.OrdinalIgnoreCase)))
-            .Select(target => TargetRow(target, TargetName(target), string.Empty, IconFactory(target), null)));
+            .Select(target => TargetRow(target, TargetName(target), string.Empty, IconFactory(target), EndIcon(target, TargetName(target)), null)));
 
         foreach (var row in rows)
         {
@@ -452,7 +463,8 @@ public sealed class ItemConversionEditor : ViewModelBase
 
     /// <param name="fileProfile">中のファイルから読んだ同じ slug のプロファイル（既定の向き）。中のファイルから見つからない行は null。</param>
     private ConversionTargetRow TargetRow(
-        ConversionTarget target, string name, string reason, Func<System.Windows.Media.ImageSource?>? iconFactory, ProfileSlug? fileProfile) => new()
+        ConversionTarget target, string name, string reason, Func<System.Windows.Media.ImageSource?>? iconFactory, ConversionEndIcon? icon,
+        ProfileSlug? fileProfile) => new()
     {
         ProfileText = target.Slug ?? string.Empty,
         FileDirection = fileProfile is null ? string.Empty : DirectionCode(fileProfile.Forward, fileProfile.Reverse),
@@ -461,6 +473,7 @@ public sealed class ItemConversionEditor : ViewModelBase
         TargetKey = target.BaseName is { } baseKey ? "base:" + baseKey : "avatar:" + target.AvatarItemId,
         ReasonText = reason,
         IconFactory = iconFactory,
+        TargetIcon = icon,
         TooltipText = target.Confirmed ? name : $"{name}：自動で見つけたつなぎ先です。確認すると変換経由に使います。",
         HasTarget = true,
         IsUnconfirmed = !target.Confirmed,
@@ -596,6 +609,12 @@ public sealed class ConversionTargetRow
 
     /// <summary>札に乗せたときの絵を読む（乗せたときだけ読む。行ごとに先に読むと、18 個入りの商品で開くのが遅れる）。</summary>
     public Func<System.Windows.Media.ImageSource?>? IconFactory { get; init; }
+
+    /// <summary>
+    /// 札の頭の小さな絵（ユーザ判断 2026-11-20・②）。左の組の行と同じ物（絵が無ければ頭の字の升）。つなぎ先の無い行は無し。
+    /// 中身の印（<see cref="Signature"/>）には入れない。端は <see cref="TargetKey"/> が持ち、入れると印を作るたびに全部の行の絵の場所を探す
+    /// </summary>
+    public ConversionEndIcon? TargetIcon { get; init; }
 
     /// <summary>札に乗せたときの字（名前と、確認待ちなら何をすれば使われるか）。</summary>
     public string TooltipText { get; init; } = string.Empty;
