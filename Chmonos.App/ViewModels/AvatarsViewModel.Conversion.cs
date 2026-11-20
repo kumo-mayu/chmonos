@@ -14,6 +14,13 @@ namespace Chmonos.App.ViewModels;
 public sealed partial class AvatarsViewModel
 {
     internal const string UndecidedGroup = "決めていない";
+
+    /// <summary>
+    /// 1つ以上のプロファイルのつなぎ先を確認済みにしたが、未設定か確認待ちが残る商品（ユーザ判断 2026-11-20・④）。
+    /// プロファイルが何個も入った商品は、分かる範囲で埋めても「決めていない」に入り、手を付けていない商品と見分けが付かなかった
+    /// </summary>
+    internal const string PartialGroup = "途中";
+
     internal const string DecidedGroup = "決めた";
     internal const string NotProfileGroup = "扱わない";
 
@@ -63,7 +70,7 @@ public sealed partial class AvatarsViewModel
 
     private RelayCommand? _showConversionModeCommand;
 
-    /// <summary>左の一覧（群は「決めていない」「決めた」「扱わない」の順。並びが群の順になるよう、先に並べてから群に分ける）。</summary>
+    /// <summary>左の一覧（群は「決めていない」「途中」「決めた」「扱わない」の順。並びが群の順になるよう、先に並べてから群に分ける）。</summary>
     public ListCollectionView ConversionItems { get; private set; } = Grouped([]);
 
     public bool HasConversionItems => _conversionItems.Count > 0;
@@ -532,7 +539,7 @@ public sealed partial class AvatarsViewModel
     private IReadOnlyList<ProfileSlug> ProfilesOf(ItemRecord item)
         => ConversionScan.MayHoldProfiles(item) ? _services.Conversion.ProfilesOf(item) : [];
 
-    /// <summary>群の順（決めていない → 決めた → 扱わない）と名前で並べ直す。選んでいる行はそのまま選んでおく。</summary>
+    /// <summary>群の順（決めていない → 途中 → 決めた → 扱わない）と名前で並べ直す。選んでいる行はそのまま選んでおく。</summary>
     private void ArrangeConversionItems(ConversionItemRowViewModel? keep)
     {
         _conversionItems = _conversionItems
@@ -557,15 +564,18 @@ public sealed partial class AvatarsViewModel
     }
 
     private ConversionItemRowViewModel? FirstUndecided()
-        => _conversionItems.FirstOrDefault(row => row.Group == UndecidedGroup) ?? _conversionItems.FirstOrDefault();
+        => _conversionItems.FirstOrDefault(row => row.NeedsDecision) ?? _conversionItems.FirstOrDefault();
 
-    /// <summary>今の行の後ろから、決めていない行を探して選ぶ（無ければ前から。1件も無ければ今の行のまま）。</summary>
+    /// <summary>
+    /// 今の行の後ろから、決めていない行か途中の行を探して選ぶ（無ければ前から。1件も無ければ今の行のまま）。
+    /// 途中の行も回る（ユーザ判断 2026-11-20・④：「後で」・次への流れは決めていないと途中の両方）
+    /// </summary>
     internal void SelectNextUndecided()
     {
         var current = SelectedConversion;
         var index = current is null ? -1 : _conversionItems.IndexOf(current);
-        var next = _conversionItems.Skip(index + 1).FirstOrDefault(row => row.Group == UndecidedGroup && !ReferenceEquals(row, current))
-            ?? _conversionItems.Take(Math.Max(index, 0)).FirstOrDefault(row => row.Group == UndecidedGroup);
+        var next = _conversionItems.Skip(index + 1).FirstOrDefault(row => row.NeedsDecision && !ReferenceEquals(row, current))
+            ?? _conversionItems.Take(Math.Max(index, 0)).FirstOrDefault(row => row.NeedsDecision);
         if (next is not null)
         {
             SelectedConversion = next;
@@ -582,17 +592,22 @@ public sealed class ConversionItemRowViewModel : ViewModelBase
 
     public string Name { get; private set; } = string.Empty;
 
-    /// <summary>群の名前（「決めていない」「決めた」「扱わない」）。</summary>
+    /// <summary>群の名前（「決めていない」「途中」「決めた」「扱わない」）。</summary>
     public string Group { get; private set; } = string.Empty;
 
     public int GroupRank => Group switch
     {
         AvatarsViewModel.UndecidedGroup => 0,
-        AvatarsViewModel.DecidedGroup => 1,
-        _ => 2,
+        AvatarsViewModel.PartialGroup => 1,
+        AvatarsViewModel.DecidedGroup => 2,
+        AvatarsViewModel.NotProfileGroup => 3,
+        _ => 4,
     };
 
-    /// <summary>決めていない物の数（「確認待ち 3・未設定 2」）。決めた物は空。</summary>
+    /// <summary>まだ決める事が残る（決めていない・途中）。最初に選ぶ行と「後で」・次への流れが回る行。</summary>
+    public bool NeedsDecision => Group is AvatarsViewModel.UndecidedGroup or AvatarsViewModel.PartialGroup;
+
+    /// <summary>決めていない物の数（「確認待ち 3・未設定 2」）。決めていない・途中の行だけに出す（札は群を分ける前と同じ）。</summary>
     public string BadgeText { get; private set; } = string.Empty;
 
     public bool HasBadge => BadgeText.Length > 0;
@@ -611,13 +626,18 @@ public sealed class ConversionItemRowViewModel : ViewModelBase
         Name = item.DisplayName;
         var setting = item.Local.Conversion;
         var targets = (setting?.Targets ?? []).Where(target => !target.Rejected).ToList();
-        var unconfirmed = targets.Count(target => !target.Confirmed);
+        var confirmed = targets.Count(target => target.Confirmed);
+        var unconfirmed = targets.Count - confirmed;
         var unset = profiles.Count(profile => !targets.Any(target => string.Equals(target.Slug, profile.Slug, StringComparison.OrdinalIgnoreCase)));
 
+        // 「決めた」の数え方は確認済みのつなぎ先（人が確かめた物）。外しただけ（Rejected）は決めた事に数えない——
+        // 外すとその行は選ぶ欄に戻り、つなぎ先はまだ無いので（ユーザ判断 2026-11-20・④「1つ以上決めた」）
         Group = setting?.Mode == ConversionMode.NotProfile
             ? AvatarsViewModel.NotProfileGroup
-            : unconfirmed + unset > 0 ? AvatarsViewModel.UndecidedGroup : AvatarsViewModel.DecidedGroup;
-        BadgeText = Group == AvatarsViewModel.UndecidedGroup
+            : unconfirmed + unset == 0 ? AvatarsViewModel.DecidedGroup
+            : confirmed > 0 ? AvatarsViewModel.PartialGroup
+            : AvatarsViewModel.UndecidedGroup;
+        BadgeText = NeedsDecision
             ? string.Join("・", new[] { unconfirmed > 0 ? $"確認待ち {unconfirmed}" : null, unset > 0 ? $"未設定 {unset}" : null }.OfType<string>())
             : string.Empty;
 
