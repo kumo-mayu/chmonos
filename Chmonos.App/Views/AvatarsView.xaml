@@ -527,14 +527,11 @@
                         </StackPanel>
 
                         <!--
-                            まとめて確認済みにする（ユーザ判断 2026-11-09）。押すと対象を全部並べた窓を出し、外したい物はチェックを外せる。
-                            確認待ちが無ければ押せない（数が 0 と出る）
+                            まとめて確認済みにして書けなかった時の1行。ボタンはプロファイルの商品の群の見出しにある（ユーザ判断 2026-11-20・④）。
+                            見出しは書いた後に作り直されるので、知らせは一覧の上に残す
                         -->
-                        <StackPanel DockPanel.Dock="Top" Margin="14,12,14,0"
+                        <StackPanel DockPanel.Dock="Top" Margin="14,4,14,0"
                                     Visibility="{Binding IsConversionMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                            <Button Content="{Binding BulkText}" Command="{Binding BulkConfirmCommand}" HorizontalAlignment="Left"
-                                    AutomationProperties.AutomationId="AvatarsConversionBulk"
-                                    ToolTip="確認待ちを一覧で見て、まとめて確認済みにします。" />
                             <controls:AreaNoticeLine DataContext="{Binding BulkNotice}" />
                         </StackPanel>
 
@@ -857,8 +854,20 @@
                                                         <ControlTemplate TargetType="GroupItem">
                                                             <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" Margin="0,8,0,2">
                                                                 <Expander.Header>
-                                                                    <!-- 群は見出しの字（名前と数。絞っている間は「当たった数/全部」）で分けてある（ConversionItemRowViewModel.GroupHeading） -->
-                                                                    <TextBlock Style="{StaticResource SectionLabel}" Margin="0,0,0,4" Text="{Binding Name, Mode=OneWay}" />
+                                                                    <!--
+                                                                        群は見出しの物（ConversionItemGroupHeader：名前と数。絞っている間は「当たった数/全部」）で分けてある。
+                                                                        「決めていない」「途中」の見出しの右に、その群の分だけをまとめて確認済みにするボタン（ユーザ判断 2026-11-20・④。
+                                                                        効く相手のそばに置く。確認待ちが無い群には出さない）。押すと対象を並べた窓を出し、外したい物はチェックを外せる。
+                                                                        左の最小の幅では、ボタンは見出しの下へ折り返す
+                                                                    -->
+                                                                    <WrapPanel>
+                                                                        <TextBlock Style="{StaticResource SectionLabel}" Margin="0,0,10,4" VerticalAlignment="Center" Text="{Binding Name.Text, Mode=OneWay}" />
+                                                                        <Button Content="{Binding Name.BulkText, Mode=OneWay}" Command="{Binding Name.BulkConfirmCommand}"
+                                                                                Style="{StaticResource SmallButton}" Margin="0,0,0,4" VerticalAlignment="Center"
+                                                                                AutomationProperties.AutomationId="AvatarsConversionBulk"
+                                                                                ToolTip="この群の確認待ちを一覧で見て、まとめて確認済みにします。"
+                                                                                Visibility="{Binding Name.ShowsBulk, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                                    </WrapPanel>
                                                                 </Expander.Header>
                                                                 <ItemsPresenter />
                                                             </Expander>

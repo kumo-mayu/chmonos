@@ -71,16 +71,17 @@ internal static partial class Scenes
             await context.SettleAsync();
             return FiltersShot(root);
         }),
-        new Scene("avatars-conversion","アバターの管理：変換（プロファイルの商品を決めていない／途中／決めた／扱わないの群で並べ、行の頭に商品の絵。右に変換扱いの欄と次へ進むボタン）", context => AvatarsConversionAsync(context)),
+        new Scene("avatars-conversion","アバターの管理：変換（プロファイルの商品を決めていない／途中／決めた／扱わないの群で並べ、行の頭に商品の絵。確認待ちのある「途中」の見出しの右に「まとめて確認済みにする」。右に変換扱いの欄と次へ進むボタン）", context => AvatarsConversionAsync(context)),
         new Scene("avatars-conversion-search", "アバターの管理：変換の組を探す欄の語（「アオイ」）で、プロファイルの商品の一覧も絞った所（群の見出しは当たった数/全部）", context => AvatarsConversionAsync(context, query: "アオイ")),
         new Scene("avatars-conversion-pair-detail", "アバターの管理：「変換」で追加した組を選んだ右の欄（元・先の絵とリンク・ツールの名前・メモ・この組を外す）と、プロファイルの商品の行に並ぶ組の行", context => AvatarsConversionAsync(context, selectPair: true)),
+        new Scene("avatars-conversion-many", "アバターの管理：変換で、プロファイルが400個の商品を選んだ右の欄（開く・流す・1つ確認済みにする重さを測って出す）", context => AvatarsConversionAsync(context, manyProfiles: 400)),
     ];
 
     /// <summary>
     /// アバターの管理の「変換」。プロファイルの商品4つ（推した・つなぎ先が無い・決めた・扱わない）。最初の決めていない商品を選んだ所。
     /// <paramref name="selectPair"/> のときは、追加した組2つ（メモ付き・ツールの名前付き）を足して、ツールの名前付きの組を選んだ所（組の行とプロファイルの商品の行を並べて見る）
     /// </summary>
-    private static async Task<Shot> AvatarsConversionAsync(SceneContext context, bool selectPair = false, string? query = null)
+    private static async Task<Shot> AvatarsConversionAsync(SceneContext context, bool selectPair = false, string? query = null, int manyProfiles = 0)
     {
         if (selectPair)
         {
@@ -131,13 +132,20 @@ internal static partial class Scenes
             }, images: 1);
         }
 
-        await ProfileAsync("9900221", "作り物のプロファイル（まとめ）", 'D', ["fakeaoi", "fakebase", "fakemomo"], new ConversionSetting
+        // プロファイルの多い商品（ユーザ判断 2026-11-20・③「大量のプロファイルを含む商品」）。3つに1つずつ、確認済み・確認待ち・未設定
+        var manySlugs = Enumerable.Range(0, manyProfiles).Select(index => $"fakemany{index:D3}").ToArray();
+        await ProfileAsync("9900221", "作り物のプロファイル（まとめ）", 'D', manyProfiles > 0 ? manySlugs : ["fakeaoi", "fakebase", "fakemomo"], new ConversionSetting
         {
-            Targets =
-            [
-                new ConversionTarget { AvatarItemId = "9800401", Forward = true, Slug = "fakeaoi", Confirmed = true },
-                new ConversionTarget { BaseName = "作り物の素体", Forward = true, Slug = "fakebase" },
-            ],
+            Targets = manyProfiles > 0
+                ? [.. manySlugs.Select((slug, index) => index % 3 == 0
+                    ? new ConversionTarget { AvatarItemId = "9800401", Forward = true, Slug = slug, Confirmed = true }
+                    : index % 3 == 1 ? new ConversionTarget { BaseName = "作り物の素体", Forward = true, Slug = slug } : null)
+                    .OfType<ConversionTarget>()]
+                :
+                [
+                    new ConversionTarget { AvatarItemId = "9800401", Forward = true, Slug = "fakeaoi", Confirmed = true },
+                    new ConversionTarget { BaseName = "作り物の素体", Forward = true, Slug = "fakebase" },
+                ],
         });
         await ProfileAsync("9900222", "作り物のプロファイル（つなぎ先なし）", 'E', ["fakekiki"], null);
         await ProfileAsync("9900223", "作り物のプロファイル（決めた）", 'F', ["fakeaoi"], new ConversionSetting
@@ -169,6 +177,15 @@ internal static partial class Scenes
         }
 
         // 推した理由と絵が出る商品を選んでおく
+        if (manyProfiles > 0)
+        {
+            // 初めの1回は型の読み込みなどが乗るので、別の商品を先に1回開いてから測る
+            avatars.SelectedConversion = avatars.ConversionItems.Cast<ConversionItemRowViewModel>().First(row => row.ItemId == "9900222");
+            await context.SettleAsync();
+            await MeasureManyProfilesAsync(context, root, avatars, manyProfiles);
+            return new Shot(root);
+        }
+
         avatars.SelectedConversion = avatars.ConversionItems.Cast<ConversionItemRowViewModel>().First(row => row.ItemId == "9900221");
         await context.SettleAsync();
 
@@ -184,6 +201,74 @@ internal static partial class Scenes
         }
 
         return new Shot(root);
+    }
+
+    /// <summary>
+    /// プロファイルの多い商品の右の欄の重さを測って出す（ユーザ判断 2026-11-20・③）。開く（選んでから配置が済むまで）・作った行の数・
+    /// 流す（右の欄を端まで 120px ずつ送り、1歩ごとの配置）・1つ確認済みにした後（書いて読み直し、配置が済むまで）。
+    /// 窓を出さずに描く台なので、画面に出す手間（合成）は入らない。前後の版で同じ場面を回して比べる
+    /// </summary>
+    private static async Task MeasureManyProfilesAsync(SceneContext context, System.Windows.FrameworkElement root, AvatarsViewModel avatars, int count)
+    {
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        avatars.SelectedConversion = avatars.ConversionItems.Cast<ConversionItemRowViewModel>().First(row => row.ItemId == "9900221");
+        root.UpdateLayout();
+        var open = watch.Elapsed.TotalMilliseconds;
+        await context.SettleAsync();
+        if (avatars.ConversionEditor.Rows.Count != count)
+        {
+            throw new InvalidOperationException($"右の欄の行が {avatars.ConversionEditor.Rows.Count} 行（{count} 行のはず）");
+        }
+
+        var panel = Descendants(root).OfType<ItemConversionPanel>().First();
+        int Realized() => Descendants(panel).OfType<System.Windows.FrameworkElement>()
+            .Count(element => System.Windows.Automation.AutomationProperties.GetAutomationId(element) == "ItemConversionRow");
+        var realized = Realized();
+
+        // 流す相手：欄の中で流せる一覧があればそれ（直した後）、無ければ右の欄の外の ScrollViewer（直す前）
+        var scroller = Descendants(panel).OfType<System.Windows.Controls.ScrollViewer>().FirstOrDefault(viewer => viewer.ScrollableHeight > 0)
+            ?? Ancestors(panel).OfType<System.Windows.Controls.ScrollViewer>().First(viewer => viewer.ScrollableHeight > 0);
+        var steps = new List<double>();
+        for (var offset = 0.0; offset < scroller.ScrollableHeight && steps.Count < 2000; offset += 120)
+        {
+            watch.Restart();
+            scroller.ScrollToVerticalOffset(offset + 120);
+            root.UpdateLayout();
+            steps.Add(watch.Elapsed.TotalMilliseconds);
+        }
+
+        var target = avatars.ConversionEditor.Rows.First(row => row.IsUnconfirmed);
+        var before = avatars.ConversionEditor.Rows.ToList();
+        watch.Restart();
+        target.ConfirmCommand!.Execute(null);
+        await SceneContext.UntilAsync(() => avatars.ConversionEditor.UnconfirmedCount < before.Count(row => row.IsUnconfirmed), "確認済みが右の欄に入る");
+        root.UpdateLayout();
+        var confirm = watch.Elapsed.TotalMilliseconds;
+        var kept = avatars.ConversionEditor.Rows.Count(row => before.Contains(row));
+
+        Console.WriteLine($"  プロファイル {count} 個：開く {open:F0}ms・作った行 {realized}・流す {steps.Count} 歩 合計 {steps.Sum():F0}ms 最長 {(steps.Count > 0 ? steps.Max() : 0):F0}ms・"
+            + $"1つ確認済みにして配置まで {confirm:F0}ms・同じ物のまま残った行 {kept}/{count}");
+    }
+
+    private static IEnumerable<System.Windows.DependencyObject> Descendants(System.Windows.DependencyObject parent)
+    {
+        for (var index = 0; index < System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent); index++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, index);
+            yield return child;
+            foreach (var deeper in Descendants(child))
+            {
+                yield return deeper;
+            }
+        }
+    }
+
+    private static IEnumerable<System.Windows.DependencyObject> Ancestors(System.Windows.DependencyObject child)
+    {
+        for (var parent = System.Windows.Media.VisualTreeHelper.GetParent(child); parent is not null; parent = System.Windows.Media.VisualTreeHelper.GetParent(parent))
+        {
+            yield return parent;
+        }
     }
 
     /// <summary>

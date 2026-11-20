@@ -124,6 +124,55 @@ public class AvatarBaseSearchAddTests
     });
 
     /// <summary>
+    /// ユーザ判断 2026-11-20・⑤：同じ名前でもアバター（ID）が違えば候補を分け、選んだ候補はその ID が入った素体だけに絞る。
+    /// 欄が遅れて同じ字を書き戻しても外れず、打ち直すと名前で当てる絞りに戻る
+    /// </summary>
+    [Fact]
+    public Task 同じ名前の別のアバターは候補を分け_選ぶとそのIDが入った素体だけに絞り_打ち直すと名前に戻る() => TestApp.Run(async app =>
+    {
+        const string otherAoi = "9800704";
+        await app.Store.Avatars.SaveAsync(new AvatarRegistry
+        {
+            Entries = [Avatar(Aoi, "アオイ", "作り物素体"), Avatar(otherAoi, "アオイ", "別の素体"), Avatar(Momo, "モモ", "作り物素体")],
+            BaseGroups = [new AvatarBaseGroup { Name = "作り物素体" }, new AvatarBaseGroup { Name = "別の素体" }],
+        });
+        var main = await app.StartAsync();
+        main.ShowAvatarsCommand.Execute(null);
+        var avatars = Assert.IsType<AvatarsViewModel>(main.CurrentViewModel);
+        await UiThread.Until(() => !avatars.IsLoading && avatars.Rows.Count > 0, "アバターの読み込みが済む");
+        avatars.ShowBaseModeCommand.Execute(null);
+
+        Assert.Equal([$"アオイ（ID {Aoi}）", $"アオイ（ID {otherAoi}）", "モモ"], avatars.BaseSearchCandidates);
+
+        avatars.BaseSearchCommitCommand.Execute($"アオイ（ID {otherAoi}）");
+        Assert.Equal(["別の素体"], avatars.ShownBases.Select(row => row.Name));
+        Assert.Equal("アバター「アオイ」", avatars.ShownBases[0].MatchNote);
+
+        // 欄が遅れて同じ字を書き戻しても、ID の絞りのまま
+        avatars.BaseQuery = $"アオイ（ID {otherAoi}）";
+        Assert.Equal(["別の素体"], avatars.ShownBases.Select(row => row.Name));
+
+        // 打ち直すと名前で当てる絞りに戻る（どちらのアオイの素体も出る）
+        avatars.BaseQuery = "アオイ";
+        Assert.Equal(["作り物素体", "別の素体"], avatars.ShownBases.Select(row => row.Name).Order());
+    });
+
+    [Fact]
+    public void 候補の字は_重なる名前だけにショップ名を添え_それでも重なればIDを添える()
+    {
+        var texts = AvatarsViewModel.BaseCandidateTexts(
+        [
+            ("レイ", "作り物の工房", "1"),
+            ("レイ", null, "2"),
+            ("レイ（作り物の工房）", "作り物の工房", "3"),
+            ("レイ（作り物の工房）", "作り物の工房", "4"),
+            ("ミナ", "作り物の工房", "5"),
+        ]);
+
+        Assert.Equal(["レイ（ID 1）", "レイ", "レイ（作り物の工房）（ID 3）", "レイ（作り物の工房）（ID 4）", "ミナ"], texts);
+    }
+
+    /// <summary>
     /// 打ってすぐの Enter・「追加」は結び付けの待ち（Delay=200）を先に流し込む（流し込まないと、遅れて届いた語が「既にあります」を消す）。
     /// 画面の側の作りなので、XAML の結び付けで見る
     /// </summary>

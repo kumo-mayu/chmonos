@@ -85,7 +85,62 @@ public sealed class ItemConversionEditor : ViewModelBase
     public string StateText { get; private set; } = string.Empty;
 
     /// <summary>中のプロファイルごとの行（つなぎ先が決まっていない物も、選ぶ欄の付いた行として出す）。</summary>
-    public IReadOnlyList<ConversionTargetRow> Rows { get; private set; } = [];
+    public IReadOnlyList<ConversionTargetRow> Rows => _rows;
+
+    /// <summary>
+    /// 行は1つの一覧を持ち回し、書いた後の読み直しでは中身の変わらない行を同じ物のまま残す（ユーザ判断 2026-11-20・③：
+    /// プロファイル数百の商品で、1つ確認済みにするたびに全部の行を作り直していた。画面は残った行の部品を作り直さない）
+    /// </summary>
+    private readonly System.Collections.ObjectModel.ObservableCollection<ConversionTargetRow> _rows = [];
+
+    /// <summary>
+    /// 近ごろ行を作った商品とその行（2つまで）。今の商品と同じ商品の控えだけを使い回し、別の商品へ替えたら一覧は空けてから作る。
+    /// 2つ持つのは、アバターの管理で書いた後に左の一覧を差し替える間、ListBox が一度先頭の別の商品を選んでから元の商品へ戻るため
+    /// （1つだけだと、その間に控えが別の商品の物になり、400行を全部作り直していた。2026-11-20 に測った）
+    /// </summary>
+    private readonly List<(string ItemId, List<ConversionTargetRow> Rows)> _recentRows = [];
+
+    /// <summary>今の一覧の商品（替わったら一覧を空けてから寄せる）。</summary>
+    private string? _rowsItemId;
+
+    /// <summary>新しく作った行のうち、控えと中身が同じ物は控えの行に置き換えて一覧へ寄せる。</summary>
+    private void ApplyRows(string? itemId, List<ConversionTargetRow> fresh)
+    {
+        if (!string.Equals(itemId, _rowsItemId, StringComparison.Ordinal))
+        {
+            _rows.Clear();
+        }
+
+        _rowsItemId = itemId;
+        if (itemId is null)
+        {
+            return;
+        }
+
+        var cached = _recentRows.FindIndex(entry => string.Equals(entry.ItemId, itemId, StringComparison.Ordinal));
+        if (cached >= 0)
+        {
+            var old = _recentRows[cached].Rows.GroupBy(row => row.Signature)
+                .ToDictionary(group => group.Key, group => new Queue<ConversionTargetRow>(group), StringComparer.Ordinal);
+            for (var index = 0; index < fresh.Count; index++)
+            {
+                if (old.TryGetValue(fresh[index].Signature, out var same) && same.Count > 0)
+                {
+                    fresh[index] = same.Dequeue();
+                }
+            }
+
+            _recentRows.RemoveAt(cached);
+        }
+
+        _recentRows.Insert(0, (itemId, fresh));
+        if (_recentRows.Count > 2)
+        {
+            _recentRows.RemoveAt(2);
+        }
+
+        CollectionSync.Apply(_rows, fresh);
+    }
 
     /// <summary>つなぎ先を選ぶ欄の候補（アバターと、「（共通素体）」を添えた共通素体）。</summary>
     public IReadOnlyList<string> TargetSuggestions { get; private set; } = [];
@@ -163,7 +218,7 @@ public sealed class ItemConversionEditor : ViewModelBase
 
         if (!ShowsConversion)
         {
-            Rows = [];
+            ApplyRows(null, []);
             CommonSourceText = string.Empty;
             UnconfirmedTargets = [];
             RejectedRows = [];
@@ -276,7 +331,7 @@ public sealed class ItemConversionEditor : ViewModelBase
             }
         }
 
-        Rows = rows;
+        ApplyRows(item?.Id, rows);
         UnconfirmedTargets = targets.Where(target => !target.Confirmed).ToList();
 
         // 外したつなぎ先は、畳んだ一覧に出して戻せるようにする（ユーザ判断 2026-11-09。対応アバターの「消したもの」と同じ形）
@@ -403,6 +458,7 @@ public sealed class ItemConversionEditor : ViewModelBase
         FileDirection = fileProfile is null ? string.Empty : DirectionCode(fileProfile.Forward, fileProfile.Reverse),
         DirectionText = DirectionText(target.Forward, target.Reverse),
         TargetText = name,
+        TargetKey = target.BaseName is { } baseKey ? "base:" + baseKey : "avatar:" + target.AvatarItemId,
         ReasonText = reason,
         IconFactory = iconFactory,
         TooltipText = target.Confirmed ? name : $"{name}：自動で見つけたつなぎ先です。確認すると変換経由に使います。",
@@ -583,6 +639,17 @@ public sealed class ConversionTargetRow
 
     /// <summary>向きの右クリックの項目（引数は "forward"・"reverse"・"both"）。つなぎ先の無い行は持たない（押せない）。</summary>
     public RelayCommand? SetDirectionCommand { get; init; }
+
+    /// <summary>
+    /// 中身の印。読み直しで同じ印の行は前の行を残す（<see cref="ItemConversionEditor"/>）。命令が掴むつなぎ先は、画面に出す値
+    /// （名前・向き・確認待ちか）と同じなら同じ物なので、印は画面に出す値で作る。端（ID か素体の名前）は名前が同じ別の物を分けるために入れる
+    /// </summary>
+    internal string Signature => string.Join(
+        "\u001f", ProfileText, DirectionText, TargetText, TargetKey, ReasonText, SourceText, TooltipText, Direction, FileDirection,
+        HasTarget ? "1" : "0", IsUnconfirmed ? "1" : "0");
+
+    /// <summary>つなぎ先の端（"avatar:ID"・"base:名前"）。決まっていない行は空。</summary>
+    public string TargetKey { get; init; } = string.Empty;
 }
 
 /// <summary>「外したつなぎ先」の一覧の1行。</summary>

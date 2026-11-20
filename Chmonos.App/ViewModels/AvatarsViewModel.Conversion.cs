@@ -389,24 +389,30 @@ public sealed partial class AvatarsViewModel
 
     // ---- まとめて確認済みにする（ユーザ判断 2026-11-09「押すと一覧の窓を出して外せる」） ----
 
-    /// <summary>まとめて決められる確認待ちのつなぎ先の数（扱わないにした商品と、人が外した物は数えない）。</summary>
-    public int BulkCount => _conversionItems
-        .Where(row => row.Group != NotProfileGroup)
+    // ユーザ判断 2026-11-20・④：ボタンは効く相手のそばに置く。群「決めていない」「途中」の見出しの右に、その群の分だけを対象にして出す
+    // （前は左の上に1つで、効く相手の一覧から離れていた）。決めた群は確認待ちを持たず、扱わない群は対象にしないので出さない。
+    // 絞り（探す欄）の間は**見えている行だけ**を数える：見出しは「当たった数/全部」を出すので、隠れた行まで数えると横の数と食い違い、
+    // 当たらない群は見出しごと消えて押す口も無くなる（「後で」・次へも見えている行の中で回る。前の d「隠れた行も数える」から替えた）
+
+    /// <summary>群の見出しにまとめて確認済みにするボタンを出す群か（決めていない・途中）。</summary>
+    internal static bool OffersBulk(string group) => group is UndecidedGroup or PartialGroup;
+
+    /// <summary>その群の見えている行の、確認待ちのつなぎ先の数（人が外した物は数えない）。</summary>
+    internal int BulkCountOf(string group) => _shownConversionItems
+        .Where(row => row.Group == group)
         .Sum(row => UnconfirmedOf(row.Item).Count);
-
-    public string BulkText => $"まとめて確認済みにする（{BulkCount} 件）";
-
-    public RelayCommand BulkConfirmCommand => _bulkConfirmCommand ??= new RelayCommand(
-        () => BulkConfirmAsync().Forget(),
-        () => IsConversionMode && BulkCount > 0);
-
-    private RelayCommand? _bulkConfirmCommand;
 
     private static IReadOnlyList<ConversionTarget> UnconfirmedOf(ItemRecord item)
         => (item.Local.Conversion?.Targets ?? []).Where(target => !target.Confirmed && !target.Rejected).ToList();
 
-    private async Task BulkConfirmAsync()
+    /// <summary>群の見出しのボタン：その群の見えている行の確認待ちを窓に並べ、チェックを残した物を確認済みにする。</summary>
+    internal async Task BulkConfirmAsync(string group)
     {
+        if (!IsConversionMode || !OffersBulk(group))
+        {
+            return;
+        }
+
         var registry = _services.CachedAvatars.Load();
         var names = AvatarNames.Map(registry.Entries);
         string TargetName(ConversionTarget target)
@@ -421,8 +427,8 @@ public sealed partial class AvatarsViewModel
             _ => "向きが分かりません",
         };
 
-        var sections = _conversionItems
-            .Where(row => row.Group != NotProfileGroup && UnconfirmedOf(row.Item).Count > 0)
+        var sections = _shownConversionItems
+            .Where(row => row.Group == group && UnconfirmedOf(row.Item).Count > 0)
             .Select(row => new ConfirmConversionsSection
             {
                 ItemId = row.ItemId,
@@ -477,15 +483,11 @@ public sealed partial class AvatarsViewModel
         await AfterConversionWriteAsync(written);
     }
 
-    /// <summary>まとめて決めるボタンの下の1行（書けなかったときだけ）。</summary>
+    /// <summary>まとめて確認済みにして書けなかったときの1行（一覧の上。ボタンは群の見出しにあり、見出しは書いた後に作り直されるので、そこには置かない）。</summary>
     public AreaNotice BulkNotice { get; } = new();
 
-    private void RaiseBulk()
-    {
-        OnPropertyChanged(nameof(BulkCount));
-        OnPropertyChanged(nameof(BulkText));
-        RelayCommand.RaiseCanExecuteChanged();
-    }
+    // 群の見出し（とボタンの数）は一覧を並べ直すたびに作り直す（ArrangeConversionItems）。ここは押せるかを知らせ直すだけ
+    private void RaiseBulk() => RelayCommand.RaiseCanExecuteChanged();
 
     /// <summary>
     /// 検索の写しから一覧を作り直す。控えを読むので裏で回し、間に作り直しが重なったら古い方の結果は捨てる。
@@ -627,11 +629,18 @@ public sealed partial class AvatarsViewModel
         // 群の見出しの数：絞っている間は「当たった数/全部」（追加した組の見出しと同じ）。当たる行の無い群は見出しごと出ない
         var totals = _conversionItems.GroupBy(row => row.Group).ToDictionary(group => group.Key, group => group.Count());
         var shown = _shownConversionItems.GroupBy(row => row.Group).ToDictionary(group => group.Key, group => group.Count());
+
+        // 見出しは群ごとに1つの物（字と、その群のまとめて確認済みにするボタン）。一覧はこの物で群に分ける
+        var headers = totals.Keys.ToDictionary(
+            group => group,
+            group => new ConversionItemGroupHeader(
+                group,
+                query.Length == 0 ? $"{group}（{totals[group]}）" : $"{group}（{shown.GetValueOrDefault(group)}/{totals[group]}）",
+                OffersBulk(group) ? BulkCountOf(group) : 0,
+                () => BulkConfirmAsync(group).Forget()));
         foreach (var row in _conversionItems)
         {
-            row.GroupHeading = query.Length == 0
-                ? $"{row.Group}（{totals[row.Group]}）"
-                : $"{row.Group}（{shown.GetValueOrDefault(row.Group)}/{totals[row.Group]}）";
+            row.GroupHeader = headers[row.Group];
         }
 
         ConversionItems = Grouped(_shownConversionItems);
@@ -648,11 +657,11 @@ public sealed partial class AvatarsViewModel
     /// <summary>プロファイルの商品はあるのに、探す欄の語に当てはまる商品が無い（一覧の代わりに1行で言う。追加した組と同じ）。</summary>
     public bool ShowsNoMatchingConversionItems => IsConversionMode && HasConversionItems && _shownConversionItems.Count == 0;
 
-    /// <summary>群は見出しの字（群の名前と数）で分ける。並びは先に群の順にしてあるので、見出しもその順に出る。</summary>
+    /// <summary>群は見出しの物（群の名前と数・ボタン）で分ける。並びは先に群の順にしてあるので、見出しもその順に出る。</summary>
     private static ListCollectionView Grouped(List<ConversionItemRowViewModel> rows)
     {
         var view = new ListCollectionView(rows);
-        view.GroupDescriptions.Add(new PropertyGroupDescription(nameof(ConversionItemRowViewModel.GroupHeading)));
+        view.GroupDescriptions.Add(new PropertyGroupDescription(nameof(ConversionItemRowViewModel.GroupHeader)));
         return view;
     }
 
@@ -757,10 +766,13 @@ public sealed class ConversionItemRowViewModel : ViewModelBase
     public string Group { get; private set; } = string.Empty;
 
     /// <summary>
-    /// 群の見出しの字（「決めていない（3）」、絞っている間は「決めていない（1/3）」）。一覧は見出しの字で群に分けるので、並べ直す側が付ける
-    /// （群の数え方を絞りの前と後で持ち分けるため。行の書き直しでは変えない）
+    /// 群の見出し（字「決めていない（3）」、絞っている間は「決めていない（1/3）」と、その群のまとめて確認済みにするボタン）。
+    /// 一覧は見出しの物で群に分けるので、並べ直す側が付ける（群の数え方を絞りの前と後で持ち分けるため。行の書き直しでは変えない）
     /// </summary>
-    public string GroupHeading { get; internal set; } = string.Empty;
+    public ConversionItemGroupHeader? GroupHeader { get; internal set; }
+
+    /// <summary>群の見出しの字。</summary>
+    public string GroupHeading => GroupHeader?.Text ?? string.Empty;
 
     public int GroupRank => Group switch
     {
@@ -819,4 +831,37 @@ public sealed class ConversionItemRowViewModel : ViewModelBase
         OnPropertyChanged(nameof(BadgeText));
         OnPropertyChanged(nameof(HasBadge));
     }
+}
+
+/// <summary>
+/// 「変換」のプロファイルの商品の群の見出し（字と、その群のまとめて確認済みにするボタン。ユーザ判断 2026-11-20・④）。
+/// ボタンは群「決めていない」「途中」で、確認待ちが1件以上の時だけ出す。一覧を並べ直すたびに作り直す（数は作った時の値）
+/// </summary>
+public sealed class ConversionItemGroupHeader
+{
+    internal ConversionItemGroupHeader(string group, string text, int bulkCount, Action bulk)
+    {
+        Group = group;
+        Text = text;
+        BulkCount = bulkCount;
+        BulkConfirmCommand = new RelayCommand(bulk, () => BulkCount > 0);
+    }
+
+    /// <summary>群の名前（「決めていない」など）。</summary>
+    public string Group { get; }
+
+    /// <summary>見出しの字（「決めていない（3）」・絞っている間は「決めていない（1/3）」）。</summary>
+    public string Text { get; }
+
+    /// <summary>この群の見えている行の確認待ちのつなぎ先の数。</summary>
+    public int BulkCount { get; }
+
+    public bool ShowsBulk => BulkCount > 0;
+
+    public string BulkText => $"まとめて確認済みにする（{BulkCount} 件）";
+
+    public RelayCommand BulkConfirmCommand { get; }
+
+    // 群の入れ物の読み上げの名前に使われる（無いと型の名前が読まれる）
+    public override string ToString() => Text;
 }

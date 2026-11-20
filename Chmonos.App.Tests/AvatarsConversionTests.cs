@@ -67,6 +67,10 @@ public class AvatarsConversionTests
     private static ConversionItemRowViewModel Row(AvatarsViewModel avatars, string id)
         => Rows(avatars).Single(row => row.ItemId == id);
 
+    /// <summary>群の見出し（まとめて確認済みにするボタンを持つ）。見えている行の見出しから引く。</summary>
+    private static ConversionItemGroupHeader Header(AvatarsViewModel avatars, string group)
+        => Rows(avatars).Select(row => row.GroupHeader!).First(header => header.Group == group);
+
     [Fact]
     public Task 決めていない物を上に群で分け_決めていない数を添える() => TestApp.Run(async app =>
     {
@@ -146,7 +150,7 @@ public class AvatarsConversionTests
         });
         var avatars = await OpenAsync(app);
         avatars.ShowConversionModeCommand.Execute(null);
-        Assert.Equal("まとめて確認済みにする（3 件）", avatars.BulkText);
+        Assert.Equal("まとめて確認済みにする（3 件）", Header(avatars, "決めていない").BulkText);
 
         ConfirmConversionsDialogViewModel? shown = null;
         ConfirmConversionsDialogViewModel.Intercept = model =>
@@ -157,7 +161,7 @@ public class AvatarsConversionTests
         };
         try
         {
-            avatars.BulkConfirmCommand.Execute(null);
+            Header(avatars, "決めていない").BulkConfirmCommand.Execute(null);
             await app.SettleAsync();
         }
         finally
@@ -170,7 +174,69 @@ public class AvatarsConversionTests
         Assert.True((await app.Store.Items.LoadAsync("9900861"))!.Local.Conversion!.Targets.Single().Confirmed);
         var e = (await app.Store.Items.LoadAsync("9900865"))!.Local.Conversion!.Targets;
         Assert.Equal([true, false], e.Select(target => target.Confirmed));
-        Assert.Equal("まとめて確認済みにする（1 件）", avatars.BulkText);
+        // 片方だけ確認済みにした商品は「途中」へ移り、残りの1件はその群の見出しのボタンが受け持つ
+        Assert.Equal("途中", Row(avatars, "9900865").Group);
+        Assert.Equal("まとめて確認済みにする（1 件）", Header(avatars, "途中").BulkText);
+        Assert.False(Header(avatars, "決めていない").ShowsBulk);
+    });
+
+    /// <summary>
+    /// ユーザ判断 2026-11-20・④：ボタンは群「決めていない」「途中」の見出しにあり、その群の見えている行の確認待ちだけを対象にする。
+    /// 確認待ちの無い群（決めた）と扱わない群には出さない。絞りの間は見えている行だけを数え、窓にも出す
+    /// </summary>
+    [Fact]
+    public Task まとめて確認済みは群ごとで_その群の見えている行の確認待ちだけを数えて窓に出す() => TestApp.Run(async app =>
+    {
+        // 決めていない：A（確認待ち1）・E（確認待ち2）。途中：F（確認済み1・確認待ち1）
+        await SaveProfileAsync(app, "9900865", "作り物のプロファイルE", "fakee", new ConversionSetting
+        {
+            Targets =
+            [
+                new ConversionTarget { AvatarItemId = "9800401", Forward = true, Slug = "fakee" },
+                new ConversionTarget { AvatarItemId = "9800401", Reverse = true, Slug = "fakee2" },
+            ],
+        });
+        await SaveProfileAsync(app, "9900866", "作り物のプロファイルF", "fakef", new ConversionSetting
+        {
+            Targets =
+            [
+                new ConversionTarget { AvatarItemId = "9800401", Forward = true, Slug = "fakef", Confirmed = true },
+                new ConversionTarget { AvatarItemId = "9800401", Reverse = true, Slug = "fakef2" },
+            ],
+        });
+        var avatars = await OpenAsync(app);
+        avatars.ShowConversionModeCommand.Execute(null);
+
+        Assert.Equal(3, Header(avatars, "決めていない").BulkCount);
+        Assert.Equal(1, Header(avatars, "途中").BulkCount);
+        Assert.False(Header(avatars, "決めた").ShowsBulk);
+        Assert.False(Header(avatars, "扱わない").ShowsBulk);
+
+        var shown = new List<ConfirmConversionsDialogViewModel>();
+        ConfirmConversionsDialogViewModel.Intercept = model =>
+        {
+            shown.Add(model);
+            return false;
+        };
+        try
+        {
+            Header(avatars, "途中").BulkConfirmCommand.Execute(null);
+            await app.SettleAsync();
+
+            // 絞ると、見えている行だけを数え、窓にも見えている行だけを出す（隠れた E は入れない）
+            avatars.ConversionPairs.Query = "作り物のプロファイルA";
+            await app.SettleAsync();
+            Assert.Equal(1, Header(avatars, "決めていない").BulkCount);
+            Header(avatars, "決めていない").BulkConfirmCommand.Execute(null);
+            await app.SettleAsync();
+        }
+        finally
+        {
+            ConfirmConversionsDialogViewModel.Intercept = null;
+        }
+
+        Assert.Equal(["9900866"], shown[0].Sections.Select(section => section.ItemId));
+        Assert.Equal(["9900861"], shown[1].Sections.Select(section => section.ItemId));
     });
 
     [Fact]
@@ -182,7 +248,7 @@ public class AvatarsConversionTests
         ConfirmConversionsDialogViewModel.Intercept = _ => false;
         try
         {
-            avatars.BulkConfirmCommand.Execute(null);
+            Header(avatars, "決めていない").BulkConfirmCommand.Execute(null);
             await app.SettleAsync();
         }
         finally
