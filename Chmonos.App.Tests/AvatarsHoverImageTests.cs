@@ -133,7 +133,7 @@ public sealed class AvatarsHoverImageTests
         Assert.Equal(6, Regex.Matches(xaml, @"\{DynamicResource HoverImageTip\}").Count);
         Assert.Equal(6, tips.Count);
 
-        var conversionImage = Regex.Match(xaml, @"<Border Width=""200"" Height=""200""[^>]*>").Value;
+        var conversionImage = Regex.Match(xaml, @"<Border[^>]*Width=""200"" Height=""200""[^>]*>").Value;
         Assert.NotEmpty(conversionImage);
         Assert.DoesNotContain("HoverImageTip", conversionImage);
 
