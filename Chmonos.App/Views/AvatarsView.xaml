@@ -493,14 +493,15 @@
                         <!--
                             追加した組を探す欄（2026-11-20・ユーザ「元と先、両方を指定できる形の文字列(他のアバター検索UIと同じ形)検索」）。
                             欄の見た目・案内の文・当てる語は「アバター」の見方の探す欄と同じ（共通素体は名前）。探す所は、つながったボタンで両方・元・先（既定は両方）。
-                            絞るのは追加した組だけで、プロファイルの商品の一覧は絞らない
+                            追加した組と、下のプロファイルの商品の一覧の両方を絞る（ユーザ判断 2026-11-20・②）。商品は、つなぎ先を向きで元（逆方向）と先（順方向）に分けて当て、
+                            商品名は「両方」の時だけ当てる（ConversionItemSearch）
                         -->
                         <StackPanel DockPanel.Dock="Top" Margin="14,12,14,0" DataContext="{Binding ConversionPairs}"
                                     Visibility="{Binding DataContext.IsConversionMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <Grid>
                                 <TextBox x:Name="ConversionPairSearchBox" Padding="8,6" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged, Delay=200}"
                                          AutomationProperties.Name="名前・ID・呼び方で探す" AutomationProperties.AutomationId="AvatarsConversionPairSearch"
-                                         ToolTip="追加した組を、元と先の名前・ID・呼び方で絞り込みます。" />
+                                         ToolTip="追加した組とプロファイルの商品を、名前・ID・呼び方で絞り込みます。" />
                                 <!-- 案内は欄そのものの字で出し分ける。Query は打ってから 200ms 遅れて入るので、それで決めると打った字と重なった（ユーザ判断 2026-11-20・①） -->
                                 <TextBlock Text="名前・ID・呼び方で探す" Margin="11,0,0,0" Style="{StaticResource InputPlaceholder}"
                                            Visibility="{Binding Text.IsEmpty, ElementName=ConversionPairSearchBox, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
@@ -511,17 +512,17 @@
                                                              Command="{Binding SetScopeCommand}" CommandParameter="both"
                                                              IsChecked="{Binding IsScopeBoth, Mode=OneWay}"
                                                              AutomationProperties.AutomationId="AvatarsConversionPairSearchBoth"
-                                                             ToolTip="元と先のどちらかに当たる組を出します。" />
+                                                             ToolTip="元と先のどちらかに当たる組と商品を出します。" />
                                 <controls:CommandRadioButton Content="元" GroupName="ConversionPairSearchScope" Style="{StaticResource SegmentMiddle}"
                                                              Command="{Binding SetScopeCommand}" CommandParameter="from"
                                                              IsChecked="{Binding IsScopeFrom, Mode=OneWay}"
                                                              AutomationProperties.AutomationId="AvatarsConversionPairSearchFrom"
-                                                             ToolTip="元に当たる組だけを出します。" />
+                                                             ToolTip="元に当たる組と商品だけを出します。" />
                                 <controls:CommandRadioButton Content="先" GroupName="ConversionPairSearchScope" Style="{StaticResource SegmentLast}"
                                                              Command="{Binding SetScopeCommand}" CommandParameter="to"
                                                              IsChecked="{Binding IsScopeTo, Mode=OneWay}"
                                                              AutomationProperties.AutomationId="AvatarsConversionPairSearchTo"
-                                                             ToolTip="先に当たる組だけを出します。" />
+                                                             ToolTip="先に当たる組と商品だけを出します。" />
                             </StackPanel>
                         </StackPanel>
 
@@ -861,7 +862,8 @@
                                                         <ControlTemplate TargetType="GroupItem">
                                                             <Expander Style="{StaticResource TriangleExpander}" IsExpanded="True" Margin="0,8,0,2">
                                                                 <Expander.Header>
-                                                                    <TextBlock Style="{StaticResource SectionLabel}" Margin="0,0,0,4"><Run Text="{Binding Name, Mode=OneWay}" /><Run Text="（" /><Run Text="{Binding ItemCount, Mode=OneWay}" /><Run Text="）" /></TextBlock>
+                                                                    <!-- 群は見出しの字（名前と数。絞っている間は「当たった数/全部」）で分けてある（ConversionItemRowViewModel.GroupHeading） -->
+                                                                    <TextBlock Style="{StaticResource SectionLabel}" Margin="0,0,0,4" Text="{Binding Name, Mode=OneWay}" />
                                                                 </Expander.Header>
                                                                 <ItemsPresenter />
                                                             </Expander>
@@ -886,6 +888,15 @@
                             <TextBlock Style="{StaticResource Caption}" Margin="18,16,18,0" TextWrapping="Wrap"
                                        Visibility="{Binding ShowsNoConversionItems, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"
                                        Text="変換ツールのプロファイルを含む商品はまだありません。取り込むと、ここに並びます。" />
+
+                            <!-- 探して0件と、そもそも1件も無いのを言い分ける（追加した組・「アバター」の見方と同じ。語は上の組を探す欄の物） -->
+                            <StackPanel Margin="18,16,18,0" HorizontalAlignment="Left"
+                                        Visibility="{Binding ShowsNoMatchingConversionItems, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Text="打ち込んだ言葉に当てはまる商品がありません。"
+                                           AutomationProperties.AutomationId="AvatarsConversionNoMatch" />
+                                <Button Content="絞り込みを消す" Style="{StaticResource SmallButton}" Margin="0,8,0,0" HorizontalAlignment="Left"
+                                        Command="{Binding ConversionPairs.ClearQueryCommand}" />
+                            </StackPanel>
 
                             <TextBlock Style="{StaticResource Caption}" Margin="18,16,18,0" TextWrapping="Wrap"
                                        Visibility="{Binding ShowsNoBases, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}"

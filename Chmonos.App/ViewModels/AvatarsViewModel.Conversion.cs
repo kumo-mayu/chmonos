@@ -26,6 +26,12 @@ public sealed partial class AvatarsViewModel
 
     private bool _isConversionMode;
     private List<ConversionItemRowViewModel> _conversionItems = [];
+
+    /// <summary>一覧に出す行（組を探す欄の語に当たる物。絞っていなければ <see cref="_conversionItems"/> と同じ）。</summary>
+    private List<ConversionItemRowViewModel> _shownConversionItems = [];
+
+    /// <summary>選びを外すのが、ListBox の書き戻しでなく画面の側の決めた事か（組を選んだ）。</summary>
+    private bool _clearingConversion;
     private ConversionItemRowViewModel? _selectedConversion;
     private ItemConversionEditor? _conversionEditor;
     private int _conversionBuild;
@@ -91,6 +97,13 @@ public sealed partial class AvatarsViewModel
         get => _selectedConversion;
         set
         {
+            // 探す欄の絞りで隠れた商品を選んでいる間は、ListBox が書き戻す null を受けない（選びは絞りで外さない。追加した組と同じ・
+            // ユーザ判断 2026-11-20・②）。受けると、語を打つだけで右の欄が空になる。選びを外すのは組を選んだ時だけ（_clearingConversion）
+            if (value is null && !_clearingConversion && _selectedConversion is { } current && !_shownConversionItems.Contains(current))
+            {
+                return;
+            }
+
             if (SetField(ref _selectedConversion, value))
             {
                 // 右に出すのはプロファイルの商品か追加した組のどちらか1つ（ユーザ判断 2026-11-20：組もプロファイルと同じに右で見る）
@@ -128,16 +141,31 @@ public sealed partial class AvatarsViewModel
     /// 「変換」の一覧の上の「追加した組」（人が足す変換の組・ユーザ判断 2026-11-20）。
     /// 足した・外したら検索を絞り直し（対応アバターの条件の「変換で使える物も含める」が組を使う）、アバターの詳細の札も読み直す
     /// </summary>
-    public ConversionPairEditor ConversionPairs => _conversionPairs ??= new ConversionPairEditor(
-        _services, _main.Thumbnails, _main.Search.FindItem, () =>
+    public ConversionPairEditor ConversionPairs => _conversionPairs ??= CreateConversionPairs();
+
+    private ConversionPairEditor CreateConversionPairs()
+    {
+        var editor = new ConversionPairEditor(
+            _services, _main.Thumbnails, _main.Search.FindItem, () =>
+            {
+                _main.Search.NoteConversionPairsChanged();
+                ConversionPairSummary.Refresh();
+            },
+            () => ConversionPairSummary.Refresh(),
+            ConversionPairSelected,
+            CanOpenConversionEnd,
+            OpenConversionEnd);
+
+        // 組を探す欄の語と探す所は、プロファイルの商品の一覧にも当てる（ユーザ判断 2026-11-20・②「他の段にも適用して良い」）
+        editor.PropertyChanged += (_, args) =>
         {
-            _main.Search.NoteConversionPairsChanged();
-            ConversionPairSummary.Refresh();
-        },
-        () => ConversionPairSummary.Refresh(),
-        ConversionPairSelected,
-        CanOpenConversionEnd,
-        OpenConversionEnd);
+            if (args.PropertyName is nameof(ConversionPairEditor.Query) or nameof(ConversionPairEditor.Scope))
+            {
+                ArrangeConversionItems(keep: SelectedConversion);
+            }
+        };
+        return editor;
+    }
 
     /// <summary>
     /// 組の選びが替わった。組を選んだらプロファイルの商品の選びを外す（右はどちらか1つ）。
@@ -147,7 +175,15 @@ public sealed partial class AvatarsViewModel
     {
         if (row is not null)
         {
-            SelectedConversion = null;
+            _clearingConversion = true;
+            try
+            {
+                SelectedConversion = null;
+            }
+            finally
+            {
+                _clearingConversion = false;
+            }
         }
         else if (IsConversionMode && SelectedConversion is null)
         {
@@ -539,15 +575,46 @@ public sealed partial class AvatarsViewModel
     private IReadOnlyList<ProfileSlug> ProfilesOf(ItemRecord item)
         => ConversionScan.MayHoldProfiles(item) ? _services.Conversion.ProfilesOf(item) : [];
 
-    /// <summary>群の順（決めていない → 途中 → 決めた → 扱わない）と名前で並べ直す。選んでいる行はそのまま選んでおく。</summary>
+    /// <summary>
+    /// 群の順（決めていない → 途中 → 決めた → 扱わない）と名前で並べ直し、組を探す欄の語で絞って一覧に当てる。選んでいる行はそのまま選んでおく
+    /// （絞りで隠れても選びは外さない。右に出したまま一覧には出さない。追加した組と同じ）。
+    /// </summary>
     private void ArrangeConversionItems(ConversionItemRowViewModel? keep)
     {
         _conversionItems = _conversionItems
             .OrderBy(row => row.GroupRank)
             .ThenBy(row => row.Name, StringComparer.CurrentCulture)
             .ToList();
-        ConversionItems = Grouped(_conversionItems);
+
+        var query = (_conversionPairs?.Query ?? string.Empty).Trim();
+        var scope = _conversionPairs?.Scope ?? ConversionPairSearchScope.Both;
+        if (query.Length == 0)
+        {
+            _shownConversionItems = _conversionItems;
+        }
+        else
+        {
+            var registry = _services.CachedAvatars.Load();
+            var entries = registry.Entries
+                .GroupBy(entry => entry.ItemId, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+            var names = AvatarNames.Map(registry.Entries);
+            _shownConversionItems = [.. _conversionItems.Where(row => ConversionItemSearch.Matches(row.Item, query, scope, entries, names))];
+        }
+
+        // 群の見出しの数：絞っている間は「当たった数/全部」（追加した組の見出しと同じ）。当たる行の無い群は見出しごと出ない
+        var totals = _conversionItems.GroupBy(row => row.Group).ToDictionary(group => group.Key, group => group.Count());
+        var shown = _shownConversionItems.GroupBy(row => row.Group).ToDictionary(group => group.Key, group => group.Count());
+        foreach (var row in _conversionItems)
+        {
+            row.GroupHeading = query.Length == 0
+                ? $"{row.Group}（{totals[row.Group]}）"
+                : $"{row.Group}（{shown.GetValueOrDefault(row.Group)}/{totals[row.Group]}）";
+        }
+
+        ConversionItems = Grouped(_shownConversionItems);
         OnPropertyChanged(nameof(ConversionItems));
+        OnPropertyChanged(nameof(ShowsNoMatchingConversionItems));
         if (keep is not null)
         {
             // 一覧を差し替えると ListBox が選びを外すので、同じ行を選び直したと知らせる
@@ -556,30 +623,102 @@ public sealed partial class AvatarsViewModel
         }
     }
 
+    /// <summary>プロファイルの商品はあるのに、探す欄の語に当てはまる商品が無い（一覧の代わりに1行で言う。追加した組と同じ）。</summary>
+    public bool ShowsNoMatchingConversionItems => IsConversionMode && HasConversionItems && _shownConversionItems.Count == 0;
+
+    /// <summary>群は見出しの字（群の名前と数）で分ける。並びは先に群の順にしてあるので、見出しもその順に出る。</summary>
     private static ListCollectionView Grouped(List<ConversionItemRowViewModel> rows)
     {
         var view = new ListCollectionView(rows);
-        view.GroupDescriptions.Add(new PropertyGroupDescription(nameof(ConversionItemRowViewModel.Group)));
+        view.GroupDescriptions.Add(new PropertyGroupDescription(nameof(ConversionItemRowViewModel.GroupHeading)));
         return view;
     }
 
+    /// <summary>
+    /// 変換を開いた時・組の選びが無くなった時に選ぶ商品。見えている行の決めていない・途中の行 → 見えている最初の行。
+    /// 絞りで1件も見えていなければ、全部の中から（右を空にしない）
+    /// </summary>
     private ConversionItemRowViewModel? FirstUndecided()
-        => _conversionItems.FirstOrDefault(row => row.NeedsDecision) ?? _conversionItems.FirstOrDefault();
+        => _shownConversionItems.FirstOrDefault(row => row.NeedsDecision)
+            ?? _shownConversionItems.FirstOrDefault()
+            ?? _conversionItems.FirstOrDefault(row => row.NeedsDecision)
+            ?? _conversionItems.FirstOrDefault();
 
     /// <summary>
     /// 今の行の後ろから、決めていない行か途中の行を探して選ぶ（無ければ前から。1件も無ければ今の行のまま）。
-    /// 途中の行も回る（ユーザ判断 2026-11-20・④：「後で」・次への流れは決めていないと途中の両方）
+    /// 途中の行も回る（ユーザ判断 2026-11-20・④：「後で」・次への流れは決めていないと途中の両方）。
+    /// 絞っている間は見えている行の中で回る（追加した組の「外した後の次の組」と同じ。隠れた商品へ移ると、何を見ているか一覧で分からない）
     /// </summary>
     internal void SelectNextUndecided()
     {
+        var rows = _shownConversionItems;
         var current = SelectedConversion;
-        var index = current is null ? -1 : _conversionItems.IndexOf(current);
-        var next = _conversionItems.Skip(index + 1).FirstOrDefault(row => row.NeedsDecision && !ReferenceEquals(row, current))
-            ?? _conversionItems.Take(Math.Max(index, 0)).FirstOrDefault(row => row.NeedsDecision);
+        var index = current is null ? -1 : rows.IndexOf(current);
+        var next = rows.Skip(index + 1).FirstOrDefault(row => row.NeedsDecision && !ReferenceEquals(row, current))
+            ?? rows.Take(Math.Max(index, 0)).FirstOrDefault(row => row.NeedsDecision && !ReferenceEquals(row, current));
         if (next is not null)
         {
             SelectedConversion = next;
         }
+    }
+}
+
+/// <summary>
+/// 「変換」のプロファイルの商品を、組を探す欄の語と探す所で照らす（ユーザ判断 2026-11-20・②）。
+/// つなぎ先は、向きで元と先に振り分ける：逆方向は元（その衣装を持っていく側）、順方向は先（着せる側。検索の条件「プロファイル」の
+/// 「変換元は逆方向・変換先は順方向」と同じ）。両方向は両方、向きの分からない物も両方。外したつなぎ先は当てない。
+/// 商品名と商品 ID は元でも先でもないので、探す所が「両方」の時だけ当てる（「元」で選んだのに、名前に先のアバター名を含む商品が残らないように）。
+/// 端の当て方は組と同じ（<see cref="ConversionPairSearch.EndMatches"/>：アバターは名前・ID・正式名・呼び方、共通素体は名前）
+/// </summary>
+public static class ConversionItemSearch
+{
+    public static bool Matches(
+        ItemRecord item, string query, ConversionPairSearchScope scope,
+        IReadOnlyDictionary<string, AvatarRegistryEntry> entries, IReadOnlyDictionary<string, string> names)
+    {
+        if (query.Length == 0)
+        {
+            return true;
+        }
+
+        if (scope == ConversionPairSearchScope.Both
+            && (item.DisplayName.Contains(query, StringComparison.CurrentCultureIgnoreCase) || item.Id.Contains(query, StringComparison.Ordinal)))
+        {
+            return true;
+        }
+
+        foreach (var target in item.Local.Conversion?.Targets ?? [])
+        {
+            if (target.Rejected)
+            {
+                continue;
+            }
+
+            var unknown = !target.Forward && !target.Reverse;
+            var asFrom = target.Reverse || unknown;
+            var asTo = target.Forward || unknown;
+            if (!((scope != ConversionPairSearchScope.To && asFrom) || (scope != ConversionPairSearchScope.From && asTo)))
+            {
+                continue;
+            }
+
+            var end = target.BaseName is { } baseName ? ConversionEnd.Base(baseName)
+                : target.AvatarItemId is { } id ? ConversionEnd.Avatar(id)
+                : null;
+            if (end is null)
+            {
+                continue;
+            }
+
+            var entry = end.AvatarItemId is { } avatarId ? entries.GetValueOrDefault(avatarId) : null;
+            var shown = end.BaseName ?? (end.AvatarItemId is { } shownId ? names.GetValueOrDefault(shownId) ?? shownId : string.Empty);
+            if (ConversionPairSearch.EndMatches(end, shown, entry, query))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 
@@ -594,6 +733,12 @@ public sealed class ConversionItemRowViewModel : ViewModelBase
 
     /// <summary>群の名前（「決めていない」「途中」「決めた」「扱わない」）。</summary>
     public string Group { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// 群の見出しの字（「決めていない（3）」、絞っている間は「決めていない（1/3）」）。一覧は見出しの字で群に分けるので、並べ直す側が付ける
+    /// （群の数え方を絞りの前と後で持ち分けるため。行の書き直しでは変えない）
+    /// </summary>
+    public string GroupHeading { get; internal set; } = string.Empty;
 
     public int GroupRank => Group switch
     {

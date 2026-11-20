@@ -941,6 +941,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
         OnPropertyChanged(nameof(ShowsConversionDetail));
         OnPropertyChanged(nameof(ShowsConversionPairDetail));
         OnPropertyChanged(nameof(ShowsNoConversionItems));
+        OnPropertyChanged(nameof(ShowsNoMatchingConversionItems));
     }
 
     public string AvatarModeText => $"アバター（{_all.Count}）";

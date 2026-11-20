@@ -16,7 +16,7 @@ public class ConversionItemGroupTests
     private static readonly ProfileSlug A = new("fakea", Forward: true, Reverse: false);
     private static readonly ProfileSlug B = new("fakeb", Forward: true, Reverse: false);
 
-    private static ConversionTarget Target(string slug, bool confirmed = false, bool rejected = false)
+    internal static ConversionTarget Target(string slug, bool confirmed = false, bool rejected = false)
         => new() { AvatarItemId = "9800401", Forward = true, Slug = slug, Confirmed = confirmed, Rejected = rejected };
 
     private static ConversionItemRowViewModel RowOf(ConversionSetting? setting, params ProfileSlug[] profiles)
@@ -89,7 +89,7 @@ public class ConversionItemGroupTests
 
     // ---- 画面の一覧と流れ ----
 
-    private static async Task SaveProfilesAsync(TestApp app, string id, string name, ConversionSetting? conversion, params string[] slugs)
+    internal static async Task SaveProfilesAsync(TestApp app, string id, string name, ConversionSetting? conversion, params string[] slugs)
     {
         var hash = new string(id[^1], 64);
         new UnityPackagePathStore(app.Services.Paths).Add(hash, "Profile.unitypackage",
@@ -151,7 +151,7 @@ public class ConversionItemGroupTests
 
         Assert.Equal(["9900871", "9900874", "9900873", "9900872", "9900875"], Rows(avatars).Select(row => row.ItemId));
         Assert.Equal(["決めていない", "決めていない", "途中", "決めた", "扱わない"], Rows(avatars).Select(row => row.Group));
-        Assert.Equal(["決めていない", "途中", "決めた", "扱わない"], avatars.ConversionItems.Groups.Cast<System.Windows.Data.CollectionViewGroup>().Select(group => group.Name));
+        Assert.Equal(["決めていない（2）", "途中（1）", "決めた（1）", "扱わない（1）"], avatars.ConversionItems.Groups.Cast<System.Windows.Data.CollectionViewGroup>().Select(group => group.Name));
     });
 
     [Fact]
