@@ -94,9 +94,11 @@
         <!--
             変換の組の端の頭の絵。アバターの行・共通素体の行と同じ升（絵が無ければ頭の字）で、一辺は一覧の右下のスライダーに結ぶ。
             左の組の一覧と右の組の欄で同じ物を出す（2026-11-20・ユーザ「変換画面の右側ビューにもアイコンを出しましょう。」）
+            乗せると大きな絵を出す（ユーザ判断 2026-11-20・①。吹き出しの形は ManageResources.xaml の HoverImageTip）
         -->
         <DataTemplate DataType="{x:Type vm:ConversionEndIcon}">
             <Border CornerRadius="8" VerticalAlignment="Center"
+                    ToolTip="{DynamicResource HoverImageTip}" ToolTipService.IsEnabled="{Binding HasHoverImage, FallbackValue=False}" ToolTipService.InitialShowDelay="300"
                     Width="{Binding ListIconSize, Source={x:Static vm:ItemViewSize.Current}}"
                     Height="{Binding ListIconSize, Source={x:Static vm:ItemViewSize.Current}}"
                     Background="{DynamicResource AccentSoft}" ClipToBounds="True">
@@ -129,8 +131,10 @@
                 <!--
                     頭に絵を出す（U18）。まだ取れていないアバターは頭文字のまま。
                     一辺は一覧の右下のスライダー（全画面で共有）に結ぶ。決め打ちの 30 だと、つまみを動かしてもこの一覧だけ変わらなかった（2026-11-18 のメモ）
+                    乗せると大きな絵を出す（ユーザ判断 2026-11-20・①）
                 -->
                 <Border Grid.Column="0" CornerRadius="8" Margin="0,0,10,0" VerticalAlignment="Center"
+                        ToolTip="{DynamicResource HoverImageTip}" ToolTipService.IsEnabled="{Binding HasHoverImage, FallbackValue=False}" ToolTipService.InitialShowDelay="300"
                         Width="{Binding ListIconSize, Source={x:Static vm:ItemViewSize.Current}}"
                         Height="{Binding ListIconSize, Source={x:Static vm:ItemViewSize.Current}}"
                         Background="{DynamicResource AccentSoft}" ClipToBounds="True">
@@ -245,6 +249,7 @@
                     -->
                     <StackPanel DockPanel.Dock="Left" Width="112" Margin="0,0,20,0">
                         <Border Width="112" Height="112" CornerRadius="8" Background="{DynamicResource AccentSoft}" ClipToBounds="True"
+                                ToolTip="{DynamicResource HoverImageTip}" ToolTipService.IsEnabled="{Binding HasHoverImage, FallbackValue=False}" ToolTipService.InitialShowDelay="300"
                                 AutomationProperties.AutomationId="AvatarBaseImage">
                             <Grid>
                                 <TextBlock Text="{Binding Initial}" FontSize="40" FontWeight="Bold" Foreground="{DynamicResource AccentSoftText}"
@@ -806,6 +811,7 @@
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
                                             <Border Grid.Column="0" CornerRadius="8" Margin="0,0,10,0" VerticalAlignment="Center"
+                                                    ToolTip="{DynamicResource HoverImageTip}" ToolTipService.IsEnabled="{Binding HasHoverImage, FallbackValue=False}" ToolTipService.InitialShowDelay="300"
                                                     Width="{Binding ListIconSize, Source={x:Static vm:ItemViewSize.Current}}"
                                                     Height="{Binding ListIconSize, Source={x:Static vm:ItemViewSize.Current}}"
                                                     Background="{DynamicResource AccentSoft}" ClipToBounds="True">
@@ -882,12 +888,15 @@
                                     <DataTemplate DataType="{x:Type vm:ConversionItemRowViewModel}">
                                         <DockPanel Margin="0,3,0,3">
                                             <!-- 枠は名前と札の2行の高さの 36（ファイルの割り振りの左の行と同じ）。絵が届くまで・絵の無い商品は頭文字 -->
+                                            <!-- 乗せると大きな絵（ユーザ判断 2026-11-20・①）。吹き出しは Picture の HoverImage を引くので、枠の DataContext を Picture にする -->
                                             <Border DockPanel.Dock="Left" Width="36" Height="36" CornerRadius="4" Margin="0,0,10,0" VerticalAlignment="Center"
+                                                    DataContext="{Binding Picture}"
+                                                    ToolTip="{DynamicResource HoverImageTip}" ToolTipService.IsEnabled="{Binding HasHoverImage, FallbackValue=False}" ToolTipService.InitialShowDelay="300"
                                                     Background="{DynamicResource ThumbBack}" ClipToBounds="True">
                                                 <Grid>
-                                                    <TextBlock Text="{Binding Picture.Initial}" FontSize="{StaticResource FontSizeHeading}" Foreground="{DynamicResource TextMuted}"
+                                                    <TextBlock Text="{Binding Initial}" FontSize="{StaticResource FontSizeHeading}" Foreground="{DynamicResource TextMuted}"
                                                                HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                    <Image Source="{Binding Picture.Image}" Stretch="UniformToFill" />
+                                                    <Image Source="{Binding Image}" Stretch="UniformToFill" />
                                                 </Grid>
                                             </Border>
                                             <StackPanel VerticalAlignment="Center">
@@ -964,13 +973,16 @@
                                         高さは名前・正式名・IDの3行ぶん。保存している絵は長辺384px（読み込みは96相当）
                                         なので、この大きさなら拡大でぼやけない
                                     -->
+                                    <!-- 乗せると大きな絵（ユーザ判断 2026-11-20・①）。吹き出しが行の HoverImage を引くので、枠の DataContext を選んだ行にする -->
                                     <Border Grid.Column="0" Grid.RowSpan="2" Width="84" Height="84" CornerRadius="10" Margin="0,2,16,0"
+                                            DataContext="{Binding Selected}"
+                                            ToolTip="{DynamicResource HoverImageTip}" ToolTipService.IsEnabled="{Binding HasHoverImage, FallbackValue=False}" ToolTipService.InitialShowDelay="300"
                                             VerticalAlignment="Top" Background="{DynamicResource AccentSoft}" ClipToBounds="True">
                                         <Grid>
-                                            <TextBlock Text="{Binding Selected.Initial}" FontSize="30" FontWeight="Bold"
+                                            <TextBlock Text="{Binding Initial}" FontSize="30" FontWeight="Bold"
                                                        Foreground="{DynamicResource AccentSoftText}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                            <Image Source="{Binding Selected.Icon}" Stretch="UniformToFill"
-                                                   Visibility="{Binding Selected.HasIcon, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                            <Image Source="{Binding Icon}" Stretch="UniformToFill"
+                                                   Visibility="{Binding HasIcon, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                         </Grid>
                                     </Border>
 
