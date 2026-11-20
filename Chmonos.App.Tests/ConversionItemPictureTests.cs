@@ -62,10 +62,24 @@ public class ConversionItemPictureTests
     public void 群で分けた一覧は_見える行だけ作る()
     {
         var xaml = File.ReadAllText(AvatarsViewPath());
-        var list = Regex.Match(xaml, @"<ListBox ItemsSource=""\{Binding ConversionItems\}""[^>]*>").Value;
+        var list = Regex.Match(xaml, @"<ListBox ItemsSource=""\{Binding ConversionList\}""[^>]*>").Value;
 
         Assert.Contains(@"VirtualizingPanel.IsVirtualizingWhenGrouping=""True""", list);
         Assert.Contains(@"VirtualizingPanel.VirtualizationMode=""Recycling""", list);
+        // 先頭の追加した組の節は高いので、行ごとに流すと1目盛りで節が飛ぶ（ユーザ判断 2026-11-20・①）
+        Assert.Contains(@"VirtualizingPanel.ScrollUnit=""Pixel""", list);
+    }
+
+    [Fact]
+    public void 追加した組の一覧は_自分で流さず_ホイールを外の流れへ渡す()
+    {
+        // 探す欄より下を1つの流れにする（ユーザ判断 2026-11-20・①）。高さの上限があると中で流れ、ホイールが中で止まる
+        var xaml = File.ReadAllText(AvatarsViewPath());
+        var list = Regex.Match(xaml, @"<ListBox ItemsSource=""\{Binding Entries\}""[^>]*>").Value;
+
+        Assert.NotEmpty(list);
+        Assert.DoesNotContain("MaxHeight", list);
+        Assert.Contains(@"controls:ForwardWheel.IsEnabled=""True""", list);
     }
 
     private static string AvatarsViewPath([CallerFilePath] string here = "")

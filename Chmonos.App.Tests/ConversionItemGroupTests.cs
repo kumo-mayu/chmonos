@@ -159,6 +159,25 @@ public class ConversionItemGroupTests
     });
 
     [Fact]
+    public Task 左の流れは_先頭に追加した組の節_続けて同じ行を同じ群で並べる() => TestApp.Run(async app =>
+    {
+        // 探す欄より下を1つの流れにする（ユーザ判断 2026-11-20・①）。節も群の1つにして、商品の行と同じ一覧で流す
+        var avatars = await OpenAsync(app);
+
+        var items = avatars.ConversionList.Cast<object>().ToList();
+        Assert.Same(avatars.PairsSection, items[0]);
+        Assert.Same(avatars.ConversionPairs, avatars.PairsSection.Pairs);
+        Assert.Equal(Rows(avatars), items.Skip(1));
+        Assert.Equal(["追加した組", "決めていない（2）", "途中（1）", "決めた（1）", "扱わない（1）"],
+            avatars.ConversionList.Groups.Cast<System.Windows.Data.CollectionViewGroup>().Select(group => group.Name.ToString()));
+
+        // 絞っても節は残る（組の欄と、当たる物が無い時の1行は節の中にある）
+        avatars.ConversionPairs.Query = "当たらない語";
+        await UiThread.Until(() => avatars.ShowsNoMatchingConversionItems, "絞って0件になる");
+        Assert.Equal([avatars.PairsSection], avatars.ConversionList.Cast<object>());
+    });
+
+    [Fact]
     public Task 後では_決めていないと途中の両方を回り_決めたと扱わないは飛ばす() => TestApp.Run(async app =>
     {
         var avatars = await OpenAsync(app);

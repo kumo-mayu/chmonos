@@ -122,6 +122,37 @@ public partial class AvatarsView : UserControl
         list.ScrollIntoView(selected);
     }
 
+    /// <summary>
+    /// 「変換」の左の流れの先頭の追加した組の節（ユーザ判断 2026-11-20・①）は選ぶ行ではない。節の中の空きを押しても、入れ物が行として選ばれないよう止める
+    /// （中のボタン・欄・組の行は、ここへ来る前に自分で受けている）
+    /// </summary>
+    private void ConversionPairsSection_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => e.Handled = true;
+
+    /// <summary>
+    /// 節の中の欄（組の欄・並び）で、欄が使わなかった ↑↓・PageUp・PageDown・Home・End を、外の一覧へ渡さない。
+    /// 節は外の一覧の1行なので、渡すと外の一覧が商品の行へ止まりを移し、打っていた欄から離れた
+    /// </summary>
+    private void ConversionPairsSection_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key is System.Windows.Input.Key.Up or System.Windows.Input.Key.Down or System.Windows.Input.Key.PageUp
+            or System.Windows.Input.Key.PageDown or System.Windows.Input.Key.Home or System.Windows.Input.Key.End)
+        {
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>
+    /// 節は止まらない入れ物なので ↑↓ では選ばれないが、選ばれた時（読み上げ・自動操作から）は今の商品の選びに戻す。
+    /// 選びは商品の行（SelectedConversion）だけが持つ
+    /// </summary>
+    private void ConversionList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ListBox list && list.SelectedItem is ConversionPairsSection && DataContext is AvatarsViewModel vm)
+        {
+            list.SelectedItem = vm.SelectedConversion;
+        }
+    }
+
     /// <summary>見出しが作られたら、覚えている畳み方に合わせる（行を使い回すので、作られるたびに合わせ直す）。</summary>
     /// <summary>
     /// 「追加した組」の一覧のキー（ユーザ判断 2026-11-20・④）。見出しは選ぶ行ではないので、ListBox の既定の ↑↓（止まれない入れ物を飛ばす）
@@ -144,7 +175,7 @@ public partial class AvatarsView : UserControl
             return;
         }
 
-        // 一画面ぶんの目安。行の高さはスライダーで変わるので、一覧の高さの上限（260）を行のおおよその高さで割った数にする
+        // 一画面ぶんの目安（6行）。組の一覧は外の1つの流れの中で高さの上限を持たないので、前の上限 260 を行のおおよその高さで割った数のまま
         const int page = 6;
         var target = e.Key switch
         {
