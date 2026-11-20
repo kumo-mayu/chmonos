@@ -940,12 +940,13 @@
                         <Border Style="{StaticResource Card}" Padding="22,18"
                                 Visibility="{Binding ShowsAvatarDetail, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <StackPanel>
-                                <Grid>
+                                <Grid x:Name="AvatarHeadGrid" SizeChanged="AvatarHeadGrid_SizeChanged">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
@@ -972,8 +973,7 @@
                                             枠の無い欄を常に出していたら、名前を変えられることが分からなかった。
                                             言い方と作法はタグの管理の「名前を変更」の窓に揃える：Enter で確定・Esc で取り消し
                                         -->
-                                        <StackPanel Orientation="Horizontal"
-                                                    Visibility="{Binding IsEditingName, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
+                                        <WrapPanel Visibility="{Binding IsEditingName, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
                                             <RichTextBox Style="{StaticResource SelectableBody}" controls:SelectableText.FitWidth="True" FontSize="19" FontWeight="Bold" Foreground="{DynamicResource Text}" Margin="4,3" MaxWidth="520" VerticalAlignment="Center" AutomationProperties.Name="{Binding SelectedName}" controls:SelectableText.PlainText="True" controls:SelectableText.Text="{Binding SelectedName}" />
                                             <Button AutomationProperties.AutomationId="AvatarRename" Content="名前を変更" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                                     VerticalAlignment="Center" Command="{Binding StartRenameCommand}" Click="StartRename_Click"
@@ -983,9 +983,8 @@
                                                     VerticalAlignment="Center" Command="{Binding ResetNameCommand}"
                                                     ToolTip="{Binding ResetNameTip}"
                                                     Visibility="{Binding HasManualName, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                        </StackPanel>
-                                        <StackPanel Orientation="Horizontal"
-                                                    Visibility="{Binding IsEditingName, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                        </WrapPanel>
+                                        <WrapPanel Visibility="{Binding IsEditingName, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <TextBox AutomationProperties.AutomationId="AvatarNameInput" MaxLength="60" Text="{Binding NameInput, UpdateSourceTrigger=PropertyChanged}"
                                                      FontSize="19" FontWeight="Bold" MinWidth="240" MaxWidth="520"
                                                      Padding="6,3" VerticalAlignment="Center"
@@ -1002,11 +1001,11 @@
                                                     ToolTip="今と違う名前を入れると押せます。" />
                                             <Button Content="キャンセル" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
                                                     VerticalAlignment="Center" Command="{Binding CancelRenameCommand}" />
-                                        </StackPanel>
+                                        </WrapPanel>
                                         <TextBlock DataContext="{Binding AvatarNameNote}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" Margin="6,2,0,0"
                                                    AutomationProperties.AutomationId="AvatarNameNote" />
                                         <RichTextBox Style="{StaticResource SelectableBody}" controls:SelectableText.FitWidth="True" FontSize="11" Foreground="{DynamicResource TextMuted}" Margin="4,2,0,0" MaxWidth="620" HorizontalAlignment="Left" controls:SelectableText.LineHeight="16" AutomationProperties.Name="{Binding SelectedBoothName}" controls:SelectableText.PlainText="True" controls:SelectableText.Text="{Binding SelectedBoothName}" Visibility="{Binding HasSelectedBoothName, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                        <StackPanel Orientation="Horizontal" Margin="6,6,0,0">
+                                        <WrapPanel Margin="6,6,0,0">
                                             <!--
                                                 ID そのものを押すとコピー（メモ9-②）。商品ページの ID と同じ作り（Hyperlink・下線なし・同じ吹き出し）。
                                                 色も商品ページに揃える（前の TextFaint より1段濃い TextMuted。押せる物を薄すぎる色で出さない）
@@ -1026,7 +1025,7 @@
                                             <Button Content="商品情報を取り直す" Style="{StaticResource SmallButton}" Margin="12,0,0,0"
                                                     Command="{Binding RecheckCommand}"
                                                     ToolTip="BOOTHから取り直します。商品のファイルはダウンロードしません。" />
-                                        </StackPanel>
+                                        </WrapPanel>
                                         <TextBlock DataContext="{Binding IdNote}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" Margin="6,2,0,0"
                                                    AutomationProperties.AutomationId="AvatarIdNote" />
 
@@ -1066,8 +1065,10 @@
                                     <!--
                                         名前の欄と同じ列に右寄せで重ねると「名前を保存」の上に乗った。列を分けても名前の側が狭くなって切れたので、
                                         見出しの下の行に並べる（ユーザ指摘 2026-09-17）
+                                        窓の幅 900 では名前の列が約150で、ボタンが右で切れた（2026-11-20 の調べ）。
+                                        列が狭い時は絵の下に全幅で出して折り返す（AvatarHeadGrid_SizeChanged）
                                     -->
-                                    <WrapPanel Grid.Row="1" Grid.Column="1" Margin="6,10,0,0">
+                                    <WrapPanel x:Name="AvatarHeadActions" Grid.Row="1" Grid.Column="1" Margin="6,10,0,0">
                                         <Button Content="対応商品を検索で開く" Style="{StaticResource SmallButton}" Margin="0,0,8,0"
                                                 Command="{Binding ShowItemsCommand}"
                                                 ToolTip="このアバターに対応している商品を、素体経由も含めて検索で開きます。" />
@@ -1089,7 +1090,7 @@
 
                                 <Border Height="1" Background="{DynamicResource Border}" Margin="0,16,0,14" />
 
-                                <StackPanel Orientation="Horizontal">
+                                <WrapPanel>
                                     <TextBlock Text="{Binding SelectedCountText}" Style="{StaticResource Mono}" FontSize="12"
                                                VerticalAlignment="Center" />
                                     <TextBlock Text="{Binding SelectedOwnedText}" Style="{StaticResource Caption}" Margin="18,0,0,0"
@@ -1104,7 +1105,7 @@
                                             ToolTip="取り込んでいないアバターも、所有として扱えます。" />
                                     <TextBlock DataContext="{Binding OwnedNote}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}"
                                                Margin="10,0,0,0" VerticalAlignment="Center" MaxWidth="320" />
-                                </StackPanel>
+                                </WrapPanel>
 
                                 <!-- どの経路で見つかったか。判定の根拠なので隠さない -->
                                 <TextBlock Text="{Binding SelectedSeenAsText}" Style="{StaticResource Caption}" Margin="0,8,0,0"
@@ -1119,8 +1120,13 @@
                                     ここだけ編集できるプルダウンで、同じ「名前を選ぶ」操作の作法が3つに割れていた
                                 -->
                                 <TextBlock Text="共通素体" Style="{StaticResource SectionLabel}" Margin="0,20,0,6" />
-                                <StackPanel Orientation="Horizontal">
-                                    <Grid Width="240">
+                                <!-- 欄は 240 まで（広い窓の見た目は変えない）。狭い窓では「外す」の分を残して縮む -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" MaxWidth="240" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid>
                                         <controls:SuggestBox Source="{Binding BaseNames}" CommitCommand="{Binding PickBaseCommand}"
                                                              IconSelector="{Binding BaseIconSelector}"
                                                              AutomationProperties.AutomationId="AvatarBaseInput"
@@ -1129,9 +1135,9 @@
                                                              MaxLength="60"
                                                              Placeholder="素体を選ぶか、名前を打ってEnter" />
                                     </Grid>
-                                    <Button Content="外す" AutomationProperties.Name="素体から外す" Style="{StaticResource DangerButton}" Margin="8,0,0,0"
+                                    <Button Grid.Column="1" Content="外す" AutomationProperties.Name="素体から外す" Style="{StaticResource DangerButton}" Margin="8,0,0,0"
                                             Command="{Binding ClearBaseCommand}" />
-                                </StackPanel>
+                                </Grid>
                                 <!--
                                     名前から推した素体（メモ46-3）。欄は手で決めた素体だけを映すので、推した素体は欄に入れず、
                                     下に薄い字で出して見分ける（欄に入れると、手で決めた素体と区別が付かない）
@@ -1224,8 +1230,12 @@
                                         </ItemsControl.ItemTemplate>
                                     </controls:ContentItemsControl>
     
-                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                        <TextBox Width="200" Padding="7,5"
+                                    <Grid Margin="0,4,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" MaxWidth="200" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox Padding="7,5"
                                                  MaxLength="60" Text="{Binding AliasInput, UpdateSourceTrigger=PropertyChanged}"
                                              AutomationProperties.Name="追加する呼び方"
                                                  ToolTip="検出できなかった呼び方を追加できます。">
@@ -1234,9 +1244,9 @@
                                                 <KeyBinding Key="Enter" Command="{Binding AddAliasCommand}" />
                                             </TextBox.InputBindings>
                                         </TextBox>
-                                        <Button Content="呼び方を追加" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                        <Button Grid.Column="1" Content="呼び方を追加" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                                 Command="{Binding AddAliasCommand}" />
-                                    </StackPanel>
+                                    </Grid>
                                     <TextBlock DataContext="{Binding AliasNote}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" Margin="2,4,0,0"
                                                AutomationProperties.AutomationId="AvatarAliasNote" />
                                         <StackPanel Margin="0,10,0,0"
@@ -1280,9 +1290,13 @@
                                 -->
                                 <TextBlock Text="このアバターの改変" Style="{StaticResource SectionLabel}" Margin="0,20,0,8" />
 
-                                <StackPanel Orientation="Horizontal">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" MaxWidth="240" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
                                     <!-- 空のままだと何を入れる欄か分からないので、内側に案内を出す（ユーザ指示 2026-09-17） -->
-                                    <Grid Width="240">
+                                    <Grid>
                                         <TextBox Height="26" Padding="7,0" VerticalContentAlignment="Center"
                                                  MaxLength="60" Text="{Binding ModificationNameInput, UpdateSourceTrigger=PropertyChanged}"
                                                  AutomationProperties.Name="改変の名前"
@@ -1295,9 +1309,9 @@
                                         <TextBlock Text="新しい改変の名前（例：普段着）" Margin="10,0,0,0" Style="{StaticResource InputPlaceholder}"
                                                    Visibility="{Binding ModificationNameInput, Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
                                     </Grid>
-                                    <Button Content="作る" AutomationProperties.Name="改変を作る" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
+                                    <Button Grid.Column="1" Content="作る" AutomationProperties.Name="改変を作る" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                             Command="{Binding CreateModificationCommand}" />
-                                </StackPanel>
+                                </Grid>
                                 <TextBlock DataContext="{Binding ModificationNote}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" Margin="2,4,0,0"
                                            AutomationProperties.AutomationId="AvatarModificationNote" />
 
@@ -1413,14 +1427,18 @@
 
                                 <!-- 検出では拾えない事情を残す場所。打ち終えて少し待つと残る（ユーザ指示 2026-09-17：保存ボタンを押さなくてよい） -->
                                 <TextBlock Text="メモ" Style="{StaticResource SectionLabel}" Margin="0,20,0,8" />
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBox Width="420" Height="56" Padding="7,5"
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" MaxWidth="420" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Height="56" Padding="7,5"
                                              TextWrapping="Wrap" AcceptsReturn="True"
                                              VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
                                              MaxLength="10000" Text="{Binding MemoInput, UpdateSourceTrigger=PropertyChanged}"
                                          AutomationProperties.Name="メモ"
                                              ToolTip="素体は同じだが体型が違う、といった検出では分からないことを残せます。" />
-                                </StackPanel>
+                                </Grid>
                                 <TextBlock DataContext="{Binding MemoNote}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" Margin="2,4,0,0"
                                            AutomationProperties.AutomationId="AvatarMemoNote" />
 
@@ -1568,17 +1586,21 @@
                                     商品の1枚目の絵を大きめに出す（ユーザ指示 2026-11-09：プロファイルの多くは、想定するアバターが商品の絵に写っている）。
                                     つなぎ先を決める材料なので、名前の横ではなく見て分かる大きさにする
                                 -->
-                                <Grid Margin="0,0,0,14">
+                                <Grid x:Name="ConversionHeadGrid" Margin="0,0,0,14" SizeChanged="ConversionHeadGrid_SizeChanged">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <Border Width="200" Height="200" CornerRadius="6" Background="{DynamicResource SurfaceAlt}" Margin="0,0,18,0" VerticalAlignment="Top"
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <Border x:Name="ConversionHeadImage" Width="200" Height="200" CornerRadius="6" Background="{DynamicResource SurfaceAlt}" Margin="0,0,18,0" VerticalAlignment="Top"
                                             Visibility="{Binding HasSelectedConversionImage, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                         <Image Source="{Binding SelectedConversionImage}" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"
                                                AutomationProperties.AutomationId="AvatarsConversionImage" />
                                     </Border>
-                                    <StackPanel Grid.Column="1">
+                                    <StackPanel x:Name="ConversionHeadText" Grid.Column="1">
                                         <TextBlock Text="{Binding SelectedConversion.Name}" FontSize="15" FontWeight="Bold" TextWrapping="Wrap" />
                                         <WrapPanel Margin="0,10,0,0">
                                             <Button Content="商品ページを開く" Style="{StaticResource SmallButton}" Margin="0,0,8,0"
@@ -1676,13 +1698,19 @@
 
                                 <!-- 打ち終えて少し待つと残る（アバターのメモと同じ）。選び直す・外す・離れる前に書き切る -->
                                 <TextBlock Text="メモ" Style="{StaticResource SectionLabel}" Margin="0,14,0,8" />
-                                <TextBox Width="420" Height="56" Padding="7,5" HorizontalAlignment="Left"
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" MaxWidth="420" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                <TextBox Height="56" Padding="7,5"
                                          TextWrapping="Wrap" AcceptsReturn="True"
                                          VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
                                          MaxLength="2000" Text="{Binding MemoText, UpdateSourceTrigger=PropertyChanged}"
                                          AutomationProperties.AutomationId="AvatarsConversionPairMemo"
                                          AutomationProperties.Name="{Binding Text, StringFormat={}{0}のメモ}"
                                          ToolTip="直す所や使うツールなどを残せます。" />
+                                </Grid>
 
                                 <Button Content="この組を外す" Style="{StaticResource DangerButton}" HorizontalAlignment="Left" Margin="0,16,0,0"
                                         Command="{Binding RemoveCommand}"

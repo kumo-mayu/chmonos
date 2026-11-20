@@ -75,6 +75,38 @@ public partial class AvatarsView : UserControl
         image.Margin = narrow ? new Thickness(0, 0, 0, 14) : new Thickness(0, 0, 20, 0);
     }
 
+    /// <summary>
+    /// アバター詳細の頭で、絵の右に残る幅の下限。いちばん長いボタン「プロファイルを検索で開く」（約165）と間（8）が1つ入る幅。
+    /// 窓の幅 900 では右の列が約150で、ボタンが右で切れた（2026-11-20 の調べ）。絵（84）・間（16）を引いた残りで決める
+    /// </summary>
+    private const double AvatarHeadTextMinWidth = 180;
+
+    private void AvatarHeadGrid_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var narrow = AvatarHeadGrid.ActualWidth < 84 + 16 + AvatarHeadTextMinWidth;
+        Grid.SetRow(AvatarHeadActions, narrow ? 2 : 1);
+        Grid.SetColumn(AvatarHeadActions, narrow ? 0 : 1);
+        Grid.SetColumnSpan(AvatarHeadActions, narrow ? 2 : 1);
+        AvatarHeadActions.Margin = narrow ? new Thickness(0, 10, 0, 0) : new Thickness(6, 10, 0, 0);
+    }
+
+    /// <summary>
+    /// 変換の商品の頭で、絵（200）の右に残る幅の下限。「商品ページを開く」（約110）と「BOOTHで開く」が並んで入る幅。
+    /// これを切ると名前の列が約100で、ボタンが右で切れた。狭い時は絵を上に置き、名前とボタンを下に全幅で出す
+    /// </summary>
+    private const double ConversionHeadTextMinWidth = 190;
+
+    private void ConversionHeadGrid_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var narrow = ConversionHeadGrid.ActualWidth < 200 + 18 + ConversionHeadTextMinWidth;
+        Grid.SetColumn(ConversionHeadText, narrow ? 0 : 1);
+        Grid.SetColumnSpan(ConversionHeadText, narrow ? 2 : 1);
+        Grid.SetRow(ConversionHeadText, narrow ? 1 : 0);
+        Grid.SetColumnSpan(ConversionHeadImage, narrow ? 2 : 1);
+        ConversionHeadImage.HorizontalAlignment = HorizontalAlignment.Left;
+        ConversionHeadImage.Margin = narrow ? new Thickness(0, 0, 0, 12) : new Thickness(0, 0, 18, 0);
+    }
+
     private void NameEditor_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
         if (!_focusNameEditor || e.NewValue is not true || sender is not TextBox box)
