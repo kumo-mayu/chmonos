@@ -128,6 +128,8 @@ public sealed class AvatarRowViewModel : ReorderableRow, IHasItemCard
         _iconPathLoaded = false;
         OnPropertyChanged(nameof(HasIcon));
         OnPropertyChanged(nameof(Icon));
+        OnPropertyChanged(nameof(HasHoverImage));
+        OnPropertyChanged(nameof(HoverImage));
         _card?.RefreshImages();
     }
 
@@ -136,6 +138,17 @@ public sealed class AvatarRowViewModel : ReorderableRow, IHasItemCard
     public System.Windows.Media.Imaging.BitmapSource? Icon => IconPath is { } path
         ? Thumbnails?.PeekForTile(path, () => OnPropertyChanged(nameof(Icon)))
         : null;
+
+    /// <summary>
+    /// 頭の絵に乗せた時の大きな絵（ユーザ判断 2026-11-20・①）。吹き出しが開いた時に初めてカードの大きさで読む
+    /// （行を作る時・流す時には読まない。改変の一覧・タグの管理の <c>HoverImage</c> と同じ読み方）
+    /// </summary>
+    public System.Windows.Media.Imaging.BitmapSource? HoverImage => IconPath is { } path
+        ? Thumbnails?.PeekForCard(path, () => OnPropertyChanged(nameof(HoverImage)))
+        : null;
+
+    /// <summary>乗せた時の吹き出しを出すか。絵が無い（頭の字の）時は、大きくしても頭の字なので出さない</summary>
+    public bool HasHoverImage => HasIcon;
 
     /// <summary>画面に出す名前。手で付けた名前か、正式名から計算した名前（同じ名前ならショップ名付き）。</summary>
     public string Name => string.IsNullOrWhiteSpace(Summary.Name) ? Summary.Entry.ItemId : Summary.Name;
@@ -396,6 +409,17 @@ public sealed class AvatarBaseRowViewModel : ViewModelBase
     public System.Windows.Media.Imaging.BitmapSource? Icon => IconPath is { } path
         ? Thumbnails?.PeekForTile(path, () => OnPropertyChanged(nameof(Icon)))
         : null;
+
+    /// <summary>
+    /// 一覧の頭の絵に乗せた時の大きな絵（ユーザ判断 2026-11-20・①）。吹き出しが開いた時に初めてカードの大きさで読む
+    /// （<see cref="Picture"/> はその場で読むが、それは選んだ1つの詳細だけ。一覧の行で読むと流すたびに全部の行が読む）
+    /// </summary>
+    public System.Windows.Media.Imaging.BitmapSource? HoverImage => IconPath is { } path
+        ? Thumbnails?.PeekForCard(path, () => OnPropertyChanged(nameof(HoverImage)))
+        : null;
+
+    /// <summary>乗せた時の吹き出しを出すか。絵が無い（頭の字の）時は出さない</summary>
+    public bool HasHoverImage => HasIcon;
 
     /// <summary>
     /// 素体の詳細の大きな絵。一覧の頭の絵（タイル用の小ささ）を引き伸ばすとぼやけるので、カードの大きさで読む。

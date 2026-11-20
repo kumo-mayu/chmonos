@@ -84,6 +84,17 @@ public sealed class ConversionEndIcon : ViewModelBase
         : null;
 
     /// <summary>
+    /// 乗せた時の大きな絵（ユーザ判断 2026-11-20・①）。吹き出しが開いた時に初めてカードの大きさで読む
+    /// （組の一覧を流す時には読まない。③の右の欄・組の一覧の軽さを崩さない）
+    /// </summary>
+    public System.Windows.Media.Imaging.BitmapSource? HoverImage => Path is { } path
+        ? _thumbnails?.PeekForCard(path, () => OnPropertyChanged(nameof(HoverImage)))
+        : null;
+
+    /// <summary>乗せた時の吹き出しを出すか。絵が無い（頭の字の）時は出さない</summary>
+    public bool HasHoverImage => HasIcon;
+
+    /// <summary>
     /// 場所を探し直す。変換扱いの欄は読み直しで中身の同じ行を残すので、素体に画像を付けた後も頭の字のまま残らないように。
     /// まだ探していなければ何もしない。探し直すのは描いている行だけ（結んでいない行は値を読まない）
     /// </summary>
@@ -97,6 +108,8 @@ public sealed class ConversionEndIcon : ViewModelBase
         _pathLoaded = false;
         OnPropertyChanged(nameof(HasIcon));
         OnPropertyChanged(nameof(Icon));
+        OnPropertyChanged(nameof(HasHoverImage));
+        OnPropertyChanged(nameof(HoverImage));
     }
 }
 
