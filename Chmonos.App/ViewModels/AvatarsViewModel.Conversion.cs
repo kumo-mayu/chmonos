@@ -550,7 +550,9 @@ public sealed partial class AvatarsViewModel
                         // 戻るで開き直したときは、控えた商品を選ぶ（初めの1回だけ）
                         var keepId = SelectedConversion?.ItemId ?? _openConversionWith;
                         _openConversionWith = null;
-                        _conversionItems = task.Result.Select(pair => ConversionItemRowViewModel.Create(pair.Item, pair.Profiles)).ToList();
+                        _conversionItems = task.Result
+                            .Select(pair => ConversionItemRowViewModel.Create(pair.Item, pair.Profiles, ConversionItemPicture(pair.Item)))
+                            .ToList();
                         ArrangeConversionItems(keep: null);
                         _selectedConversion = null;
                         // 組を選んでいる間は、読み直しで商品へ選びを奪わない（右はどちらか1つ）
@@ -570,6 +572,25 @@ public sealed partial class AvatarsViewModel
                 },
                 TaskScheduler.Default)
             .Forget();
+    }
+
+    /// <summary>
+    /// プロファイルの商品の行の絵。絵の決め方は検索のカードと同じ（<see cref="ResultThumbnail.PathOf"/>）で、手元の記録を使う
+    /// （<see cref="ResultThumbnail.ForItem"/> と違い、商品をもう一度読まない）。絵の一覧は読み手の写しを使う
+    /// </summary>
+    private ResultThumbnail ConversionItemPicture(ItemRecord item)
+    {
+        var loader = _main.Thumbnails;
+        return new ResultThumbnail(item.DisplayName, () => Task.Run(() =>
+        {
+            if (!Chmonos.Core.Storage.StoreIds.IsItemId(item.Id))
+            {
+                return (string?)null;
+            }
+
+            var directory = _services.Paths.ItemImagesDir(item.Id);
+            return ResultThumbnail.PathOf(item, directory, loader.ListFiles(directory), _services.Settings.ThumbnailRole, _services.Settings.ShowRemovedBoothImages);
+        }), loader);
     }
 
     private IReadOnlyList<ProfileSlug> ProfilesOf(ItemRecord item)
@@ -757,9 +778,15 @@ public sealed class ConversionItemRowViewModel : ViewModelBase
 
     public bool HasBadge => BadgeText.Length > 0;
 
-    public static ConversionItemRowViewModel Create(ItemRecord item, IReadOnlyList<ProfileSlug> profiles)
+    /// <summary>
+    /// 行の頭の商品の絵（ユーザ判断 2026-11-20・③）。取り込みの探した結果・通知・ファイルの割り振りの行と同じ部品で、
+    /// 見えた行だけが初めて場所を決めて縮めて読む（仮想化された一覧で、流しても読むのは見えている行の分だけ）。試験では無し
+    /// </summary>
+    public ResultThumbnail? Picture { get; private init; }
+
+    public static ConversionItemRowViewModel Create(ItemRecord item, IReadOnlyList<ProfileSlug> profiles, ResultThumbnail? picture = null)
     {
-        var row = new ConversionItemRowViewModel { ItemId = item.Id };
+        var row = new ConversionItemRowViewModel { ItemId = item.Id, Picture = picture };
         row.Update(item, profiles);
         return row;
     }

@@ -844,9 +844,13 @@
 
                             <!--
                                 変換ツールのプロファイルを持つ商品（ユーザ判断 2026-11-09：決めていない物を上に群で分ける）。
-                                行は字だけ（多くても数十件。絵を読ませない）。決めていない行には「確認待ち 3・未設定 2」の数を添える
+                                行の頭に商品の絵（ユーザ判断 2026-11-20・③。取り込みの探した結果・通知と同じ ResultThumbnail で、見えた行だけが縮めて読む）。
+                                群で分けると WPF は既定で全行を作るので、上の「アバター」の一覧と同じく見える行だけ作らせる（作った行の分だけ絵を読むため）。
+                                決めていない・途中の行には「確認待ち 3・未設定 2」の数を添える
                             -->
                             <ListBox ItemsSource="{Binding ConversionItems}" SelectedItem="{Binding SelectedConversion, Mode=TwoWay}"
+                                     VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+                                     VirtualizingPanel.VirtualizationMode="Recycling"
                                      ItemContainerStyle="{StaticResource AvatarBaseRowStyle}"
                                      BorderThickness="0" Background="Transparent" Margin="14,0,14,14"
                                      HorizontalContentAlignment="Stretch"
@@ -876,11 +880,22 @@
                                 </ListBox.GroupStyle>
                                 <ListBox.ItemTemplate>
                                     <DataTemplate DataType="{x:Type vm:ConversionItemRowViewModel}">
-                                        <StackPanel Margin="0,3,0,5">
-                                            <TextBlock Text="{Binding Name}" FontSize="12.5" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="{Binding BadgeText}" Style="{StaticResource Caption}" Foreground="{DynamicResource Warn}" Margin="0,2,0,0"
-                                                       Visibility="{Binding HasBadge, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                        </StackPanel>
+                                        <DockPanel Margin="0,3,0,3">
+                                            <!-- 枠は名前と札の2行の高さの 36（ファイルの割り振りの左の行と同じ）。絵が届くまで・絵の無い商品は頭文字 -->
+                                            <Border DockPanel.Dock="Left" Width="36" Height="36" CornerRadius="4" Margin="0,0,10,0" VerticalAlignment="Center"
+                                                    Background="{DynamicResource ThumbBack}" ClipToBounds="True">
+                                                <Grid>
+                                                    <TextBlock Text="{Binding Picture.Initial}" FontSize="{StaticResource FontSizeHeading}" Foreground="{DynamicResource TextMuted}"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    <Image Source="{Binding Picture.Image}" Stretch="UniformToFill" />
+                                                </Grid>
+                                            </Border>
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Name}" FontSize="12.5" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding BadgeText}" Style="{StaticResource Caption}" Foreground="{DynamicResource Warn}" Margin="0,2,0,0"
+                                                           Visibility="{Binding HasBadge, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                            </StackPanel>
+                                        </DockPanel>
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>

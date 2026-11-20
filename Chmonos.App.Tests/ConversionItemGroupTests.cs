@@ -89,7 +89,11 @@ public class ConversionItemGroupTests
 
     // ---- 画面の一覧と流れ ----
 
-    internal static async Task SaveProfilesAsync(TestApp app, string id, string name, ConversionSetting? conversion, params string[] slugs)
+    internal static Task SaveProfilesAsync(TestApp app, string id, string name, ConversionSetting? conversion, params string[] slugs)
+        => SaveProfilesAsync(app, id, name, conversion, item => item, slugs);
+
+    internal static async Task SaveProfilesAsync(
+        TestApp app, string id, string name, ConversionSetting? conversion, Func<ItemRecord, ItemRecord> shape, params string[] slugs)
     {
         var hash = new string(id[^1], 64);
         new UnityPackagePathStore(app.Services.Paths).Add(hash, "Profile.unitypackage",
@@ -97,7 +101,7 @@ public class ConversionItemGroupTests
             .. slugs.Select((slug, index) => new UnityPackageAsset(
                 $"0000000000000000000000000000000{index + 1}", $"Assets/OutfitRetargetingSystem/Editor/config_template2{slug}.json")),
         ]);
-        var item = Make.Item(id, name);
+        var item = shape(Make.Item(id, name));
         await app.AddItemAsync(item with
         {
             Local = item.Local with
