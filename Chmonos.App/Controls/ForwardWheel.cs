@@ -64,7 +64,7 @@ public static class ForwardWheel
 
     private static void OnPreviewMouseWheelAtEdges(object sender, MouseWheelEventArgs e)
     {
-        if (e.Handled || sender is not DependencyObject element || InnerScroll(element) is not { } scroll)
+        if (e.Handled || sender is not DependencyObject element || !CameFromInside(element, e) || InnerScroll(element) is not { } scroll)
         {
             return;
         }
@@ -97,9 +97,28 @@ public static class ForwardWheel
         return null;
     }
 
+    /// <summary>
+    /// 知らせが見た目の木でこの一覧の中から来たか。
+    /// 行の中の欄が開いた候補の窓（Popup）は別の窓だが、ホイールの知らせは持ち主の一覧も通る。
+    /// それを外へ渡して「済んだ」にすると、候補の窓が流れなくなる（ユーザ指摘 2026-11-20：変換の右の欄のつなぎ先を選ぶ欄）
+    /// </summary>
+    private static bool CameFromInside(DependencyObject element, MouseWheelEventArgs e)
+    {
+        for (var node = e.OriginalSource as DependencyObject; node is not null;
+             node = node is Visual or System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(node) : LogicalTreeHelper.GetParent(node))
+        {
+            if (ReferenceEquals(node, element))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static void OnPreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
-        if (e.Handled || sender is not DependencyObject element)
+        if (e.Handled || sender is not DependencyObject element || !CameFromInside(element, e))
         {
             return;
         }

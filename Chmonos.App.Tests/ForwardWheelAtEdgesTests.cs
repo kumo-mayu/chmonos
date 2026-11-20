@@ -42,6 +42,50 @@ public class ForwardWheelAtEdgesTests
         Assert.Equal(0, inner.Scroll.VerticalOffset);
     });
 
+    /// <summary>
+    /// 行の中の欄が開いた候補の窓（Popup）のホイールは、持ち主の一覧も通る。一覧が端にいても外へ渡さない
+    /// （渡して「済んだ」にすると候補の窓が流れない。ユーザ指摘 2026-11-20：変換の右の欄のつなぎ先を選ぶ欄）
+    /// </summary>
+    [Fact]
+    public Task 行の中の候補の窓のホイールは_一覧が端でも外へ渡さない() => UiThread.Run(() =>
+    {
+        var inPopup = new Border { Height = 20 };
+        var list = new ItemsControl
+        {
+            MaxHeight = 100,
+            Template = (ControlTemplate)System.Windows.Markup.XamlReader.Parse(
+                """
+                <ControlTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" TargetType="ItemsControl">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" CanContentScroll="False"><ItemsPresenter /></ScrollViewer>
+                </ControlTemplate>
+                """),
+        };
+        list.Items.Add(new System.Windows.Controls.Primitives.Popup { Child = inPopup });
+        list.Items.Add(new Border { Height = 20 });
+        ForwardWheel.SetAtEdges(list, true);
+        ForwardWheel.SetIsEnabled(list, true);
+        var outer = new ScrollViewer { Height = 200, Width = 200, Content = list, CanContentScroll = false };
+        using var source = new HwndSource(new HwndSourceParameters("ForwardWheelPopupTests")
+        {
+            WindowStyle = unchecked((int)0x80000000),
+            ExtendedWindowStyle = 0x00000080,
+            PositionX = -30000,
+            PositionY = -30000,
+            Width = 1,
+            Height = 1,
+        })
+        {
+            RootVisual = outer,
+        };
+        Settle(outer);
+
+        // 一覧は流せる量が無いので、上も下も端。前はここで外へ渡して「済んだ」にしていた
+        var preview = new MouseWheelEventArgs(Mouse.PrimaryDevice, 0, 120) { RoutedEvent = UIElement.PreviewMouseWheelEvent };
+        inPopup.RaiseEvent(preview);
+
+        Assert.False(preview.Handled);
+    });
+
     private sealed record Inner(ItemsControl List, ScrollViewer Scroll);
 
     /// <summary>一覧の行の上でホイールを回す（知らせは画面の根から行まで下り、行から上る。一覧の中の ScrollViewer も道の上にある）。</summary>
