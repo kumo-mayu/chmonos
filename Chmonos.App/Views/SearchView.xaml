@@ -561,11 +561,23 @@
                                                                         </ContextMenu>
                                                                     </controls:FocusFrame.ContextMenu>
                                                                     <DockPanel>
-                                                                        <!-- 行に止まっているか乗せたときだけ出す（条件の「…」と同じ）。Tab では止まらない：行の操作は Shift+F10 で同じ物が開く -->
-                                                                        <Button DockPanel.Dock="Right" Style="{StaticResource ModuleMenuButton}" Click="OnModuleMenuClick" IsTabStop="False"
+                                                                        <!--
+                                                                            どの行にもいつも出す（ユーザ判断 2026-11-20）。前は条件の「…」と同じく乗せた・止まった時だけ出したが、
+                                                                            2〜3件の時に1行目だけ出たままに見え、ほかの行に操作があると気付きにくかった。
+                                                                            Tab では止まらない：行の操作は Shift+F10 で同じ物が開く
+                                                                        -->
+                                                                        <Button DockPanel.Dock="Right" Click="OnModuleMenuClick" IsTabStop="False"
                                                                                 VerticalAlignment="Center" ToolTip="この保存した検索の操作"
                                                                                 AutomationProperties.AutomationId="SavedSearch.Menu"
-                                                                                AutomationProperties.Name="{Binding Name, StringFormat={}{0}の操作}" />
+                                                                                AutomationProperties.Name="{Binding Name, StringFormat={}{0}の操作}">
+                                                                            <Button.Style>
+                                                                                <!-- 形は条件の「…」と同じ。隠す型（RevealOnHoverOrFocusButton）の既定だけを上書きする -->
+                                                                                <Style TargetType="Button" BasedOn="{StaticResource ModuleMenuButton}">
+                                                                                    <Setter Property="Opacity" Value="1" />
+                                                                                    <Setter Property="IsHitTestVisible" Value="True" />
+                                                                                </Style>
+                                                                            </Button.Style>
+                                                                        </Button>
                                                                         <Button Style="{StaticResource HistorySlotButton}" Command="{Binding ApplyCommand}" IsTabStop="False"
                                                                                 HorizontalContentAlignment="Stretch"
                                                                                 AutomationProperties.AutomationId="SavedSearch.Apply"
