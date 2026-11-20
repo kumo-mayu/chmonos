@@ -140,6 +140,19 @@ public sealed record UiState
     public bool ModificationMembersReversed { get; init; }
 
     /// <summary>
+    /// アバターの管理の「変換」の追加した組の並び（ユーザ判断 2026-11-20・open.md「変換：追加した組の行に…」③）。
+    /// "name" 元の名前順／"nameDesc" 元の名前の逆順／"newest" 追加が新しい順／"oldest" 追加が古い順。知らない値は既定に戻す。
+    /// 既定は元の名前順（組はいつも元でまとめるので、元の名前で引ける並びから始める）
+    /// </summary>
+    public string ConversionPairSort { get; init; } = "name";
+
+    /// <summary>
+    /// 「変換」の追加した組で、畳んだまとまりの元（同じ判断の④）。名前ではなく端（アバターの商品 ID・共通素体の名前）で持つ
+    /// （同じ名前のアバターと素体を取り違えない）。無ければ全部開く。素体の改名・ID の変更では追わない（そのまとまりは開いた姿に戻るだけ）
+    /// </summary>
+    public IReadOnlyList<ConversionEnd>? ConversionPairCollapsed { get; init; }
+
+    /// <summary>
     /// 「この新着はもう知らせなくてよい」と言われたときの、新着の顔つき（ユーザ判断 2026-09-21・G16）。
     ///
     /// 監視フォルダに取り込むつもりの無いファイルがあると、起動のたびに同じ件数を知らされ続け、

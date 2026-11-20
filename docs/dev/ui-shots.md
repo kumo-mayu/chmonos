@@ -150,7 +150,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | アバター：選んだ右の欄・知らせ・検出の結果の長い文 | `avatars-detail`（900）・`avatars-notice-off`・`avatars-notice-on`・`avatars-status` |
 | 共通素体：一覧・詳細・足す欄・推定・知らせ | `avatars-bases`・`avatars-base-members`・`avatars-inferred-base`・`avatars-base-notice-*` |
 | アバターの詳細の「変換の組」（このアバターが元か先にある組の札・読むだけと「変換で編集」） | `avatars-conversion-pairs` |
-| 変換の一覧の上の「追加した組」（プロファイルの商品と同じ形の行・元 → 先と短いメモ、組を追加の行と「追加」。共通素体を元にした組） | `avatars-conversion-pairs-edit` |
+| 変換の一覧の上の「追加した組」（上に組を追加の行と「追加」、並び、元でまとめた見出し（絵・名前・組の数・畳んだ所）、元と先の絵付きの行と短いメモ。共通素体を元にした組） | `avatars-conversion-pairs-edit` |
 | 変換で追加した組を選んだ右の欄（元・先のリンク・ツールの名前・メモ・この組を外す）と、プロファイルの商品の行に並ぶ組の行 | `avatars-conversion-pair-detail`（`Scenes.AvatarViaConversion.cs`。`avatars-conversion` と同じ種） |
 | 共通素体の画像（付けた所・無い所） | `avatars-base-image`・`avatars-base-image-none` |
 | 素体の候補の絵（商品ページの対応アバターを追加・変換のつなぎ先・検索の対応アバター・アバターの詳細の共通素体） | `suggest-base-icons` |

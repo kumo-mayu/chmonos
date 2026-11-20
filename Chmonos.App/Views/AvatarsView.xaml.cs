@@ -123,6 +123,70 @@ public partial class AvatarsView : UserControl
     }
 
     /// <summary>見出しが作られたら、覚えている畳み方に合わせる（行を使い回すので、作られるたびに合わせ直す）。</summary>
+    /// <summary>
+    /// 「追加した組」の一覧のキー（ユーザ判断 2026-11-20・④）。見出しは選ぶ行ではないので、ListBox の既定の ↑↓（止まれない入れ物を飛ばす）
+    /// では見出しへ届かず、キーボードから畳めなかった。↑↓・Home・End・PageUp・PageDown は行と見出しを1つの並びとして渡り（行なら選ぶ）、
+    /// 見出しの上では ← で畳み → で開く（Enter・Space の開閉は三角が自分で受ける）。修飾キー付きは画面の物（Alt+← の戻る）なので受けない
+    /// </summary>
+    private void ConversionPairList_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (sender is not ListBox list || list.DataContext is not ConversionPairEditor editor
+            || System.Windows.Input.Keyboard.Modifiers != System.Windows.Input.ModifierKeys.None)
+        {
+            return;
+        }
+
+        var current = (System.Windows.Input.Keyboard.FocusedElement as FrameworkElement)?.DataContext;
+        if (current is ConversionPairGroup group && e.Key is System.Windows.Input.Key.Left or System.Windows.Input.Key.Right)
+        {
+            group.IsExpanded = e.Key == System.Windows.Input.Key.Right;
+            e.Handled = true;
+            return;
+        }
+
+        // 一画面ぶんの目安。行の高さはスライダーで変わるので、一覧の高さの上限（260）を行のおおよその高さで割った数にする
+        const int page = 6;
+        var target = e.Key switch
+        {
+            System.Windows.Input.Key.Up => editor.MoveEntry(current, -1),
+            System.Windows.Input.Key.Down => editor.MoveEntry(current, 1),
+            System.Windows.Input.Key.PageUp => editor.MoveEntry(current, -page),
+            System.Windows.Input.Key.PageDown => editor.MoveEntry(current, page),
+            System.Windows.Input.Key.Home => editor.MoveEntry(current, -1, toEdge: true),
+            System.Windows.Input.Key.End => editor.MoveEntry(current, 1, toEdge: true),
+            _ => (object?)null,
+        };
+        if (e.Key is not (System.Windows.Input.Key.Up or System.Windows.Input.Key.Down or System.Windows.Input.Key.PageUp
+            or System.Windows.Input.Key.PageDown or System.Windows.Input.Key.Home or System.Windows.Input.Key.End))
+        {
+            return;
+        }
+
+        // 端で止まった時も受けておく（ListBox の既定に渡すと、見出しを飛ばして選びが動く）
+        e.Handled = true;
+        if (target is null)
+        {
+            return;
+        }
+
+        // 一覧は見える行しか作らないので、先に見える所まで流して作らせてから止める
+        list.ScrollIntoView(target);
+        list.UpdateLayout();
+        if (list.ItemContainerGenerator.ContainerFromItem(target) is not ListBoxItem container)
+        {
+            return;
+        }
+
+        if (target is ConversionPairGroup)
+        {
+            VisualTreeFinder.FindDescendant<ExpandToggle>(container)?.Focus();
+        }
+        else
+        {
+            container.Focus();
+        }
+    }
+
     private void GroupExpander_Loaded(object sender, RoutedEventArgs e)
     {
         if (sender is Expander { DataContext: CollectionViewGroup { Name: string name } } expander)

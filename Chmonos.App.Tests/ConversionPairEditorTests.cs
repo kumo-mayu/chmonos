@@ -59,7 +59,8 @@ public class ConversionPairEditorTests
         pairs.ToText = "作り物素体（共通素体）";
         await pairs.AddAsync();
 
-        Assert.Equal(["作り物素体（共通素体） → モモ", "アオイ → 作り物素体（共通素体）"], pairs.Rows.Select(row => row.Text));
+        // 並びの既定は元の名前順（ファイルは足した順のまま）
+        Assert.Equal(["アオイ → 作り物素体（共通素体）", "作り物素体（共通素体） → モモ"], pairs.Rows.Select(row => row.Text));
         Assert.Equal("追加した組（2）", pairs.HeaderText);
         Assert.Equal(
             [Pair(ConversionEnd.Base("作り物素体"), ConversionEnd.Avatar(Momo)), Pair(ConversionEnd.Avatar(Aoi), ConversionEnd.Base("作り物素体"))],
@@ -73,7 +74,7 @@ public class ConversionPairEditorTests
         Assert.Equal("アオイ → 作り物素体（共通素体）", pairs.SelectedRow?.Text);
         Assert.True(avatars.ShowsConversionPairDetail);
 
-        pairs.Rows[0].RemoveCommand.Execute(null);
+        pairs.Rows[1].RemoveCommand.Execute(null);
         await UiThread.Until(() => pairs.Rows.Count == 1, "外した行が消える");
         Assert.Equal(Pair(ConversionEnd.Avatar(Aoi), ConversionEnd.Base("作り物素体")), Assert.Single(app.Store.ConversionPairs.Load().Pairs));
     });

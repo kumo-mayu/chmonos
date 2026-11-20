@@ -113,17 +113,21 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
-        new Scene("avatars-conversion-pairs-edit", "アバターの管理：変換の一覧の上の「追加した組」（プロファイルの商品と同じ形の行・元 → 先と短いメモと、組を追加の行と「追加」。共通素体を元にした組を含む）", async context =>
+        new Scene("avatars-conversion-pairs-edit", "アバターの管理：変換の一覧の上の「追加した組」（上に組を追加の行と「追加」、並び、元でまとめた見出し（絵・名前・組の数・1つは畳んだ所）、元と先の絵付きの行と短いメモ。共通素体を元にした組を含む）", async context =>
         {
-            await SeedConversionPairsAsync(context);
+            await SeedConversionPairsAsync(context, withFolded: true);
+
+            // アオイだけ商品の絵を持つ（絵のある端と、頭の字の端を並べて見る）
+            await context.Fake.ItemAsync("9900602", "作り物のアバター「アオイ」", images: 1);
             var (avatars, root) = await OpenBaseMembersAsync(context);
             avatars.ShowConversionModeCommand.Execute(null);
             await context.SettleAsync();
+            avatars.ConversionPairs.Groups.Single(group => group.Name == "コハク").IsExpanded = false;
             avatars.ConversionPairs.FromText = "ツムギ";
             await context.SettleAsync();
-            if (avatars.ConversionPairs.Rows.Count != 3)
+            if (avatars.ConversionPairs.Rows.Count != 4 || avatars.ConversionPairs.Groups.Count != 3)
             {
-                throw new InvalidOperationException("追加した組の行が3つ並ばない");
+                throw new InvalidOperationException("追加した組が4つ・元のまとまりが3つ並ばない");
             }
 
             return new Shot(root);
@@ -131,8 +135,11 @@ internal static partial class Scenes
     ];
 
     /// <summary>名前から MARUBODY に推されるアバター1体・手で素体を決めたアバター1体・素体の無いアバター2体と、共通素体2つ。</summary>
-    /// <summary>人が足した変換の組3つ：アオイ→ツムギ（メモ付き）・アオイ→MARUBODY（ツールの名前付き）・作り物の素体→コハク（共通素体が元）。</summary>
-    private static Task SeedConversionPairsAsync(SceneContext context)
+    /// <summary>
+    /// 人が足した変換の組3つ：アオイ→ツムギ（メモ付き）・アオイ→MARUBODY（ツールの名前付き）・作り物の素体→コハク（共通素体が元）。
+    /// <paramref name="withFolded"/> のときは、畳んで見せるまとまり用にコハク→ツムギを足す
+    /// </summary>
+    private static Task SeedConversionPairsAsync(SceneContext context, bool withFolded = false)
         => context.Seed.ConversionPairs.SaveAsync(new ConversionPairFile
         {
             Pairs =
@@ -140,6 +147,7 @@ internal static partial class Scenes
                 new ConversionPair { From = ConversionEnd.Avatar("9900602"), To = ConversionEnd.Avatar("9900603"), Memo = "袖の長さを直す" },
                 new ConversionPair { From = ConversionEnd.Avatar("9900602"), To = ConversionEnd.Base("MARUBODY"), Tool = "作り物のツール" },
                 new ConversionPair { From = ConversionEnd.Base("作り物の素体"), To = ConversionEnd.Avatar("9900604") },
+                .. withFolded ? [new ConversionPair { From = ConversionEnd.Avatar("9900604"), To = ConversionEnd.Avatar("9900603") }] : Array.Empty<ConversionPair>(),
             ],
         });
 

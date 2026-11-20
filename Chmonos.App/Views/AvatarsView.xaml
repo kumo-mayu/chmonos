@@ -71,6 +71,24 @@
         <Style x:Key="ConversionPairRowStyle" TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
             <Setter Property="AutomationProperties.Name" Value="{Binding Text}" />
             <Setter Property="AutomationProperties.AutomationId" Value="AvatarsConversionPairRow" />
+            <Style.Triggers>
+                <!--
+                    元のまとまりの見出し（ユーザ判断 2026-11-20・④）。選ぶ行にしないので、行の入れ物は止まらず、地も選んだ色も持たない。
+                    押す・止まるのは中の三角（見出し全体）だけ。名前と ID は三角が持つ
+                -->
+                <DataTrigger Binding="{Binding IsGroupHeader}" Value="True">
+                    <Setter Property="Focusable" Value="False" />
+                    <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
+                    <Setter Property="AutomationProperties.AutomationId" Value="AvatarsConversionPairGroupRow" />
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ListBoxItem">
+                                <ContentPresenter />
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </DataTrigger>
+            </Style.Triggers>
         </Style>
         <!-- 組の右の欄の元・先。押せる（移れる）時はリンクの色、登録簿から消えた物は普通の字で押せない -->
         <Style x:Key="ConversionPairEndLink" TargetType="Button" BasedOn="{StaticResource HubLink}">
@@ -467,7 +485,9 @@
                         <!--
                             人が足す変換の組（ユーザ判断 2026-11-20・avatar2avatar）。プロファイルの無いツールでも、元と先の両方にアバターか共通素体を選んで足す。
                             行はプロファイルの商品と同じ形（字だけ・同じ選び方）で、選ぶと右に組の中身（元・先・メモ・外す）を出す（ユーザ判断 2026-11-20）。
-                            畳めるようにし、一覧は高さに上限を付けて中で流す（組が増えてもプロファイルの一覧を押し潰さない）。「逆も」は置かない（逆はもう1つの組で足す）
+                            畳めるようにし、一覧は高さに上限を付けて中で流す（組が増えてもプロファイルの一覧を押し潰さない）。「逆も」は置かない（逆はもう1つの組で足す）。
+                            「組を追加」は一覧の上（ユーザ判断 2026-11-20・②：下だと組が増えるたびに押し下げられた）。行は元と先の絵付きで、いつも元でまとめ、
+                            元の見出しで畳める（同じ判断の①④）。並びは元の名前と追加した順（③）
                         -->
                         <Expander DockPanel.Dock="Top" Margin="14,10,14,0" DataContext="{Binding ConversionPairs}"
                                   Style="{StaticResource TriangleExpander}" IsExpanded="{Binding IsExpanded, Mode=TwoWay}"
@@ -480,24 +500,6 @@
                                 <TextBlock Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="2,0,0,6"
                                            Visibility="{Binding HasRows, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}"
                                            Text="プロファイルが無くても、元のアバター用の衣装を先に着せられる組を追加できます。" />
-                                <ListBox ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
-                                         ItemContainerStyle="{StaticResource ConversionPairRowStyle}"
-                                         BorderThickness="0" Background="Transparent" MaxHeight="220"
-                                         HorizontalContentAlignment="Stretch"
-                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                         AutomationProperties.Name="追加した組" AutomationProperties.AutomationId="AvatarsConversionPairRows"
-                                         Visibility="{Binding HasRows, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                    <ListBox.ItemTemplate>
-                                        <DataTemplate DataType="{x:Type vm:ConversionPairRow}">
-                                            <!-- プロファイルの商品の行と同じ字の大きさ・間（下の ConversionItemRowViewModel の行） -->
-                                            <StackPanel Margin="0,3,0,5">
-                                                <TextBlock Text="{Binding Text}" FontSize="12.5" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text}" />
-                                                <TextBlock Text="{Binding MemoPreview}" Style="{StaticResource Caption}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"
-                                                           Visibility="{Binding HasMemo, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                                            </StackPanel>
-                                        </DataTemplate>
-                                    </ListBox.ItemTemplate>
-                                </ListBox>
 
                                 <!--
                                     組を追加：元と先を候補付きの欄で選び（左の欄は狭いので縦に積む）、「追加」を押した時だけ足す（ユーザ判断 2026-11-20）。
@@ -527,6 +529,101 @@
                                 </StackPanel>
                                 <TextBlock DataContext="{Binding Notice}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" Margin="2,4,0,0"
                                            AutomationProperties.AutomationId="AvatarsConversionPairNotice" />
+
+                                <!-- 並び（ユーザ判断 2026-11-20・③）。選んだ並びは覚える（ui-state） -->
+                                <DockPanel Margin="0,8,0,2" Visibility="{Binding HasRows, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <TextBlock DockPanel.Dock="Left" Text="並び" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="2,0,8,0" />
+                                    <ComboBox ItemsSource="{Binding SortChoices}" SelectedItem="{Binding SelectedSortChoice, Mode=TwoWay}"
+                                              DisplayMemberPath="Label" Height="26" FontSize="12" HorizontalAlignment="Left" MinWidth="140"
+                                              VerticalContentAlignment="Center"
+                                              AutomationProperties.Name="追加した組の並び" AutomationProperties.AutomationId="AvatarsConversionPairSort" />
+                                </DockPanel>
+
+                                <!--
+                                    行と、元ごとのまとまりの見出し（ユーザ判断 2026-11-20・④）。見出しは選ぶ行ではなく畳むだけ（右に出す物は商品か組のどちらか1つで、
+                                    まとまりには出す中身が無い）。見出しの行は止まらない入れ物にし、中の三角（見出し全体）が止まる。
+                                    ↑↓・Home・End は行と見出しを渡り（行なら選ぶ）、見出しで Enter・Space は開閉、← で畳み → で開く（AvatarsView.xaml.cs。通知の束の見出しと同じ）
+                                -->
+                                <ListBox ItemsSource="{Binding Entries}" SelectedItem="{Binding SelectedEntry, Mode=TwoWay}"
+                                         ItemContainerStyle="{StaticResource ConversionPairRowStyle}"
+                                         PreviewKeyDown="ConversionPairList_PreviewKeyDown"
+                                         BorderThickness="0" Background="Transparent" MaxHeight="260"
+                                         HorizontalContentAlignment="Stretch"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                         AutomationProperties.Name="追加した組" AutomationProperties.AutomationId="AvatarsConversionPairRows"
+                                         Visibility="{Binding HasRows, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                    <ListBox.Resources>
+                                        <!-- 端の頭の絵。アバターの行・共通素体の行と同じ升（絵が無ければ頭の字）で、一辺は一覧の右下のスライダーに結ぶ -->
+                                        <DataTemplate DataType="{x:Type vm:ConversionEndIcon}">
+                                            <Border CornerRadius="8" VerticalAlignment="Center"
+                                                    Width="{Binding ListIconSize, Source={x:Static vm:ItemViewSize.Current}}"
+                                                    Height="{Binding ListIconSize, Source={x:Static vm:ItemViewSize.Current}}"
+                                                    Background="{DynamicResource AccentSoft}" ClipToBounds="True">
+                                                <Grid>
+                                                    <TextBlock Text="{Binding Initial}" FontWeight="Bold" Foreground="{DynamicResource AccentSoftText}"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    <Image Source="{Binding Icon}" Stretch="UniformToFill"
+                                                           Visibility="{Binding HasIcon, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+
+                                        <DataTemplate DataType="{x:Type vm:ConversionPairGroup}">
+                                            <controls:ExpandToggle IsChecked="{Binding IsExpanded, Mode=TwoWay}" Subject="{Binding Subject}" Cursor="Hand"
+                                                                   FocusVisualStyle="{StaticResource RowFocusVisual}" HorizontalContentAlignment="Stretch"
+                                                                   AutomationProperties.AutomationId="AvatarsConversionPairGroup" Margin="0,6,0,2">
+                                                <ToggleButton.Template>
+                                                    <ControlTemplate TargetType="ToggleButton">
+                                                        <Border x:Name="Back" Background="Transparent" CornerRadius="5" Padding="2,3">
+                                                            <DockPanel>
+                                                                <Grid Width="22" Height="22" Margin="0,0,8,0" VerticalAlignment="Center">
+                                                                    <Ellipse x:Name="Ring" Fill="{DynamicResource SurfaceAlt}" Stroke="{DynamicResource Border}" StrokeThickness="1" />
+                                                                    <Path x:Name="Mark" Data="M0,0 L8,6 L0,12 Z" Fill="{DynamicResource TextMuted}"
+                                                                          Width="8" Height="12" Stretch="Fill" Margin="2,0,0,0"
+                                                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                </Grid>
+                                                                <ContentPresenter VerticalAlignment="Center" />
+                                                            </DockPanel>
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsChecked" Value="True">
+                                                                <Setter TargetName="Mark" Property="Data" Value="M0,0 L12,0 L6,8 Z" />
+                                                                <Setter TargetName="Mark" Property="Width" Value="12" />
+                                                                <Setter TargetName="Mark" Property="Height" Value="8" />
+                                                                <Setter TargetName="Mark" Property="Margin" Value="0" />
+                                                            </Trigger>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter TargetName="Back" Property="Background" Value="{DynamicResource SurfaceAlt}" />
+                                                                <Setter TargetName="Ring" Property="Stroke" Value="{DynamicResource Accent}" />
+                                                                <Setter TargetName="Mark" Property="Fill" Value="{DynamicResource Accent}" />
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </ToggleButton.Template>
+                                                <DockPanel>
+                                                    <ContentPresenter DockPanel.Dock="Left" Content="{Binding Icon}" Margin="0,0,8,0" />
+                                                    <!-- 見出しの名前は行と同じ字の大きさで太く（行より小さい見出しの字だと、元の名前が行より目立たなかった） -->
+                                                    <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="6,0,4,0" />
+                                                    <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="SemiBold" VerticalAlignment="Center"
+                                                               TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
+                                                </DockPanel>
+                                            </controls:ExpandToggle>
+                                        </DataTemplate>
+
+                                        <DataTemplate DataType="{x:Type vm:ConversionPairRow}">
+                                            <!-- 元と先の絵（①）、プロファイルの商品の行と同じ字の大きさの「元 → 先」と、メモの1行目。見出しの中なので少し下げる -->
+                                            <DockPanel Margin="14,3,0,5">
+                                                <ContentPresenter DockPanel.Dock="Left" Content="{Binding FromIcon}" Margin="0,0,4,0" />
+                                                <ContentPresenter DockPanel.Dock="Left" Content="{Binding ToIcon}" Margin="0,0,10,0" />
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Text}" FontSize="12.5" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text}" />
+                                                    <TextBlock Text="{Binding MemoPreview}" Style="{StaticResource Caption}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"
+                                                               Visibility="{Binding HasMemo, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                                </StackPanel>
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </ListBox.Resources>
+                                </ListBox>
                             </StackPanel>
                         </Expander>
 
