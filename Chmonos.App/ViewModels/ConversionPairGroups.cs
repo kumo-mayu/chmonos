@@ -1,0 +1,194 @@
+using Chmonos.Core.Models;
+
+namespace Chmonos.App.ViewModels;
+
+/// <summary>
+/// 「追加した組」の並び（ユーザ判断 2026-11-20・open.md「変換：追加した組の行に…」③）。覚えるのは <c>ui-state.json</c> の
+/// <see cref="UiState.ConversionPairSort"/>（設定の画面に出す値ではなく、前回の続きから始めるために覚えるだけの値なので）。
+/// </summary>
+public enum ConversionPairSort
+{
+    /// <summary>元の名前順。まとまりの中は先の名前順。</summary>
+    Name,
+
+    /// <summary>元の名前の逆順。まとまりの中は先の名前順のまま（判断は「元の名前の昇順・降順」で、中は「先の名前の順」）。</summary>
+    NameDescending,
+
+    /// <summary>追加が新しい順。まとまりは中のいちばん新しい組の順、中も新しい順。</summary>
+    Newest,
+
+    /// <summary>追加が古い順。まとまりは中のいちばん新しい組の古い順、中も古い順（新しい順のちょうど逆）。</summary>
+    Oldest,
+}
+
+/// <summary>並びの選択肢（画面の文字と ui-state の値）。</summary>
+public sealed record ConversionPairSortChoice(ConversionPairSort Sort, string Label, string Key)
+{
+    public static IReadOnlyList<ConversionPairSortChoice> All { get; } =
+    [
+        new(ConversionPairSort.Name, "元の名前順", "name"),
+        new(ConversionPairSort.NameDescending, "元の名前の逆順", "nameDesc"),
+        new(ConversionPairSort.Newest, "追加が新しい順", "newest"),
+        new(ConversionPairSort.Oldest, "追加が古い順", "oldest"),
+    ];
+
+    /// <summary>ui-state の値から。知らない値（手で直した JSON・後の版の値）は既定（元の名前順）に戻す。</summary>
+    public static ConversionPairSort FromKey(string? key)
+        => All.FirstOrDefault(choice => string.Equals(choice.Key, key, StringComparison.Ordinal))?.Sort ?? ConversionPairSort.Name;
+
+    public static string KeyOf(ConversionPairSort sort) => All.First(choice => choice.Sort == sort).Key;
+
+    public override string ToString() => Label;
+}
+
+/// <summary>
+/// 組の端（アバター・共通素体）の頭の小さな絵。アバターは「アバター」の見方の行と同じ読み方（<see cref="AvatarImageSync.IconPath"/>・
+/// タイルの控え）、共通素体は共通素体の見方の行と同じ（付けた画像 → 素体の商品の1枚目）。絵が無ければ頭の字（素体の一覧の行と同じ印）。
+/// 場所は見えた行で初めて探し、絵は裏で読む（アバターの行と同じ。一覧を組む時に全部を探さない・流す重さを増やさない）
+/// </summary>
+public sealed class ConversionEndIcon : ViewModelBase
+{
+    private readonly Func<string?> _pathFactory;
+    private readonly Services.ThumbnailLoader? _thumbnails;
+    private string? _path;
+    private bool _pathLoaded;
+
+    public ConversionEndIcon(string initialName, Func<string?> pathFactory, Services.ThumbnailLoader? thumbnails)
+    {
+        Initial = Core.Services.AvatarText.InitialOf(initialName);
+        _pathFactory = pathFactory;
+        _thumbnails = thumbnails;
+    }
+
+    /// <summary>絵が無い時の頭の字（素体は「（共通素体）」を添える前の名前から）。</summary>
+    public string Initial { get; }
+
+    private string? Path
+    {
+        get
+        {
+            if (!_pathLoaded)
+            {
+                _pathLoaded = true;
+                _path = _pathFactory();
+            }
+
+            return _path;
+        }
+    }
+
+    public bool HasIcon => Path is not null;
+
+    public System.Windows.Media.Imaging.BitmapSource? Icon => Path is { } path
+        ? _thumbnails?.PeekForTile(path, () => OnPropertyChanged(nameof(Icon)))
+        : null;
+}
+
+/// <summary>
+/// 「追加した組」の元ごとのまとまり（ユーザ判断 2026-11-20・④：組はいつも元でまとめ、元のアイコン・名前・組の数を見出しにして畳める）。
+/// 見出しは**畳むだけ**で、選ぶ行にはしない（右に出す物はプロファイルの商品か組のどちらか1つで、まとまりには出す中身が無い）。
+/// キーボードでは ↑↓ で行と見出しを渡り、見出しで Enter・Space で開閉、← で畳み → で開く（通知の束の見出しと同じ）
+/// </summary>
+public sealed class ConversionPairGroup : ViewModelBase
+{
+    private readonly ConversionPairEditor _owner;
+    private bool _isExpanded;
+
+    internal ConversionPairGroup(ConversionPairEditor owner, ConversionEnd from, string name, bool isExpanded)
+    {
+        _owner = owner;
+        From = from;
+        Name = name;
+        _isExpanded = isExpanded;
+    }
+
+    public ConversionEnd From { get; }
+
+    public string Name { get; }
+
+    /// <summary>一覧の行の型を見出しに替える印（<see cref="ConversionPairRow.IsGroupHeader"/> は false）。</summary>
+    public bool IsGroupHeader => true;
+
+    public ConversionEndIcon? Icon { get; private set; }
+
+    internal void SetIcon(ConversionEndIcon icon)
+    {
+        Icon = icon;
+        OnPropertyChanged(nameof(Icon));
+    }
+
+    /// <summary>中の組（今の並び）。</summary>
+    public IReadOnlyList<ConversionPairRow> Rows { get; private set; } = [];
+
+    public string CountText => $"（{Rows.Count}）";
+
+    /// <summary>開閉の三角の名前の「何の」（「アオイの組を開く」⇄「…を折りたたむ」。ExpandToggle が状態から作る）。</summary>
+    public string Subject => $"{Name}の組";
+
+    /// <summary>開いているか。人が替えたら覚える（<see cref="ConversionPairEditor"/> が ui-state へ書き、一覧の行を出し入れする）。</summary>
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        set
+        {
+            if (SetField(ref _isExpanded, value))
+            {
+                _owner.GroupToggled(this);
+            }
+        }
+    }
+
+    /// <summary>覚えずに開く（選んだ組が畳んだまとまりの中にある時。書くのは呼ぶ側）。</summary>
+    internal void SetExpandedQuietly(bool value)
+    {
+        if (_isExpanded != value)
+        {
+            _isExpanded = value;
+            OnPropertyChanged(nameof(IsExpanded));
+        }
+    }
+
+    internal void SetRows(IReadOnlyList<ConversionPairRow> rows)
+    {
+        Rows = rows;
+        OnPropertyChanged(nameof(Rows));
+        OnPropertyChanged(nameof(CountText));
+    }
+}
+
+/// <summary>組の並べ方（画面に依らない計算。試験で並びを確かめる）。</summary>
+public static class ConversionPairOrder
+{
+    /// <summary>
+    /// まとまりと中の組を並べる。<paramref name="added"/> は組の追加した順の位置（<c>conversion-pairs.json</c> の配列の位置。
+    /// 足すと末尾に付き、外す・メモ・読み替えでは順を保つので、時刻を持たなくても追加した順が分かる）
+    /// </summary>
+    public static IReadOnlyList<(TGroup Group, IReadOnlyList<TRow> Rows)> Arrange<TGroup, TRow>(
+        IEnumerable<(TGroup Group, IReadOnlyList<TRow> Rows)> groups,
+        Func<TGroup, string> groupName,
+        Func<TRow, string> rowName,
+        Func<TRow, int> added,
+        ConversionPairSort sort)
+    {
+        var names = StringComparer.CurrentCulture;
+        return sort switch
+        {
+            ConversionPairSort.Name => [.. groups
+                .Select(group => (group.Group, ByName(group.Rows)))
+                .OrderBy(group => groupName(group.Group), names)
+                .ThenBy(group => group.Item2.Min(added))],
+            ConversionPairSort.NameDescending => [.. groups
+                .Select(group => (group.Group, ByName(group.Rows)))
+                .OrderByDescending(group => groupName(group.Group), names)
+                .ThenBy(group => group.Item2.Min(added))],
+            ConversionPairSort.Newest => [.. groups
+                .Select(group => (group.Group, (IReadOnlyList<TRow>)[.. group.Rows.OrderByDescending(added)]))
+                .OrderByDescending(group => group.Item2.Max(added))],
+            _ => [.. groups
+                .Select(group => (group.Group, (IReadOnlyList<TRow>)[.. group.Rows.OrderBy(added)]))
+                .OrderBy(group => group.Item2.Max(added))],
+        };
+
+        IReadOnlyList<TRow> ByName(IReadOnlyList<TRow> rows) => [.. rows.OrderBy(rowName, names).ThenBy(added)];
+    }
+}

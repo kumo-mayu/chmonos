@@ -364,13 +364,7 @@ public class AvatarsConversionTests
         pairs.SelectedRow = Assert.Single(pairs.Rows);
 
         var movedToItem = false;
-        pairs.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(ConversionPairEditor.Rows))
-            {
-                pairs.SelectedRow = null;
-            }
-        };
+        ConversionPairListBox.Mimic(pairs);
         avatars.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(AvatarsViewModel.SelectedConversion) && avatars.SelectedConversion is not null)

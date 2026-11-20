@@ -335,4 +335,32 @@ public sealed class ConversionPairTests : IDisposable
         await service.DeleteBaseAsync("新しい素体");
         Assert.Empty(store.ConversionPairs.Load().Pairs);
     }
+
+    /// <summary>
+    /// 画面の並び「追加が新しい順・古い順」は、配列の位置を追加した順として使う（時刻を持たない）。
+    /// そのため、足すのは末尾、外す・メモ・読み替えは残る組の順を変えない事をここで押さえる
+    /// </summary>
+    [Fact]
+    public void 足すと末尾に付き_外す_メモ_読み替えでは残る組の順を変えない()
+    {
+        var a = ConversionEnd.Avatar("9000001");
+        var b = ConversionEnd.Avatar("9000002");
+        var c = ConversionEnd.Avatar("9000005");
+        var body = ConversionEnd.Base("作り物素体");
+        var file = new ConversionPairFile();
+        file = ConversionPairs.Add(file, Pair(b, a));
+        file = ConversionPairs.Add(file, Pair(a, body));
+        file = ConversionPairs.Add(file, Pair(c, b));
+        file = ConversionPairs.Add(file, Pair(a, c));
+        Assert.Equal([Pair(b, a), Pair(a, body), Pair(c, b), Pair(a, c)], file.Pairs);
+
+        file = ConversionPairs.SetMemo(file, Pair(a, body), "袖は直す");
+        file = ConversionPairs.Remove(file, Pair(c, b));
+        file = ConversionPairs.RenameBase(file, "作り物素体", "新しい素体")!;
+        file = ConversionPairs.RenameItem(file, "9000005", "9000006")!;
+
+        Assert.Equal(
+            [Pair(b, a), Pair(a, ConversionEnd.Base("新しい素体")) with { Memo = "袖は直す" }, Pair(a, ConversionEnd.Avatar("9000006"))],
+            file.Pairs);
+    }
 }

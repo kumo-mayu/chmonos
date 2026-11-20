@@ -76,7 +76,7 @@
   - ほかの並び（`ArrowGroup`）と作りを分けた：向きが逆（ArrowGroup は Tab で1回だけ止まる）で、入れ物も2つに分かれる（送る入れ物の中と、下端に固定した「設定」）ため。矢印の移りは並びの順に隣へで足りる。窓の左右の絵送りはナビの項目の上では渡す（`GalleryArrows`）。
   - Alt+←→・Ctrl+Tab などの修飾キー付きは今までどおり。止まった項目が送る入れ物の外なら WPF が送り、続きの印（`OnNavScrollChanged`）が付き直る。
 - **マウスで押せるのにキーボードで届かなかった所を塞いだ**（点検 2026-10-01）。どれも Enter・Space で押せ、止まると選んだ色の枠が出る：
-  編集画面の星（`EditFavorite`）・小分類の ✕（`EditSubRemove`）・付けたファイルの ✕（`EditLinkedFileUnlink`）、通知の束の見出しの開閉（`InboxGroupToggle`。並びの中で ↑↓ で行と見出しを渡る）、
+  編集画面の星（`EditFavorite`）・小分類の ✕（`EditSubRemove`）・付けたファイルの ✕（`EditLinkedFileUnlink`）、通知の束の見出しの開閉（`InboxGroupToggle`。並びの中で ↑↓ で行と見出しを渡る）、変換の追加した組の元の見出し（`AvatarsConversionPairGroup`。2026-11-20。↑↓・Home・End・PageUp・PageDown で行と見出しを渡り、選ぶのは行だけ。見出しで ← は畳む・→ は開く）、
   アバターの管理の「この素体を使っているアバター」の行（`AvatarBaseMemberRow`「（アバター名）を開く」）、カードの中の押せる物（右クリックのメニューへ。上）。
   - 見つからないファイルの「取り込みを開く」は文字リンク（Hyperlink）から、同じ見た目のボタン（`HyperlinkButton`）にした。Hyperlink は画面の部品でなく文の一部なので並びに数えられず、行の数だけ Tab が止まっていた。
     ID は `ItemFileImportLink`・`ItemFolderImportLink`、名前は「（ファイル名）を付け直す取り込みを開く」。**繰り返す行の中の文字リンクはボタンで作る。**
