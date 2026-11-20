@@ -89,7 +89,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | 確認待ちの対応アバター（見出しの［すべて確認済みにする］・札にフォーカスして ✓） | `item-page-avatars-unconfirmed`・`item-page-avatars-unconfirmed-focus` |
 | 変換経由の段（持っているプロファイルで変換できる見込みのアバター） | `item-page-avatars-via-conversion` |
 | 変換扱いの欄（確認したつなぎ先・確認待ち・選ぶ欄。狭い幅では3択と行が折り返す） | `item-page-conversion-setting` |
-| アバターの管理の変換（決めていない・決めた・扱わないの群と、右の変換扱いの欄・次へ進むボタン） | `avatars-conversion` |
+| アバターの管理の変換（決めていない・途中・決めた・扱わないの群と行の頭の商品の絵、右の変換扱いの欄・次へ進むボタン）・組を探す欄の語で商品の一覧も絞った所 | `avatars-conversion`・`avatars-conversion-search` |
 | 使っている商品の新しい版の帯（改変2件で使っている・更新履歴を見る・確認した） | `item-page-used-update` |
 | 推した通りにまとめて決める窓（商品ごとの見出しとチェック） | `catalog-dialog-confirm-conversions` |
 | 検索の条件「プロファイル」（変換元・変換先の2欄・着せるプロファイルが無いと言う1行・チェック4つ） | `search-profile` |
@@ -152,6 +152,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | アバターの詳細の「変換の組」（このアバターが元か先にある組の札・読むだけと「変換で編集」） | `avatars-conversion-pairs` |
 | 変換の一覧の上の「追加した組」（上に組を追加の行と「追加」、並び、元でまとめた見出し（絵・名前・組の数・畳んだ所）、元と先の絵付きの行と短いメモ。共通素体を元にした組） | `avatars-conversion-pairs-edit` |
 | 変換で追加した組を選んだ右の欄（元・先のリンク・ツールの名前・メモ・この組を外す）と、プロファイルの商品の行に並ぶ組の行 | `avatars-conversion-pair-detail`（`Scenes.AvatarViaConversion.cs`。`avatars-conversion` と同じ種） |
+| 変換の組を探す欄（両方・元・先）・共通素体の探して足す欄（素体の名前で絞った所・入ったアバターで当たった行） | `avatars-conversion-pairs-search`・`avatars-bases-search`・`avatars-bases-search-avatar` |
 | 共通素体の画像（付けた所・無い所） | `avatars-base-image`・`avatars-base-image-none` |
 | 素体の候補の絵（商品ページの対応アバターを追加・変換のつなぎ先・検索の対応アバター・アバターの詳細の共通素体） | `suggest-base-icons` |
 | 候補（アバター・改変の呼び方） | `suggest-avatar-groups`・`suggest-avatar-divider`・`suggest-modification-alias` |
