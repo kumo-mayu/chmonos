@@ -221,7 +221,12 @@ public sealed class ModificationModule : SearchModule
         if (entry.Modification is { } id)
         {
             // 改変の名前で選んだら、アバターの枠を立てた上でその改変を選んだ状態にする（ユーザ判断 2026-10-06）
+            var before = row.Chips.Count;
             row.AddModificationQuietly(id);
+            if (row.Chips.Count > before)
+            {
+                row.Fold.RevealAdded();
+            }
         }
 
         RefreshSuggestions();
@@ -351,6 +356,7 @@ public sealed class ModificationAvatarRow : ViewModelBase
     private ImageSource? _icon;
     private bool _iconRead;
     private RelayCommand? _add;
+    private ChipFold? _fold;
 
     public ModificationAvatarRow(string avatar, Func<string, ImageSource?> avatarIcon, Func<ModificationRecord, ImageSource?> modificationIcon)
     {
@@ -388,6 +394,9 @@ public sealed class ModificationAvatarRow : ViewModelBase
     public RelayCommand? RemoveCommand { get; set; }
 
     public ObservableCollection<ListChip> Chips { get; } = [];
+
+    /// <summary>改変の札の並びを2行で畳む状態。</summary>
+    public ChipFold Fold => _fold ??= new ChipFold(Chips);
 
     /// <summary>このアバターの、まだ足していない改変。</summary>
     public ObservableCollection<string> Suggestions { get; } = [];
@@ -515,7 +524,13 @@ public sealed class ModificationAvatarRow : ViewModelBase
     {
         if (text is not null && _idOfText.TryGetValue(text.Trim(), out var id))
         {
+            var before = Chips.Count;
             AddModificationQuietly(id);
+            if (Chips.Count > before)
+            {
+                Fold.RevealAdded();
+            }
+
             Changed?.Invoke();
         }
     }

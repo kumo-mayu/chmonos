@@ -89,6 +89,12 @@ public static class ArrowGroup
     /// <summary>並びが落ち着いた後の形にすぐ合わせる（試験用。アプリでは配置の後に自分で合わせる）。</summary>
     public static void RefreshNow(ItemsControl list) => (list.GetValue(StateProperty) as GroupState)?.Refresh();
 
+    /// <summary>
+    /// 並びの中の物が押せる・押せないに変わった（札を畳んで隠した：<see cref="ChipWrapPanel"/>）。
+    /// 覚えた止まり先が押せなくなると、Tab が並びを丸ごと飛ばすので、配置の後に見えている物から選び直す
+    /// </summary>
+    public static void Requeue(ItemsControl list) => (list.GetValue(StateProperty) as GroupState)?.Queue();
+
     private static void OnIsEnabledChanged(DependencyObject element, DependencyPropertyChangedEventArgs e)
     {
         if (element is not ItemsControl list)
@@ -158,7 +164,7 @@ public static class ArrowGroup
         }
 
         /// <summary>行が作られた・消えた・隠れたとき、Tab で止まる物を1つに合わせ直す（配置の後にまとめて1回）。</summary>
-        private void Queue()
+        public void Queue()
         {
             if (_queued)
             {

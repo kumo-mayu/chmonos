@@ -173,6 +173,7 @@ public sealed class ListModule : SearchModule
     private bool _includeOn;
     private int _includeCount = -1;
     private RelayCommand? _add;
+    private ChipFold? _fold;
 
     /// <param name="allowsAnd">AND を選べるか（ショップは1商品に1つなので OR だけ）。</param>
     /// <param name="matches">商品・材料・積んだ値の鍵・補助の切り替え → 当てはまるか。</param>
@@ -215,6 +216,9 @@ public sealed class ListModule : SearchModule
     public bool HasSuggestions => Suggestions.Count > 0 || Chips.Count > 0 || _entries.Count > 0;
 
     public ObservableCollection<ListChip> Chips { get; } = [];
+
+    /// <summary>札の並びを2行で畳む状態（変換元・変換先の札もこの型の札なので同じ物を使う）。</summary>
+    public ChipFold Fold => _fold ??= new ChipFold(Chips);
 
     public bool AllowsAnd { get; }
 
@@ -503,7 +507,7 @@ public sealed class ListModule : SearchModule
             OnPropertyChanged(nameof(HasFlag));
         }
 
-        AddKey(key);
+        AddKeyByHand(key);
     }
 
     /// <summary>候補を入れ替える。積んだ値の見せ方も新しい候補に合わせる（名前が変わっていても鍵で繋ぐ）。</summary>
@@ -540,7 +544,18 @@ public sealed class ListModule : SearchModule
             return;
         }
 
+        AddKeyByHand(key);
+    }
+
+    /// <summary>人が足した（候補・開いているプロジェクトのボタン）。足した札が畳んだ中に隠れるなら広げる。</summary>
+    private void AddKeyByHand(string key)
+    {
+        var before = Chips.Count;
         AddKey(key);
+        if (Chips.Count > before)
+        {
+            Fold.RevealAdded();
+        }
     }
 
     /// <summary>通知だけ出して補助の切り替えを変える（他の画面から条件を渡すとき。絞り直しは呼ぶ側）。</summary>
@@ -639,6 +654,7 @@ public sealed class ListModule : SearchModule
     public override void Clear()
     {
         Chips.Clear();
+        Fold.Reset();
         _matchAll = false;
         _flag = _flagDefault;
         _showMatched = true;
