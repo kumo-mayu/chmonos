@@ -885,7 +885,7 @@
                                         <controls:SuggestBox Source="{Binding Suggestions}" AllowNew="False"
                                                              CommitCommand="{Binding AddCommand}"
                                                              Placeholder="{Binding Placeholder}"
-                                                             IconSelector="{Binding IconSelector}" TrimMiddle="{Binding TrimsMiddle}"
+                                                             IconSelector="{Binding IconSelector}" HoverIconSelector="{Binding HoverIconSelector}" TrimMiddle="{Binding TrimsMiddle}"
                                                              InfoSelector="{Binding InfoSelector}" GroupHeadings="{Binding GroupHeadings}"
                                                              AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Input'}"
                                                              AutomationProperties.Name="{Binding InputName}"
@@ -1009,7 +1009,7 @@
                                         <TextBlock Text="変換元" Style="{StaticResource Caption}" Margin="0,0,0,3" />
                                         <controls:SuggestBox Source="{Binding Source.Suggestions}" AllowNew="False"
                                                              CommitCommand="{Binding Source.AddCommand}" Placeholder="{Binding Source.Placeholder}"
-                                                             IconSelector="{Binding Source.IconSelector}" InfoSelector="{Binding Source.InfoSelector}" GroupHeadings="{Binding Source.GroupHeadings}"
+                                                             IconSelector="{Binding Source.IconSelector}" HoverIconSelector="{Binding Source.HoverIconSelector}" InfoSelector="{Binding Source.InfoSelector}" GroupHeadings="{Binding Source.GroupHeadings}"
                                                              AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Source'}"
                                                              AutomationProperties.Name="変換元のアバターか共通素体"
                                                              ToolTip="着せたい衣装が対応しているアバターです。" />
@@ -1018,7 +1018,7 @@
                                         <TextBlock Text="変換先" Style="{StaticResource Caption}" Margin="0,8,0,3" />
                                         <controls:SuggestBox Source="{Binding Destination.Suggestions}" AllowNew="False"
                                                              CommitCommand="{Binding Destination.AddCommand}" Placeholder="{Binding Destination.Placeholder}"
-                                                             IconSelector="{Binding Destination.IconSelector}" InfoSelector="{Binding Destination.InfoSelector}" GroupHeadings="{Binding Destination.GroupHeadings}"
+                                                             IconSelector="{Binding Destination.IconSelector}" HoverIconSelector="{Binding Destination.HoverIconSelector}" InfoSelector="{Binding Destination.InfoSelector}" GroupHeadings="{Binding Destination.GroupHeadings}"
                                                              AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Destination'}"
                                                              AutomationProperties.Name="変換先のアバターか共通素体"
                                                              ToolTip="着せたいアバターです。" />
@@ -1367,7 +1367,7 @@
                                     <StackPanel>
                                         <controls:SuggestBox Source="{Binding Suggestions}" AllowNew="False"
                                                              CommitCommand="{Binding AddCommand}" Placeholder="アバターか改変を選んで追加"
-                                                             IconSelector="{Binding IconSelector}" InfoSelector="{Binding InfoSelector}"
+                                                             IconSelector="{Binding IconSelector}" HoverIconSelector="{Binding HoverIconSelector}" InfoSelector="{Binding InfoSelector}"
                                                              Matcher="{Binding Matcher}"
                                                              GroupHeadings="{x:Static vm:ModificationModule.Headings}"
                                                              AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Input'}"
@@ -1405,7 +1405,7 @@
                                                             </DockPanel>
                                                             <controls:SuggestBox Source="{Binding Suggestions}" AllowNew="False" Margin="0,5,0,0"
                                                                                  CommitCommand="{Binding AddCommand}" Placeholder="改変を選んで追加"
-                                                                                 IconSelector="{Binding IconSelector}"
+                                                                                 IconSelector="{Binding IconSelector}" HoverIconSelector="{Binding HoverIconSelector}"
                                                                                  AutomationProperties.Name="{Binding AvatarName, StringFormat={}{0}の改変を選んで追加}"
                                                                                  Visibility="{Binding ShowsInput, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                                             <TextBlock Text="改変を選ばないときは、このアバターのすべての改変が対象です。" Style="{StaticResource Caption}"

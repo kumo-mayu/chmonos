@@ -380,4 +380,22 @@ public class VariationTargetsTests
 
         Assert.All(edit.Variations, row => Assert.False(row.HasTargets));
     });
+
+    /// <summary>
+    /// 対応を足す欄の候補の頭の絵に乗せると大きな絵（ユーザ判断 2026-11-20「候補の欄の絵：アバターの管理の外の欄にも」）。
+    /// 口を配り忘れると束縛が黙って null になるので、全部の行の欄が持つ事と、絵の無い候補では読みに行かない事を見る
+    /// </summary>
+    [Fact]
+    public Task 編集の画面の対応を足す欄は_大きな絵の口を持ち_絵の無い候補では読まない() => TestApp.Run(async app =>
+    {
+        var edit = await OpenEditAsync(app, Outfit());
+
+        Assert.All(edit.Variations, row =>
+        {
+            var input = row.Targets!;
+            Assert.NotNull(input.IconSelector);
+            Assert.NotNull(input.HoverIconSelector);
+            Assert.Null(input.HoverIconSelector!("作り物素体（共通素体）", () => Assert.Fail("絵の無い候補で読みに行った")));
+        });
+    });
 }

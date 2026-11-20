@@ -44,7 +44,7 @@
                     <TextBlock Text="{Binding StateText}" FontSize="10" Foreground="{DynamicResource Warn}" />
                 </Border>
                 <controls:SuggestBox DockPanel.Dock="Right" Width="210" Source="{Binding Suggestions}" CommitCommand="{Binding AddCommand}"
-                                     IconSelector="{Binding IconSelector}" InfoSelector="{Binding InfoSelector}" GroupHeadings="{Binding GroupHeadings}"
+                                     IconSelector="{Binding IconSelector}" HoverIconSelector="{Binding HoverIconSelector}" InfoSelector="{Binding InfoSelector}" GroupHeadings="{Binding GroupHeadings}"
                                      Placeholder="アバターを追加" Margin="8,0,0,0"
                                      AutomationProperties.AutomationId="EditVariationTargetInput"
                                      AutomationProperties.Name="{Binding DataContext.Name, RelativeSource={RelativeSource AncestorType=Border}, StringFormat={}{0}の対応アバターを追加}" />

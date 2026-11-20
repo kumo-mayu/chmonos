@@ -137,7 +137,8 @@ public sealed class AvatarsHoverImageTests
         Assert.NotEmpty(conversionImage);
         Assert.DoesNotContain("HoverImageTip", conversionImage);
 
-        var resources = File.ReadAllText(ViewPath("ManageResources.xaml"));
+        // 型はアプリ全体の資源に1つ（候補の欄を取り込みの無い窓にも置くため。ユーザ判断 2026-11-20「候補の欄の絵：アバターの管理の外の欄にも」）
+        var resources = File.ReadAllText(Path.Combine(Path.GetDirectoryName(ViewPath("App.xaml"))!, "..", "App.xaml"));
         var tip = Regex.Match(resources, @"<ToolTip x:Key=""HoverImageTip""[^>]*>").Value;
         Assert.Contains(@"x:Shared=""False""", tip);
     }

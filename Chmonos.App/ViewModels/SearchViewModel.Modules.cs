@@ -396,6 +396,7 @@ public sealed partial class SearchViewModel
         "アバターがまだ見つかっていません。アバターの管理から検出できます。", (_, _, _, _) => false)
     {
         IconSelector = AvatarIconSelector,
+        HoverIconSelector = AvatarHoverIconSelector,
         InfoSelector = text => _avatarSuggestInfo.GetValueOrDefault(text),
         GroupHeadings = AvatarSuggestionText.Headings,
     };
@@ -690,15 +691,25 @@ public sealed partial class SearchViewModel
 
     /// <summary>改変の絵（改変の写真の1枚目 → アバターの絵。改変の一覧・改変を選ぶ窓と同じ決め方）。</summary>
     private System.Windows.Media.ImageSource? ModificationIconOf(ModificationRecord record)
-        => Core.Services.ModificationIcon.PathOf(_services.Paths, record, FindItem(record.AvatarItemId), _services.Settings.ShowRemovedBoothImages) is { } path
-            ? _thumbnails.LoadForTile(path)
-            : null;
+        => ModificationIconPath(record) is { } path ? _thumbnails.LoadForTile(path) : null;
+
+    /// <summary>改変の候補の絵に乗せた時の大きな絵（ユーザ判断 2026-11-20）。乗せた時に初めて読む</summary>
+    private System.Windows.Media.ImageSource? ModificationHoverIconOf(ModificationRecord record, Action onLoaded)
+        => ModificationIconPath(record) is { } path ? _thumbnails.PeekForCard(path, onLoaded) : null;
+
+    private string? ModificationIconPath(ModificationRecord record)
+        => Core.Services.ModificationIcon.PathOf(_services.Paths, record, FindItem(record.AvatarItemId), _services.Settings.ShowRemovedBoothImages);
 
     /// <summary>アバターの絵（持っていれば商品の1枚目、持っていなければ控えの1枚。対応アバターの候補と同じ）。</summary>
     private System.Windows.Media.ImageSource? AvatarIconOf(string avatarItemId)
-        => Core.Services.AvatarImageSync.IconPath(_services.Paths, avatarItemId, FindItem(avatarItemId), _services.Settings.ShowRemovedBoothImages) is { } path
-            ? _thumbnails.LoadForTile(path)
-            : null;
+        => AvatarIconPath(avatarItemId) is { } path ? _thumbnails.LoadForTile(path) : null;
+
+    /// <summary>アバターの候補の絵に乗せた時の大きな絵（ユーザ判断 2026-11-20）。乗せた時に初めて読む</summary>
+    private System.Windows.Media.ImageSource? AvatarHoverIconOf(string avatarItemId, Action onLoaded)
+        => AvatarIconPath(avatarItemId) is { } path ? _thumbnails.PeekForCard(path, onLoaded) : null;
+
+    private string? AvatarIconPath(string avatarItemId)
+        => Core.Services.AvatarImageSync.IconPath(_services.Paths, avatarItemId, FindItem(avatarItemId), _services.Settings.ShowRemovedBoothImages);
 
     private IEnumerable<(string Text, string Key)> UnityProjectCandidates()
     {
@@ -852,6 +863,7 @@ public sealed partial class SearchViewModel
             isUnspecified: SearchModuleConditions.ListOf(kind)!.IsUnspecified)
         {
             IconSelector = AvatarIconSelector,
+            HoverIconSelector = AvatarHoverIconSelector,
             InfoSelector = text => _avatarSuggestInfo.GetValueOrDefault(text),
             GroupHeadings = AvatarSuggestionText.Headings,
         },
@@ -881,7 +893,7 @@ public sealed partial class SearchViewModel
         SearchModuleKind.Unedited => new UneditedModule(item => _main?.IsAwaitingDetection(item.Id) == true),
 
         // アバター → 改変の2段（ユーザ判断 2026-10-06。ユーザータグと同じ形）
-        SearchModuleKind.Modification => new ModificationModule(AvatarIconOf, ModificationIconOf),
+        SearchModuleKind.Modification => new ModificationModule(AvatarIconOf, ModificationIconOf, AvatarHoverIconOf, ModificationHoverIconOf),
 
         // 改変を通してそのプロジェクトに紐付いた商品（ユーザ判断 Q7）。プロジェクトの中身は見ない（開くたびに照らすと重い）
         SearchModuleKind.UnityProject => new ListModule(kind, allowsAnd: true, "プロジェクトの名前で絞り込む",
@@ -1032,11 +1044,20 @@ public sealed partial class SearchViewModel
     /// 持っていれば商品の1枚目、持っていなければ控えの1枚。候補は見えた行だけで読む。
     /// 共通素体の行は素体の絵（<see cref="AvatarBaseIcons"/>。登録簿にグループの無い素体名は頭の字）
     /// </summary>
-    public Func<string, System.Windows.Media.ImageSource?> AvatarIconSelector => entry =>
-        _baseNamesBySuggestion.TryGetValue(entry, out var baseName)
-            ? AvatarBaseIcons.Load(_services, baseName, FindItem, _thumbnails.LoadForTile)
+    public Func<string, System.Windows.Media.ImageSource?> AvatarIconSelector => entry => AvatarSuggestionIcon(entry, _thumbnails.LoadForTile);
+
+    /// <summary>
+    /// その候補の頭の絵に乗せた時の大きな絵（ユーザ判断 2026-11-20「候補の欄の絵：アバターの管理の外の欄にも」）。
+    /// 乗せた時に初めて読む。場所の決め方は頭の絵と同じ1つ
+    /// </summary>
+    public Func<string, Action, System.Windows.Media.ImageSource?> AvatarHoverIconSelector => (entry, onLoaded) =>
+        AvatarSuggestionIcon(entry, path => _thumbnails.PeekForCard(path, onLoaded));
+
+    private System.Windows.Media.Imaging.BitmapSource? AvatarSuggestionIcon(string entry, Func<string, System.Windows.Media.Imaging.BitmapSource?> load)
+        => _baseNamesBySuggestion.TryGetValue(entry, out var baseName)
+            ? AvatarBaseIcons.Load(_services, baseName, FindItem, load)
             : AvatarSuggestionText.IdOf(entry) is { } id
         && Core.Services.AvatarImageSync.IconPath(_services.Paths, id, FindItem(id), _services.Settings.ShowRemovedBoothImages) is { } path
-            ? _thumbnails.LoadForTile(path)
+            ? load(path)
             : null;
 }

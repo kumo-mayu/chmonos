@@ -162,8 +162,8 @@ public partial class SuggestBox : UserControl
     /// <summary>
     /// 候補の頭の絵に乗せた時の大きな絵（ユーザ判断 2026-11-20・①「アバターの管理の画面の絵は全部、乗せると大きな絵を出す」）。
     /// 候補の語と「読み終えた時の知らせ」から、手元にあれば絵、無ければ null を返して裏で読む（<c>ThumbnailLoader.PeekForCard</c>）。
-    /// 付けた欄だけに吹き出しが出る。部品はアプリ全体で使うので、付けない欄の動きと重さは変えない。
-    /// 吹き出しの形は親の画面が取り込む ManageResources.xaml の <c>HoverImageTip</c>
+    /// 絵を出す候補の欄には全部付ける（同日「候補の欄の絵：アバターの管理の外の欄にも」）。付けない欄（絵の無い欄）の動きと重さは変えない。
+    /// 吹き出しの形はアプリ全体の資源（App.xaml）の <c>HoverImageTip</c>（画面ごとの取り込みの無い窓にも届く）
     /// </summary>
     public static readonly DependencyProperty HoverIconSelectorProperty =
         DependencyProperty.Register(nameof(HoverIconSelector), typeof(Func<string, Action, ImageSource?>), typeof(SuggestBox),

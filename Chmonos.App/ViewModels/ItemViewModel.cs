@@ -333,17 +333,34 @@ public sealed partial class ItemViewModel : ViewModelBase, IInAppLinkNavigator, 
     /// 似た名前のアバターを名前だけで選ぶと取り違える。
     /// 共通素体の行は素体の絵（<see cref="AvatarBaseIcons"/>）。素体かは確定の時と同じ表で先に見る（同じ名前のアバターと取り違えない）
     /// </summary>
-    public Func<string, System.Windows.Media.ImageSource?> AvatarIconSelector => name =>
-        _baseNamesBySuggestion.TryGetValue(name, out var baseName)
-            ? AvatarBaseIcons.Load(_services, baseName, _main.Search.FindItem, _thumbnails.LoadForTile)
-            : _avatarIdsByName.TryGetValue(name, out var id) ? AvatarIcon(id, _thumbnails.LoadForTile) : null;
+    public Func<string, System.Windows.Media.ImageSource?> AvatarIconSelector => name => SupportIconOf(name, _thumbnails.LoadForTile);
+
+    /// <summary>
+    /// その候補の頭の絵に乗せた時の大きな絵（ユーザ判断 2026-11-20「候補の欄の絵：アバターの管理の外の欄にも」）。
+    /// 乗せた時に初めて読む。場所の決め方は頭の絵と同じ1つ
+    /// </summary>
+    public Func<string, Action, System.Windows.Media.ImageSource?> AvatarHoverIconSelector => (name, onLoaded) =>
+        SupportIconOf(name, path => _thumbnails.PeekForCard(path, onLoaded));
+
+    private System.Windows.Media.Imaging.BitmapSource? SupportIconOf(string name, Func<string, System.Windows.Media.Imaging.BitmapSource?> load)
+        => _baseNamesBySuggestion.TryGetValue(name, out var baseName)
+            ? AvatarBaseIcons.Load(_services, baseName, _main.Search.FindItem, load)
+            : _avatarIdsByName.TryGetValue(name, out var id) ? AvatarIcon(id, load) : null;
 
     /// <summary>アバター1体の絵（商品IDから）。編集の画面のバリエーションの対応を足す欄の候補が、同じ絵を使う。</summary>
     public System.Windows.Media.ImageSource? AvatarIconOf(string avatarItemId) => AvatarIcon(avatarItemId, _thumbnails.LoadForTile);
 
+    /// <summary>アバター1体の絵に乗せた時の大きな絵（編集の画面の同じ欄。ユーザ判断 2026-11-20）。乗せた時に初めて読む</summary>
+    public System.Windows.Media.ImageSource? AvatarHoverIconOf(string avatarItemId, Action onLoaded)
+        => AvatarIcon(avatarItemId, path => _thumbnails.PeekForCard(path, onLoaded));
+
     /// <summary>共通素体の絵（素体の名前から）。</summary>
     public System.Windows.Media.ImageSource? BaseIconOf(string baseName)
         => AvatarBaseIcons.Load(_services, baseName, _main.Search.FindItem, _thumbnails.LoadForTile);
+
+    /// <summary>共通素体の絵に乗せた時の大きな絵（編集の画面の同じ欄。ユーザ判断 2026-11-20）。乗せた時に初めて読む</summary>
+    public System.Windows.Media.ImageSource? BaseHoverIconOf(string baseName, Action onLoaded)
+        => AvatarBaseIcons.Load(_services, baseName, _main.Search.FindItem, path => _thumbnails.PeekForCard(path, onLoaded));
 
     private System.Windows.Media.Imaging.BitmapSource? AvatarIcon(
         string avatarItemId,
