@@ -576,7 +576,8 @@ public sealed partial class AvatarsViewModel
 
     /// <summary>
     /// プロファイルの商品の行の絵。絵の決め方は検索のカードと同じ（<see cref="ResultThumbnail.PathOf"/>）で、手元の記録を使う
-    /// （<see cref="ResultThumbnail.ForItem"/> と違い、商品をもう一度読まない）。絵の一覧は読み手の写しを使う
+    /// （<see cref="ResultThumbnail.ForItem"/> と違い、商品をもう一度読まない）。絵の一覧は読み手の写しを使う。
+    /// 絵はタイルの控えで読む（隣の組の一覧の端の絵・ItemRows と同じ読み方と控え。ユーザ判断 2026-11-20）
     /// </summary>
     private ResultThumbnail ConversionItemPicture(ItemRecord item)
     {
@@ -590,7 +591,7 @@ public sealed partial class AvatarsViewModel
 
             var directory = _services.Paths.ItemImagesDir(item.Id);
             return ResultThumbnail.PathOf(item, directory, loader.ListFiles(directory), _services.Settings.ThumbnailRole, _services.Settings.ShowRemovedBoothImages);
-        }), loader);
+        }), loader, readsAsTile: true);
     }
 
     private IReadOnlyList<ProfileSlug> ProfilesOf(ItemRecord item)

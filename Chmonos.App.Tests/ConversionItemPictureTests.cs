@@ -51,6 +51,11 @@ public class ConversionItemPictureTests
         await app.SettleAsync();
 
         Assert.Equal(files[1], picture.Path);
+
+        // 組の一覧の端の絵と同じタイルの控えで読む（別の大きさで控えると、同じ絵が2枚メモリに載る）。
+        // 行が読んだ後なら、タイルで覗くとすぐ返る
+        await UiThread.Until(() => picture.Image is not null, "行の絵が届く");
+        Assert.NotNull(main.Thumbnails.PeekForTile(files[1], static () => { }));
     });
 
     [Fact]
