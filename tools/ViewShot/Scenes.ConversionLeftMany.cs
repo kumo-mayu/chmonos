@@ -15,16 +15,22 @@ internal static partial class Scenes
 {
     private static IEnumerable<Scene> ConversionLeftManyScenes =>
     [
-        new Scene("avatars-conversion-left-many", "アバターの管理：変換の左の欄に、プロファイルの商品300件と追加した組40個（探す欄より下が1つの流れ。開く・流す・絞る重さを測って出す）", ConversionLeftManyAsync),
+        new Scene("avatars-conversion-left-many", "アバターの管理：変換の左の欄に、プロファイルの商品300件と追加した組40個（探す欄より下が1つの流れ。開く・流す・絞る重さを測って出す）", context => ConversionLeftManyAsync(context, LeftManyPairs)),
+        new Scene("avatars-conversion-left-many-pairs", "アバターの管理：変換の左の欄に、プロファイルの商品300件と追加した組400個（組の行も見える分だけ作るか。開く・流す・絞る重さを測って出す）", context => ConversionLeftManyAsync(context, LeftManyPairsLarge)),
     ];
 
     private const int LeftManyItems = 300;
     private const int LeftManyAvatars = 10;
     private const int LeftManyPairs = 40;
 
-    private static async Task<Shot> ConversionLeftManyAsync(SceneContext context)
+    /// <summary>組の行を見える分だけ作るかを見る数（組は手で足す物だが、数百でも開く重さが組の数に比例しないかを測る。ユーザ判断 2026-11-20「組は大きくなる箇所」）。</summary>
+    private const int LeftManyPairsLarge = 400;
+
+    private static async Task<Shot> ConversionLeftManyAsync(SceneContext context, int pairCount)
     {
-        var avatarIds = Enumerable.Range(0, LeftManyAvatars).Select(index => $"98005{index:D2}").ToArray();
+        // 組が同じ元と先で重ならないよう、組が多い時はアバターを増やす（元 i、先 i+1〜i+n-1 の組は n×(n-1) 個。21体で420個）
+        var avatarCount = pairCount > LeftManyAvatars * (LeftManyAvatars - 1) ? 21 : LeftManyAvatars;
+        var avatarIds = Enumerable.Range(0, avatarCount).Select(index => $"98005{index:D2}").ToArray();
         await context.Seed.Avatars.SaveAsync(new AvatarRegistry
         {
             Entries = [.. avatarIds.Select((id, index) => new AvatarRegistryEntry
@@ -34,10 +40,10 @@ internal static partial class Scenes
         });
         await context.Seed.ConversionPairs.SaveAsync(new ConversionPairFile
         {
-            Pairs = [.. Enumerable.Range(0, LeftManyPairs).Select(index => new ConversionPair
+            Pairs = [.. Enumerable.Range(0, pairCount).Select(index => new ConversionPair
             {
-                From = ConversionEnd.Avatar(avatarIds[index % LeftManyAvatars]),
-                To = ConversionEnd.Avatar(avatarIds[(index / LeftManyAvatars + index + 1) % LeftManyAvatars]),
+                From = ConversionEnd.Avatar(avatarIds[index % avatarCount]),
+                To = ConversionEnd.Avatar(avatarIds[(index / avatarCount + index + 1) % avatarCount]),
                 Memo = index % 3 == 0 ? $"作り物のメモ{index}" : null,
             })],
         });
@@ -98,16 +104,20 @@ internal static partial class Scenes
         var realizedPairs = RealizedPairs();
         var scrollers = Descendants(left).OfType<ScrollViewer>().Where(viewer => viewer.IsVisible && viewer.ScrollableHeight > 0).ToList();
 
-        // 流す：商品の行を持つ一覧の流れを、ホイールの1目盛りずつ端まで送る（行単位でも画素単位でも同じ1目盛り）
-        var scroller = Ancestors(Descendants(left).OfType<ListBoxItem>().First(item => item.DataContext is ConversionItemRowViewModel))
-            .OfType<ScrollViewer>().First(viewer => viewer.ScrollableHeight > 0);
+        // 流す：左の一覧の流れを、ホイールの1目盛りずつ端まで送る（行単位でも画素単位でも同じ1目盛り）。
+        // 流れは一覧の物から取る（組が多いと、最初の画面に商品の行が無い）
+        var scroller = Descendants(list).OfType<ScrollViewer>().First();
         var steps = new List<double>();
+        var realizedPairsMax = realizedPairs;
         while (scroller.VerticalOffset < scroller.ScrollableHeight && steps.Count < 3000)
         {
             watch.Restart();
             scroller.RaiseEvent(new MouseWheelEventArgs(Mouse.PrimaryDevice, Environment.TickCount, -120) { RoutedEvent = UIElement.MouseWheelEvent });
             root.UpdateLayout();
             steps.Add(watch.Elapsed.TotalMilliseconds);
+
+            // 時間の外で数える（流す途中で一度に持った組の行の数。全部作るなら組の数になる）
+            realizedPairsMax = Math.Max(realizedPairsMax, RealizedPairs());
         }
 
         var realizedMax = RealizedItems();
@@ -145,7 +155,7 @@ internal static partial class Scenes
         var widen = watch.Elapsed.TotalMilliseconds;
         await context.SettleAsync();
 
-        Console.WriteLine($"  変換の左：商品 {LeftManyItems}・組 {LeftManyPairs}：開く {open:F0}ms・作った商品の行 {realized}（流し切った後 {realizedMax}）・組の行 {realizedPairs}・"
+        Console.WriteLine($"  変換の左：商品 {LeftManyItems}・組 {pairCount}：開く {open:F0}ms・作った商品の行 {realized}（流し切った後 {realizedMax}）・組の行 {realizedPairs}（流す途中の最多 {realizedPairsMax}）・"
             + $"流せる物 {scrollers.Count}・流す {steps.Count} 目盛り 合計 {steps.Sum():F0}ms 最長 {(steps.Count > 0 ? steps.Max() : 0):F0}ms・"
             + $"絞る {narrow:F0}ms・絞りを消す {widen:F0}ms・組の行の上のホイール：{wheelMoves}");
         return new Shot(root);

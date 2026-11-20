@@ -108,7 +108,9 @@ public sealed class ConversionPairEditor : ViewModelBase
     public System.Collections.ObjectModel.ObservableCollection<object> Entries { get; } = [];
 
     /// <summary>
-    /// 一覧（ListBox）の選び。組の行なら組を選び、見出しは選ばない（見出しは畳むだけ）。行を出し入れしている間の null は受けない
+    /// <see cref="Entries"/> の中の選び。組の行なら組を選び、見出しは選ばない（見出しは畳むだけ）。行を出し入れしている間の null は受けない。
+    /// 画面は 2026-11-20 段11 から組の行を左の流れの行として並べ、選びは <see cref="AvatarsViewModel.SelectedConversionEntry"/> が持つ。
+    /// これは組の欄だけで出し入れと選びの決まりを確かめる試験のために残す
     /// </summary>
     public object? SelectedEntry
     {
@@ -428,25 +430,12 @@ public sealed class ConversionPairEditor : ViewModelBase
 
     /// <summary>
     /// 一覧のキーの移り先（↑↓ は ±1、Home・End は端）。行と見出しを渡り、端では止まる（回り込まない・ui-keyboard.md）。
-    /// 移り先が組の行なら選ぶ（見出しは止まるだけ）。動かない時は null
+    /// 移り先が組の行なら選ぶ（見出しは止まるだけ）。動かない時は null。
+    /// 画面のキーは段11 から組と商品を続けて渡る <see cref="AvatarsViewModel.MoveConversionEntry"/> で、決め方（<see cref="ConversionEntryKeys"/>）は同じ
     /// </summary>
     internal object? MoveEntry(object? current, int step, bool toEdge = false)
     {
-        if (Entries.Count == 0)
-        {
-            return null;
-        }
-
-        var index = current is null ? -1 : IndexOfReference(current, 0);
-        var target = toEdge ? (step < 0 ? 0 : Entries.Count - 1)
-            : index < 0 ? (step < 0 ? Entries.Count - 1 : 0)
-            : Math.Clamp(index + step, 0, Entries.Count - 1);
-        if (target == index)
-        {
-            return null;
-        }
-
-        var entry = Entries[target];
+        var entry = ConversionEntryKeys.Target(Entries, current, step, toEdge);
         if (entry is ConversionPairRow row)
         {
             SelectedRow = row;

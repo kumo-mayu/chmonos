@@ -100,12 +100,24 @@ public sealed partial class AvatarsViewModel
 
     /// <summary>
     /// 左の欄の探す欄より下の、1つの流れ（ユーザ判断 2026-11-20・①「左側の検索より下で一個で良い」）。先頭に追加した組の節（<see cref="ConversionPairsSection"/>）、
-    /// 続けて <see cref="ConversionItems"/> と同じ行を同じ群で。節も群の1つにして、同じ一覧の中で流す。
-    /// 外に流れを1つ置いて節と一覧を積むと、一覧の高さが無限になって見える行だけ作るのが効かず、数百件の行と絵を全部作る
+    /// 続けて組のまとまりの見出しと組の行（<see cref="ConversionPairEditor.Entries"/>。節を開いている時だけ）、商品が1件も見えない時の1行（<see cref="ConversionListEnd"/>）、
+    /// 続けて <see cref="ConversionItems"/> と同じ行を同じ群で。節と組も群の1つにして、同じ一覧の中で流す。
+    /// 外に流れを1つ置いて節と一覧を積むと、一覧の高さが無限になって見える行だけ作るのが効かず、数百件の行と絵を全部作る。
+    /// 組の行も節の中の入れ子の一覧に置くと組の数だけ全部作る（組40個で開く 0.05→0.24秒）ので、外の一覧の行に平らに並べ、見える分だけ作る
+    /// （ユーザ判断 2026-11-20「組は大きくなる箇所なので b で」）
     /// </summary>
     public ListCollectionView ConversionList => _conversionList ??= Listed([]);
 
     private ListCollectionView? _conversionList;
+
+    /// <summary><see cref="ConversionList"/> の元の並び。組の出し入れは差分でここへ当てる（丸ごと差し替えると流した位置とフォーカスが飛ぶ）。</summary>
+    private System.Collections.ObjectModel.ObservableCollection<object> _conversionFlow = [];
+
+    /// <summary><see cref="_conversionFlow"/> の中の組の物（見出しと行）の数。節の次から、この数だけ並ぶ。</summary>
+    private int _flowPairCount;
+
+    /// <summary>流れを作り直している・組を写している間か。この間に ListBox が書き戻す選びは受けない。</summary>
+    private bool _syncingFlow;
 
     /// <summary>追加した組の節（<see cref="ConversionList"/> の先頭の1行）。</summary>
     public ConversionPairsSection PairsSection => _pairsSection ??= new ConversionPairsSection(ConversionPairs);
@@ -145,6 +157,7 @@ public sealed partial class AvatarsViewModel
                     pairs.SelectedRow = null;
                 }
 
+                OnPropertyChanged(nameof(SelectedConversionEntry));
                 ConversionEditor.Show(value?.Item);
                 SelectedConversionImage = value is null ? null : ItemConversionEditor.IconsFrom(_services, _main)(value.ItemId);
                 OnPropertyChanged(nameof(SelectedConversionImage));
@@ -200,7 +213,14 @@ public sealed partial class AvatarsViewModel
             {
                 SetConversionPairCount(editor.Rows.Count);
             }
+            else if (args.PropertyName is nameof(ConversionPairEditor.IsExpanded))
+            {
+                SyncPairFlow();
+            }
         };
+
+        // 組の見出しと行は外の一覧（ConversionList）の行として平らに並べる。組の欄の出し入れを流れへ写す
+        editor.Entries.CollectionChanged += (_, _) => SyncPairFlow();
         return editor;
     }
 
@@ -228,6 +248,7 @@ public sealed partial class AvatarsViewModel
         }
 
         OnPropertyChanged(nameof(ShowsConversionPairDetail));
+        OnPropertyChanged(nameof(SelectedConversionEntry));
         RelayCommand.RaiseCanExecuteChanged();
         CloseRightItemIfLeftMoved();
     }
@@ -684,8 +705,17 @@ public sealed partial class AvatarsViewModel
 
         ConversionItems = Grouped(_shownConversionItems);
         OnPropertyChanged(nameof(ConversionItems));
-        _conversionList = Listed(_shownConversionItems);
-        OnPropertyChanged(nameof(ConversionList));
+        _syncingFlow = true;
+        try
+        {
+            _conversionList = Listed(_shownConversionItems);
+            OnPropertyChanged(nameof(ConversionList));
+        }
+        finally
+        {
+            _syncingFlow = false;
+        }
+
         OnPropertyChanged(nameof(ShowsNoMatchingConversionItems));
         if (keep is not null)
         {
@@ -693,6 +723,8 @@ public sealed partial class AvatarsViewModel
             _selectedConversion = null;
             SelectedConversion = keep;
         }
+
+        OnPropertyChanged(nameof(SelectedConversionEntry));
     }
 
     /// <summary>プロファイルの商品はあるのに、探す欄の語に当てはまる商品が無い（一覧の代わりに1行で言う。追加した組と同じ）。</summary>
@@ -706,12 +738,136 @@ public sealed partial class AvatarsViewModel
         return view;
     }
 
-    /// <summary>左の欄の流れ：先頭に追加した組の節、続けて行（群は節と、行の見出し）。</summary>
+    /// <summary>左の欄の流れ：先頭に追加した組の節、組の見出しと行、商品が見えない時の1行、続けて商品の行（群は節の群と、行の見出し）。</summary>
     private ListCollectionView Listed(List<ConversionItemRowViewModel> rows)
     {
-        var view = new ListCollectionView(new List<object>([PairsSection, .. rows]));
-        view.GroupDescriptions.Add(ConversionListGrouping.Instance);
+        var pairs = PairFlowEntries();
+        _conversionFlow = new System.Collections.ObjectModel.ObservableCollection<object>(
+            [PairsSection, .. pairs, .. rows.Count == 0 ? new object[] { ConversionListEnd.Instance } : [], .. rows]);
+        _flowPairCount = pairs.Count;
+        var view = new ListCollectionView(_conversionFlow);
+        view.GroupDescriptions.Add(new ConversionListGrouping(PairsSection));
         return view;
+    }
+
+    /// <summary>流れに出す組の物：節を開いていれば、まとまりの見出しと開いたまとまりの組の行（組の欄の <see cref="ConversionPairEditor.Entries"/> と同じ）。</summary>
+    private List<object> PairFlowEntries()
+        => _conversionPairs is { IsExpanded: true } pairs ? [.. pairs.Entries] : [];
+
+    /// <summary>
+    /// 組の欄の出し入れ（畳む・広げる・並び替え・絞り・足す・外す・節の開閉）を、流れの組の所へ差分で写す。
+    /// 一覧ごと作り直すと、見出しの三角をキーで畳んだ直後にフォーカスが飛び、流した位置も先頭へ戻る
+    /// </summary>
+    private void SyncPairFlow()
+    {
+        if (_conversionList is null)
+        {
+            return;
+        }
+
+        var wanted = PairFlowEntries();
+        _syncingFlow = true;
+        try
+        {
+            var keep = new HashSet<object>(wanted, ReferenceEqualityComparer.Instance);
+            for (var index = _flowPairCount; index >= 1; index--)
+            {
+                if (!keep.Contains(_conversionFlow[index]))
+                {
+                    _conversionFlow.RemoveAt(index);
+                    _flowPairCount--;
+                }
+            }
+
+            for (var index = 0; index < wanted.Count; index++)
+            {
+                var at = 1 + index;
+                if (index < _flowPairCount && ReferenceEquals(_conversionFlow[at], wanted[index]))
+                {
+                    continue;
+                }
+
+                var found = -1;
+                for (var other = at + 1; other <= _flowPairCount; other++)
+                {
+                    if (ReferenceEquals(_conversionFlow[other], wanted[index]))
+                    {
+                        found = other;
+                        break;
+                    }
+                }
+
+                if (found >= 0)
+                {
+                    _conversionFlow.Move(found, at);
+                }
+                else
+                {
+                    _conversionFlow.Insert(at, wanted[index]);
+                    _flowPairCount++;
+                }
+            }
+        }
+        finally
+        {
+            _syncingFlow = false;
+        }
+
+        OnPropertyChanged(nameof(SelectedConversionEntry));
+    }
+
+    /// <summary>
+    /// 左の一覧（ListBox）の選び。組の行なら組を、商品の行なら商品を選ぶ（右はどちらか1つ）。節・組のまとまりの見出し・商品が無い時の1行は選ばない。
+    /// ListBox が書き戻す null は受けない：流れの作り直し・組の出し入れ・絞りで選んだ物が一覧から消えた時に来る物で、
+    /// 受けると、組を選んだまま探す語を打つだけで右が商品へ替わる（選びは絞りで外さない。ユーザ判断 2026-11-20・②）
+    /// </summary>
+    public object? SelectedConversionEntry
+    {
+        get => _conversionPairs?.SelectedRow is { } pair
+            ? (_conversionFlow.Contains(pair) ? pair : null)
+            : SelectedConversion;
+        set
+        {
+            if (!_syncingFlow)
+            {
+                SelectConversionEntry(value);
+            }
+
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>キーで渡る物：組のまとまりの見出し・組の行・商品の行（流れの順）。</summary>
+    private List<object> KeyEntries()
+        => [.. _conversionFlow.Where(entry => entry is ConversionPairGroup or ConversionPairRow or ConversionItemRowViewModel)];
+
+    /// <summary>
+    /// 左の一覧のキーの移り先（↑↓ は ±1、Home・End は端）。組の見出し・組の行・商品の行を1つの並びとして渡り、端で止まる（回り込まない・ui-keyboard.md）。
+    /// 組の見出しは選ぶ行ではないので、ListBox の既定の ↑↓（止まれない入れ物を飛ばす）では届かない。動かない時は null。選びは替えない
+    /// </summary>
+    internal object? ConversionEntryTarget(object? current, int step, bool toEdge = false)
+        => ConversionEntryKeys.Target(KeyEntries(), current, step, toEdge);
+
+    /// <summary>移った先・押した行を選ぶ（組の行なら組、商品の行なら商品）。見出し・節・商品が無い時の1行は止まるだけで選ばない。</summary>
+    internal void SelectConversionEntry(object? entry)
+    {
+        switch (entry)
+        {
+            case ConversionPairRow pair:
+                ConversionPairs.SelectedRow = pair;
+                break;
+            case ConversionItemRowViewModel row:
+                SelectedConversion = row;
+                break;
+        }
+    }
+
+    /// <summary>キーで移って選ぶ（<see cref="ConversionEntryTarget"/> と <see cref="SelectConversionEntry"/>）。動かない時は null。</summary>
+    internal object? MoveConversionEntry(object? current, int step, bool toEdge = false)
+    {
+        var target = ConversionEntryTarget(current, step, toEdge);
+        SelectConversionEntry(target);
+        return target;
     }
 
     /// <summary>
@@ -884,6 +1040,7 @@ public sealed class ConversionItemRowViewModel : ViewModelBase
 
 /// <summary>
 /// 「変換」の左の流れの先頭の1行：追加した組の節（探す欄より下を1つの流れにするため、節を一覧の1行として持つ。ユーザ判断 2026-11-20・①）。
+/// 中身は節の見出し・組を追加する欄・並び・当てはまる組が無い時の1行。組の見出しと行は節の後ろの行として並ぶ（<see cref="AvatarsViewModel.ConversionList"/>）。
 /// 選ぶ行ではない（画面は選べない入れ物で出す）。群は自分自身（見出しを出さない群）
 /// </summary>
 public sealed class ConversionPairsSection
@@ -896,17 +1053,60 @@ public sealed class ConversionPairsSection
     public override string ToString() => "追加した組";
 }
 
-/// <summary>左の流れの群の分け方：節はそれだけの群、行は見出しの物（<see cref="ConversionItemGroupHeader"/>）で。</summary>
-internal sealed class ConversionListGrouping : System.ComponentModel.GroupDescription
+/// <summary>
+/// 「変換」の左の流れの、商品が1件も見えない時の1行（「まだありません」「当てはまる商品がありません」）。組の行の後ろ、商品の行が来る所に出す。
+/// 選ぶ行ではない。節の中に置くと、組の行が節の後ろに並ぶので節と組の間に挟まる
+/// </summary>
+public sealed class ConversionListEnd
 {
-    public static readonly ConversionListGrouping Instance = new();
+    public static readonly ConversionListEnd Instance = new();
 
+    private ConversionListEnd()
+    {
+    }
+
+    // 行の読み上げの名前に使われる（無いと型の名前が読まれる）
+    public override string ToString() => "商品の一覧";
+}
+
+/// <summary>
+/// 左の流れの群の分け方：節・組のまとまりの見出しと組の行・商品が無い時の1行は節の群（見出しを出さない群）、商品の行は見出しの物（<see cref="ConversionItemGroupHeader"/>）で。
+/// </summary>
+internal sealed class ConversionListGrouping(ConversionPairsSection section) : System.ComponentModel.GroupDescription
+{
     public override object? GroupNameFromItem(object item, int level, System.Globalization.CultureInfo culture) => item switch
     {
-        ConversionPairsSection section => section,
         ConversionItemRowViewModel row => row.GroupHeader,
+        ConversionPairsSection or ConversionPairGroup or ConversionPairRow or ConversionListEnd => section,
         _ => null,
     };
+}
+
+/// <summary>キーの移り先の決め方（組の欄の一覧と、左の流れで同じ）：±1 か端へ、端で止まる（回り込まない）。動かない時は null。</summary>
+internal static class ConversionEntryKeys
+{
+    public static object? Target(IReadOnlyList<object> entries, object? current, int step, bool toEdge)
+    {
+        if (entries.Count == 0)
+        {
+            return null;
+        }
+
+        var index = -1;
+        for (var at = 0; current is not null && at < entries.Count; at++)
+        {
+            if (ReferenceEquals(entries[at], current))
+            {
+                index = at;
+                break;
+            }
+        }
+
+        var target = toEdge ? (step < 0 ? 0 : entries.Count - 1)
+            : index < 0 ? (step < 0 ? entries.Count - 1 : 0)
+            : Math.Clamp(index + step, 0, entries.Count - 1);
+        return target == index ? null : entries[target];
+    }
 }
 
 /// <summary>

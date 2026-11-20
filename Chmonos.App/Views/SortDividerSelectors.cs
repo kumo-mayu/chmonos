@@ -36,14 +36,24 @@ public sealed class ItemListRowStyleSelector : StyleSelector
 /// <summary>
 /// アバターの管理の「変換」の左の流れ：先頭の追加した組の節（<see cref="ConversionPairsSection"/>）と、プロファイルの商品の行・群で見た目を分ける。
 /// 節は選ばない入れ物で出し、節の群には見出しを付けない（探す欄より下を1つの流れにするため、節を一覧の1行として持つ。ユーザ判断 2026-11-20・①）。
-/// 行（ListBoxItem の入れ物）と群（GroupItem の入れ物）の両方に使う
+/// 組のまとまりの見出しと組の行（<see cref="Pair"/>）、商品が無い時の1行（<see cref="End"/>）も、節の後ろにこの一覧の行として並ぶ（見える分だけ作るため。ユーザ判断 2026-11-20）。
+/// 行（ListBoxItem の入れ物）と群（GroupItem の入れ物）の両方に使う。群に使う時は節の群（<see cref="Section"/>）とそれ以外（<see cref="Other"/>）だけ
 /// </summary>
 public sealed class ConversionListStyleSelector : StyleSelector
 {
     public Style? Section { get; set; }
 
+    public Style? Pair { get; set; }
+
+    public Style? End { get; set; }
+
     public Style? Other { get; set; }
 
-    public override Style? SelectStyle(object item, DependencyObject container)
-        => item is ConversionPairsSection or System.Windows.Data.CollectionViewGroup { Name: ConversionPairsSection } ? Section : Other;
+    public override Style? SelectStyle(object item, DependencyObject container) => item switch
+    {
+        ConversionPairsSection or System.Windows.Data.CollectionViewGroup { Name: ConversionPairsSection } => Section,
+        ConversionPairGroup or ConversionPairRow => Pair ?? Other,
+        ConversionListEnd => End ?? Other,
+        _ => Other,
+    };
 }
