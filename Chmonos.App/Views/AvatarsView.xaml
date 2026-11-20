@@ -111,7 +111,7 @@
         <!--
             変換の組の端の頭の絵。アバターの行・共通素体の行と同じ升（絵が無ければ頭の字）で、一辺は一覧の右下のスライダーに結ぶ。
             左の組の一覧と右の組の欄で同じ物を出す（2026-11-20・ユーザ「変換画面の右側ビューにもアイコンを出しましょう。」）
-            乗せると大きな絵を出す（ユーザ判断 2026-11-20・①。吹き出しの形は ManageResources.xaml の HoverImageTip）
+            乗せると大きな絵を出す（ユーザ判断 2026-11-20・①。吹き出しの形は App.xaml の HoverImageTip）
         -->
         <DataTemplate DataType="{x:Type vm:ConversionEndIcon}">
             <Border CornerRadius="8" VerticalAlignment="Center"
