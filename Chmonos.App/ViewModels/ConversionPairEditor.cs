@@ -432,21 +432,7 @@ public sealed class ConversionPairEditor : ViewModelBase
     /// </summary>
     internal object? MoveEntry(object? current, int step, bool toEdge = false)
     {
-        if (Entries.Count == 0)
-        {
-            return null;
-        }
-
-        var index = current is null ? -1 : IndexOfReference(current, 0);
-        var target = toEdge ? (step < 0 ? 0 : Entries.Count - 1)
-            : index < 0 ? (step < 0 ? Entries.Count - 1 : 0)
-            : Math.Clamp(index + step, 0, Entries.Count - 1);
-        if (target == index)
-        {
-            return null;
-        }
-
-        var entry = Entries[target];
+        var entry = ConversionEntryKeys.Target(Entries, current, step, toEdge);
         if (entry is ConversionPairRow row)
         {
             SelectedRow = row;

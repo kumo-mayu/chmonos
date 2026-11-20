@@ -70,18 +70,6 @@ public class ConversionItemPictureTests
         Assert.Contains(@"VirtualizingPanel.ScrollUnit=""Pixel""", list);
     }
 
-    [Fact]
-    public void 追加した組の一覧は_自分で流さず_ホイールを外の流れへ渡す()
-    {
-        // 探す欄より下を1つの流れにする（ユーザ判断 2026-11-20・①）。高さの上限があると中で流れ、ホイールが中で止まる
-        var xaml = File.ReadAllText(AvatarsViewPath());
-        var list = Regex.Match(xaml, @"<ListBox ItemsSource=""\{Binding Entries\}""[^>]*>").Value;
-
-        Assert.NotEmpty(list);
-        Assert.DoesNotContain("MaxHeight", list);
-        Assert.Contains(@"controls:ForwardWheel.IsEnabled=""True""", list);
-    }
-
     private static string AvatarsViewPath([CallerFilePath] string here = "")
         => Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(here))!, "Chmonos.App", "Views", "AvatarsView.xaml");
 }

@@ -171,10 +171,10 @@ public class ConversionItemGroupTests
         Assert.Equal(["追加した組", "決めていない（2）", "途中（1）", "決めた（1）", "扱わない（1）"],
             avatars.ConversionList.Groups.Cast<System.Windows.Data.CollectionViewGroup>().Select(group => group.Name.ToString()));
 
-        // 絞っても節は残る（組の欄と、当たる物が無い時の1行は節の中にある）
+        // 絞っても節は残り（組の欄は節の中にある）、商品が当たらない時の1行が商品の行の来る所に並ぶ
         avatars.ConversionPairs.Query = "当たらない語";
         await UiThread.Until(() => avatars.ShowsNoMatchingConversionItems, "絞って0件になる");
-        Assert.Equal([avatars.PairsSection], avatars.ConversionList.Cast<object>());
+        Assert.Equal([avatars.PairsSection, ConversionListEnd.Instance], avatars.ConversionList.Cast<object>());
     });
 
     [Fact]

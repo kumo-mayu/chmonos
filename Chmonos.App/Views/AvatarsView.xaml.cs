@@ -142,32 +142,41 @@ public partial class AvatarsView : UserControl
     }
 
     /// <summary>
-    /// 節は止まらない入れ物なので ↑↓ では選ばれないが、選ばれた時（読み上げ・自動操作から）は今の商品の選びに戻す。
-    /// 選びは商品の行（SelectedConversion）だけが持つ
+    /// 節・組のまとまりの見出し・商品が無い時の1行は止まらない入れ物なので ↑↓ では選ばれないが、選ばれた時（読み上げ・自動操作から）は今の選び
+    /// （組の行か商品の行）に戻す
     /// </summary>
     private void ConversionList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (sender is ListBox list && list.SelectedItem is ConversionPairsSection && DataContext is AvatarsViewModel vm)
+        if (sender is ListBox list && list.SelectedItem is ConversionPairsSection or ConversionPairGroup or ConversionListEnd
+            && DataContext is AvatarsViewModel vm)
         {
-            list.SelectedItem = vm.SelectedConversion;
+            list.SelectedItem = vm.SelectedConversionEntry;
         }
     }
 
-    /// <summary>見出しが作られたら、覚えている畳み方に合わせる（行を使い回すので、作られるたびに合わせ直す）。</summary>
     /// <summary>
-    /// 「追加した組」の一覧のキー（ユーザ判断 2026-11-20・④）。見出しは選ぶ行ではないので、ListBox の既定の ↑↓（止まれない入れ物を飛ばす）
-    /// では見出しへ届かず、キーボードから畳めなかった。↑↓・Home・End・PageUp・PageDown は行と見出しを1つの並びとして渡り（行なら選ぶ）、
-    /// 見出しの上では ← で畳み → で開く（Enter・Space の開閉は三角が自分で受ける）。修飾キー付きは画面の物（Alt+← の戻る）なので受けない
+    /// 「変換」の左の一覧のキー（ユーザ判断 2026-11-20・④）。組のまとまりの見出しは選ぶ行ではないので、ListBox の既定の ↑↓（止まれない入れ物を飛ばす）
+    /// では見出しへ届かず、キーボードから畳めなかった。組の見出し・組の行に止まっている間は、↑↓・Home・End・PageUp・PageDown で
+    /// 組の見出し・組の行・商品の行を1つの並びとして渡り（行なら選ぶ）、見出しの上では ← で畳み → で開く（Enter・Space の開閉は三角が自分で受ける）。
+    /// 商品の行の間は ListBox の既定に任せ（群の畳みも既定が飛ばす）、商品の行から組の物へ移る時だけ受ける。
+    /// 節の中の欄（組を追加する欄・並び）に止まっている時は受けない（欄の ↑↓ は候補・選び）。修飾キー付きは画面の物（Alt+← の戻る）なので受けない
     /// </summary>
-    private void ConversionPairList_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    private void ConversionList_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
-        if (sender is not ListBox list || list.DataContext is not ConversionPairEditor editor
+        if (sender is not ListBox list || DataContext is not AvatarsViewModel vm
             || System.Windows.Input.Keyboard.Modifiers != System.Windows.Input.ModifierKeys.None)
         {
             return;
         }
 
-        var current = (System.Windows.Input.Keyboard.FocusedElement as FrameworkElement)?.DataContext;
+        var focused = System.Windows.Input.Keyboard.FocusedElement as FrameworkElement;
+        var current = focused?.DataContext;
+        if (current is not (ConversionPairGroup or ConversionPairRow or ConversionItemRowViewModel)
+            || (current is ConversionItemRowViewModel && focused is not ListBoxItem))
+        {
+            return;
+        }
+
         if (current is ConversionPairGroup group && e.Key is System.Windows.Input.Key.Left or System.Windows.Input.Key.Right)
         {
             group.IsExpanded = e.Key == System.Windows.Input.Key.Right;
@@ -175,20 +184,25 @@ public partial class AvatarsView : UserControl
             return;
         }
 
-        // 一画面ぶんの目安（6行）。組の一覧は外の1つの流れの中で高さの上限を持たないので、前の上限 260 を行のおおよその高さで割った数のまま
+        // 一画面ぶんの目安（6行）。組の一覧に高さの上限があった時の 260 を、行のおおよその高さで割った数のまま
         const int page = 6;
-        var target = e.Key switch
+        var (step, toEdge) = e.Key switch
         {
-            System.Windows.Input.Key.Up => editor.MoveEntry(current, -1),
-            System.Windows.Input.Key.Down => editor.MoveEntry(current, 1),
-            System.Windows.Input.Key.PageUp => editor.MoveEntry(current, -page),
-            System.Windows.Input.Key.PageDown => editor.MoveEntry(current, page),
-            System.Windows.Input.Key.Home => editor.MoveEntry(current, -1, toEdge: true),
-            System.Windows.Input.Key.End => editor.MoveEntry(current, 1, toEdge: true),
-            _ => (object?)null,
+            System.Windows.Input.Key.Up => (-1, false),
+            System.Windows.Input.Key.Down => (1, false),
+            System.Windows.Input.Key.PageUp => (-page, false),
+            System.Windows.Input.Key.PageDown => (page, false),
+            System.Windows.Input.Key.Home => (-1, true),
+            System.Windows.Input.Key.End => (1, true),
+            _ => (0, false),
         };
-        if (e.Key is not (System.Windows.Input.Key.Up or System.Windows.Input.Key.Down or System.Windows.Input.Key.PageUp
-            or System.Windows.Input.Key.PageDown or System.Windows.Input.Key.Home or System.Windows.Input.Key.End))
+        if (step == 0)
+        {
+            return;
+        }
+
+        var target = vm.ConversionEntryTarget(current, step, toEdge);
+        if (current is ConversionItemRowViewModel && target is not (ConversionPairGroup or ConversionPairRow))
         {
             return;
         }
@@ -199,6 +213,8 @@ public partial class AvatarsView : UserControl
         {
             return;
         }
+
+        vm.SelectConversionEntry(target);
 
         // 一覧は見える行しか作らないので、先に見える所まで流して作らせてから止める
         list.ScrollIntoView(target);
