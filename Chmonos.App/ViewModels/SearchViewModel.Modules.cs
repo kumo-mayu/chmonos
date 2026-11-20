@@ -766,13 +766,14 @@ public sealed partial class SearchViewModel
             [new("adult", "R-18のみ"), new("general", "R-18以外のみ"), new("both", "両方")],
             "both", ChoiceMatches(kind)),
 
-        // 「すべて見つからない商品は未所持とする」（ユーザ判断 2026-10-06・案A。既定は切＝所持の定義のまま。文はユーザ判断 2026-10-06 で短くした）：
+        // 「ファイルがすべて見つからない商品は未所持とする」（ユーザ判断 2026-10-06・案A。既定は切＝所持の定義のまま。
+        // 文は 2026-10-06 に短くした後、何が見つからないのかが読めないので「ファイルが」を入れた・ユーザ判断 2026-11-20）：
         // 記録のファイル・フォルダが全部見つからない商品は手元に何も無いので、使う人には未所持と同じ。入れると「所持のみ」から外し「未所持のみ」に入れる。
         // 見つからないファイルの条件の「未所持も含める」は別の問い（見つからない商品の中で分ける）なので、そのまま残す
         SearchModuleKind.Owned => new ChoiceModule(kind,
             [new("owned", "所持のみ"), new("unowned", "未所持のみ"), new("both", "両方")],
             "both", ChoiceMatches(kind),
-            new ChoiceFlag("すべて見つからない商品は未所持とする", Default: false, "すべて見つからない商品は未所持", "allMissingIsUnowned",
+            new ChoiceFlag("ファイルがすべて見つからない商品は未所持とする", Default: false, "ファイルがすべて見つからない商品は未所持", "allMissingIsUnowned",
                 new HashSet<string>(StringComparer.Ordinal) { "owned", "unowned" })),
 
         // 壊れた zip は商品ページの札でしか分からず、取り込みの結果の文は数しか言わない。どの商品かをまとめて出せるようにする
@@ -787,7 +788,7 @@ public sealed partial class SearchViewModel
         SearchModuleKind.MissingFile => new ChoiceModule(kind,
             [new(MissingFileKey, "見つからないファイルがある"), new("none", "見つからないファイルは無い"), new("both", "両方")],
             "both", ChoiceMatches(kind),
-            new ChoiceFlag("未所持も含める", Default: true, "すべて見つからない商品を除く", "includeUnowned",
+            new ChoiceFlag("未所持も含める", Default: true, "ファイルがすべて見つからない商品を除く", "includeUnowned",
                 new HashSet<string>(StringComparer.Ordinal) { MissingFileKey })),
 
         // 仮のIDで登録した商品（BOOTHに無い商品・ローカル登録。ユーザ指示 2026-10-04 メモ31）。カードの「BOOTHで開く」を出さない判定と同じ式（ItemRecord.IsLocalOnly）

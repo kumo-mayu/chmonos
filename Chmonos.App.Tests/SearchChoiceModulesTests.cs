@@ -217,7 +217,7 @@ public class SearchChoiceModulesTests
     });
 
     [Fact]
-    public Task 所持のすべて見つからない商品は未所持とするは_既定で切り_入れると未所持に数える() => TestApp.Run(async app =>
+    public Task 所持のファイルがすべて見つからない商品は未所持とするは_既定で切り_入れると未所持に数える() => TestApp.Run(async app =>
     {
         var gone = Make.File(@"D:\files\gone.zip") with { MissingSince = new DateTimeOffset(2026, 10, 1, 0, 0, 0, TimeSpan.Zero) };
         await app.AddItemAsync(Make.Item("9900081", "一部だけ見つからない").WithFiles(Make.File(@"D:\files\here.zip"), gone));
@@ -229,7 +229,7 @@ public class SearchChoiceModulesTests
 
         Assert.True(module.HasFlag);
         Assert.False(module.Flag);
-        Assert.Equal("すべて見つからない商品は未所持とする", module.FlagLabel);
+        Assert.Equal("ファイルがすべて見つからない商品は未所持とする", module.FlagLabel);
 
         // 既定は所持の定義のまま（ファイルの記録があれば所持）
         Assert.Equal(["9900081", "9900082", "9900083"], Shown(search));
@@ -239,7 +239,7 @@ public class SearchChoiceModulesTests
         // 入れると、すべて見つからない商品を未所持に数える（所持のみから外れ、未所持のみに入る）
         module.Flag = true;
         Assert.Equal(["9900082", "9900084"], Shown(search));
-        Assert.Equal("所持：未所持のみ・すべて見つからない商品は未所持", module.SummaryText);
+        Assert.Equal("所持：未所持のみ・ファイルがすべて見つからない商品は未所持", module.SummaryText);
         Pick(module, "owned");
         Assert.Equal(["9900081", "9900083"], Shown(search));
 
@@ -269,7 +269,7 @@ public class SearchChoiceModulesTests
 
         module.Flag = false;
         Assert.Equal(["9900031"], Shown(search));
-        Assert.Equal("見つからないファイル：見つからないファイルがある・すべて見つからない商品を除く", module.SummaryText);
+        Assert.Equal("見つからないファイル：見つからないファイルがある・ファイルがすべて見つからない商品を除く", module.SummaryText);
 
         // 見つからないファイルが無い商品・両方には効かないので、切り替えを隠す
         Pick(module, "none");

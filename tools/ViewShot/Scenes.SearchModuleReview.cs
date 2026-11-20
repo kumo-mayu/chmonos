@@ -210,7 +210,7 @@ internal static partial class Scenes
             return FiltersShot(root);
         }),
 
-        new Scene("search-owned-flag", "検索の絞り込み：所持（未所持のみ・「すべて見つからない商品は未所持とする」を入れた所）", async context =>
+        new Scene("search-owned-flag", "検索の絞り込み：所持（未所持のみ・「ファイルがすべて見つからない商品は未所持とする」を入れた所）", async context =>
         {
             var (search, root) = await StartCatalogFiltersAsync(context);
             var owned = (ChoiceModule)AddModule(search, SearchModuleKind.Owned);
