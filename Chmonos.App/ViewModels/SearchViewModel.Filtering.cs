@@ -400,23 +400,59 @@ public sealed partial class SearchViewModel
         => _sort.Kind == SortKind.ModificationCount
             || Modules.Any(module => module.Kind is SearchModuleKind.Modification or SearchModuleKind.UnityProject);
 
-    private async Task LoadModificationUsageAsync()
+    /// <summary>試験の継ぎ目：裏で改変を読み終えた直後に呼ぶ（読んだスレッドを見る・反映の前に止める）。</summary>
+    internal Func<Task>? AfterModificationsRead { get; set; }
+
+    private async Task LoadModificationUsageAsync(int generation)
     {
         ModificationUsage usage;
         try
         {
-            usage = ModificationUsage.From((await _services.Modifications.LoadAllAsync()).Modifications);
+            // 裏で読む（ユーザ判断 2026-11-20）。画面のスレッドで読むと、1回目は 12件でも約150ms、冷えた1000件では約1.9秒
+            // 画面が止まった（docs/spec/search-filters.md）。続きが1ファイルごとに画面のスレッドへ戻るので、まとめて裏へ出す
+            usage = await Task.Run(async () =>
+            {
+                var read = ModificationUsage.From((await _services.Modifications.LoadAllAsync()).Modifications);
+                if (AfterModificationsRead is { } hook)
+                {
+                    await hook();
+                }
+
+                return read;
+            });
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        catch (Exception exception)
         {
-            // 読めなくても「空」で置く。null のままだと読み直しを繰り返す
+            // 読めなくても「空」で置く。null のままだと読み直しを繰り返し、「読んでいます」も残り続ける
+            if (exception is not (IOException or UnauthorizedAccessException))
+            {
+                Core.Diagnostics.AppLog.Error("検索の改変を読む", exception);
+            }
+
             usage = ModificationUsage.Empty;
         }
 
         RunOnUiThread(() =>
         {
-            _modificationUsage = usage;
             _loadingModifications = false;
+            if (generation != _modificationsGeneration)
+            {
+                // 読んでいる間に改変が変わった。変わる前に読んだ結果で上書きせず、読み直す
+                if (NeedsModifications())
+                {
+                    EnsureModificationsLoaded();
+                }
+                else
+                {
+                    ShowModificationsWaiting();
+                }
+
+                return;
+            }
+
+            _modificationUsage = usage;
+            _modificationsStale = false;
+            ShowModificationsWaiting();
 
             foreach (var module in Modules.Where(module => module.Kind is SearchModuleKind.Modification or SearchModuleKind.UnityProject))
             {
@@ -435,7 +471,8 @@ public sealed partial class SearchViewModel
     /// </summary>
     public void NoteModificationsChanged()
     {
-        _modificationUsage = null;
+        _modificationsStale = true;
+        _modificationsGeneration++;
         if (NeedsModifications())
         {
             EnsureModificationsLoaded();

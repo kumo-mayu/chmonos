@@ -18,6 +18,16 @@ public sealed partial class SearchViewModel
     private int _hiddenCount;
     private int _moduleSaveToken;
     private bool _loadingModifications;
+
+    /// <summary>改変が変わった回数。読み始めに控え、読み終えたときに違えば、変わる前に読んだ結果なので捨てて読み直す。</summary>
+    private int _modificationsGeneration;
+
+    /// <summary>
+    /// 改変が変わり、持っている控えが古い。読み直す間も古い控えで照らす（null に戻すと、裏で読む間だけ改変の条件が0件・
+    /// 「改変に使った回数」の並びが崩れる。前の版は読み直しが同期で終わり、この間が無かった）
+    /// </summary>
+    private bool _modificationsStale;
+
     private SearchModuleContext? _moduleContext;
 
     /// <summary>追加してある条件。並びは追加した順。</summary>
@@ -418,6 +428,11 @@ public sealed partial class SearchViewModel
         {
             case ListModule list:
                 list.SetSuggestions(CandidatesFor(list.Kind));
+                if (list.Kind == SearchModuleKind.UnityProject)
+                {
+                    ShowModificationsWaiting();
+                }
+
                 break;
             case ProfileModule profile:
                 profile.Source.SetSuggestions(CandidatesFor(SearchModuleKind.Profile));
@@ -985,10 +1000,30 @@ public sealed partial class SearchViewModel
     /// <summary>改変を読む（候補と「改変」「Unityプロジェクト」の条件に要る）。読めたら候補を入れ直し、絞り直す。</summary>
     private void EnsureModificationsLoaded()
     {
-        if (_modificationUsage is null && !_loadingModifications)
+        if ((_modificationUsage is null || _modificationsStale) && !_loadingModifications)
         {
             _loadingModifications = true;
-            LoadModificationUsageAsync().Forget();
+            ModificationLoadsStarted++;
+            ShowModificationsWaiting();
+            LoadModificationUsageAsync(_modificationsGeneration).Forget();
+        }
+    }
+
+    /// <summary>改変を読み始めた回数（試験が、読込中に条件を足し直しても二重に読まないかを見る）。</summary>
+    internal int ModificationLoadsStarted { get; private set; }
+
+    /// <summary>改変プロジェクトの条件で、候補が空の間に出す文。読む前の空を「紐付けた改変がまだありません」と言わない。</summary>
+    internal const string ModificationsWaitingText = "改変を読んでいます…";
+
+    /// <summary>
+    /// 改変プロジェクトの条件の空の文を、読込中なら「読んでいます」に替える。読み始め・読み終わり・読込中に条件を足したときに呼ぶ
+    /// （起動時に復元した条件は候補を入れる前に作られるので、読み始めの側からも当てる）
+    /// </summary>
+    private void ShowModificationsWaiting()
+    {
+        foreach (var module in Modules.OfType<ListModule>().Where(module => module.Kind == SearchModuleKind.UnityProject))
+        {
+            module.WaitingText = _loadingModifications && _modificationUsage is null ? ModificationsWaitingText : null;
         }
     }
 
