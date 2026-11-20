@@ -136,7 +136,7 @@ public sealed class ConversionPairEditor : ViewModelBase
     public bool HasRows => Rows.Count > 0;
 
     /// <summary>節の見出し（数を添える。畳んでいても何組あるか分かるように）。</summary>
-    public string HeaderText => $"追加した組（{Rows.Count}）";
+    public string HeaderText => IsFiltering ? $"追加した組（{VisibleRows.Count}/{Rows.Count}）" : $"追加した組（{Rows.Count}）";
 
     /// <summary>節を開いているか。見方を替えて戻っても保つ（View に持たせると作り直しで戻る）。</summary>
     public bool IsExpanded
@@ -161,7 +161,7 @@ public sealed class ConversionPairEditor : ViewModelBase
 
             _memo.Flush();
             _selectedRow = value;
-            RevealSelected();
+            RevealSelected(clearFilterIfHidden: true);
             OnPropertyChanged();
             OnPropertyChanged(nameof(SelectedEntry));
             OnPropertyChanged(nameof(HasSelection));
@@ -171,11 +171,41 @@ public sealed class ConversionPairEditor : ViewModelBase
 
     /// <summary>
     /// 選んだ組のまとまりが畳んであれば開いて覚える（足した・既にある組へ移った・外した後の次の組・戻るで選び直した組を、畳みの中に隠さない）。
-    /// 覚えないと、「変換」に入るたびの読み直しでまた畳まれ、選んだ組が見えなくなる
+    /// 覚えないと、「変換」に入るたびの読み直しでまた畳まれ、選んだ組が見えなくなる。
+    /// 絞っている間は、絞りの間だけ開く（畳んだ事の記録は書き換えない）。選んだ組が絞りに当たらない時は、
+    /// <paramref name="clearFilterIfHidden"/> なら絞りを外して見せる（足した組・既にある組・外した後の次の組・戻るで選び直した組。
+    /// 「アバター」の見方で、絞りで外れたアバターへ移る時と同じ）。外さない時（読み直し・語を打った）は、右に組を出したまま一覧には出さない
     /// </summary>
-    private void RevealSelected()
+    private void RevealSelected(bool clearFilterIfHidden)
     {
-        if (_selectedRow is not { } row || _groups.FirstOrDefault(group => group.Rows.Contains(row)) is not { } group || group.IsExpanded)
+        if (_selectedRow is not { } row || _groups.FirstOrDefault(group => group.Rows.Contains(row)) is not { } group)
+        {
+            return;
+        }
+
+        if (IsFiltering)
+        {
+            if (group.ShownRows.Contains(row))
+            {
+                if (!group.IsExpanded)
+                {
+                    group.SetShownWhileFiltering(true);
+                    SyncEntries();
+                }
+
+                return;
+            }
+
+            if (!clearFilterIfHidden)
+            {
+                return;
+            }
+
+            // 絞りを外すと、下で覚えた開閉に戻ってから開いて覚える（絞りが無い時と同じ）
+            Query = string.Empty;
+        }
+
+        if (group.IsExpanded)
         {
             return;
         }
@@ -191,6 +221,113 @@ public sealed class ConversionPairEditor : ViewModelBase
         RememberCollapsed(group.From, collapsed: !group.IsExpanded);
         SyncEntries();
     }
+
+    /// <summary>絞っている間に見出しで開閉した。覚えずに行を出し入れするだけ。</summary>
+    internal void GroupToggledWhileFiltering() => SyncEntries();
+
+    // ---- 組を探す欄（2026-11-20・open.md「変換：組を探す欄・右の欄の絵・畳んだ左の欄の名前」） ----
+
+    private string _query = string.Empty;
+    private ConversionPairSearchScope _scope = ConversionPairSearchScope.Both;
+
+    /// <summary>
+    /// 探す語。「アバター」の見方の探す欄と同じ照らし方（<see cref="ConversionPairSearch"/>）で組を絞る。
+    /// 当たった組のまとまりは開いて見せるが、畳んだ事の記録（ui-state）は書き換えない。組の選び（右の欄）は、当たらなくても外さない
+    /// </summary>
+    public string Query
+    {
+        get => _query;
+        set
+        {
+            var wasFiltering = IsFiltering;
+            if (!SetField(ref _query, value ?? string.Empty))
+            {
+                return;
+            }
+
+            if (IsFiltering)
+            {
+                // 語を替えるたびに、当たったまとまりを開いた姿から見せ直す。節（追加した組）を畳んでいても開く（打った結果が見えないと絞れたか分からない）
+                foreach (var group in _groups)
+                {
+                    group.SetShownWhileFiltering(true);
+                }
+
+                IsExpanded = true;
+            }
+            else if (wasFiltering)
+            {
+                // 三角を覚えた姿に戻す
+                foreach (var group in _groups)
+                {
+                    group.SetShownWhileFiltering(true);
+                }
+            }
+
+            Arrange();
+            if (wasFiltering && !IsFiltering)
+            {
+                // 絞りの間に選んだ組が、覚えた姿で畳んだまとまりにあれば開いて覚える（選んだ組のまとまりは開いて覚える決まりと同じ）
+                RevealSelected(clearFilterIfHidden: false);
+            }
+        }
+    }
+
+    /// <summary>絞っているか（空白だけの語では絞らない）。</summary>
+    public bool IsFiltering => _query.Trim().Length > 0;
+
+    /// <summary>語を当てる端（元・先・両方。既定は両方。覚えない）。</summary>
+    public ConversionPairSearchScope Scope
+    {
+        get => _scope;
+        set
+        {
+            if (SetField(ref _scope, value))
+            {
+                OnPropertyChanged(nameof(IsScopeBoth));
+                OnPropertyChanged(nameof(IsScopeFrom));
+                OnPropertyChanged(nameof(IsScopeTo));
+                if (IsFiltering)
+                {
+                    foreach (var group in _groups)
+                    {
+                        group.SetShownWhileFiltering(true);
+                    }
+
+                    Arrange();
+                }
+            }
+        }
+    }
+
+    public bool IsScopeBoth => _scope == ConversionPairSearchScope.Both;
+
+    public bool IsScopeFrom => _scope == ConversionPairSearchScope.From;
+
+    public bool IsScopeTo => _scope == ConversionPairSearchScope.To;
+
+    /// <summary>つながったボタンの「両方」「元」「先」（引数は both・from・to）。</summary>
+    public RelayCommand SetScopeCommand => _setScopeCommand ??= new RelayCommand(key => Scope = (key as string) switch
+    {
+        "from" => ConversionPairSearchScope.From,
+        "to" => ConversionPairSearchScope.To,
+        _ => ConversionPairSearchScope.Both,
+    });
+
+    private RelayCommand? _setScopeCommand;
+
+    /// <summary>探す欄の語を消す（当てはまる組が無い時の「絞り込みを消す」）。</summary>
+    public RelayCommand ClearQueryCommand => _clearQueryCommand ??= new RelayCommand(() => Query = string.Empty);
+
+    private RelayCommand? _clearQueryCommand;
+
+    /// <summary>絞りに当たる組（今の並び）。絞っていなければ <see cref="Rows"/> と同じ。外した後の「次の組」はこの順で引く。</summary>
+    public IReadOnlyList<ConversionPairRow> VisibleRows { get; private set; } = [];
+
+    /// <summary>組はあるのに、語に当てはまる組が無い（一覧の代わりに1行で言う）。</summary>
+    public bool ShowsNoMatches => HasRows && IsFiltering && VisibleRows.Count == 0;
+
+    public bool HasVisibleRows => VisibleRows.Count > 0;
 
     /// <summary>畳んだまとまりの元を ui-state に書く。錠の中の今の値に当てる（ほかの所で替えた畳み方を消さない）。</summary>
     private void RememberCollapsed(ConversionEnd from, bool collapsed)
@@ -215,15 +352,22 @@ public sealed class ConversionPairEditor : ViewModelBase
             row => row.ToName,
             row => row.AddedIndex,
             _sort);
+        var query = _query.Trim();
         foreach (var (group, rows) in arranged)
         {
-            group.SetRows(rows);
+            group.SetRows(rows, query.Length == 0 ? rows : [.. rows.Where(row => ConversionPairSearch.Matches(row, query, _scope))]);
         }
 
         _groups = [.. arranged.Select(item => item.Group)];
         Rows = [.. _groups.SelectMany(group => group.Rows)];
+        VisibleRows = [.. _groups.SelectMany(group => group.ShownRows)];
         OnPropertyChanged(nameof(Rows));
+        OnPropertyChanged(nameof(VisibleRows));
         OnPropertyChanged(nameof(Groups));
+        OnPropertyChanged(nameof(HeaderText));
+        OnPropertyChanged(nameof(IsFiltering));
+        OnPropertyChanged(nameof(ShowsNoMatches));
+        OnPropertyChanged(nameof(HasVisibleRows));
         SyncEntries();
     }
 
@@ -233,13 +377,14 @@ public sealed class ConversionPairEditor : ViewModelBase
     /// </summary>
     private void SyncEntries()
     {
+        // 絞っている間は、当たる組の無いまとまりを見出しごと出さない
         var wanted = new List<object>();
-        foreach (var group in _groups)
+        foreach (var group in _groups.Where(group => group.ShownRows.Count > 0))
         {
             wanted.Add(group);
             if (group.IsExpanded)
             {
-                wanted.AddRange(group.Rows);
+                wanted.AddRange(group.ShownRows);
             }
         }
 
@@ -408,6 +553,15 @@ public sealed class ConversionPairEditor : ViewModelBase
     {
         var registry = _services.CachedAvatars.Load();
         var names = AvatarNames.Map(registry.Entries);
+
+        // 探す欄の照らしに使う（名前のほか正式名・呼び方）。同じ ID が2件あっても投げないよう、先の1件を使う
+        var entries = registry.Entries
+            .GroupBy(entry => entry.ItemId, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        AvatarRegistryEntry? EntryOf(ConversionEnd end) => end.AvatarItemId is { } id ? entries.GetValueOrDefault(id) : null;
+
+        // 足した・外した後の次の組・戻るで選び直す組は、絞りに当たらなければ絞りを外して見せる。ただの読み直しでは打った語を消さない
+        var explicitSelect = select ?? (_selectedRow is null ? SelectOnLoad : null);
         var wanted = select ?? _selectedRow?.Pair ?? SelectOnLoad;
         SelectOnLoad = null;
 
@@ -421,7 +575,11 @@ public sealed class ConversionPairEditor : ViewModelBase
             .Select((pair, index) => (pair, index))
             .Where(item => !item.pair.IsEmpty)
             .Select(item => new ConversionPairRow(
-                this, item.pair, ConversionPairText.NameOf(item.pair.From, names), ConversionPairText.NameOf(item.pair.To, names), item.index, IconOf))
+                this, item.pair, ConversionPairText.NameOf(item.pair.From, names), ConversionPairText.NameOf(item.pair.To, names), item.index, IconOf)
+            {
+                FromEntry = EntryOf(item.pair.From),
+                ToEntry = EntryOf(item.pair.To),
+            })
             .ToList();
 
         // 元ごとにまとめる。前からあるまとまりは同じ物を使い（開閉と見出しのフォーカスを保つ）、新しいまとまりは覚えた畳み方で始める
@@ -445,7 +603,7 @@ public sealed class ConversionPairEditor : ViewModelBase
         {
             // 絵は作り直すたびに引き直す（アバターの見方で画像を替えて戻った時に、古い絵を残さない）
             groups[index].SetIcon(IconOf(groups[index].From, groups[index].Name));
-            groups[index].SetRows(groupRows[index]);
+            groups[index].SetRows(groupRows[index], groupRows[index]);
         }
 
         _groups = groups;
@@ -492,7 +650,7 @@ public sealed class ConversionPairEditor : ViewModelBase
         }
 
         _selectedRow = next;
-        RevealSelected();
+        RevealSelected(clearFilterIfHidden: explicitSelect is not null);
         OnPropertyChanged(nameof(SelectedRow));
         OnPropertyChanged(nameof(SelectedEntry));
         OnPropertyChanged(nameof(HasSelection));
@@ -558,12 +716,14 @@ public sealed class ConversionPairEditor : ViewModelBase
     /// </summary>
     internal async Task RemoveAsync(ConversionPairRow row)
     {
-        var index = Rows.ToList().IndexOf(row);
+        // 絞っている間は、見えている組の中で次を引く（見えていない組へ飛ぶと、絞りを外すことになる）
+        var visible = VisibleRows.Contains(row) ? VisibleRows : Rows;
+        var index = visible.ToList().IndexOf(row);
         var wasSelected = ReferenceEquals(row, _selectedRow);
         ConversionPair? next = null;
         if (wasSelected && index >= 0)
         {
-            next = Rows.Skip(index + 1).FirstOrDefault()?.Pair ?? (index > 0 ? Rows[index - 1].Pair : null);
+            next = visible.Skip(index + 1).FirstOrDefault()?.Pair ?? (index > 0 ? visible[index - 1].Pair : null);
         }
 
         await WriteThenRebuildAsync(file => ConversionPairs.Remove(file, row.Pair), select: next);
@@ -658,6 +818,11 @@ public sealed class ConversionPairRow : ViewModelBase
     public string FromName { get; }
 
     public string ToName { get; }
+
+    /// <summary>元・先のアバターの登録簿の行（探す欄で正式名・呼び方にも当てるため）。共通素体と、登録簿から消えたアバターは null。</summary>
+    public AvatarRegistryEntry? FromEntry { get; init; }
+
+    public AvatarRegistryEntry? ToEntry { get; init; }
 
     /// <summary>一覧の行の型の出し分け（まとまりの見出しと同じ名前の印）。</summary>
     public bool IsGroupHeader => false;

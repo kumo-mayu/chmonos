@@ -72,7 +72,7 @@ internal static partial class Scenes
             return FiltersShot(root);
         }),
         new Scene("avatars-conversion","アバターの管理：変換（プロファイルの商品を決めていない／決めた／扱わないの群で並べ、右に変換扱いの欄と次へ進むボタン）", context => AvatarsConversionAsync(context)),
-        new Scene("avatars-conversion-pair-detail", "アバターの管理：「変換」で追加した組を選んだ右の欄（元・先のリンク・ツールの名前・メモ・この組を外す）と、プロファイルの商品の行に並ぶ組の行", context => AvatarsConversionAsync(context, selectPair: true)),
+        new Scene("avatars-conversion-pair-detail", "アバターの管理：「変換」で追加した組を選んだ右の欄（元・先の絵とリンク・ツールの名前・メモ・この組を外す）と、プロファイルの商品の行に並ぶ組の行", context => AvatarsConversionAsync(context, selectPair: true)),
     ];
 
     /// <summary>

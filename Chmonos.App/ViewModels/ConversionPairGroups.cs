@@ -120,22 +120,53 @@ public sealed class ConversionPairGroup : ViewModelBase
     /// <summary>中の組（今の並び）。</summary>
     public IReadOnlyList<ConversionPairRow> Rows { get; private set; } = [];
 
-    public string CountText => $"（{Rows.Count}）";
+    /// <summary>中の組のうち、探す欄に当たる物（絞っていなければ全部）。</summary>
+    public IReadOnlyList<ConversionPairRow> ShownRows { get; private set; } = [];
+
+    /// <summary>見出しの数。絞っている間は当たった数（見出しの下に並ぶ行の数と合わせる）。</summary>
+    public string CountText => $"（{ShownRows.Count}）";
 
     /// <summary>開閉の三角の名前の「何の」（「アオイの組を開く」⇄「…を折りたたむ」。ExpandToggle が状態から作る）。</summary>
     public string Subject => $"{Name}の組";
 
-    /// <summary>開いているか。人が替えたら覚える（<see cref="ConversionPairEditor"/> が ui-state へ書き、一覧の行を出し入れする）。</summary>
+    /// <summary>
+    /// 開いているか（見出しの三角が見せる値）。絞っていない間は覚えた値で、人が替えたら覚える
+    /// （<see cref="ConversionPairEditor"/> が ui-state へ書き、一覧の行を出し入れする）。
+    /// **絞っている間は、絞りの間だけの値**（2026-11-20・open.md「変換：組を探す欄…」）：当たったまとまりは開いて見せるが、
+    /// 畳んだ事の記録は書き換えない。絞りの間に替えた開閉も覚えず、絞りを消すと覚えた姿に戻る
+    /// </summary>
     public bool IsExpanded
     {
-        get => _isExpanded;
+        get => _owner.IsFiltering ? _shownWhileFiltering : _isExpanded;
         set
         {
+            if (_owner.IsFiltering)
+            {
+                if (_shownWhileFiltering != value)
+                {
+                    _shownWhileFiltering = value;
+                    OnPropertyChanged();
+                    _owner.GroupToggledWhileFiltering();
+                }
+
+                return;
+            }
+
             if (SetField(ref _isExpanded, value))
             {
                 _owner.GroupToggled(this);
             }
         }
+    }
+
+    /// <summary>絞りの間だけの開閉。語を替えるたびに開いた姿から始める（当たった組を見せるため）。</summary>
+    private bool _shownWhileFiltering = true;
+
+    /// <summary>絞りの間だけ開く・閉じる（覚えた値は触らない）。絞りを消した時は、覚えた値に戻ったと知らせるのにも使う。</summary>
+    internal void SetShownWhileFiltering(bool value)
+    {
+        _shownWhileFiltering = value;
+        OnPropertyChanged(nameof(IsExpanded));
     }
 
     /// <summary>覚えずに開く（選んだ組が畳んだまとまりの中にある時。書くのは呼ぶ側）。</summary>
@@ -148,10 +179,12 @@ public sealed class ConversionPairGroup : ViewModelBase
         }
     }
 
-    internal void SetRows(IReadOnlyList<ConversionPairRow> rows)
+    internal void SetRows(IReadOnlyList<ConversionPairRow> rows, IReadOnlyList<ConversionPairRow> shown)
     {
         Rows = rows;
+        ShownRows = shown;
         OnPropertyChanged(nameof(Rows));
+        OnPropertyChanged(nameof(ShownRows));
         OnPropertyChanged(nameof(CountText));
     }
 }
@@ -191,4 +224,30 @@ public static class ConversionPairOrder
 
         IReadOnlyList<TRow> ByName(IReadOnlyList<TRow> rows) => [.. rows.OrderBy(rowName, names).ThenBy(added)];
     }
+}
+
+/// <summary>組を探す欄の、語を当てる端（2026-11-20・ユーザ「オプションに元と先、両方を指定できる形」。既定は両方）。</summary>
+public enum ConversionPairSearchScope
+{
+    Both,
+    From,
+    To,
+}
+
+/// <summary>
+/// 組を探す欄の照らし方。アバターの端は「アバター」の見方の探す欄と同じ（<see cref="Core.Services.AvatarSearch.Matches"/>：名前・商品ID・BOOTHでの正式名・呼び方）、
+/// 共通素体の端は素体の名前で当てる。素体は画面に出す「（共通素体）」を添えた字では当てない（「素体」と打つだけで素体の組が全部当たる）
+/// </summary>
+public static class ConversionPairSearch
+{
+    public static bool Matches(ConversionPairRow row, string query, ConversionPairSearchScope scope)
+        => query.Length == 0
+            || (scope != ConversionPairSearchScope.To && EndMatches(row.Pair.From, row.FromName, row.FromEntry, query))
+            || (scope != ConversionPairSearchScope.From && EndMatches(row.Pair.To, row.ToName, row.ToEntry, query));
+
+    /// <summary>端1つ。登録簿から消えたアバター（名前の代わりに ID を出している端）は、出している字で当てる。</summary>
+    public static bool EndMatches(ConversionEnd end, string shownName, AvatarRegistryEntry? entry, string query)
+        => end.BaseName is { } baseName ? baseName.Contains(query, StringComparison.CurrentCultureIgnoreCase)
+        : entry is not null ? Core.Services.AvatarSearch.Matches(entry, shownName, query, out _)
+        : shownName.Contains(query, StringComparison.CurrentCultureIgnoreCase);
 }
