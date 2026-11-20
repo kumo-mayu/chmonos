@@ -20,9 +20,10 @@ public class SearchRemoveModuleTests
         await app.AddItemAsync(Tagged("1000001", "夏"));
         await app.AddItemAsync(Tagged("1000002", "冬"));
         await app.AddItemAsync(Tagged("1000003", "夏", "冬"));
+        // 見たいのは渡す入れ物と商品の数。区切りの札は並びに入るので切る
+        await app.ChangeSettingsAsync(settings => settings with { ShowSortDividers = false });
         var search = (await app.StartAsync()).Search;
 
-        // 見たいのは渡す入れ物と商品の数。既定のカテゴリの順では区切りのカードが並びに入るので、区切りの無い入手日の順にする
         search.SortField = search.SortFields.First(field => field.Kind == SortKind.AcquiredAt);
         return search;
     }

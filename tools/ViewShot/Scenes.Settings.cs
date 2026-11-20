@@ -21,8 +21,8 @@ internal static partial class Scenes
         ResolveExclusionDialog("resolve-exclusion-dialog", "未確定の「除外の解除…」の窓：除外が 5,000 件・2件を選んだ形（一覧の中だけが流れる）", query: null),
         ResolveExclusionDialog("resolve-exclusion-dialog-search", "未確定の「除外の解除…」の窓：探す欄に入れて絞った形", query: "0001"),
         SettingsLongPaths(),
-        SettingsSortDividers("settings-sort-dividers-on", "設定の「一覧と検索」：区切りの設定が入（入手日の子のチェックは押せる）", parent: true),
-        SettingsSortDividers("settings-sort-dividers-off", "設定の「一覧と検索」：区切りの設定が切（入手日の子のチェックは押せず薄い）", parent: false),
+        SettingsSortDividers("settings-sort-dividers-on", "設定の「一覧と検索」：区切りの設定が入", parent: true),
+        SettingsSortDividers("settings-sort-dividers-off", "設定の「一覧と検索」：区切りの設定が切", parent: false),
         SettingsStore("settings-store-blocked", "設定の保存先：ほかの長い作業（対応アバターの検出）の間は、場所を変える・書き出し・戻すが押せず、理由の1行が出る", main =>
             main.BeginLongJob("対応アバターを検出しています", "この間、アバターの編集と取り込みの検出は待たされます", new CancellationTokenSource())),
         SettingsStore("settings-backup-exported", "設定の保存先：設定の画面で書き出しが終わった（データの欄のボタンの下に結果・横にエクスプローラで開く）", main =>
@@ -432,7 +432,7 @@ internal static partial class Scenes
         });
 
     /// <summary>
-    /// 並べ替えの区切りの親と、入手日の子のチェック（ユーザ判断 2026-10-01）。子は親の文字の頭に揃えて下がり、親が切れていれば薄い
+    /// 並べ替えの区切りのチェック（ユーザ判断 2026-10-01。入手日だけの子の設定は 2026-11-20 に無くした）
     /// </summary>
     private static Scene SettingsSortDividers(string name, string title, bool parent)
         => new(name, title, async context =>

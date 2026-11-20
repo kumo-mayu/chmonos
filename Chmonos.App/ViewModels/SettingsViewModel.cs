@@ -761,7 +761,6 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         set { if (SetField(ref _showSortDividers, value)) { Save(_main.ReloadLibraryAsync); } }
     }
 
-    private bool _showAcquiredSortDividers;
     private bool _shortYenInKanji;
     private int _compactHeaderPercent;
 
@@ -791,16 +790,6 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
     {
         get => _shortYenInKanji;
         set { if (SetField(ref _shortYenInKanji, value)) { Save(); } }
-    }
-
-    /// <summary>
-    /// 入手日で並べたときの札（ユーザ判断 2026-10-01）。親（<see cref="ShowSortDividers"/>）に従う子で、親が切れている間は押せないだけで値は残す
-    /// （親を入れ直したとき、前に選んだ形へ戻るように）。
-    /// </summary>
-    public bool ShowAcquiredSortDividers
-    {
-        get => _showAcquiredSortDividers;
-        set { if (SetField(ref _showAcquiredSortDividers, value)) { Save(_main.ReloadLibraryAsync); } }
     }
 
     private ThumbnailRole _thumbnailRole;
@@ -1134,7 +1123,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
     private bool _notifyUnitySendResult;
 
     /// <summary>
-    /// Unity へ送った結果を知らせるか（親。ユーザ判断 2026-11-19・open.md 167）。切っても知らせ方の値は残す（入手日の区切りの子と同じ）。
+    /// Unity へ送った結果を知らせるか（親。ユーザ判断 2026-11-19・open.md 167）。切っても知らせ方の値は残す。
     /// 前は1つのチェックが「確認しない」と「Windowsの通知」を一緒に決めていた
     /// </summary>
     public bool NotifyUnitySendResult
@@ -1794,7 +1783,6 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             PlaceNewConditionNearSameKind = PlaceNewConditionNearSameKind,
             SmoothScrolling = SmoothScrolling,
             ShowSortDividers = ShowSortDividers,
-            ShowAcquiredSortDividers = ShowAcquiredSortDividers,
             ShortYenInKanji = ShortYenInKanji,
             CompactHeaderPercent = CompactHeaderPercent,
             ThumbnailRole = ThumbnailRole,

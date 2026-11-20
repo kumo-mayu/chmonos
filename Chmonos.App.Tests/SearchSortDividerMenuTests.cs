@@ -133,13 +133,12 @@ public class SearchSortDividerMenuTests
     });
 
     [Fact]
-    public Task ショップ順では_メニューの項目は全体の設定を切り替え_入手日の設定は動かない() => TestApp.Run(async app =>
+    public Task メニューの項目は_全体の設定を切り替え_印と一覧が追う() => TestApp.Run(async app =>
     {
         var search = await ShopsAsync(app);
 
         DividerEntry(search).ChooseCommand!.Execute(null);
         await UiThread.Until(() => !app.Services.Settings.ShowSortDividers, "設定に書く");
-        Assert.False(app.Services.Settings.ShowAcquiredSortDividers);
         await UiThread.Until(() => !DividerEntry(search).IsChecked, "印が切に変わる");
         await UiThread.Until(() => !search.ShownDividers.Any(), "一覧を組み直す");
 
@@ -149,31 +148,23 @@ public class SearchSortDividerMenuTests
     });
 
     [Fact]
-    public Task 入手日順では_メニューの項目は入手日の設定を切り替え_全体の設定は動かず_印も入手日の値を映す() => TestApp.Run(async app =>
+    public Task 入手日順でも_メニューの項目は同じ1つの設定を切り替え_印も同じ値を映す() => TestApp.Run(async app =>
     {
         await app.AddItemAsync(Make.Item("1000001", "作り物の商品1") with { Local = Make.Item("1000001", "x").Local with { AcquiredAt = new DateOnly(2026, 9, 3) } });
         var search = (await app.StartAsync()).Search;
         search.SortField = search.SortFields.First(field => field.Kind == SortKind.AcquiredAt);
 
-        // 全体は入・入手日は切（既定）：印は入手日の値（切）を映す
-        Assert.True(app.Services.Settings.ShowSortDividers);
-        Assert.False(app.Services.Settings.ShowAcquiredSortDividers);
-        Assert.False(DividerEntry(search).IsChecked);
-        Assert.False(search.ShownDividers.Any());
+        Assert.True(DividerEntry(search).IsChecked);
+        Assert.True(search.ShownDividers.Any());
 
         DividerEntry(search).ChooseCommand!.Execute(null);
-        await UiThread.Until(() => app.Services.Settings.ShowAcquiredSortDividers, "入手日の設定に書く");
-        Assert.True(app.Services.Settings.ShowSortDividers);
-        await UiThread.Until(() => DividerEntry(search).IsChecked, "印が入に変わる");
-        await UiThread.Until(() => search.ShownDividers.Any(), "札が出る");
+        await UiThread.Until(() => !app.Services.Settings.ShowSortDividers, "設定に書く");
+        await UiThread.Until(() => !DividerEntry(search).IsChecked, "印が切に変わる");
+        await UiThread.Until(() => !search.ShownDividers.Any(), "札が消える");
 
-        // 入手日以外へ替えると、印は全体の設定（入）を映す。入手日を切に戻しても全体は動かない
+        // 並べ替えを替えても、同じ値を映す（入手日だけの値は無い）
         search.SortField = search.SortFields.First(field => field.Kind == SortKind.Shop);
-        Assert.True(DividerEntry(search).IsChecked);
-        await app.ChangeSettingsAsync(settings => settings with { ShowSortDividers = false });
-        search.RefreshSortMenu();
         Assert.False(DividerEntry(search).IsChecked);
-        Assert.True(app.Services.Settings.ShowAcquiredSortDividers);
     });
 
     private static T Descendant<T>(DependencyObject root) where T : DependencyObject

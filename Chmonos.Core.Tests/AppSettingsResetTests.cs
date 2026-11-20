@@ -27,7 +27,6 @@ public class AppSettingsResetTests
         FolderLayouts = [new FolderLayoutRule { Root = "D:\\作り物\\置き場", ItemNameLevel = 1 }],
         ShowAdult = false,
         ShowSortDividers = false,
-        ShowAcquiredSortDividers = true,
         CardWidth = 300,
         ListRowHeight = 80,
         DisplayZoomPercent = 150,
