@@ -512,17 +512,17 @@
                                                              Command="{Binding SetScopeCommand}" CommandParameter="both"
                                                              IsChecked="{Binding IsScopeBoth, Mode=OneWay}"
                                                              AutomationProperties.AutomationId="AvatarsConversionPairSearchBoth"
-                                                             ToolTip="元と先のどちらかに当たる組と商品を出します。" />
+                                                             ToolTip="元と先のどちらかに当たる組と商品を表示します。" />
                                 <controls:CommandRadioButton Content="元" GroupName="ConversionPairSearchScope" Style="{StaticResource SegmentMiddle}"
                                                              Command="{Binding SetScopeCommand}" CommandParameter="from"
                                                              IsChecked="{Binding IsScopeFrom, Mode=OneWay}"
                                                              AutomationProperties.AutomationId="AvatarsConversionPairSearchFrom"
-                                                             ToolTip="元に当たる組と商品だけを出します。" />
+                                                             ToolTip="元に当たる組と商品だけを表示します。" />
                                 <controls:CommandRadioButton Content="先" GroupName="ConversionPairSearchScope" Style="{StaticResource SegmentLast}"
                                                              Command="{Binding SetScopeCommand}" CommandParameter="to"
                                                              IsChecked="{Binding IsScopeTo, Mode=OneWay}"
                                                              AutomationProperties.AutomationId="AvatarsConversionPairSearchTo"
-                                                             ToolTip="先に当たる組と商品だけを出します。" />
+                                                             ToolTip="先に当たる組と商品だけを表示します。" />
                             </StackPanel>
                         </StackPanel>
 
@@ -702,41 +702,27 @@
                         </Grid>
 
                         <!--
-                            共通素体を手で足す欄（ユーザ判断 2026-09-28）。一覧には検出で見つかった素体しか並ばず、足す口が無かった。
-                            **候補は付けない**（メモ9-⑥ 2026-10-02。「入力欄には候補を付ける」の例外・ui-input.md）。新しい素体を名付ける欄で、
-                            今ある名前を候補に並べても重複を誘うだけだった。Enter か「追加」で足し、今ある名前なら「既にあります」と言う
+                            共通素体を探して足す欄（ユーザ判断 2026-11-20・⑤。前は探す欄と足す欄が縦に2本あった）。タグの管理の小分類の欄と同じく1本にし、右に「追加」。
+                            打つと一覧を絞る（素体の名前か、素体に入ったアバターの名前・ID・正式名・呼び方。アバターで当たった行には何で当たったかを添える）。
+                            候補は素体に入ったアバターの名前で、探すための物（素体の名前は候補にしない。新しく名付ける欄に今ある名前を並べると重複を誘う・ui-input.md）。
+                            Enter：アバターの候補ならその名前で絞り、ほかの語は素体として足す（同じ名前の素体があれば選んで「既にあります」）。「追加」はいつも足す。
+                            打ってすぐの Enter・「追加」は、結び付けの待ち（Delay=200）を先に流し込む（AvatarsView.xaml.cs。SearchAddBox と同じ）
                         -->
-                        <!--
-                            共通素体を探す欄（2026-11-20・ユーザ「共通素体の画面にもアバター検索は付けましょう。」）。欄の形は「アバター」の見方の探す欄と同じ。
-                            当てるのは素体の名前だけ（素体を使うアバターの名前で当てると、なぜ残ったかが行に出ない）
-                        -->
-                        <Grid DockPanel.Dock="Top" Margin="14,12,14,0"
-                              Visibility="{Binding IsBaseMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                            <TextBox x:Name="BaseSearchBox" Padding="8,6" Text="{Binding BaseQuery, UpdateSourceTrigger=PropertyChanged, Delay=200}"
-                                     AutomationProperties.Name="名前で探す" AutomationProperties.AutomationId="AvatarBaseSearch"
-                                     ToolTip="共通素体の名前で絞り込みます。" />
-                            <!-- 案内は欄そのものの字で出し分ける（BaseQuery は 200ms 遅れて入る。ユーザ判断 2026-11-20・①） -->
-                            <TextBlock Text="名前で探す" Margin="11,0,0,0" Style="{StaticResource InputPlaceholder}"
-                                       Visibility="{Binding Text.IsEmpty, ElementName=BaseSearchBox, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
-                        </Grid>
-
                         <DockPanel DockPanel.Dock="Top" Margin="14,12,14,0"
                                    Visibility="{Binding IsBaseMode, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                             <Button DockPanel.Dock="Right" Content="追加" Style="{StaticResource SmallButton}" Margin="6,0,0,0"
-                                    AutomationProperties.AutomationId="AvatarBaseAdd"
+                                    AutomationProperties.AutomationId="AvatarBaseAdd" Click="BaseAdd_Click"
+                                    ToolTip="打った名前の共通素体を追加します。"
                                     Command="{Binding AddBaseCommand}" />
-                            <Grid>
-                                <TextBox Padding="8,6" MaxLength="60" Text="{Binding NewBaseName, UpdateSourceTrigger=PropertyChanged}"
-                                         AutomationProperties.AutomationId="AvatarBaseAddInput"
-                                         AutomationProperties.Name="追加する共通素体の名前">
-                                    <TextBox.InputBindings>
-                                        <KeyBinding Key="Enter" Command="{Binding AddBaseCommand}" />
-                                    </TextBox.InputBindings>
-                                </TextBox>
-                                <!-- 空欄のままだと何を入れる欄か分からないので、内側に案内を出す（上の検索の欄と同じ） -->
-                                <TextBlock Text="追加する共通素体の名前" Margin="11,0,0,0" Style="{StaticResource InputPlaceholder}"
-                                           Visibility="{Binding NewBaseName, Converter={x:Static vm:EmptyToVisibilityConverter.Instance}}" />
-                            </Grid>
+                            <controls:SuggestBox x:Name="BaseSearchBox" Text="{Binding BaseQuery, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                                                 Source="{Binding BaseSearchCandidates}" CommitCommand="{Binding BaseSearchCommitCommand}"
+                                                 InfoSelector="{Binding BaseSearchInfoSelector}" GroupHeadings="{x:Static vm:AvatarSuggestionText.Headings}"
+                                                 IconSelector="{Binding BaseSearchIconSelector}"
+                                                 AllowNew="False" KeepsCommittedText="True" MaxLength="60"
+                                                 Placeholder="素体・アバターを探す、または素体を追加"
+                                                 PreviewKeyDown="BaseSearchBox_PreviewKeyDown"
+                                                 AutomationProperties.Name="素体・アバターを探す、または素体を追加" AutomationProperties.AutomationId="AvatarBaseSearch"
+                                                 ToolTip="共通素体を、素体の名前か入っているアバターで絞り込みます。" />
                         </DockPanel>
 
                         <TextBlock DockPanel.Dock="Top" DataContext="{Binding AddBaseNote}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" Margin="16,4,14,0"
@@ -836,6 +822,11 @@
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding Name}" FontSize="12.5" TextTrimming="CharacterEllipsis" />
                                                 <TextBlock Text="{Binding MemberText}" Style="{StaticResource Caption}" Margin="0,2,0,0" />
+                                                <!-- 名前でなく入ったアバターで当たった行だけ、何で当たったかを添える（「アバター」の見方の行と同じ色・ユーザ判断 2026-11-20・⑤） -->
+                                                <TextBlock Text="{Binding MatchNote}" Style="{StaticResource Caption}" Margin="0,2,0,0"
+                                                           Foreground="{DynamicResource AccentSoftText}" TextTrimming="CharacterEllipsis"
+                                                           AutomationProperties.AutomationId="AvatarBaseRowMatchNote"
+                                                           Visibility="{Binding HasMatchNote, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                                             </StackPanel>
                                         </Grid>
                                     </DataTemplate>
