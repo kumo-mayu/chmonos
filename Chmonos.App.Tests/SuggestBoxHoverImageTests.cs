@@ -85,15 +85,31 @@ public sealed class SuggestBoxHoverImageTests
     [Fact]
     public Task 候補の窓の行に_親の画面の吹き出しの型が届き_付けた欄だけで効く() => UiThread.Run(async () =>
     {
-        var hovered = await RowTipOf(hover: (_, _) => Pixel);
+        var hovered = await RowTipOf(hover: (_, _) => Pixel, openTip: false);
         Assert.IsType<ToolTip>(hovered.Tip);
         Assert.True(hovered.Enabled);
 
-        var plain = await RowTipOf(hover: null);
+        var plain = await RowTipOf(hover: null, openTip: false);
         Assert.False(plain.Enabled);
     });
 
-    private static async Task<(object? Tip, bool Enabled)> RowTipOf(Func<string, Action, ImageSource?>? hover)
+    /// <summary>
+    /// 候補の窓を開いて行を描いても、大きな絵は読まない（吹き出しの型は行を作る時に付くので、中の絵の束縛がその時に動かない事を見る）。
+    /// 吹き出しを開いた時に初めて読み、開いても候補の窓は閉じない
+    /// </summary>
+    [Fact]
+    public Task 候補の窓を開いても大きな絵は読まず_吹き出しを開いた時に読み_候補の窓は閉じない() => UiThread.Run(async () =>
+    {
+        var calls = 0;
+        var result = await RowTipOf(hover: (_, _) => { calls++; return Pixel; }, openTip: true, callsBeforeTip: () => calls);
+
+        Assert.Equal(0, result.CallsBeforeTip);
+        Assert.True(calls >= 1, "吹き出しを開くと大きな絵を読む");
+        Assert.True(result.DropOpenAfterTip, "吹き出しを開いても候補の窓は閉じない");
+    });
+
+    private static async Task<(object? Tip, bool Enabled, int CallsBeforeTip, bool DropOpenAfterTip)> RowTipOf(
+        Func<string, Action, ImageSource?>? hover, bool openTip, Func<int>? callsBeforeTip = null)
     {
         var box = new SuggestBox
         {
@@ -122,7 +138,18 @@ public sealed class SuggestBoxHoverImageTests
 
             var candidates = (ListBox)box.FindName("Candidates");
             var icon = Descendants(candidates).OfType<Border>().Single(border => border.Width == 24 && border.Height == 24);
-            return (icon.ToolTip, ToolTipService.GetIsEnabled(icon));
+            var before = callsBeforeTip?.Invoke() ?? 0;
+            var dropOpen = drop.IsOpen;
+            if (openTip && icon.ToolTip is ToolTip tip)
+            {
+                tip.PlacementTarget = icon;
+                tip.IsOpen = true;
+                await UiThread.Settle();
+                dropOpen = drop.IsOpen;
+                tip.IsOpen = false;
+            }
+
+            return (icon.ToolTip, ToolTipService.GetIsEnabled(icon), before, dropOpen);
         }
         finally
         {
