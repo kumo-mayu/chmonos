@@ -50,7 +50,7 @@
                         言い方は検索画面の見本の行に揃える
                     -->
                     <Grid VerticalAlignment="Center">
-                        <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged, Delay=200}" MaxLength="500"
+                        <TextBox x:Name="ShopFilterBox" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged, Delay=200}" MaxLength="500"
                                  Width="130" Padding="9,5" BorderBrush="{DynamicResource BorderStrong}"
                                  AutomationProperties.Name="ショップを探す"
                                  ToolTip="スペースで両方、-で除く、&quot;&quot;でひとまとまり、ORでどちらか" />
@@ -60,7 +60,7 @@
                                 <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
                                     <Setter Property="Visibility" Value="Collapsed" />
                                     <Style.Triggers>
-                                        <DataTrigger Binding="{Binding FilterText}" Value="">
+                                        <DataTrigger Binding="{Binding Text, ElementName=ShopFilterBox}" Value="">
                                             <Setter Property="Visibility" Value="Visible" />
                                         </DataTrigger>
                                     </Style.Triggers>

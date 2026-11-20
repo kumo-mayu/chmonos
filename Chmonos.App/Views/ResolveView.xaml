@@ -263,7 +263,7 @@
                                     <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
                                         <Setter Property="Visibility" Value="Collapsed" />
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding FilterText}" Value="">
+                                            <DataTrigger Binding="{Binding Text, ElementName=FilterBox}" Value="">
                                                 <Setter Property="Visibility" Value="Visible" />
                                             </DataTrigger>
                                         </Style.Triggers>

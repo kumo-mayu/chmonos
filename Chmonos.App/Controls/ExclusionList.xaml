@@ -12,7 +12,7 @@
     -->
     <DockPanel>
         <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
-            <TextBox AutomationProperties.AutomationId="ExclusionList.Filter" AutomationProperties.Name="除外したファイルを探す"
+            <TextBox x:Name="ExclusionFilterBox" AutomationProperties.AutomationId="ExclusionList.Filter" AutomationProperties.Name="除外したファイルを探す"
                      Text="{Binding Query, UpdateSourceTrigger=PropertyChanged, Delay=200}" Padding="9,5,26,5"
                      BorderBrush="{DynamicResource BorderStrong}" />
             <TextBlock Text="パス・ファイル名で探す" Margin="12,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False">
@@ -20,7 +20,7 @@
                     <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
                         <Setter Property="Visibility" Value="Collapsed" />
                         <Style.Triggers>
-                            <DataTrigger Binding="{Binding Query}" Value="">
+                            <DataTrigger Binding="{Binding Text, ElementName=ExclusionFilterBox}" Value="">
                                 <Setter Property="Visibility" Value="Visible" />
                             </DataTrigger>
                         </Style.Triggers>

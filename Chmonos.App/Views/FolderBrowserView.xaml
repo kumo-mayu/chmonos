@@ -186,7 +186,7 @@
                              VerticalContentAlignment="Center" Padding="7,0,26,0" AutomationProperties.AutomationId="FolderQuery"
                              AutomationProperties.Name="このフォルダの下を、商品名・ショップ名・ファイル名・フォルダ名で探す" />
                     <TextBlock Text="この下を、商品名・ショップ名・ファイル名・フォルダ名で探す" Margin="10,0,10,0" Style="{StaticResource InputPlaceholder}" TextTrimming="CharacterEllipsis"
-                               Visibility="{Binding HasQuery, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}" />
+                               Visibility="{Binding Text.IsEmpty, ElementName=QueryBox, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                     <!-- 打った文字を消す（検索画面と同じ ×。open.md 89 行） -->
                     <Button HorizontalAlignment="Right" Margin="0,0,6,0"
                             Style="{StaticResource ClearFieldButton}" Command="{Binding ClearQueryCommand}"
