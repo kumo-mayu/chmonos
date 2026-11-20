@@ -70,7 +70,26 @@ public sealed partial class AvatarsViewModel
         }
     }
 
-    public string ConversionModeText => $"変換（{_conversionItems.Count}）";
+    /// <summary>
+    /// 切り替えの数は、絞る前のプロファイルの商品と追加した組の合計（ユーザ判断 2026-11-20・⑤「変換には手で増やしたものを含めましょう」）。
+    /// 組だけで商品が無い時も数が出る。「変換」に1件も無いか（<see cref="HasConversionItems"/>）は前のまま商品だけで見る
+    /// </summary>
+    public string ConversionModeText => $"変換（{_conversionItems.Count + _conversionPairCount}）";
+
+    /// <summary>
+    /// 追加した組の数。組の欄（<see cref="ConversionPairs"/>）は「変換」に入った時に初めて読むので、それまでは一覧を作る時にファイルから数える。
+    /// 欄を読んだ後は、足す・外す・読み直すたびに欄の行の数で替える
+    /// </summary>
+    private int _conversionPairCount;
+
+    private void SetConversionPairCount(int count)
+    {
+        if (_conversionPairCount != count)
+        {
+            _conversionPairCount = count;
+            OnPropertyChanged(nameof(ConversionModeText));
+        }
+    }
 
     public RelayCommand ShowConversionModeCommand => _showConversionModeCommand ??= new RelayCommand(() => IsConversionMode = true);
 
@@ -176,6 +195,10 @@ public sealed partial class AvatarsViewModel
             if (args.PropertyName is nameof(ConversionPairEditor.Query) or nameof(ConversionPairEditor.Scope))
             {
                 ArrangeConversionItems(keep: SelectedConversion);
+            }
+            else if (args.PropertyName is nameof(ConversionPairEditor.Rows))
+            {
+                SetConversionPairCount(editor.Rows.Count);
             }
         };
         return editor;
@@ -574,6 +597,8 @@ public sealed partial class AvatarsViewModel
                         // 組を選んでいる間は、読み直しで商品へ選びを奪わない（右はどちらか1つ）
                         SelectedConversion = _conversionItems.FirstOrDefault(row => row.ItemId == keepId)
                             ?? (IsConversionMode && _conversionPairs?.SelectedRow is null ? FirstUndecided() : null);
+                        // 組の欄の行は空の組を飛ばすので、ファイルから数える時も同じく飛ばす
+                        _conversionPairCount = _services.Store.ConversionPairs.Load().Pairs.Count(pair => !pair.IsEmpty);
                         OnPropertyChanged(nameof(ConversionModeText));
                         OnPropertyChanged(nameof(HasConversionItems));
                         RaiseBulk();

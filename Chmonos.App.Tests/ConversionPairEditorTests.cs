@@ -80,6 +80,36 @@ public class ConversionPairEditorTests
     });
 
     [Fact]
+    public Task 切り替えの変換の数に追加した組も数え_足す外すで替わり_空表示は商品だけで見る() => TestApp.Run(async app =>
+    {
+        // ユーザ判断 2026-11-20・⑤。「変換」に入る前（組の欄をまだ読んでいない）からファイルの組を数える。空の組は行にならないので数えない
+        await app.Store.ConversionPairs.SaveAsync(new ConversionPairFile
+        {
+            Pairs = [Pair(ConversionEnd.Avatar(Momo), ConversionEnd.Avatar(Aoi)), new ConversionPair()],
+        });
+        var avatars = await OpenAvatarsAsync(app);
+        await UiThread.Until(() => avatars.ConversionModeText == "変換（1）", "ファイルの組を数える");
+        Assert.False(avatars.HasConversionItems);
+
+        avatars.ShowConversionModeCommand.Execute(null);
+        var pairs = avatars.ConversionPairs;
+        await UiThread.Until(() => pairs.Rows.Count == 1, "組の欄を読む");
+
+        pairs.FromText = "アオイ";
+        pairs.ToText = "モモ";
+        await pairs.AddAsync();
+        Assert.Equal("変換（2）", avatars.ConversionModeText);
+
+        pairs.Rows[0].RemoveCommand.Execute(null);
+        await UiThread.Until(() => pairs.Rows.Count == 1, "外した行が消える");
+        Assert.Equal("変換（1）", avatars.ConversionModeText);
+
+        // 商品が無い時の空表示は、組があっても前のまま出す（組の節の下に「プロファイルの商品はありません」の類）
+        Assert.False(avatars.HasConversionItems);
+        Assert.True(avatars.ShowsNoConversionItems);
+    });
+
+    [Fact]
     public Task 候補に無い_同じ物同士_既にある組は足さずに理由を言う() => TestApp.Run(async app =>
     {
         await app.Store.ConversionPairs.SaveAsync(new ConversionPairFile { Pairs = [Pair(ConversionEnd.Avatar(Momo), ConversionEnd.Avatar(Aoi))] });
