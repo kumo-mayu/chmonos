@@ -71,7 +71,7 @@ internal static partial class Scenes
             await context.SettleAsync();
             return FiltersShot(root);
         }),
-        new Scene("avatars-conversion","アバターの管理：変換（プロファイルの商品を決めていない／途中／決めた／扱わないの群で並べ、行の頭に商品の絵。右に変換扱いの欄と次へ進むボタン）", context => AvatarsConversionAsync(context)),
+        new Scene("avatars-conversion","アバターの管理：変換（プロファイルの商品を決めていない／途中／決めた／扱わないの群で並べ、行の頭に商品の絵。確認待ちのある「途中」の見出しの右に「まとめて確認済みにする」。右に変換扱いの欄と次へ進むボタン）", context => AvatarsConversionAsync(context)),
         new Scene("avatars-conversion-search", "アバターの管理：変換の組を探す欄の語（「アオイ」）で、プロファイルの商品の一覧も絞った所（群の見出しは当たった数/全部）", context => AvatarsConversionAsync(context, query: "アオイ")),
         new Scene("avatars-conversion-pair-detail", "アバターの管理：「変換」で追加した組を選んだ右の欄（元・先の絵とリンク・ツールの名前・メモ・この組を外す）と、プロファイルの商品の行に並ぶ組の行", context => AvatarsConversionAsync(context, selectPair: true)),
     ];
