@@ -82,6 +82,22 @@ public sealed class ConversionEndIcon : ViewModelBase
     public System.Windows.Media.Imaging.BitmapSource? Icon => Path is { } path
         ? _thumbnails?.PeekForTile(path, () => OnPropertyChanged(nameof(Icon)))
         : null;
+
+    /// <summary>
+    /// 場所を探し直す。変換扱いの欄は読み直しで中身の同じ行を残すので、素体に画像を付けた後も頭の字のまま残らないように。
+    /// まだ探していなければ何もしない。探し直すのは描いている行だけ（結んでいない行は値を読まない）
+    /// </summary>
+    internal void Refresh()
+    {
+        if (!_pathLoaded)
+        {
+            return;
+        }
+
+        _pathLoaded = false;
+        OnPropertyChanged(nameof(HasIcon));
+        OnPropertyChanged(nameof(Icon));
+    }
 }
 
 /// <summary>

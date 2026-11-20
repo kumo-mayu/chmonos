@@ -379,5 +379,21 @@
             </Setter>
         </Style>
 
+    <!--
+        変換扱いの欄のつなぎ先の札の頭の絵（ユーザ判断 2026-11-20・②）。左の組の行の絵（AvatarsView の ConversionEndIcon の型）と同じ物を、
+        札の字（11.5）に合う 18 の升で出す。商品ページと アバターの管理の「変換」で同じ部品を使うので、両方が読むこの辞書に置く。
+        上下の -1 は、升で札の高さが太らないように（字の行の高さ 約16 に収める）。乗せた時の大きな絵は札の吹き出しが出す
+    -->
+    <DataTemplate x:Key="ConversionEndChipIcon" DataType="{x:Type vm:ConversionEndIcon}">
+        <Border Width="18" Height="18" CornerRadius="4" Margin="0,-1,5,-1" VerticalAlignment="Center"
+                Background="{DynamicResource SurfaceAlt}" ClipToBounds="True">
+            <Grid>
+                <TextBlock Text="{Binding Initial}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource AccentSoftText}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <Image Source="{Binding Icon}" Stretch="UniformToFill"
+                       Visibility="{Binding HasIcon, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+            </Grid>
+        </Border>
+    </DataTemplate>
 
 </ResourceDictionary>

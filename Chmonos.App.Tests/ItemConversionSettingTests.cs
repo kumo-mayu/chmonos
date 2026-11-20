@@ -127,11 +127,22 @@ public class ItemConversionSettingTests
         Assert.Null(page.Conversion.TargetIconSelector(BaseText));
         Assert.Null(page.Conversion.Rows.Single(row => row.ProfileText == "fakebase").IconFactory!());
 
+        // 札の頭の絵（ユーザ判断 2026-11-20・②）。絵が無ければ頭の字の升で、字は「（共通素体）」を添える前の名前から。
+        // つなぎ先の無い行は持たない
+        var chip = page.Conversion.Rows.Single(row => row.ProfileText == "fakebase").TargetIcon!;
+        Assert.False(chip.HasIcon);
+        Assert.Equal(Chmonos.Core.Services.AvatarText.InitialOf("作り物の素体"), chip.Initial);
+        Assert.All(page.Conversion.Rows.Where(row => !row.HasTarget), row => Assert.Null(row.TargetIcon));
+
         await app.Services.Avatars.SetBaseImageAsync("作り物の素体", Convert.FromBase64String(
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="));
 
         Assert.NotNull(page.Conversion.TargetIconSelector(BaseText));
         Assert.NotNull(page.Conversion.Rows.Single(row => row.ProfileText == "fakebase").IconFactory!());
+
+        // 読み直しで残した行でも、画像を付けた後は札の絵が出る（頭の字のまま残らない）
+        page.Conversion.Show(page.Item);
+        Assert.True(page.Conversion.Rows.Single(row => row.ProfileText == "fakebase").TargetIcon!.HasIcon);
     });
 
     /// <summary>持っているアバター（商品を持つ）は所持の群。商品ページでも手元の商品を引く道を渡している（外れると全部が未所持になる）</summary>
