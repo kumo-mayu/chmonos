@@ -10,9 +10,18 @@ namespace Chmonos.App.Views;
 /// </summary>
 public partial class SearchView
 {
-    private void OnSortFieldMenuClick(object sender, RoutedEventArgs e) => MenuButton.OpenBelow(sender, e);
+    // 開く前に印を作り直す：区切りの印は設定の画面や右クリックでも変わるので、並びを選んだときだけの作り直しでは古くなる
+    private void OnSortFieldMenuClick(object sender, RoutedEventArgs e)
+    {
+        (DataContext as ViewModels.SearchViewModel)?.RefreshSortMenu();
+        MenuButton.OpenBelow(sender, e);
+    }
 
-    private void OnSortFieldMenuKeyDown(object sender, KeyEventArgs e) => MenuButton.OpenOnArrowDown(sender, e);
+    private void OnSortFieldMenuKeyDown(object sender, KeyEventArgs e)
+    {
+        (DataContext as ViewModels.SearchViewModel)?.RefreshSortMenu();
+        MenuButton.OpenOnArrowDown(sender, e);
+    }
 
     private void OnSortFieldMenuOpened(object sender, RoutedEventArgs e) => MenuButton.FocusChecked(sender, e);
 }

@@ -49,6 +49,42 @@ public sealed partial class SearchViewModel
         }
     }
 
+    /// <summary>入手日で並べたときの札（設定 <see cref="AppSettings.ShowAcquiredSortDividers"/>。親の <see cref="ShowSortDividers"/> が入のときだけ効く）。</summary>
+    public bool ShowAcquiredSortDividers => _services.Settings.ShowAcquiredSortDividers;
+
+    /// <summary>
+    /// 表示順のメニューの一番下の「まとまりごとに区切りを表示」が切り替える値（ユーザ判断 2026-11-20 案A）。
+    /// その時の並びで効いている方：入手日で並べているときは <see cref="ShowAcquiredSortDividers"/>、ほかは <see cref="ShowSortDividers"/>。
+    /// 入手日の札は既定で切なので、全体の設定を切り替えると「入にしても札が出ない」ことになる。並びに合わせて替える
+    /// </summary>
+    public bool ShowSortDividersForCurrentSort => _sort.Kind == SortKind.AcquiredAt ? ShowAcquiredSortDividers : ShowSortDividers;
+
+    /// <summary>
+    /// メニューの項目が押されたとき、効いている方を反転して設定に書く（書き方は <see cref="SetShowSortDividersAsync"/> と同じ）。
+    /// 設定の画面で変えた値も読むので、メニューを開く前に <see cref="RefreshSortMenu"/> で印を作り直す
+    /// </summary>
+    internal async Task ToggleSortDividersForCurrentSortAsync()
+    {
+        var acquired = _sort.Kind == SortKind.AcquiredAt;
+        var value = !ShowSortDividersForCurrentSort;
+        try
+        {
+            await _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeSettings(settings => acquired
+                ? settings with { ShowAcquiredSortDividers = value }
+                : settings with { ShowSortDividers = value }));
+        }
+        finally
+        {
+            OnPropertyChanged(nameof(ShowSortDividers));
+            OnPropertyChanged(nameof(ShowAcquiredSortDividers));
+            RefreshSortMenu();
+            ApplyFilters();
+        }
+    }
+
+    /// <summary>表示順のメニューの印を今の値から作り直す。区切りの印は設定の画面・右クリックでも変わるので、開く前に呼ぶ。</summary>
+    public void RefreshSortMenu() => OnPropertyChanged(nameof(SortMenu));
+
     /// <summary>札の右クリックの項目（札が出ているので押すと消す）。</summary>
     /// <summary>ホイールで一覧を滑らかに流すか（設定。回すたびに画面が読む）。</summary>
     public bool SmoothScrolling => _services.Settings.SmoothScrolling;
@@ -70,6 +106,7 @@ public sealed partial class SearchViewModel
         finally
         {
             OnPropertyChanged(nameof(ShowSortDividers));
+            RefreshSortMenu();
             ApplyFilters();
         }
     }

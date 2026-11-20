@@ -26,7 +26,7 @@ public sealed class SearchSortFieldOrderTests
 
     private static string[] Checked(SearchViewModel search)
         => search.SortMenu.Concat(search.SortMenu.SelectMany(entry => entry.Children))
-            .Where(entry => entry.IsChecked)
+            .Where(entry => entry.IsChecked && entry.AutomationId != "SearchSortField.ShowDividers")
             .Select(entry => entry.Label)
             .ToArray();
 
@@ -47,7 +47,7 @@ public sealed class SearchSortFieldOrderTests
 
         Assert.Equal(
             ["名前", "ショップ", "カテゴリ", "スキ数", Line, "BOOTH価格", "払った額", Line,
-             "公開日", "入手日", "商品閲覧日", "Unity送信日", "改変に使った回数", "取り込み日", Line, "容量", Line, "属性"],
+             "公開日", "入手日", "商品閲覧日", "Unity送信日", "改変に使った回数", "取り込み日", Line, "容量", Line, "属性", Line, "まとまりごとに区切りを表示"],
             Labels(search.SortMenu));
 
         var attributes = AttributesEntry(search);

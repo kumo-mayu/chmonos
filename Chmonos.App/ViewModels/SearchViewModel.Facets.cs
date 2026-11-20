@@ -55,6 +55,15 @@ public sealed partial class SearchViewModel
             DisabledHint = attributes.Count > 0 ? null : NoAttributesHint,
             AutomationId = "SearchSortField.Attributes",
         });
+        // 一番下：区切りの札の入・切（ユーザ判断 2026-11-20）。並べ方の選びではないので線で分け、今効いている方の値を印に出す
+        entries.Add(SortMenuEntry.Separator());
+        entries.Add(new SortMenuEntry
+        {
+            Label = Controls.SortDividerBorder.SortDividerMenuHeader,
+            IsChecked = ShowSortDividersForCurrentSort,
+            AutomationId = "SearchSortField.ShowDividers",
+            ChooseCommand = new RelayCommand(() => ToggleSortDividersForCurrentSortAsync().Forget()),
+        });
         return entries;
     }
 
