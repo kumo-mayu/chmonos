@@ -40,9 +40,12 @@
                                     アバターの候補の頭の絵（U18）。見えた行だけで読む。
                                     絵の無い候補（配布商品を結んでいない共通素体・絵をまだ取っていないアバター）は頭文字を出す
                                     （メモ3-① 2026-10-02：空の四角が並んで、読み込みに失敗したように見えた。タグの管理の小さな絵と同じ出し方）
+                                    乗せると大きな絵（ユーザ判断 2026-11-20・①）。HoverIconSelector を付けた欄の、絵のある行だけ（HasHoverImage）。
+                                    吹き出しの形は親の画面が取り込む ManageResources.xaml の型（アバターの管理の小さな絵と同じ）
                                 -->
                                 <Border DockPanel.Dock="Left" Width="24" Height="24" Margin="0,0,8,0" CornerRadius="4" ClipToBounds="True"
-                                        Background="{DynamicResource SurfaceAlt}" Visibility="{Binding IconVisibility}">
+                                        Background="{DynamicResource SurfaceAlt}" Visibility="{Binding IconVisibility}"
+                                        ToolTip="{DynamicResource HoverImageTip}" ToolTipService.IsEnabled="{Binding HasHoverImage, FallbackValue=False}" ToolTipService.InitialShowDelay="300">
                                     <Grid>
                                         <TextBlock Text="{Binding Initial}" FontSize="11" Foreground="{DynamicResource TextMuted}"
                                                    HorizontalAlignment="Center" VerticalAlignment="Center" />

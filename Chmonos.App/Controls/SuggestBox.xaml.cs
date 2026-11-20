@@ -1,4 +1,5 @@
 using System.Collections;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -21,7 +22,7 @@ public sealed record SuggestInfo(int Group, IReadOnlyList<SuggestHint> Hints);
 public sealed record SuggestMatch(string Note);
 
 /// <summary>候補1件。既存の語か、入力された新しい語か。</summary>
-public sealed class Suggestion
+public sealed class Suggestion : INotifyPropertyChanged
 {
     private ImageSource? _icon;
     private bool _iconLoaded;
@@ -79,6 +80,29 @@ public sealed class Suggestion
 
     public Visibility IconVisibility => IconFactory is null || IsNew ? Visibility.Collapsed : Visibility.Visible;
 
+    /// <summary>
+    /// 頭の絵に乗せた時の大きな絵を作るもの（<see cref="SuggestBox.HoverIconSelector"/>。ユーザ判断 2026-11-20・①）。
+    /// 付けた欄の行だけが持つ。無ければ吹き出しを出さない（ほかの欄の行は今までと同じで、何も読まない）
+    /// </summary>
+    public Func<string, Action, ImageSource?>? HoverIconFactory { get; init; }
+
+    /// <summary>
+    /// 乗せた時の吹き出しを出すか。順を変えない：付けていない欄は最初の項で止まり、絵を読まない。
+    /// 絵が無い（頭の字の）行は、大きくしても頭の字なので出さない。<see cref="Icon"/> は見えた行が既に読んだ物を使う
+    /// </summary>
+    public bool HasHoverImage => HoverIconFactory is not null && !IsNew && Icon is not null;
+
+    /// <summary>
+    /// 乗せた時の大きな絵。**吹き出しが開いた時に初めて読む**（行を作る・流す時に読むと、候補を開くたびに見えた行の数だけ大きな絵を読む）。
+    /// 読み終えたら知らせて、吹き出しの絵を差し替える（アバターの管理の行の <c>HoverImage</c> と同じ読み方）
+    /// </summary>
+    public ImageSource? HoverImage => HoverIconFactory is { } factory && !IsNew
+        ? factory(Value, () => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HoverImage))))
+        : null;
+
+    /// <summary>大きな絵が後から届いた事だけを知らせる（ほかの値は作った後に変わらない）。</summary>
+    public event PropertyChangedEventHandler? PropertyChanged;
+
     /// <summary>絵の無い候補の頭に出す頭文字（飾り記号を飛ばす。アバターの一覧と同じ）。絵があれば絵の下に隠れる。</summary>
     public string Initial => Chmonos.Core.Services.AvatarText.InitialOf(Display);
 
@@ -133,6 +157,22 @@ public partial class SuggestBox : UserControl
     {
         get => (Func<string, ImageSource?>?)GetValue(IconSelectorProperty);
         set => SetValue(IconSelectorProperty, value);
+    }
+
+    /// <summary>
+    /// 候補の頭の絵に乗せた時の大きな絵（ユーザ判断 2026-11-20・①「アバターの管理の画面の絵は全部、乗せると大きな絵を出す」）。
+    /// 候補の語と「読み終えた時の知らせ」から、手元にあれば絵、無ければ null を返して裏で読む（<c>ThumbnailLoader.PeekForCard</c>）。
+    /// 付けた欄だけに吹き出しが出る。部品はアプリ全体で使うので、付けない欄の動きと重さは変えない。
+    /// 吹き出しの形は親の画面が取り込む ManageResources.xaml の <c>HoverImageTip</c>
+    /// </summary>
+    public static readonly DependencyProperty HoverIconSelectorProperty =
+        DependencyProperty.Register(nameof(HoverIconSelector), typeof(Func<string, Action, ImageSource?>), typeof(SuggestBox),
+            new PropertyMetadata(null));
+
+    public Func<string, Action, ImageSource?>? HoverIconSelector
+    {
+        get => (Func<string, Action, ImageSource?>?)GetValue(HoverIconSelectorProperty);
+        set => SetValue(HoverIconSelectorProperty, value);
     }
 
     /// <summary>
@@ -533,6 +573,7 @@ public partial class SuggestBox : UserControl
                 Value = row.Entry,
                 Display = row.Entry,
                 IconFactory = IconSelector,
+                HoverIconFactory = HoverIconSelector,
                 HasDividerAbove = row.DividerAbove,
                 Heading = row.GroupStart && headings is not null && row.Group >= 0 && row.Group < headings.Count ? headings[row.Group] : string.Empty,
                 Note = row.Hit?.Label ?? string.Empty,

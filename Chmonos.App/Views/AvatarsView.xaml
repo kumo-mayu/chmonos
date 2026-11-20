@@ -569,7 +569,7 @@
                                     </StackPanel.InputBindings>
                                     <TextBlock Text="組を追加" Style="{StaticResource Caption}" Margin="2,2,0,4" />
                                     <controls:SuggestBox Source="{Binding Suggestions}" Text="{Binding FromText, Mode=TwoWay}"
-                                                         IconSelector="{Binding IconSelector}" InfoSelector="{Binding InfoSelector}"
+                                                         IconSelector="{Binding IconSelector}" HoverIconSelector="{Binding HoverIconSelector}" InfoSelector="{Binding InfoSelector}"
                                                          GroupHeadings="{Binding GroupHeadings}"
                                                          AllowNew="False" KeepsCommittedText="True" Placeholder="元のアバターか共通素体"
                                                          AutomationProperties.AutomationId="AvatarsConversionPairFrom" />
@@ -579,7 +579,7 @@
                                                 Command="{Binding AddCommand}" AutomationProperties.AutomationId="AvatarsConversionPairAdd"
                                                 ToolTip="元の衣装を先に着せられる組を追加します。" />
                                         <controls:SuggestBox Source="{Binding Suggestions}" Text="{Binding ToText, Mode=TwoWay}"
-                                                             IconSelector="{Binding IconSelector}" InfoSelector="{Binding InfoSelector}"
+                                                             IconSelector="{Binding IconSelector}" HoverIconSelector="{Binding HoverIconSelector}" InfoSelector="{Binding InfoSelector}"
                                                              GroupHeadings="{Binding GroupHeadings}"
                                                              AllowNew="False" KeepsCommittedText="True" Placeholder="先のアバターか共通素体"
                                                              AutomationProperties.AutomationId="AvatarsConversionPairTo" />
@@ -719,7 +719,7 @@
                             <controls:SuggestBox x:Name="BaseSearchBox" Text="{Binding BaseQuery, UpdateSourceTrigger=PropertyChanged, Delay=200}"
                                                  Source="{Binding BaseSearchCandidates}" CommitCommand="{Binding BaseSearchCommitCommand}"
                                                  InfoSelector="{Binding BaseSearchInfoSelector}" GroupHeadings="{x:Static vm:AvatarSuggestionText.Headings}"
-                                                 IconSelector="{Binding BaseSearchIconSelector}"
+                                                 IconSelector="{Binding BaseSearchIconSelector}" HoverIconSelector="{Binding BaseSearchHoverIconSelector}"
                                                  AllowNew="False" KeepsCommittedText="True" MaxLength="60"
                                                  Placeholder="素体・アバターを探す、または素体を追加"
                                                  PreviewKeyDown="BaseSearchBox_PreviewKeyDown"
@@ -1143,7 +1143,7 @@
                                 <StackPanel Orientation="Horizontal">
                                     <Grid Width="240">
                                         <controls:SuggestBox Source="{Binding BaseNames}" CommitCommand="{Binding PickBaseCommand}"
-                                                             IconSelector="{Binding BaseIconSelector}"
+                                                             IconSelector="{Binding BaseIconSelector}" HoverIconSelector="{Binding BaseHoverIconSelector}"
                                                              AutomationProperties.AutomationId="AvatarBaseInput"
                                                              Text="{Binding BaseInput, Mode=TwoWay}"
                                                              AllowNew="True" KeepsCommittedText="True"
@@ -1504,7 +1504,7 @@
                                         </Grid.ColumnDefinitions>
                                         <controls:SuggestBox Source="{Binding MemberCandidates}" CommitCommand="{Binding AddMemberCommand}"
                                                              InfoSelector="{Binding MemberInfoSelector}" GroupHeadings="{Binding MemberGroupHeadings}"
-                                                             IconSelector="{Binding MemberIconSelector}"
+                                                             IconSelector="{Binding MemberIconSelector}" HoverIconSelector="{Binding MemberHoverIconSelector}"
                                                              AllowNew="False" MaxLength="60"
                                                              Placeholder="追加するアバターの名前"
                                                              AutomationProperties.AutomationId="AvatarBaseMemberInput" />

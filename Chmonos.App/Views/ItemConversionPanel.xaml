@@ -172,6 +172,8 @@
                                                  CommitCommand="{Binding ChooseCommand}"
                                                  IconSelector="{Binding DataContext.TargetIconSelector,
                                                                 RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                 HoverIconSelector="{Binding DataContext.TargetHoverIconSelector,
+                                                                     RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                  InfoSelector="{Binding DataContext.TargetInfoSelector,
                                                                 RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                  GroupHeadings="{Binding DataContext.TargetGroupHeadings,

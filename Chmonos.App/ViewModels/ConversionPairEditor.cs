@@ -482,10 +482,16 @@ public sealed class ConversionPairEditor : ViewModelBase
 
     /// <summary>候補の頭の絵（変換扱いのつなぎ先の欄と同じ）。素体かは確定の時と同じ表で先に見る。</summary>
     public Func<string, System.Windows.Media.ImageSource?> IconSelector => text =>
-        _thumbnails is not { } thumbnails ? null
-        : _basesBySuggestion.TryGetValue(text, out var baseName) ? AvatarBaseIcons.Load(_services, baseName, FindItem, thumbnails.LoadForTile)
+        _thumbnails is { } thumbnails ? IconOf(text, thumbnails.LoadForTile) : null;
+
+    /// <summary>候補の頭の絵に乗せた時の大きな絵（ユーザ判断 2026-11-20・①）。乗せた時に初めて読む。場所の決め方は頭の絵と同じ1つ</summary>
+    public Func<string, Action, System.Windows.Media.ImageSource?> HoverIconSelector => (text, onLoaded) =>
+        _thumbnails is { } thumbnails ? IconOf(text, path => thumbnails.PeekForCard(path, onLoaded)) : null;
+
+    private System.Windows.Media.Imaging.BitmapSource? IconOf(string text, Func<string, System.Windows.Media.Imaging.BitmapSource?> load)
+        => _basesBySuggestion.TryGetValue(text, out var baseName) ? AvatarBaseIcons.Load(_services, baseName, FindItem, load)
         : _avatarIdsBySuggestion.TryGetValue(text, out var id) && AvatarImageSync.IconPath(_services.Paths, id, FindItem(id), _services.Settings.ShowRemovedBoothImages) is { } path
-            ? thumbnails.LoadForTile(path)
+            ? load(path)
         : null;
 
     /// <summary>元の欄の文字。候補を選ぶと候補の表記が入る（KeepsCommittedText）。打った綴りが候補と同じなら選んだのと同じに扱う（ui-input.md）。</summary>
