@@ -33,6 +33,23 @@
         <sys:Double x:Key="CardShopIconSize">68</sys:Double>
 
         <!--
+            小さな絵に乗せると出す大きな絵（ユーザ判断 2026-11-20・①「アバターの管理の画面の絵は全部、乗せると大きな絵を出す」、
+            同日「候補の欄の絵：アバターの管理の外の欄にも」）。
+            引く側は ToolTip="{DynamicResource HoverImageTip}" と ToolTipService.IsEnabled="{Binding HasHoverImage}"（絵の無い頭の字の時は出さない）、
+            InitialShowDelay="300"（改変の一覧の小さな絵と同じ）を付け、行の VM が HoverImage（吹き出しが開いた時に初めて読む）を持つ。
+            置き場はアプリ全体の資源。候補の欄（Controls/SuggestBox）はどの画面・窓にも置くので、画面ごとの取り込み（ManageResources.xaml）に
+            置くと、取り込んでいない窓（改変を選ぶ窓）で型が見つからず吹き出しが出ない。型は1つだけにする（2つあると近い方が黙って勝つ）。
+            吹き出しは1つの部品に1つずつ要るので x:Shared="False"、型の中から引くので DynamicResource で引く（StaticResource だと型の中で1つを使い回す）。
+            形は改変の一覧の吹き出しと同じ 180 の正方形。名前は絵のすぐ隣に出ているので添えない
+        -->
+        <ToolTip x:Key="HoverImageTip" x:Shared="False" Padding="8" Placement="Right"
+                 Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}">
+            <Border Width="180" Height="180" CornerRadius="6" Background="{DynamicResource ThumbBack}" ClipToBounds="True">
+                <Image Source="{Binding HoverImage}" Stretch="Uniform" />
+            </Border>
+        </ToolTip>
+
+        <!--
             表示の大きさ（設定・Ctrl＋＋／Ctrl＋－・ユーザ指示 2026-09-29）。起動時と変えたときに AppZoom が書き換える。
             主の窓の中身はこれで丸ごと縮尺する。吹き出しとメニューは別の窓（ポップアップ）で、
             主の窓の縮尺が届かないので、Themes/Controls.xaml の既定の見た目で同じ倍率を当てる。

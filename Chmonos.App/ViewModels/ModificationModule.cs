@@ -24,6 +24,8 @@ public sealed class ModificationModule : SearchModule
 
     private readonly Func<string, ImageSource?> _avatarIcon;
     private readonly Func<ModificationRecord, ImageSource?> _modificationIcon;
+    private readonly Func<string, Action, ImageSource?>? _avatarHoverIcon;
+    private readonly Func<ModificationRecord, Action, ImageSource?>? _modificationHoverIcon;
 
     /// <summary>1段目の候補の文字 → (アバター, 改変か null)。</summary>
     private readonly Dictionary<string, (string Avatar, string? Modification)> _entries = new(StringComparer.CurrentCultureIgnoreCase);
@@ -40,11 +42,19 @@ public sealed class ModificationModule : SearchModule
 
     /// <param name="avatarIcon">アバターの商品ID → 絵（`AvatarImageSync.IconPath` と同じ決め方）。</param>
     /// <param name="modificationIcon">改変 → 絵（`ModificationIcon.PathOf` と同じ決め方）。</param>
-    public ModificationModule(Func<string, ImageSource?> avatarIcon, Func<ModificationRecord, ImageSource?> modificationIcon)
+    /// <param name="avatarHoverIcon">アバターの商品ID・読み終えた時の知らせ → 乗せた時の大きな絵（ユーザ判断 2026-11-20。頭の絵と同じ場所を <c>PeekForCard</c> で読む）。無ければ吹き出しを出さない。</param>
+    /// <param name="modificationHoverIcon">改変・読み終えた時の知らせ → 乗せた時の大きな絵。</param>
+    public ModificationModule(
+        Func<string, ImageSource?> avatarIcon,
+        Func<ModificationRecord, ImageSource?> modificationIcon,
+        Func<string, Action, ImageSource?>? avatarHoverIcon = null,
+        Func<ModificationRecord, Action, ImageSource?>? modificationHoverIcon = null)
         : base(SearchModuleKind.Modification)
     {
         _avatarIcon = avatarIcon;
         _modificationIcon = modificationIcon;
+        _avatarHoverIcon = avatarHoverIcon;
+        _modificationHoverIcon = modificationHoverIcon;
     }
 
     public ObservableCollection<ModificationAvatarRow> Rows { get; } = [];
@@ -98,6 +108,18 @@ public sealed class ModificationModule : SearchModule
     public Func<string, ImageSource?> IconSelector => text => _entries.TryGetValue(text, out var entry)
         ? entry.Modification is { } id && FindRecord(entry.Avatar, id) is { } record ? _modificationIcon(record) : _avatarIcon(entry.Avatar)
         : null;
+
+    /// <summary>
+    /// 1段目の候補の頭の絵に乗せた時の大きな絵（ユーザ判断 2026-11-20「候補の欄の絵：アバターの管理の外の欄にも」）。
+    /// 乗せた時に初めて読む。改変かアバターかの決め方は頭の絵と同じ
+    /// </summary>
+    public Func<string, Action, ImageSource?>? HoverIconSelector => _avatarHoverIcon is null || _modificationHoverIcon is null
+        ? null
+        : (text, onLoaded) => _entries.TryGetValue(text, out var entry)
+            ? entry.Modification is { } id && FindRecord(entry.Avatar, id) is { } record
+                ? _modificationHoverIcon(record, onLoaded)
+                : _avatarHoverIcon(entry.Avatar, onLoaded)
+            : null;
 
     /// <summary>1段目の候補の群（アバター → 改変）。</summary>
     public Func<string, SuggestInfo?> InfoSelector => text => _candidates.TryGetValue(text, out var candidate)
@@ -241,7 +263,7 @@ public sealed class ModificationModule : SearchModule
             return existing;
         }
 
-        var row = new ModificationAvatarRow(avatar, _avatarIcon, _modificationIcon);
+        var row = new ModificationAvatarRow(avatar, _avatarIcon, _modificationIcon) { ModificationHoverIcon = _modificationHoverIcon };
         if (_byAvatar.TryGetValue(avatar, out var list))
         {
             row.SetSources(_avatarNames[avatar], list);
@@ -435,6 +457,14 @@ public sealed class ModificationAvatarRow : ViewModelBase
     public Func<string, ImageSource?> IconSelector => text => _idOfText.TryGetValue(text, out var id) && Find(id) is { } record
         ? _modificationIcon(record)
         : null;
+
+    /// <summary>改変・読み終えた時の知らせ → 乗せた時の大きな絵（持ち主の <see cref="ModificationModule"/> から渡す）。無ければ吹き出しを出さない</summary>
+    public Func<ModificationRecord, Action, ImageSource?>? ModificationHoverIcon { get; init; }
+
+    /// <summary>2段目の候補の頭の絵に乗せた時の大きな絵（ユーザ判断 2026-11-20）。乗せた時に初めて読む</summary>
+    public Func<string, Action, ImageSource?>? HoverIconSelector => ModificationHoverIcon is not { } hover
+        ? null
+        : (text, onLoaded) => _idOfText.TryGetValue(text, out var id) && Find(id) is { } record ? hover(record, onLoaded) : null;
 
     public ModificationCondition Condition => new()
     {

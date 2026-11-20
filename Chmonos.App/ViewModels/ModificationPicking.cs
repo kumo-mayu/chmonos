@@ -103,16 +103,15 @@ public static class ModificationPicking
             iconIds.TryAdd(NameOf(entry), entry.ItemId);
         }
 
-        ImageSource? IconOf(string name)
-        {
-            if (!iconIds.TryGetValue(name, out var id)
-                || Core.Services.AvatarImageSync.IconPath(services.Paths, id, ownedItems?.GetValueOrDefault(id), services.Settings.ShowRemovedBoothImages) is not { } path)
-            {
-                return null;
-            }
+        string? IconPathOf(string name)
+            => iconIds.TryGetValue(name, out var id)
+                ? Core.Services.AvatarImageSync.IconPath(services.Paths, id, ownedItems?.GetValueOrDefault(id), services.Settings.ShowRemovedBoothImages)
+                : null;
 
-            return Loader().LoadForTile(path);
-        }
+        ImageSource? IconOf(string name) => IconPathOf(name) is { } path ? Loader().LoadForTile(path) : null;
+
+        // 乗せた時の大きな絵（ユーザ判断 2026-11-20「候補の欄の絵：アバターの管理の外の欄にも」）。場所は頭の絵と同じ決め方で、読むのは吹き出しが開いた時
+        ImageSource? HoverOf(string name, Action onLoaded) => IconPathOf(name) is { } path ? Loader().PeekForCard(path, onLoaded) : null;
 
         return new PickModificationDialogViewModel(
             title,
@@ -130,6 +129,7 @@ public static class ModificationPicking
             Files = files is { HasChoices: true } ? files : null,
             OwnedAvatarCount = ownedNames.Count,
             AvatarIconSelector = IconOf,
+            AvatarHoverIconSelector = HoverOf,
             AvatarInfoSelector = name => infos.GetValueOrDefault(name),
             RowFactory = RowOf,
             Duplicator = record => DuplicateAsync(services, record, RowOf(record).AvatarText, title),

@@ -431,6 +431,12 @@ public sealed class ListModule : SearchModule
     public Func<string, ImageSource?>? IconSelector { get; set; }
 
     /// <summary>
+    /// 候補の頭の絵に乗せた時の大きな絵（ユーザ判断 2026-11-20「候補の欄の絵：アバターの管理の外の欄にも」。<see cref="Controls.SuggestBox.HoverIconSelector"/>）。
+    /// 絵を出す欄（対応アバター・プロファイル）だけが持つ
+    /// </summary>
+    public Func<string, Action, ImageSource?>? HoverIconSelector { get; set; }
+
+    /// <summary>
     /// 候補と札の長い文を、間を「…」にして末尾を残すか（ファイルの場所・Unityプロジェクト。メモ83・メモ84：長いパスが切れて見えなかった）。
     /// パスは末尾の名前がいちばん要るので、ほかの画面の長いパスと同じ省き方にする（`Controls/PathLine`）。省いたら吹き出しで全文
     /// </summary>

@@ -14,7 +14,7 @@ namespace Chmonos.App.Tests;
 /// <summary>
 /// 候補の欄（<see cref="SuggestBox"/>）の頭の絵に乗せると、大きな絵を出す（ユーザ判断 2026-11-20・①「アバターの管理の画面の絵は全部、乗せると大きな絵を出す」）。
 /// 付けた欄（<see cref="SuggestBox.HoverIconSelector"/>）の、絵のある既存の行だけ。大きな絵は吹き出しが開いた時に初めて読む。
-/// 部品はアプリ全体で使うので、付けない欄は絵を余分に読まない。名前は作り物
+/// 絵を出す候補の欄には全部付ける（同日「候補の欄の絵：アバターの管理の外の欄にも」）。付けない欄（絵の無い欄）は絵を余分に読まない。名前は作り物
 /// </summary>
 public sealed class SuggestBoxHoverImageTests
 {
@@ -79,11 +79,11 @@ public sealed class SuggestBoxHoverImageTests
     }
 
     /// <summary>
-    /// 候補の行は Popup の中にあり、吹き出しの型は親の画面が取り込む ManageResources.xaml にある。
-    /// Popup 越しに型が届き、付けた欄の絵のある行だけ吹き出しが効き、付けない欄の行は止まっている事
+    /// 候補の行は Popup の中にあり、吹き出しの型はアプリ全体の資源（App.xaml）にある。
+    /// 画面ごとの取り込みの無い窓（改変を選ぶ窓）でも Popup 越しに型が届き、付けた欄の絵のある行だけ吹き出しが効き、付けない欄の行は止まっている事
     /// </summary>
     [Fact]
-    public Task 候補の窓の行に_親の画面の吹き出しの型が届き_付けた欄だけで効く() => UiThread.Run(async () =>
+    public Task 候補の窓の行に_画面の取り込みが無くても吹き出しの型が届き_付けた欄だけで効く() => UiThread.Run(async () =>
     {
         var hovered = await RowTipOf(hover: (_, _) => Pixel, openTip: false);
         Assert.IsType<ToolTip>(hovered.Tip);
@@ -116,11 +116,8 @@ public sealed class SuggestBoxHoverImageTests
             Source = new List<string> { "作り物のアバター" }, AllowNew = false, Width = 280,
             IconSelector = _ => Pixel, HoverIconSelector = hover,
         };
+        // 画面ごとの資源（ManageResources.xaml）を取り込まない素の窓に置く。改変を選ぶ窓と同じで、型はアプリ全体の資源から届く事を見る
         var host = new Grid { Children = { box } };
-        host.Resources.MergedDictionaries.Add(new ResourceDictionary
-        {
-            Source = new Uri("pack://application:,,,/Chmonos;component/Views/ManageResources.xaml"),
-        });
         var window = new Window
         {
             Content = host, Width = 400, Height = 300, ShowActivated = true,
@@ -171,21 +168,29 @@ public sealed class SuggestBoxHoverImageTests
     }
 
     /// <summary>
-    /// 付けた欄：アバターの管理の絵付きの候補の欄（変換の組の元・先、素体の探す欄、アバターの詳細の共通素体、素体のアバターを足す欄）と、
-    /// 変換扱いのつなぎ先を選ぶ欄（商品ページにも出る）。ほかの画面の候補の欄には付けない
+    /// 絵を出す候補の欄には全部付ける（ユーザ判断 2026-11-20「候補の欄の絵：アバターの管理の外の欄にも」）。
+    /// 画面の XAML ごとに、候補の欄の頭の絵（IconSelector）と乗せた時の大きな絵（HoverIconSelector）の数が揃う事を見る。
+    /// 欄の数を決め打ちにしないのは、欄が増減しても「絵を出す欄には付ける」の決まりだけを見るため。
+    /// 束縛の先の名前が VM にある事は <see cref="SuggestHoverIconWiringTests"/> で見る
     /// </summary>
     [Fact]
-    public void 付けたのは_アバターの管理の絵付きの候補の欄と_変換扱いのつなぎ先の欄だけ()
+    public void 絵を出す候補の欄には全部_乗せた時の大きな絵を付ける()
     {
-        Assert.Equal(5, Regex.Matches(Read("AvatarsView.xaml"), @"HoverIconSelector=""\{Binding \w*HoverIconSelector\}""").Count);
-        Assert.Single(Regex.Matches(Read("ItemConversionPanel.xaml"), "HoverIconSelector="));
-
-        foreach (var other in new[] { "SearchView.xaml", "EditView.xaml", "ItemAvatarsPanel.xaml", "PickModificationDialog.xaml" })
+        var views = Directory.GetFiles(ViewsDir(), "*.xaml");
+        var withIcons = 0;
+        foreach (var path in views)
         {
-            Assert.DoesNotContain("HoverIconSelector", Read(other));
+            var text = File.ReadAllText(path);
+            var icons = Regex.Matches(text, @"(?<!Hover)IconSelector=""\{Binding").Count;
+            var hovers = Regex.Matches(text, @"HoverIconSelector=""\{Binding").Count;
+            Assert.True(icons == hovers, $"{Path.GetFileName(path)}：頭の絵 {icons} 欄・大きな絵 {hovers} 欄");
+            withIcons += icons > 0 ? 1 : 0;
         }
+
+        // 付けた画面：アバターの管理・変換扱い・検索・編集・商品の対応アバター・改変を選ぶ窓（見落としで0件のまま通らないように）
+        Assert.True(withIcons >= 6, $"絵付きの候補の欄のある画面が {withIcons} つしか見つからない");
     }
 
-    private static string Read(string name, [CallerFilePath] string here = "")
-        => File.ReadAllText(Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(here))!, "Chmonos.App", "Views", name));
+    private static string ViewsDir([CallerFilePath] string here = "")
+        => Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(here))!, "Chmonos.App", "Views");
 }

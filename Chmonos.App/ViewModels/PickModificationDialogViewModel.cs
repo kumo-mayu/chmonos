@@ -211,6 +211,9 @@ public sealed class PickModificationDialogViewModel : ViewModelBase
     /// <summary>アバターの候補の頭に出す絵。名前から読む（持っていれば商品の1枚目・無ければ控え）。絵が無ければ頭文字が出る。</summary>
     public Func<string, System.Windows.Media.ImageSource?>? AvatarIconSelector { get; init; }
 
+    /// <summary>アバターの候補の頭の絵に乗せた時の大きな絵（ユーザ判断 2026-11-20「候補の欄の絵：アバターの管理の外の欄にも」）。乗せた時に初めて読む</summary>
+    public Func<string, Action, System.Windows.Media.ImageSource?>? AvatarHoverIconSelector { get; init; }
+
     /// <summary>候補の名前から群と呼び方を引く（メモ58）。無ければ <see cref="OwnedAvatarCount"/> の前後で2群に分ける。</summary>
     public Func<string, Controls.SuggestInfo?>? AvatarInfoSelector { get; init; }
 

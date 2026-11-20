@@ -103,6 +103,9 @@ public sealed class VariationTargetsInput : ViewModelBase
     /// <summary>候補の頭の絵・添え書き・群の見出し。商品の対応アバターを足す欄と同じ作り（<c>ItemViewModel.AvatarIconSelector</c> など）。無ければ文字だけ。</summary>
     public Func<string, System.Windows.Media.ImageSource?>? IconSelector { get; init; }
 
+    /// <summary>候補の頭の絵に乗せた時の大きな絵（ユーザ判断 2026-11-20「候補の欄の絵：アバターの管理の外の欄にも」）。乗せた時に初めて読む。無ければ吹き出しを出さない</summary>
+    public Func<string, Action, System.Windows.Media.ImageSource?>? HoverIconSelector { get; init; }
+
     public Func<string, Controls.SuggestInfo?>? InfoSelector { get; init; }
 
     public IReadOnlyList<string>? GroupHeadings { get; init; }

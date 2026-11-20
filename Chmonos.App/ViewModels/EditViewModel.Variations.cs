@@ -173,6 +173,14 @@ public sealed partial class EditViewModel
             _ => null,
         };
 
+        // 乗せた時の大きな絵（ユーザ判断 2026-11-20）。どの絵かの決め方は頭の絵と同じ表で、読むのは吹き出しが開いた時
+        System.Windows.Media.ImageSource? HoverOf(string text, Action onLoaded) => !choiceByText.TryGetValue(text, out var choice) ? null : choice.Kind switch
+        {
+            VariationTargetKind.Avatar => ItemPage?.AvatarHoverIconOf(choice.Key, onLoaded),
+            VariationTargetKind.Base => ItemPage?.BaseHoverIconOf(choice.Key, onLoaded),
+            _ => null,
+        };
+
         Controls.SuggestInfo? InfoOf(string text)
         {
             if (!choiceByText.TryGetValue(text, out var choice))
@@ -214,6 +222,7 @@ public sealed partial class EditViewModel
             {
                 ShowsUnpurchased = _services.Settings.ShowVariationTargetsForUnpurchased,
                 IconSelector = IconOf,
+                HoverIconSelector = HoverOf,
                 InfoSelector = InfoOf,
                 GroupHeadings = headings,
             };

@@ -254,20 +254,6 @@
     </DataTemplate>
 
     <!--
-        小さな絵に乗せると出す大きな絵（ユーザ判断 2026-11-20・①「アバターの管理の画面の絵は全部、乗せると大きな絵を出す」）。
-        引く側は ToolTip="{DynamicResource HoverImageTip}" と ToolTipService.IsEnabled="{Binding HasHoverImage}"（絵の無い頭の字の時は出さない）、
-        InitialShowDelay="300"（改変の一覧の小さな絵と同じ）を付け、行の VM が HoverImage（吹き出しが開いた時に初めて読む）を持つ。
-        吹き出しは1つの部品に1つずつ要るので x:Shared="False"、型の中から引くので DynamicResource で引く（StaticResource だと型の中で1つを使い回す）。
-        形は改変の一覧の吹き出しと同じ 180 の正方形。名前は絵のすぐ隣に出ているので添えない
-    -->
-    <ToolTip x:Key="HoverImageTip" x:Shared="False" Padding="8" Placement="Right"
-             Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Border}">
-        <Border Width="180" Height="180" CornerRadius="6" Background="{DynamicResource ThumbBack}" ClipToBounds="True">
-            <Image Source="{Binding HoverImage}" Stretch="Uniform" />
-        </Border>
-    </ToolTip>
-
-    <!--
         中に入っている商品1件（小分類の中・属性を持つ商品）。押すと商品ページへ（改変の一覧と同じ）。
         大きな絵は左に出す（ユーザ指摘 2026-09-19：右に出すと、小さな絵に乗せたマウスから行の幅ぶん離れて遠い）。
         属性では値の札を名前の右に出す（どのくらいと評価したかが、並びの理由なので）
