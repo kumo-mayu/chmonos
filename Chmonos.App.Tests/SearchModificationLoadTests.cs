@@ -102,4 +102,36 @@ public sealed class SearchModificationLoadTests
         Assert.Contains(module.Suggestions, entry => entry.Contains("撮影A", StringComparison.Ordinal));
         Assert.Null(module.WaitingText);
     });
+
+    [Fact]
+    public Task 読み直す間は古い控えで絞り続け_一瞬0件にしない() => TestApp.Run(async app =>
+    {
+        await AddItemsAsync(app);
+        await CreateWithProjectAsync(app, "普段着", @"D:\作り物\UnityProjects\撮影A");
+        var search = (await app.StartAsync()).Search;
+        var module = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProject);
+        await UiThread.Until(() => module.HasSuggestions, "1回目を読み終える");
+        module.AddKey(@"D:\作り物\UnityProjects\撮影A");
+        Assert.Equal(["9900302"], search.ListItems.Select(card => card.Item.Id));
+
+        var reading = new TaskCompletionSource();
+        var gate = new TaskCompletionSource();
+        search.AfterModificationsRead = async () =>
+        {
+            reading.TrySetResult();
+            await gate.Task;
+        };
+
+        // 検索へ戻るたびに読み直す（MainViewModel.ShowSearch）。読む間に絞り直しても、古い控えで同じ結果を出す
+        search.NoteModificationsChanged();
+        await reading.Task;
+        module.MatchAll = true;
+        Assert.Equal(["9900302"], search.ListItems.Select(card => card.Item.Id));
+        Assert.Null(module.WaitingText);
+
+        gate.SetResult();
+        await UiThread.Settle();
+        Assert.Equal(2, search.ModificationLoadsStarted);
+        Assert.Equal(["9900302"], search.ListItems.Select(card => card.Item.Id));
+    });
 }

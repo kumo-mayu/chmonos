@@ -451,6 +451,7 @@ public sealed partial class SearchViewModel
             }
 
             _modificationUsage = usage;
+            _modificationsStale = false;
             ShowModificationsWaiting();
 
             foreach (var module in Modules.Where(module => module.Kind is SearchModuleKind.Modification or SearchModuleKind.UnityProject))
@@ -470,7 +471,7 @@ public sealed partial class SearchViewModel
     /// </summary>
     public void NoteModificationsChanged()
     {
-        _modificationUsage = null;
+        _modificationsStale = true;
         _modificationsGeneration++;
         if (NeedsModifications())
         {
