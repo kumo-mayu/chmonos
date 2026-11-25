@@ -913,6 +913,7 @@ public sealed partial class SearchViewModel
             includeApplies: SearchModuleConditions.ListOf(kind)!.IncludeApplies)
         {
             TrimsMiddle = true,
+            FlagHint = SameNameFlagHint,
             ReloadCommand = new RelayCommand(ReloadProjectContents),
             ChipTextOf = Core.Models.DisplayText.FolderName,
         },

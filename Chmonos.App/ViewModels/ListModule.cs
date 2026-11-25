@@ -282,6 +282,9 @@ public sealed class ListModule : SearchModule
     /// <summary>補助の切り替え（対応アバターの「素体経由の対応も含める」）。</summary>
     public string? FlagLabel { get; }
 
+    /// <summary>補助の切り替えの吹き出し。文だけでは何を足すのか読めない時に言う（Unityプロジェクトの「名前が同じ画像も含める」）。</summary>
+    public string? FlagHint { get; init; }
+
     /// <remarks>
     /// プロジェクトの条件はいつも出す（ユーザ指示 2026-11-01：札やチェックしだいで出たり消えたりすると、下の欄が縦に揺れる）。
     /// 対応アバターは今までどおり、選んでから出す
