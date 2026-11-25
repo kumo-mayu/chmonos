@@ -26,6 +26,7 @@ public sealed class ModificationModule : SearchModule
     private readonly Func<ModificationRecord, ImageSource?> _modificationIcon;
     private readonly Func<string, Action, ImageSource?>? _avatarHoverIcon;
     private readonly Func<ModificationRecord, Action, ImageSource?>? _modificationHoverIcon;
+    private readonly Action<ModificationRecord>? _openModification;
 
     /// <summary>1段目の候補の文字 → (アバター, 改変か null)。</summary>
     private readonly Dictionary<string, (string Avatar, string? Modification)> _entries = new(StringComparer.CurrentCultureIgnoreCase);
@@ -44,13 +45,16 @@ public sealed class ModificationModule : SearchModule
     /// <param name="modificationIcon">改変 → 絵（`ModificationIcon.PathOf` と同じ決め方）。</param>
     /// <param name="avatarHoverIcon">アバターの商品ID・読み終えた時の知らせ → 乗せた時の大きな絵（ユーザ判断 2026-11-20。頭の絵と同じ場所を <c>PeekForCard</c> で読む）。無ければ吹き出しを出さない。</param>
     /// <param name="modificationHoverIcon">改変・読み終えた時の知らせ → 乗せた時の大きな絵。</param>
+    /// <param name="openModification">改変の札の右クリックの「改変を開く」で、その改変を選んだ改変の画面へ移る（ユーザ判断 2026-11-25）。無ければ札に右クリックを出さない。</param>
     public ModificationModule(
         Func<string, ImageSource?> avatarIcon,
         Func<ModificationRecord, ImageSource?> modificationIcon,
         Func<string, Action, ImageSource?>? avatarHoverIcon = null,
-        Func<ModificationRecord, Action, ImageSource?>? modificationHoverIcon = null)
+        Func<ModificationRecord, Action, ImageSource?>? modificationHoverIcon = null,
+        Action<ModificationRecord>? openModification = null)
         : base(SearchModuleKind.Modification)
     {
+        _openModification = openModification;
         _avatarIcon = avatarIcon;
         _modificationIcon = modificationIcon;
         _avatarHoverIcon = avatarHoverIcon;
@@ -263,7 +267,11 @@ public sealed class ModificationModule : SearchModule
             return existing;
         }
 
-        var row = new ModificationAvatarRow(avatar, _avatarIcon, _modificationIcon) { ModificationHoverIcon = _modificationHoverIcon };
+        var row = new ModificationAvatarRow(avatar, _avatarIcon, _modificationIcon)
+        {
+            ModificationHoverIcon = _modificationHoverIcon,
+            OpenModification = _openModification,
+        };
         if (_byAvatar.TryGetValue(avatar, out var list))
         {
             row.SetSources(_avatarNames[avatar], list);
@@ -461,6 +469,9 @@ public sealed class ModificationAvatarRow : ViewModelBase
     /// <summary>改変・読み終えた時の知らせ → 乗せた時の大きな絵（持ち主の <see cref="ModificationModule"/> から渡す）。無ければ吹き出しを出さない</summary>
     public Func<ModificationRecord, Action, ImageSource?>? ModificationHoverIcon { get; init; }
 
+    /// <summary>改変の札の「改変を開く」の移り先（持ち主の <see cref="ModificationModule"/> から渡す）。無ければ札に右クリックを出さない</summary>
+    public Action<ModificationRecord>? OpenModification { get; init; }
+
     /// <summary>2段目の候補の頭の絵に乗せた時の大きな絵（ユーザ判断 2026-11-20）。乗せた時に初めて読む</summary>
     public Func<string, Action, ImageSource?>? HoverIconSelector => ModificationHoverIcon is not { } hover
         ? null
@@ -546,6 +557,23 @@ public sealed class ModificationAvatarRow : ViewModelBase
             RefreshSuggestions();
             Changed?.Invoke();
         });
+
+        // 改変の一覧を読む前（保存した条件を戻した直後）は記録が引けないので押せない。読めば SetSources が札を残すか外す
+        if (OpenModification is { } open)
+        {
+            chip.OpenCommand = new RelayCommand(
+                () =>
+                {
+                    if (Find(id) is { } record)
+                    {
+                        open(record);
+                    }
+                },
+                () => Find(id) is not null);
+            chip.OpenText = "改変を開く";
+            chip.OpenDisabledTip = "改変を読み込むと開けます";
+        }
+
         Chips.Add(chip);
         RefreshSuggestions();
     }

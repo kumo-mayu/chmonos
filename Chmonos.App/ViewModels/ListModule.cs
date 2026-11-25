@@ -53,6 +53,20 @@ public sealed class ListChip : ViewModelBase
 
     public RelayCommand? RemoveCommand { get; set; }
 
+    /// <summary>
+    /// 札の右クリックの「開く」（ユーザ判断 2026-11-25「まとめて作りましょう」）。札の指す物の画面へ移る（対応アバター・プロファイルの札はアバターの管理、
+    /// 改変の札は改変の画面）。札の型は1つを共用するので、移る先の無い種類（ユーザータグ・ショップなど）は null にして右クリックを出さない
+    /// </summary>
+    public RelayCommand? OpenCommand { get; internal set; }
+
+    public bool HasOpen => OpenCommand is not null;
+
+    /// <summary>右クリックの項目の名前。今ある右クリックの言い方に揃える（札がアバターを指すなら「開く」、改変なら「改変を開く」）。</summary>
+    public string OpenText { get; internal set; } = "開く";
+
+    /// <summary>押せない時の吹き出し（消えたアバター・素体の一覧に無い名前など）。</summary>
+    public string OpenDisabledTip { get; internal set; } = "アバターの管理にある物だけ開けます";
+
     private bool _isConflict;
 
     /// <summary>ほかのチップと矛盾していて、必ず0件になる（ユーザータグの AND の中の「小分類なし」）。チップを警告の色にする。</summary>
@@ -478,6 +492,12 @@ public sealed class ListModule : SearchModule
 
     public bool HasReload => ReloadCommand is not null;
 
+    /// <summary>
+    /// 札の鍵 → 札の右クリックの「開く」（<see cref="ListChip.OpenCommand"/>）。移る先のある種類（対応アバター・プロファイルの変換元／変換先）だけが持つ。
+    /// 鍵ごとに null を返せば、その札には出さない
+    /// </summary>
+    public Func<string, RelayCommand?>? OpenOf { get; init; }
+
     /// <summary>今開いているプロジェクトのうち、まだ札に入っていない物（押すと札に入る。ユーザ指示 2026-11-01）。</summary>
     public ObservableCollection<OpenProjectRow> OpenProjectRows { get; } = [];
 
@@ -596,6 +616,7 @@ public sealed class ListModule : SearchModule
             RefreshSuggestions();
             NotifyChanged();
         });
+        chip.OpenCommand = OpenOf?.Invoke(key);
 
         Chips.Add(chip);
         RefreshSuggestions();
