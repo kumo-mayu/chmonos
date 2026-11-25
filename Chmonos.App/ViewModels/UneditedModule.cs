@@ -285,6 +285,9 @@ public sealed class EditFieldToggle : ViewModelBase
         EditField.UserTags => "ユーザータグ",
         EditField.Attributes => "属性",
         EditField.Purchases => "購入したバリエーション",
+
+        // 編集画面の購入したバリエーションの行の中の欄「対応」。「対応」だけでは対応アバターと読めるので、どの欄の物かを頭に付ける
+        EditField.VariationTargets => "バリエーションの対応",
         EditField.AcquiredAt => "入手日",
 
         // 前の条件の名前（「対応アバターの確認」）と、商品ページの「確認待ち」の作業の名前に揃える

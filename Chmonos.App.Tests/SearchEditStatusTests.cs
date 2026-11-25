@@ -52,6 +52,10 @@ public class SearchEditStatusTests
         Assert.Equal("編集状況", module.Label);
         Assert.Equal([EditField.UserTags], module.SelectedFields);
         Assert.Equal(["1", "3"], Passing(module));
+
+        // 項目は編集画面の右の欄の上からの順。バリエーションの対応（2026-11-25）は購入したバリエーションのすぐ後で、既定では入れない
+        Assert.Equal(["ユーザータグ", "属性", "購入したバリエーション", "バリエーションの対応", "入手日", "メモ", "対応アバターの確認"],
+            module.Fields.Select(toggle => toggle.Label));
         Assert.Equal("編集状況：ユーザータグが未入力", module.SummaryText);
     });
 
