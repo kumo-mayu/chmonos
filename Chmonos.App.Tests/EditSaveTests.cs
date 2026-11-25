@@ -1,6 +1,7 @@
 using Chmonos.App.Tests.Support;
 using Chmonos.App.ViewModels;
 using Chmonos.Core.Models;
+using Chmonos.Core.Services;
 
 namespace Chmonos.App.Tests;
 
@@ -158,6 +159,55 @@ public class EditSaveTests
         Assert.Equal(1, session.Index);
         Assert.Empty(session.SavedItemIds);
         Assert.DoesNotContain(first, session.ItemIds);
+    });
+
+    /// <summary>
+    /// 入り直したとき、後から取り込んだ未編集の商品を順番の後ろへ足す（ユーザ判断 2026-11-17）。
+    /// 足す順は作り直し（BuildDefaultQueueAsync）と同じ。保存した商品・ユーザータグのある商品は足さない。位置は前の続き。
+    /// </summary>
+    [Fact]
+    public Task 入り直すと_後から取り込んだ未編集の商品を作り直しと同じ順で後ろへ足し_位置は前の続きのまま() => TestApp.Run(async app =>
+    {
+        var (main, edit) = await OpenEditAsync(
+            app, Make.Item("1000001", "作り物の衣装"), Make.Item("1000002", "作り物の髪型"), Make.Item("1000003", "作り物の靴"));
+        var first = edit.CurrentItemId!;
+        edit.AddTagCommand.Execute("衣装");
+        await app.SettleAsync();
+        edit.SaveAndNextCommand.Execute(null);
+        await app.SettleAsync();
+        var second = edit.CurrentItemId!;
+
+        // 編集の外で取り込んだ商品：未編集2件（名前の順と商品IDの順を食い違わせる）と、タグのある1件
+        var lateA = Make.Item("1000009", "作り物のあ");
+        var lateB = Make.Item("1000004", "作り物のん");
+        var tagged = Make.Item("1000005", "作り物のタグ付き");
+        tagged = tagged with { Local = tagged.Local with { UserTags = [new UserTagAssignment { Top = "衣装" }] } };
+        await app.AddItemAsync(lateA);
+        await app.AddItemAsync(lateB);
+        await app.AddItemAsync(tagged);
+
+        main.ShowSearchCommand.Execute(null);
+        await app.SettleAsync();
+        main.ShowEditCommand.Execute(null);
+        await app.SettleAsync();
+
+        var again = Assert.IsType<EditViewModel>(main.CurrentViewModel);
+        var session = app.Store.EditSession.Load();
+
+        // 作り直しと同じ順（ItemOrder.ByAcquired）で、前の順番の後ろに付く
+        var expectedTail = ItemOrder.ByAcquired(
+            [(await app.Store.Items.LoadAsync("1000009"))!, (await app.Store.Items.LoadAsync("1000004"))!], descending: true)
+            .Select(item => item.Id).ToList();
+        Assert.Equal(2, expectedTail.Count);
+        Assert.Equal(expectedTail, session.ItemIds.Skip(2).ToList());
+        Assert.Equal(4, session.ItemIds.Count);
+        Assert.DoesNotContain(first, session.ItemIds);
+        Assert.DoesNotContain("1000005", session.ItemIds);
+
+        // 位置は前の続き（保存して外した1件の分だけ詰める）。順番と位置は同じ記録に書かれている
+        Assert.Equal(second, again.CurrentItemId);
+        Assert.Equal(0, session.Index);
+        Assert.Equal("1 / 4 件", again.StepText);
     });
 
     [Fact]

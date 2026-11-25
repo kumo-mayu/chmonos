@@ -712,8 +712,16 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
             index = 0;
         }
 
+        // 後から取り込んだ未編集の商品を後ろへ足す（ユーザ判断 2026-11-17）。足さないと、順番が全部片付いて作り直すまで
+        // 新しい商品が出ない（実データで、11-12 の順番が残り、11-17 に取り込んだ商品が出なかった）。
+        // 候補と順は作り直しと同じ（BuildDefaultQueueAsync）。前の順番に入っていた商品は足さない（保存して外した物や、
+        // 後ろへ回した物を戻さない）。位置は前の続きのまま、足すのは後ろだけなので動かない
+        var known = session.ItemIds.ToHashSet(StringComparer.Ordinal);
+        var added = (await BuildDefaultQueueAsync()).Where(id => !known.Contains(id)).ToList();
+        kept.AddRange(added);
+
         // 順番と位置は1回で書く。2回に分けると、間で落ちたときに位置が先頭に戻る
-        if (kept.Count != session.ItemIds.Count || saved.Count > 0)
+        if (kept.Count != session.ItemIds.Count || saved.Count > 0 || added.Count > 0)
         {
             await _services.Commands.ExecuteAsync(new UiCommand.StartEditSession(kept, index));
         }
