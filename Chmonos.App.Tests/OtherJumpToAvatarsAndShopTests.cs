@@ -129,6 +129,41 @@ public class OtherJumpToAvatarsAndShopTests
         Assert.IsNotType<AvatarsViewModel>(main.CurrentViewModel);
     });
 
+    /// <summary>
+    /// 商品の札の素体名は説明文から拾った書き方のままで、登録簿の素体と大文字・小文字が違いうる（押せるかは AvatarBaseNames.Same で見ている）。
+    /// 開いた先が名前の完全一致で探すと、押せるのに素体が見つからず「アバター」の見方の先頭の行で開いていた
+    /// </summary>
+    [Fact]
+    public Task 共通素体の札の名前が登録簿と大文字小文字だけ違っても_共通素体の見方でその素体を選ぶ() => TestApp.Run(async app =>
+    {
+        await app.Store.Avatars.SaveAsync(new AvatarRegistry
+        {
+            Entries = Registry().Entries,
+            BaseGroups = [new AvatarBaseGroup { Name = "Alpha" }, new AvatarBaseGroup { Name = "Sotai" }],
+        });
+        var item = Make.Item(ItemId, "作り物の衣装");
+        item = item with
+        {
+            Local = item.Local with
+            {
+                AvatarBases = [new AvatarBaseLink { BaseName = "SOTAI", Source = AvatarLinkSource.SupportSection, Confirmed = true }],
+                AvatarsDetectedAt = DateTimeOffset.Now,
+            },
+        };
+        await app.AddItemAsync(item);
+        var main = await app.StartAsync();
+        var page = new ItemViewModel(item, app.Services, main, main.Thumbnails);
+
+        var chip = Assert.Single(page.AvatarBases);
+        Assert.True(chip.OpenCommand!.CanExecute(null));
+        chip.OpenCommand.Execute(null);
+
+        var avatars = Assert.IsType<AvatarsViewModel>(main.CurrentViewModel);
+        await UiThread.Until(() => !avatars.IsLoading && avatars.SelectedBase is not null, "素体の一覧ができる");
+        Assert.True(avatars.IsBaseMode);
+        Assert.Equal("Sotai", avatars.SelectedBase!.Name);
+    });
+
     [Fact]
     public Task 統計のアバターの行の管理で開くは_管理でそのアバターを選び_検索へ行く今の動きは残る() => TestApp.Run(async app =>
     {

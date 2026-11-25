@@ -2183,15 +2183,19 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
             // 同じ行を入れ直しても、所属の数が変わっていることがあるので必ず知らせ直す。
             // 控えた素体が無ければ、絞りに当たる最初の素体（当たる物が無ければ選ばない）
+            // 外から開いた素体の名前（商品の札）は説明文の書き方のままで、大文字・小文字が登録簿と違いうる。
+            // 押せるかは AvatarBaseNames.Same で決めているので、ここも同じ比べ方で当てる（完全一致を先に）
             _selectedBase = null;
-            SelectedBase = Bases.FirstOrDefault(row => row.Name == selectedBaseName) ?? ShownBases.FirstOrDefault();
+            SelectedBase = Bases.FirstOrDefault(row => row.Name == selectedBaseName)
+                ?? Bases.FirstOrDefault(row => AvatarBaseNames.Same(row.Name, selectedBaseName))
+                ?? ShownBases.FirstOrDefault();
 
             IsLoading = false;
             Rebuild();
             RefreshConversionItems();
 
             // 戻るで素体の詳細へ戻すとき。素体が消えていたら（戻る前に消した）アバターの見方のまま
-            if (openBase && SelectedBase?.Name == selectedBaseName)
+            if (openBase && SelectedBase is { } opened && AvatarBaseNames.Same(opened.Name, selectedBaseName))
             {
                 IsBaseMode = true;
             }
