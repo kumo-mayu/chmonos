@@ -54,7 +54,7 @@
                 </Button>
                 <!-- 字の大きさはショップの1行の見出しの名前と揃える。
                      ショップ名は商品名のすぐ隣（ユーザ指示 2026-11-18）。商品名が長いときは商品名の方を「…」で縮め、ショップ名は幅の半分まで残す。
-                     商品ページでは頭の段と同じく押すとショップの画面へ（ShopCommand）。編集の画面の頭の段はただの字なので、ここも字だけ -->
+                     頭の段と同じく押すとショップの画面へ（ShopCommand。商品ページも編集の画面も渡す）。渡さなければ字だけ -->
                 <controls:TrailingFollowPanel Gap="14">
                     <TextBlock Text="{Binding ItemName}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis" ToolTip="{Binding ItemName}" />
