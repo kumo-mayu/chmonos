@@ -119,6 +119,7 @@ flowchart LR
 | ★ | 左の列の商品名の前 | 押す・Enter・Space | お気に入りの切り替え（その場で書く） | いつも | EditFavorite・EditView.xaml:436 |
 | ★（左の上の1行） | 左の上の1行 | 押す | 同上 | 左の列を流して商品名が隠れた時 | EditCompactFavorite・ItemCompactBar.xaml:32 |
 | ID の字 | 左の列 | 押す・中クリック | IDをコピー（中クリックは BOOTH の商品ページ） | いつも | EditView.xaml:466 |
+| ショップ名（頭の段・上の1行） | 左の列 | 押す・中クリック | ショップの画面へ（保存してあるショップ）。中クリックは BOOTH のショップのページ。ショップが無い商品では何も起きない | いつも | EditView.xaml:467・EditView.xaml:730 |
 | IDを変える | 左の列 | 押す | 窓で別のIDへ移す | いつも | EditView.xaml:471 |
 | 商品名・ショップ・ショップのURL・カテゴリの欄、ショップ・カテゴリの候補のボタン | 左の列 | 打つ・押す | 「保存して次へ」で書く | 「編集」で開いた時（候補は欄を触った時） | EditView.xaml:497・522・559・568・611・643 |
 | BOOTHのタグ（n） | 左の列 | 畳む・開く | 札を見せる | いつも | EditBoothTagsExpander・EditView.xaml:655 |

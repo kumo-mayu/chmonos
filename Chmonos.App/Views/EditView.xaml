@@ -464,7 +464,16 @@
                                 </controls:PressableBorder>
                                 <TextBlock Text="{Binding Name}" FontSize="17" FontWeight="Bold" TextWrapping="Wrap" />
                             </DockPanel>
-                            <TextBlock Text="{Binding ShopName}" FontSize="13" Foreground="{DynamicResource Accent}" Margin="0,6,0,0" />
+                            <!-- 商品ページの頭の段と同じく、押すと保存してあるショップの画面へ、中クリックで BOOTH のショップのページへ（ユーザ判断 2026-11-25）。
+                                 字は入力欄に打った内容を映し、行き先は保存してあるショップ（打っただけで保存前の名前では移れない。ショップが無い間は押しても何も起きない） -->
+                            <controls:SelectableLink Style="{StaticResource SelectableBody}" Cursor="Hand" FontSize="13" Margin="-2,6,0,0"
+                                                     IsTabStop="True" FocusVisualStyle="{StaticResource ChipFocusVisual}"
+                                                     Foreground="{DynamicResource Accent}"
+                                                     Command="{Binding ItemPage.OpenShopCommand}" MiddleCommand="{Binding ItemPage.OpenShopInBoothCommand}"
+                                                     ToolTip="このショップの商品を見る"
+                                                     AutomationProperties.AutomationId="EditShopLink"
+                                                     AutomationProperties.Name="{Binding ShopName, StringFormat={}{0}の商品を見る}"
+                                                     controls:SelectableText.PlainText="True" controls:SelectableText.Text="{Binding ShopName}" />
 
                             <!-- IDと「IDを変える」（ユーザ指示：商品ページの欄に倣う）。IDそのものを押すと写せる -->
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,0" DataContext="{Binding ItemPage}">
@@ -726,9 +735,9 @@
                 </StackPanel>
             </controls:InsetScrollViewer>
 
-            <!-- 名前とショップ名は左の頭の段と同じ出どころ（入力欄に打った内容を映す）。星と絵は商品ページの持ち主から。ショップ名はただの字（頭の段と同じ） -->
+            <!-- 名前とショップ名は左の頭の段と同じ出どころ（入力欄に打った内容を映す）。星と絵は商品ページの持ち主から。ショップ名は頭の段と同じく押せる（ユーザ判断 2026-11-25） -->
             <views:ItemCompactBar x:Name="LeftCompactBar" Page="{Binding ItemPage}" ItemName="{Binding Name}" ShopName="{Binding ShopName}"
-                                  IdPrefix="Edit" />
+                                  ShopCommand="{Binding ItemPage.OpenShopCommand}" ShopBoothCommand="{Binding ItemPage.OpenShopInBoothCommand}" IdPrefix="Edit" />
             </Grid>
 
             <!-- 右：入力 -->
