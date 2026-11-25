@@ -628,6 +628,16 @@
                                                       AllowDrop="True" DragOver="OnModulesDragOver"
                                                       DragLeave="OnModulesDragLeave" Drop="OnModulesDrop">
                             <ItemsControl.Resources>
+                                <!--
+                                    札の右クリック：札の指す物の画面へ移る（ユーザ判断 2026-11-25）。対応アバター・プロファイルの札はアバターの管理、改変の札は改変の画面。
+                                    移る先の無い札（OpenCommand が null）には付けない（項目を隠すだけだと空のメニューが出る）。1つを全部の札で共用する
+                                -->
+                                <ContextMenu x:Key="SearchChipMenu">
+                                    <MenuItem Header="{Binding OpenText}" Command="{Binding OpenCommand}"
+                                              AutomationProperties.AutomationId="SearchChipMenu.Open"
+                                              controls:MenuTips.Disabled="{Binding OpenDisabledTip}" />
+                                </ContextMenu>
+
                                 <!-- 積んだ値1つ（チップ）。候補から積む条件と、ユーザータグの小分類で同じ形を使う -->
                                 <DataTemplate x:Key="SearchChipTemplate" DataType="{x:Type vm:ListChip}">
                                     <!--
@@ -645,6 +655,9 @@
                                                         <Setter Property="Background" Value="{DynamicResource WarnSoft}" />
                                                         <Setter Property="BorderBrush" Value="{DynamicResource WarnBorder}" />
                                                         <Setter Property="TextElement.Foreground" Value="{DynamicResource Warn}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding HasOpen}" Value="True">
+                                                        <Setter Property="ContextMenu" Value="{StaticResource SearchChipMenu}" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>

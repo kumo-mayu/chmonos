@@ -399,6 +399,7 @@ public sealed partial class SearchViewModel
         HoverIconSelector = AvatarHoverIconSelector,
         InfoSelector = text => _avatarSuggestInfo.GetValueOrDefault(text),
         GroupHeadings = AvatarSuggestionText.Headings,
+        OpenOf = AvatarChipOpen,
     };
 
     private static Func<ItemRecord, SearchModuleContext, string, bool, bool> ListMatches(SearchModuleKind kind)
@@ -725,6 +726,58 @@ public sealed partial class SearchViewModel
     private const string AvatarKey = SearchModuleConditions.AvatarKey;
     private const string BaseKey = SearchModuleConditions.BaseKey;
 
+    /// <summary>
+    /// 対応アバター・プロファイルの札の右クリックの「開く」（ユーザ判断 2026-11-25）。アバターの札はアバターの管理でそのアバターを、
+    /// 共通素体の札は共通素体の見方でその素体を選んで開く。移る前の検索は主画面が履歴に積むので、戻る（Alt+←）で今の条件へ戻る。
+    /// 押せるかは押す時の登録簿で決める（保存した条件に、消したアバター・素体の鍵が残りうる）
+    /// </summary>
+    private RelayCommand? AvatarChipOpen(string key)
+    {
+        if (key.StartsWith(AvatarKey, StringComparison.Ordinal))
+        {
+            var id = key[AvatarKey.Length..];
+            return new RelayCommand(
+                () =>
+                {
+                    if (OpenableAvatar(id))
+                    {
+                        _main!.ShowAvatarAt(id, null);
+                    }
+                },
+                () => OpenableAvatar(id));
+        }
+
+        if (key.StartsWith(BaseKey, StringComparison.Ordinal))
+        {
+            var name = key[BaseKey.Length..];
+            return new RelayCommand(
+                () =>
+                {
+                    // 共通素体の見方は名前の完全一致で選ぶので、登録簿の書き方で渡す（札の鍵は大文字・小文字が違いうる）
+                    if (OpenableBase(name) is { } stored)
+                    {
+                        _main!.ShowAvatarAt(null, stored);
+                    }
+                },
+                () => OpenableBase(name) is not null);
+        }
+
+        return null;
+    }
+
+    /// <summary>アバターの管理の一覧にあるアバターか（アバターとして扱わない記録・消えた記録は開けない）。</summary>
+    private bool OpenableAvatar(string id)
+        => _main is not null && _services.Store.Avatars.Load().Entries.Any(entry => entry.ItemId == id && AvatarService.IsAvatar(entry));
+
+    /// <summary>
+    /// 共通素体の見方にある素体の、登録簿の書き方。素体の見方に並ぶのは消していないグループだけで、
+    /// アバターの記録の素体名だけにある名前（候補には出る）は並ばないので開けない
+    /// </summary>
+    private string? OpenableBase(string name)
+        => _main is null
+            ? null
+            : _services.Store.Avatars.Load().BaseGroups.FirstOrDefault(group => !group.Rejected && AvatarBaseNames.Same(group.Name, name))?.Name;
+
     private SearchModule CreateModule(SearchModuleKind kind) => kind switch
     {
         // カテゴリと BOOTHタグは OR だけ（ユーザ判断 2026-10-06・メモ82・メモ84「AND できる必要が無い」）。
@@ -866,6 +919,7 @@ public sealed partial class SearchViewModel
             HoverIconSelector = AvatarHoverIconSelector,
             InfoSelector = text => _avatarSuggestInfo.GetValueOrDefault(text),
             GroupHeadings = AvatarSuggestionText.Headings,
+            OpenOf = AvatarChipOpen,
         },
 
         // 変換ツールのプロファイル（ユーザ判断 2026-11-09・案B）。「変換元」（逆方向）と「変換先」（順方向）の2つの欄。
@@ -893,7 +947,8 @@ public sealed partial class SearchViewModel
         SearchModuleKind.Unedited => new UneditedModule(item => _main?.IsAwaitingDetection(item.Id) == true),
 
         // アバター → 改変の2段（ユーザ判断 2026-10-06。ユーザータグと同じ形）
-        SearchModuleKind.Modification => new ModificationModule(AvatarIconOf, ModificationIconOf, AvatarHoverIconOf, ModificationHoverIconOf),
+        SearchModuleKind.Modification => new ModificationModule(AvatarIconOf, ModificationIconOf, AvatarHoverIconOf, ModificationHoverIconOf,
+            record => _main?.ShowModification(record)),
 
         // 改変を通してそのプロジェクトに紐付いた商品（ユーザ判断 Q7）。プロジェクトの中身は見ない（開くたびに照らすと重い）
         SearchModuleKind.UnityProject => new ListModule(kind, allowsAnd: true, "プロジェクトの名前で絞り込む",
