@@ -104,8 +104,7 @@ public static class SearchModuleConditions
         bool FlagDefault = false,
         Func<ItemRecord, SearchModuleContext, bool>? IsUnspecified = null,
         Func<ItemRecord, SearchModuleContext, bool, bool>? IncludeMatches = null,
-        Func<string, string>? MatchKey = null,
-        Func<SearchModuleContext, bool>? IncludeApplies = null);
+        Func<string, string>? MatchKey = null);
 
     /// <summary>数の範囲の照らし方。</summary>
     /// <param name="Sources">数の元の鍵（価格の「払った額」「BOOTH価格」。先頭が既定）。持たない種類は空。</param>
@@ -227,11 +226,10 @@ public static class SearchModuleConditions
         SearchModuleKind.UnityProject => new(true, (item, context, key, _) => context.Modifications.InProject(key, item.Id)),
 
         // プロジェクトの中に実際に入っている商品（ユーザ判断 2026-11-01）。調べるのは重いので、画面が裏で調べた結果を材料から引く
-        // 「今開いているプロジェクト」は札と同じ扱いのかたまり。Unity が開いていない間は無いものとして扱う（使う人が札を選んでいなければ絞らない）
+        // 「今開いているプロジェクト」は条件の中に持たない。検索欄の右のスイッチの写しで、画面が基礎の述語として当てる
+        // （ユーザ判断 2026-11-25・案A。前は「札 OR 開いている全部」のかたまりで、スイッチと値を揃えると札が効かなくなった）
         SearchModuleKind.UnityProjectContents => new(true, (item, context, key, sameName) => context.ProjectContains(key, item.Id, sameName),
-            HasFlag: true,
-            IncludeMatches: (item, context, sameName) => context.OpenProjectContains(item.Id, sameName),
-            IncludeApplies: context => context.HasOpenProject),
+            HasFlag: true),
 
         // 選んだフォルダの子孫を全部含む。含まないと、通過点を選んだとき0件になる。フォルダは比べる形に1回だけ畳む
         SearchModuleKind.Path => new(true, (item, context, prefix, _) => FolderTree.IsUnderPrefix(item, prefix, context.PathMap),
@@ -324,9 +322,8 @@ public static class SearchModuleConditions
                 showMatched,
                 showUnspecified,
                 list.IncludeMatches,
-                list.IncludeMatches is not null && (kind == SearchModuleKind.UnityProjectContents ? state.IncludeOpenProject : state.IncludeFavorites),
-                list.MatchKey,
-                list.IncludeApplies);
+                list.IncludeMatches is not null && state.IncludeFavorites,
+                list.MatchKey);
         }
 
         if (RangeOf(kind) is { } range)

@@ -240,33 +240,172 @@ public class SearchUnityContentsTests
     });
 
     [Fact]
-    public Task Unityが開いていない間は_今開いているプロジェクトでは絞らず_そう言う() => TestApp.Run(async app =>
+    public Task Unityが開いていない間は_条件の中のスイッチもスイッチと同じ理由で灰色になり_絞らない() => TestApp.Run(async app =>
     {
         var search = await StartWithItemsAsync(app, "9900001");
+        search.OpenUnityOnly = true;
 
         var module = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProjectContents);
 
         await UiThread.Until(() => module.StatusText == "Unityが開いていません。", "待つ");
-        Assert.True(module.IncludeOn);
+        Assert.True(module.OpenProjectOn);
+        Assert.False(module.CanUseOpenProject);
+        Assert.Equal(search.CanUseOpenUnity, module.CanUseOpenProject);
+        Assert.Equal("Unityが開いていません。", module.OpenProjectDisabledReason);
+        Assert.Equal(search.OpenUnityDisabledReason, module.OpenProjectDisabledReason);
         Assert.False(module.IsActive);
         Assert.Equal(["9900001"], Shown(search));
     });
 
     [Fact]
-    public Task Unityを開いて窓に戻ると_今開いているプロジェクトで絞り直す() => TestApp.Run(async app =>
+    public Task Unityを開いて窓に戻ると_条件の中のスイッチも押せるようになり_絞り直す() => TestApp.Run(async app =>
     {
         var project = NewProject(app, "projA");
         var search = await StartWithItemsAsync(app, "9900001", "9900002");
         ScanFinds(app, "9900002");
+        search.OpenUnityOnly = true;
         var module = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProjectContents);
         await UiThread.Until(() => module.StatusText.Length > 0, "開いていないと言う");
+        var enabledChanges = 0;
+        module.PropertyChanged += (_, change) =>
+        {
+            if (change.PropertyName == nameof(ListModule.CanUseOpenProject))
+            {
+                enabledChanges++;
+            }
+        };
 
         app.OpenEditors = [new OpenUnityEditor(1, "projA", project)];
         search.NoteOpenProjectsMaybeChanged();
 
         await UiThread.Until(() => Shown(search) is ["9900002"], "絞り直す");
-        Assert.True(module.IsActive);
+        Assert.True(module.CanUseOpenProject);
+        Assert.True(enabledChanges > 0);
+
+        // 札が無い条件は何も足さない（スイッチだけが効く）。効いている数・要約に2回数えない
+        Assert.False(module.IsActive);
+        Assert.Equal(1, search.ActiveFilterCount);
+        Assert.Equal("開いているUnity", search.FilterSummary);
         Assert.False(module.HasStatus);
+    });
+
+    [Fact]
+    public Task 条件の中のスイッチと検索欄の右のスイッチは_互いに追い_1回の操作で絞り込みも書き込みも1回() => TestApp.Run(async app =>
+    {
+        var project = NewProject(app, "projA");
+        var search = await StartWithItemsAsync(app, "9900001", "9900002");
+        ScanFinds(app, "9900002");
+        await OpenAsync(app, search, new OpenUnityEditor(1, "projA", project));
+        var module = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProjectContents);
+        await app.SettleAsync();
+        var moduleChanges = 0;
+        module.PropertyChanged += (_, change) =>
+        {
+            if (change.PropertyName == nameof(ListModule.OpenProjectOn))
+            {
+                moduleChanges++;
+            }
+        };
+
+        // 条件の中を入れる → 右のスイッチがオンになる。往復しても絞り込みと ui-state の書き込みは1回ずつ
+        var runs = search.FilterRuns;
+        var writes = search.OpenUnitySwitchWrites;
+        module.OpenProjectOn = true;
+        Assert.True(search.OpenUnityOnly);
+        Assert.Equal(1, search.FilterRuns - runs);
+        Assert.Equal(1, search.OpenUnitySwitchWrites - writes);
+        Assert.True(moduleChanges > 0);
+
+        // 画面の結び付けが同じ値を書き戻しても、何も起きない
+        module.OpenProjectOn = true;
+        Assert.Equal(1, search.FilterRuns - runs);
+        Assert.Equal(1, search.OpenUnitySwitchWrites - writes);
+        await UiThread.Until(() => Shown(search) is ["9900002"], "絞る");
+        await UiThread.Until(() => app.Services.SettingsStore.UiState.SearchOpenUnityOnly, "書く");
+
+        // 右のスイッチを切る → 条件の中も切れて見える
+        moduleChanges = 0;
+        runs = search.FilterRuns;
+        search.OpenUnityOnly = false;
+        Assert.False(module.OpenProjectOn);
+        Assert.True(moduleChanges > 0);
+        Assert.Equal(1, search.FilterRuns - runs);
+        await UiThread.Until(() => Shown(search) is ["9900001", "9900002"], "戻る");
+
+        // 条件の中を切っても、ui-state に書くのはスイッチの値だけ（条件の保存には持たない）
+        module.OpenProjectOn = true;
+        module.OpenProjectOn = false;
+        await UiThread.Until(() => !app.Services.SettingsStore.UiState.SearchOpenUnityOnly, "切ったのを書く");
+        Assert.DoesNotContain(
+            app.Services.SettingsStore.UiState.SearchModules ?? [],
+            state => state.IncludeOpenProject);
+    });
+
+    [Fact]
+    public Task 条件を足しても_スイッチは動かさず今の値を見せる() => TestApp.Run(async app =>
+    {
+        var project = NewProject(app, "projA");
+        var search = await StartWithItemsAsync(app, "9900001", "9900002");
+        ScanFinds(app, "9900002");
+        await OpenAsync(app, search, new OpenUnityEditor(1, "projA", project));
+        var writes = search.OpenUnitySwitchWrites;
+
+        var module = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProjectContents);
+        await app.SettleAsync();
+
+        Assert.False(search.OpenUnityOnly);
+        Assert.False(module.OpenProjectOn);
+        Assert.Equal(writes, search.OpenUnitySwitchWrites);
+        Assert.Equal(["9900001", "9900002"], Shown(search));
+        Assert.Equal(0, search.ActiveFilterCount);
+
+        // 「条件をクリア」はスイッチを切らない（ユーザ判断 2026-11-03）。条件の中もオンのまま見える
+        search.OpenUnityOnly = true;
+        search.ClearFiltersCommand.Execute(null);
+        Assert.True(search.OpenUnityOnly);
+        Assert.True(module.OpenProjectOn);
+    });
+
+    [Fact]
+    public Task 札と組むと_札かつ開いているプロジェクトに入っている物を出す() => TestApp.Run(async app =>
+    {
+        var chosen = NewProject(app, "projA");
+        var open = NewProject(app, "projB");
+        var search = await StartWithItemsAsync(app, "9900001", "9900002", "9900003");
+
+        // projA には 1・2、開いている projB には 2・3 が入っている。前の「札 OR 開いている全部」なら 1・2・3 が出た
+        app.Services.ScanUnityProject = (project, _, _, _) =>
+            project == UnityProjectPath.Normalize(chosen) ? Packages("9900001", "9900002") : Packages("9900002", "9900003");
+        await OpenAsync(app, search, new OpenUnityEditor(1, "projB", open));
+        var module = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProjectContents);
+        module.AddKey(UnityProjectPath.Normalize(chosen)!);
+        await UiThread.Until(() => Shown(search) is ["9900001", "9900002"], "札だけ");
+
+        module.OpenProjectOn = true;
+
+        await UiThread.Until(() => Shown(search) is ["9900002"], "両方に入っている物");
+        Assert.Equal(2, search.ActiveFilterCount);
+        Assert.DoesNotContain(SearchViewModel.OpenProjectIncludeLabel, module.CollapsedSummary);
+    });
+
+    [Fact]
+    public Task 除くと組んでも_0件に潰れず_開いている中で札に入っていない物を出す() => TestApp.Run(async app =>
+    {
+        var chosen = NewProject(app, "projA");
+        var open = NewProject(app, "projB");
+        var search = await StartWithItemsAsync(app, "9900001", "9900002", "9900003");
+        app.Services.ScanUnityProject = (project, _, _, _) =>
+            project == UnityProjectPath.Normalize(chosen) ? Packages("9900002") : Packages("9900002", "9900003");
+        await OpenAsync(app, search, new OpenUnityEditor(1, "projB", open));
+        var module = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProjectContents);
+        module.AddKey(UnityProjectPath.Normalize(chosen)!);
+        module.IsExcluded = true;
+        await UiThread.Until(() => Shown(search) is ["9900001", "9900003"], "札を除く");
+
+        // 前は「除く」が（札 OR 開いている全部）を除き、開いている物と AND で必ず0件になった
+        module.OpenProjectOn = true;
+
+        await UiThread.Until(() => Shown(search) is ["9900003"], "開いている中で札に無い物");
     });
 
     [Fact]
@@ -279,8 +418,8 @@ public class SearchUnityContentsTests
             ["9900001"] = [new UnityImageMatch("Assets/a.png", "a.png", UnityImageMatchKind.SameImage)],
             ["9900002"] = [new UnityImageMatch("Assets/b.png", "b.png", UnityImageMatchKind.SameName)],
         });
-        app.OpenEditors = [new OpenUnityEditor(1, "projA", project)];
         var module = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProjectContents);
+        module.AddKey(UnityProjectPath.Normalize(project)!);
 
         await UiThread.Until(() => Shown(search) is ["9900001"], "同じ画像だけ");
         Assert.True(module.HasFlag);
@@ -302,6 +441,7 @@ public class SearchUnityContentsTests
         app.Services.ScanUnityProject = (project, _, _, _) => Packages(project == UnityProjectPath.Normalize(first) ? "9900001" : "9900002");
         app.OpenEditors = [new OpenUnityEditor(1, "projA", first), new OpenUnityEditor(2, "projB", second)];
         var module = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProjectContents);
+        module.OpenProjectOn = true;
 
         await UiThread.Until(() => module.OpenProjectRows.Count == 2, "2つ並ぶ");
         await UiThread.Until(() => Shown(search) is ["9900001", "9900002"], "開いている全部が対象");
@@ -309,9 +449,10 @@ public class SearchUnityContentsTests
 
         module.OpenProjectRows[0].AddCommand.Execute(null);
 
-        // 押した物だけに絞られる（入れたままだと開いている全部が対象で、押した効き目が見えない）
+        // 押した物だけに絞られる。スイッチは開いている物と AND なので、切らなくても押した効き目が見える
         await UiThread.Until(() => Shown(search) is ["9900001"], "押した物だけ");
-        Assert.False(module.IncludeOn);
+        Assert.True(module.OpenProjectOn);
+        Assert.True(search.OpenUnityOnly);
         Assert.Equal("projA", module.Chips.Single().DisplayText);
         Assert.Equal(["projB"], module.OpenProjectRows.Select(row => row.Name));
 
@@ -326,7 +467,6 @@ public class SearchUnityContentsTests
     {
         var search = await StartWithItemsAsync(app, "9900001");
         var module = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProjectContents);
-        module.IncludeOn = false;
 
         await UiThread.Until(() => module.StatusText == "Unityが開いていません。", "待つ");
         Assert.False(module.HasOpenProjectRows);
@@ -344,9 +484,10 @@ public class SearchUnityContentsTests
         var search = await StartWithItemsAsync(app, "9900001", "9900002");
         ScanFinds(app, "9900002");
         var module = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProjectContents);
+        module.OpenProjectOn = true;
         await UiThread.Until(() => module.StatusText == "Unityが開いていません。", "はじめの確認が終わる");
 
-        // 条件を足した時に裏で始まる確かめ（RefreshOpenProjectsAsync().Forget()）を終わらせてから差し替える。
+        // 条件を足した時・スイッチを入れた時に裏で始まる確かめ（RefreshOpenProjectsAsync().Forget()）を終わらせてから差し替える。
         // 文は前からの空の一覧でも出るので、文だけ待つと確かめが残り、差し替えた下の作り物を呼びうる。
         // それと試験が始めた1回が続けて入ると、数が 1 を飛ばして 2 になり、「1回目が始まる」が成り立たず時間切れで落ちていた
         // （2026-11-13 の Codex の点検 F1。一式をまとめて走らせて重い時だけ）
@@ -379,7 +520,8 @@ public class SearchUnityContentsTests
         await app.SettleAsync();
 
         Assert.Equal(["9900002"], Shown(search));
-        Assert.True(module.IsActive);
+        Assert.True(search.IsOpenUnityFiltering);
+        Assert.True(module.CanUseOpenProject);
     });
 
     [Fact]
@@ -455,7 +597,6 @@ public class SearchUnityContentsTests
         app.Services.ScanUnityProject = (project, _, _, _) =>
             Packages(project == UnityProjectPath.Normalize(open) ? "9900002" : "9900001");
         var module = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProjectContents);
-        module.IncludeOn = false;
         module.AddKey(UnityProjectPath.Normalize(other)!);
         await UiThread.Until(() => Shown(search) is ["9900001"], "条件だけ");
         await OpenAsync(app, search, new OpenUnityEditor(1, "projB", open));
@@ -598,7 +739,6 @@ public class SearchUnityContentsTests
         };
 
         var module = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProjectContents);
-        module.IncludeOn = false;
         module.AddKey(UnityProjectPath.Normalize(project)!);
 
         await UiThread.Until(() => module.StatusText.Contains("「projA」の中を調べています"), "待つ");
@@ -656,7 +796,7 @@ public class SearchUnityContentsTests
     });
 
     [Fact]
-    public Task 起動のとき_今開いているプロジェクトの条件は_全商品を挟まず前回の結果から出す() => TestApp.Run(async app =>
+    public Task 起動のとき_スイッチがオンで条件もあれば_全商品を挟まず前回の結果から出す() => TestApp.Run(async app =>
     {
         var project = NewProject(app, "projA");
         await app.AddItemAsync(Owned("9900001"));
@@ -664,7 +804,8 @@ public class SearchUnityContentsTests
         app.Services.UnityScans.Save(UnityProjectPath.Normalize(project)!, Packages("9900001"));
         await app.Services.SettingsStore.UpdateUiStateAsync(state => state with
         {
-            SearchModules = [new SearchModuleState { Kind = nameof(SearchModuleKind.UnityProjectContents), IncludeOpenProject = true }],
+            SearchModules = [new SearchModuleState { Kind = nameof(SearchModuleKind.UnityProjectContents) }],
+            SearchOpenUnityOnly = true,
         });
         using var gate = new Gate();
         app.Services.ScanUnityProject = (_, _, _, _) =>
@@ -677,8 +818,59 @@ public class SearchUnityContentsTests
         var main = await app.StartWhileWorkRunsAsync();
 
         Assert.Equal(["9900001"], Shown(main.Search));
+        Assert.True(ContentsModule(main.Search).OpenProjectOn);
         gate.Set();
-        await UiThread.Until(() => !ContentsModule(main.Search).HasStatus, "調べ終わる");
+        await UiThread.Until(() => !main.Search.HasOpenUnityStatus, "調べ終わる");
+    });
+
+    /// <summary>
+    /// 配った版（v1.0.0〜）は、条件の中の「今開いているプロジェクト」を <c>includeOpenProject</c> に書いた。
+    /// 今は読まない：読んで落ちず、スイッチも動かさず、絞りにも足さない（ユーザ判断 2026-11-25・案A）。書き戻すときは消える
+    /// </summary>
+    [Fact]
+    public Task 配った版の_includeOpenProjectの入った条件を読んでも落ちず_スイッチを動かさない() => TestApp.Run(async app =>
+    {
+        var project = NewProject(app, "projA");
+        await app.AddItemAsync(Owned("9900001"));
+        await app.AddItemAsync(Owned("9900002"));
+        app.Services.UnityScans.Save(UnityProjectPath.Normalize(project)!, Packages("9900001"));
+        ScanFinds(app, "9900001");
+        app.OpenEditors = [new OpenUnityEditor(1, "projA", project)];
+
+        // 配った版が書いた形のまま（手で書いた JSON。作り物の型から書くと、読む側が古い欄を見ているかが分からない）
+        const string written = """
+            {
+              "searchModules": [
+                { "kind": "UnityProjectContents", "enabled": true, "includeOpenProject": true }
+              ],
+              "searchOpenUnityOnly": false
+            }
+            """;
+        var old = System.Text.Json.JsonSerializer.Deserialize<UiState>(written, Chmonos.Core.Storage.JsonStore.Options)!;
+        Assert.True(old.SearchModules!.Single().IncludeOpenProject);
+        await app.Services.SettingsStore.UpdateUiStateAsync(state => state with
+        {
+            SearchModules = old.SearchModules,
+            SearchOpenUnityOnly = old.SearchOpenUnityOnly,
+        });
+
+        var search = (await app.StartAsync()).Search;
+        await UiThread.Until(() => search.CanUseOpenUnity, "開いていると分かる");
+        await app.SettleAsync();
+
+        var module = ContentsModule(search);
+        Assert.False(search.OpenUnityOnly);
+        Assert.False(module.OpenProjectOn);
+        Assert.False(module.IsActive);
+        Assert.Equal(0, search.ActiveFilterCount);
+        Assert.Equal(["9900001", "9900002"], Shown(search));
+
+        // 書き戻すと古い欄は消える（読まない値を残し続けない）
+        Assert.False(module.Save().IncludeOpenProject);
+        Assert.DoesNotContain(
+            "includeOpenProject",
+            System.Text.Json.JsonSerializer.Serialize(module.Save(), Chmonos.Core.Storage.JsonStore.Options),
+            StringComparison.Ordinal);
     });
 
     [Fact]
@@ -832,7 +1024,6 @@ public class SearchUnityContentsTests
         var search = await StartWithItemsAsync(app, "9900001");
         var module = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProjectContents);
 
-        module.IncludeOn = false;
         module.AddKey(Path.Combine(app.Root, "gone"));
 
         await UiThread.Until(() => module.StatusText.Contains("「gone」のフォルダが見つかりません。"), "待つ");

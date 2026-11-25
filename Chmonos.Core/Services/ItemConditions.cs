@@ -70,18 +70,13 @@ public sealed class ListCondition(
     bool showUnspecified = false,
     Func<ItemRecord, SearchModuleContext, bool, bool>? includeMatches = null,
     bool includeOn = false,
-    Func<string, string>? matchKey = null,
-    Func<SearchModuleContext, bool>? includeApplies = null) : ItemCondition
+    Func<string, string>? matchKey = null) : ItemCondition
 {
-    private bool _includeApplies = true;
-
     private readonly IReadOnlyList<string> _matchKeys = matchKey is null ? keys : keys.Select(matchKey).ToList();
 
     private bool HasGroups => isUnspecified is not null;
 
-    private bool IncludeOn => includeMatches is not null && includeOn && _includeApplies;
-
-    public override void Prepare(SearchModuleContext context) => _includeApplies = includeApplies?.Invoke(context) ?? true;
+    private bool IncludeOn => includeMatches is not null && includeOn;
 
     /// <summary>
     /// 「指定が無い商品だけ」はアバターを選んでいなくても絞る。それ以外は、値を選んで初めて絞る

@@ -207,12 +207,10 @@ public sealed class ListModule : SearchModule
         Func<ItemRecord, SearchModuleContext, bool>? isUnspecified = null,
         string? includeLabel = null,
         Func<ItemRecord, SearchModuleContext, bool, bool>? includeMatches = null,
-        Func<string, string>? matchKey = null,
-        Func<SearchModuleContext, bool>? includeApplies = null)
+        Func<string, string>? matchKey = null)
         : base(kind)
     {
         _matchKey = matchKey;
-        _includeApplies = includeApplies;
         _includeLabel = includeLabel;
         _includeMatches = includeMatches;
         AllowsAnd = allowsAnd;
@@ -305,15 +303,46 @@ public sealed class ListModule : SearchModule
     /// </remarks>
     public bool HasFlag => FlagLabel is not null && (IsOpenProjectInclude || Chips.Count > 0);
 
-    private readonly Func<SearchModuleContext, bool>? _includeApplies;
-
-    /// <summary>「今開いているプロジェクト」か（お気に入りのショップと同じ作りで、文と名前だけが違う）。</summary>
+    /// <summary>「今開いているプロジェクト」のチェックを出すか（条件「Unityプロジェクト」だけ）。</summary>
     public bool IsOpenProjectInclude => Kind == SearchModuleKind.UnityProjectContents;
 
     public bool IsFavoriteShopInclude => HasInclude && !IsOpenProjectInclude;
 
-    /// <summary>かたまりが今は無いものか（Unity が開いていない）。無い間は、札を選んでいなければ絞らない。</summary>
-    internal bool IncludeUnavailable { get; set; }
+    /// <summary>
+    /// 「今開いているプロジェクト」が写す、検索欄の右のスイッチ「開いているUnity」（ユーザ判断 2026-11-25・案A）。
+    /// **値はスイッチだけが持ち、ここは読み書きを渡すだけ**：条件の中にも値を持つと、2つを揃える往復で
+    /// 絞り込みと ui-state の書き込みが2回走る。前はチェックが「札 OR 開いている全部」を足すかたまりで、
+    /// スイッチ（開いている物と AND）と同じ値にすると札・「除く」が効かなくなったので、かたまりの働きはやめた
+    /// </summary>
+    public OpenUnitySwitchLink? OpenUnitySwitch { get; init; }
+
+    /// <summary>チェック「今開いているプロジェクト」。スイッチの値をそのまま見せ、押すとスイッチを切り替える。</summary>
+    public bool OpenProjectOn
+    {
+        get => OpenUnitySwitch?.Get() ?? false;
+        set
+        {
+            // 条件の保存も絞り込みもスイッチの側で行う（ここで NotifyChanged を呼ぶと2回目が走る）
+            if (OpenUnitySwitch is { } link && link.Get() != value)
+            {
+                link.Set(value);
+            }
+        }
+    }
+
+    /// <summary>スイッチと同じく、Unity が開いていなければ押せない。</summary>
+    public bool CanUseOpenProject => OpenUnitySwitch?.CanUse() ?? false;
+
+    /// <summary>押せないときの理由（スイッチと同じ文）。</summary>
+    public string OpenProjectDisabledReason => OpenUnitySwitch?.DisabledReason() ?? string.Empty;
+
+    /// <summary>スイッチの値か押せるかが変わった（検索の画面が呼ぶ）。</summary>
+    internal void NotifyOpenUnitySwitch()
+    {
+        OnPropertyChanged(nameof(OpenProjectOn));
+        OnPropertyChanged(nameof(CanUseOpenProject));
+        OnPropertyChanged(nameof(OpenProjectDisabledReason));
+    }
 
     public bool Flag
     {
@@ -530,18 +559,11 @@ public sealed class ListModule : SearchModule
     }
 
     /// <summary>
-    /// 押したプロジェクトを札にする。「今開いているプロジェクト」は切る——入れたままだと開いている全部が対象のままで、
-    /// 複数開いているときに押しても絞られない（押した効き目が見えない）。
+    /// 押したプロジェクトを札にする。チェック（スイッチの写し）は触らない：今は開いている物と AND なので、
+    /// 入ったままでも押した札で絞られる（2026-11-25 までは「札 OR 開いている全部」で、切らないと絞られなかった）
     /// </summary>
     private void PickOpenProject(string key)
     {
-        if (_includeOn)
-        {
-            _includeOn = false;
-            OnPropertyChanged(nameof(IncludeOn));
-            OnPropertyChanged(nameof(HasFlag));
-        }
-
         AddKeyByHand(key);
     }
 
@@ -643,7 +665,7 @@ public sealed class ListModule : SearchModule
     /// （足した直後に、何も選んでいないのに「指定が無い商品」が消えるのを避ける）。
     /// </summary>
     protected override bool HasCondition
-        => Chips.Count > 0 || (HasGroups && !_showMatched && _showUnspecified) || (HasInclude && _includeOn && !IncludeUnavailable);
+        => Chips.Count > 0 || (HasGroups && !_showMatched && _showUnspecified) || (HasInclude && _includeOn);
 
     protected override ItemCondition BuildCondition()
         => new ListCondition(
@@ -656,8 +678,7 @@ public sealed class ListModule : SearchModule
             _showUnspecified,
             _includeMatches,
             HasInclude && _includeOn,
-            _matchKey,
-            _includeApplies);
+            _matchKey);
 
     /// <summary>
     /// 照らすときに <c>matches</c> へ渡す鍵。畳む決まり（<c>matchKey</c>）があれば、チップごとに1回だけ畳んで覚える（案c）。
@@ -748,8 +769,10 @@ public sealed class ListModule : SearchModule
             Flag = _flag,
             ShowMatched = _showMatched,
             ShowUnspecified = _showUnspecified,
-            IncludeFavorites = _includeOn && !IsOpenProjectInclude,
-            IncludeOpenProject = _includeOn && IsOpenProjectInclude,
+            IncludeFavorites = HasInclude && _includeOn,
+
+            // 配った版が書いた「今開いているプロジェクト」は読まないので、戻した値も書き戻さない（OpenUnitySwitch）
+            IncludeOpenProject = false,
             Toggles = Kind == SearchModuleKind.Avatar
                 ? new Dictionary<string, bool>
                 {
@@ -780,7 +803,9 @@ public sealed class ListModule : SearchModule
         // 両方切った状態は作らない（手で書き換えた状態でも、対応している商品を出す側に戻す）
         _showUnspecified = HasGroups && state.ShowUnspecified;
         _showMatched = !HasGroups || state.ShowMatched || !_showUnspecified;
-        _includeOn = HasInclude && (IsOpenProjectInclude ? state.IncludeOpenProject : state.IncludeFavorites);
+        // 条件「Unityプロジェクト」の IncludeOpenProject（配った版が書いた物）は読まない。値はスイッチだけが持ち、
+        // 保存した条件・履歴を戻してもスイッチは動かさない（ユーザ判断 2026-11-25・案A）
+        _includeOn = HasInclude && state.IncludeFavorites;
         OnPropertyChanged(nameof(IncludeOn));
         OnPropertyChanged(nameof(HasFlag));
         OnPropertyChanged(nameof(MatchAll));
@@ -816,3 +841,6 @@ public sealed class ListModule : SearchModule
 /// <param name="Key">プロジェクトの場所（吹き出しに出す）。</param>
 /// <param name="Name">プロジェクトの名前。</param>
 public sealed record OpenProjectRow(string Key, string Name, RelayCommand AddCommand);
+
+/// <summary>検索欄の右のスイッチ「開いているUnity」への口（値・押せるか・押せない理由を持つのは検索の画面）。</summary>
+public sealed record OpenUnitySwitchLink(Func<bool> Get, Action<bool> Set, Func<bool> CanUse, Func<string> DisabledReason);

@@ -69,8 +69,12 @@ public sealed partial class SearchViewModel
         return true;
     }
 
+    /// <summary>絞り込んだ回数（試験が、1回の操作で全件を2回照らしていないかを見る）。</summary>
+    internal int FilterRuns { get; private set; }
+
     private void ApplyFilters()
     {
+        FilterRuns++;
         SaveSortIfChanged();
         RefreshCardInfo();
 

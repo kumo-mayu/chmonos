@@ -164,8 +164,24 @@ internal static partial class Scenes
             context.Services.ScanUnityProject = (_, _, _, _) => Chmonos.Core.Services.UnityProjectScan.Empty;
 
             var module = (ListModule)AddModule(search, SearchModuleKind.UnityProjectContents);
-            module.IncludeOn = true;
             search.NoteOpenProjectsMaybeChanged();
+            await SceneContext.UntilAsync(() => module.CanUseOpenProject, "条件の中のスイッチが押せる");
+
+            // 条件の中のスイッチは検索欄の右の写し（2026-11-25・案A）。右をオンにすると条件の中もオンに見える
+            search.OpenUnityOnly = true;
+
+            await context.SettleAsync();
+            return FiltersShot(root);
+        }),
+
+        new Scene("search-unity-open-project-disabled", "検索の絞り込み：Unityプロジェクト（Unity が開いていないので、条件の中のスイッチ「今開いているプロジェクト」も灰色）", async context =>
+        {
+            var (search, root) = await StartCatalogFiltersAsync(context);
+            context.Services.OpenUnityEditors = () => [];
+
+            AddModule(search, SearchModuleKind.UnityProjectContents);
+            search.NoteOpenProjectsMaybeChanged();
+            search.OpenUnityOnly = true;
 
             await context.SettleAsync();
             return FiltersShot(root);

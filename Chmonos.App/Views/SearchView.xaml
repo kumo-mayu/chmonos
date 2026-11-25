@@ -919,13 +919,27 @@
                                                 <Run Text="★" Foreground="{DynamicResource Star}" /> <Run Text="{Binding IncludeText, Mode=OneWay}" />
                                             </TextBlock>
                                         </CheckBox>
-                                        <!-- 既定で入る（ユーザ判断 2026-11-01）。Unity を開いて窓に戻ると対象を見直す -->
-                                        <CheckBox IsChecked="{Binding IncludeOn, Mode=TwoWay}" Margin="0,4,0,0"
+                                        <!--
+                                            検索欄の右のスイッチ「開いているUnity」の写し（ユーザ判断 2026-11-25・案A「ON/OFFトグルにして、右上のトグルと同期。グレーアウトも同期」）。
+                                            同じ物だと分かるよう、形もスイッチにする。押せない時と理由もスイッチと同じ
+                                        -->
+                                        <CheckBox IsChecked="{Binding OpenProjectOn, Mode=TwoWay}" IsEnabled="{Binding CanUseOpenProject}" Margin="0,4,0,0"
+                                                  ToolTipService.ShowOnDisabled="True"
                                                   AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.OpenProject'}"
                                                   AutomationProperties.Name="今開いているプロジェクト"
-                                                  ToolTip="開いているUnityのプロジェクトに入っている商品を表示します。"
+                                                  AutomationProperties.HelpText="{Binding OpenProjectDisabledReason}"
                                                   Visibility="{Binding IsOpenProjectInclude, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                            <TextBlock Text="{Binding IncludeText, Mode=OneWay}" FontSize="12" Foreground="{DynamicResource Text}" />
+                                            <CheckBox.Style>
+                                                <Style TargetType="CheckBox" BasedOn="{StaticResource ToggleSwitch}">
+                                                    <Setter Property="ToolTip" Value="検索欄の右の「開いているUnity」と同じ切り替えです。" />
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsEnabled" Value="False">
+                                                            <Setter Property="ToolTip" Value="{Binding OpenProjectDisabledReason}" />
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </CheckBox.Style>
+                                            <TextBlock Text="{x:Static vm:SearchViewModel.OpenProjectIncludeLabel}" FontSize="12" Foreground="{DynamicResource Text}" />
                                         </CheckBox>
                                         <!-- 開いているプロジェクトを押して札に入れる（ユーザ指示 2026-11-01）。無いときは下の状況の文が「Unityが開いていません。」と言う -->
                                         <controls:ContentItemsControl ItemsSource="{Binding OpenProjectRows}" controls:ArrowGroup.IsEnabled="True" Margin="0,4,0,0" Focusable="False"
