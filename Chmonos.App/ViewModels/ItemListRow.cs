@@ -83,7 +83,7 @@ public sealed class ItemListRow
         return acquired.Value is null ? string.Empty : DisplayText.AcquiredDate(acquired.Value, acquired.IsFallback);
     });
 
-    /// <summary>ギフト。条件「ギフト」の選択肢と同じ語。自分で買っただけの商品は空（ほとんどの商品がそれなので、違う物だけが目に付くように）。</summary>
+    /// <summary>ギフト。条件「購入・ギフト」の選択肢と同じ語。自分で買っただけの商品は空（ほとんどの商品がそれなので、違う物だけが目に付くように）。</summary>
     public string Gift => Get(ItemListRowField.Gift, () =>
     {
         var parts = new List<string>(2);

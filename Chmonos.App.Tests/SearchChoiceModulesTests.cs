@@ -138,7 +138,7 @@ public class SearchChoiceModulesTests
         }
 
         module.Flag = true;
-        Assert.Equal("ギフト：購入した・購入記録の無い商品も含める", module.SummaryText);
+        Assert.Equal("購入・ギフト：購入した・購入記録の無い商品も含める", module.SummaryText);
     });
 
     [Fact]

@@ -156,7 +156,8 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.PublishedAt, "公開日", "BOOTHでの公開日で絞ります。", AllowsMany: true, OrSameKind: true),
         new(SearchModuleKind.Adult, "R-18", "R-18 の商品で絞ります。"),
         new(SearchModuleKind.Owned, "所持", "手元にファイルがあるかで絞ります。"),
-        new(SearchModuleKind.Gift, "ギフト", "購入記録で絞ります。貰って自分でも買った商品は、どちらにも表示されます。"),
+        // 見出しは「購入・ギフト」（ユーザ判断 2026-11-25「名前を変更」。選択肢に「購入した」があり、ギフトだけの条件に読めなかった）。種類の名前（Gift）は保存した状態に書くので変えない
+        new(SearchModuleKind.Gift, "購入・ギフト", "購入記録で絞ります。貰って自分でも買った商品は、どちらにも表示されます。"),
         new(SearchModuleKind.FreePaid, "有料・無料", "BOOTH価格で絞ります。"),
         new(SearchModuleKind.UserTag, "ユーザータグ", "自分で付けたタグで絞ります。", AllowsMany: true),
         new(SearchModuleKind.Attribute, "属性", "自分で付けた属性の値で絞ります。評価していない商品は外れます。"),
