@@ -103,7 +103,7 @@ internal static partial class Scenes
             return new Shot(root);
         }),
 
-        new Scene("search-not-on-booth", "検索の絞り込み：条件「BOOTHに無い商品」（BOOTHに無い商品だけ）と、絞った結果のカード", async context =>
+        new Scene("search-not-on-booth", "検索の絞り込み：条件「登録のしかた」（仮のIDで登録した商品）と、絞った結果のカード", async context =>
         {
             var (search, root) = await StartFiltersAsync(context, localOnly: index => index is 2 or 5);
             var module = (ChoiceModule)AddModule(search, SearchModuleKind.NotOnBooth);

@@ -40,7 +40,7 @@ public class SearchNotOnBoothTests
         Pick(module, "both");
         Assert.Equal(5, search.ListItems.Count);
 
-        Assert.Equal(["BOOTHに無い商品だけ", "BOOTHの商品だけ", "両方"], module.Options.Select(option => option.Label));
+        Assert.Equal(["仮のIDで登録した商品", "商品IDで登録した商品", "両方"], module.Options.Select(option => option.Label));
     });
 
     [Fact]
@@ -52,7 +52,7 @@ public class SearchNotOnBoothTests
         Pick(module, "local");
 
         Assert.Equal([2, 3, 5], module.Options.Select(option => option.Count));
-        Assert.Equal("BOOTHに無い商品：BOOTHに無い商品だけ", module.SummaryText);
+        Assert.Equal("登録のしかた：仮のIDで登録した商品", module.SummaryText);
     });
 
     [Fact]

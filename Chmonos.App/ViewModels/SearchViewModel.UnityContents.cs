@@ -20,8 +20,14 @@ public sealed partial class SearchViewModel
     /// <summary>「今開いているプロジェクト」の文。条件の要約にも出る。</summary>
     public const string OpenProjectIncludeLabel = "今開いているプロジェクト";
 
-    /// <summary>名前だけ一致したファイルも足す切り替え。取り違えがあり得るので既定は切る（ユーザ判断 2026-11-01）。</summary>
-    public const string SameNameFlagLabel = "名前が同じファイルも含める";
+    /// <summary>
+    /// 名前だけ一致したファイルも足す切り替え。取り違えがあり得るので既定は切る（ユーザ判断 2026-11-01）。
+    /// 名前で当てるのは手で置いた画像だけ（unitypackage で入った物は名前では当てない）なので「画像」と言い、
+    /// 吹き出しで手で置いた物の事だと分かるようにする（ユーザ判断 2026-11-25「画像などを想定していることが分かると嬉しい」）
+    /// </summary>
+    public const string SameNameFlagLabel = "名前が同じ画像も含める";
+
+    public const string SameNameFlagHint = "手で置いた画像を、中身が違っても名前が同じなら含めます。";
 
     private sealed class ProjectContents
     {

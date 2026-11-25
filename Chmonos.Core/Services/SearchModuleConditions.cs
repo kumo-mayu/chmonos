@@ -22,7 +22,7 @@ public static class SearchModuleConditions
     /// <summary>条件「見つからないファイル」の「ある」の鍵。</summary>
     public const string MissingFileKey = "missing";
 
-    /// <summary>条件「BOOTHに無い商品」の「BOOTHに無い商品だけ」の鍵。</summary>
+    /// <summary>条件「登録のしかた」（前の名前は「BOOTHに無い商品」）の「仮のIDで登録した商品」の鍵。</summary>
     public const string NotOnBoothKey = "local";
 
     /// <summary>価格の元：自分が払った額（既定）。</summary>

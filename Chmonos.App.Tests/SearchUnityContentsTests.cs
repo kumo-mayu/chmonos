@@ -284,6 +284,10 @@ public class SearchUnityContentsTests
 
         await UiThread.Until(() => Shown(search) is ["9900001"], "同じ画像だけ");
         Assert.True(module.HasFlag);
+
+        // 名前で当てるのは手で置いた画像だけなので、そう読める文と吹き出しにする（ユーザ判断 2026-11-25）
+        Assert.Equal("名前が同じ画像も含める", module.FlagLabel);
+        Assert.Equal("手で置いた画像を、中身が違っても名前が同じなら含めます。", module.FlagHint);
         module.Flag = true;
 
         Assert.Equal(["9900001", "9900002"], Shown(search));
