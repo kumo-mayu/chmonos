@@ -501,6 +501,12 @@ public sealed class ListModule : SearchModule
     /// </summary>
     public Func<string, RelayCommand?>? OpenOf { get; init; }
 
+    /// <summary>札の右クリックの項目の名前（ショップなら「ショップを開く」。カードの右クリックの言い方に揃える）。</summary>
+    public string OpenText { get; init; } = "開く";
+
+    /// <summary>札が押せない時の吹き出し。</summary>
+    public string OpenDisabledTip { get; init; } = "アバターの管理にある物だけ開けます";
+
     /// <summary>今開いているプロジェクトのうち、まだ札に入っていない物（押すと札に入る。ユーザ指示 2026-11-01）。</summary>
     public ObservableCollection<OpenProjectRow> OpenProjectRows { get; } = [];
 
@@ -620,6 +626,8 @@ public sealed class ListModule : SearchModule
             NotifyChanged();
         });
         chip.OpenCommand = OpenOf?.Invoke(key);
+        chip.OpenText = OpenText;
+        chip.OpenDisabledTip = OpenDisabledTip;
 
         Chips.Add(chip);
         RefreshSuggestions();

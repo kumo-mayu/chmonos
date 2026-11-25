@@ -765,9 +765,32 @@ public sealed partial class SearchViewModel
         return null;
     }
 
-    /// <summary>アバターの管理の一覧にあるアバターか（アバターとして扱わない記録・消えた記録は開けない）。</summary>
-    private bool OpenableAvatar(string id)
-        => _main is not null && _services.Store.Avatars.Load().Entries.Any(entry => entry.ItemId == id && AvatarService.IsAvatar(entry));
+    /// <summary>
+    /// アバターの管理の一覧にあるアバターか。一覧は「アバター」と「アバターとして扱わない」にした記録で（<c>AvatarService.LoadAsync</c> の絞り方）、
+    /// 変換の画面の組の端（<c>CanOpenConversionEnd</c>）と同じく扱わない行も開ける。1件も無い記録・消えた記録は開けない（ユーザ判断 2026-11-25）
+    /// </summary>
+    internal bool OpenableAvatar(string id)
+        => _main is not null
+            && _services.Store.Avatars.Load().Entries.Any(entry => entry.ItemId == id && (AvatarService.IsAvatar(entry) || entry.AvatarOverride == false));
+
+    /// <summary>
+    /// ショップの札の右クリックの「ショップを開く」（ユーザ判断 2026-11-25）。商品のカードの右クリックと同じ <c>ShowShopAsync</c> で、ショップの中へ移る。
+    /// 今の商品に1つも出てこない鍵（保存した条件に残った消えたショップ）は、移っても何も開かないので押せなくする。
+    /// お気に入りの「★ …」は札ではない（<see cref="ListModule.IncludeText"/>）ので、ここには来ない
+    /// </summary>
+    private RelayCommand? ShopChipOpen(string key)
+        => new(
+            () =>
+            {
+                if (OpenableShop(key))
+                {
+                    _main!.ShowShopAsync(key).Forget();
+                }
+            },
+            () => OpenableShop(key));
+
+    private bool OpenableShop(string key)
+        => _main is not null && _allItems.Any(item => string.Equals(item.ShopSubdomain, key, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// 共通素体の見方にある素体の、登録簿の書き方。素体の見方に並ぶのは消していないグループだけで、
@@ -801,6 +824,9 @@ public sealed partial class SearchViewModel
             includeMatches: SearchModuleConditions.ListOf(kind)!.IncludeMatches)
         {
             InfoSelector = text => _shopSuggestInfo.GetValueOrDefault(text),
+            OpenOf = ShopChipOpen,
+            OpenText = "ショップを開く",
+            OpenDisabledTip = "商品に出てくるショップだけ開けます",
         },
 
         SearchModuleKind.WishList => new RangeModule(kind, SearchModuleConditions.RangeOf(kind)!.Values, string.Empty)
@@ -948,7 +974,11 @@ public sealed partial class SearchViewModel
 
         // アバター → 改変の2段（ユーザ判断 2026-10-06。ユーザータグと同じ形）
         SearchModuleKind.Modification => new ModificationModule(AvatarIconOf, ModificationIconOf, AvatarHoverIconOf, ModificationHoverIconOf,
-            record => _main?.ShowModification(record)),
+            record => _main?.ShowModification(record))
+        {
+            OpenAvatar = id => _main?.ShowAvatarAt(id, null),
+            CanOpenAvatar = OpenableAvatar,
+        },
 
         // 改変を通してそのプロジェクトに紐付いた商品（ユーザ判断 Q7）。プロジェクトの中身は見ない（開くたびに照らすと重い）
         SearchModuleKind.UnityProject => new ListModule(kind, allowsAnd: true, "プロジェクトの名前で絞り込む",
