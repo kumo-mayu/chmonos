@@ -220,4 +220,4 @@
    - 測る物の残り：⑤1件送った後に Unity で選ぶまで（実際の Unity・「試して」の時だけ）
    - 確かめていない物：「アバターとして扱わない」にしたアバターの札の「開く」（写しに無い）・1件送った後に Unity で選ぶ設定の実機（Enter 無しで選ばれるか・スクリプト入りの取り込み直後に探せるか）
    - 判断待ち（今のままで良いかをユーザに聞く）：幅900で「変換の組」の説明文が右で切れる（直すか）・編集画面でショップ名を打ち換えている途中でも保存してある方のショップへ移る（おすすめは今のまま）・隠れた札（「ほか n 件」）を自動の操作が押した時に前の札の命令が残る（おすすめは直さない。人の操作では隠れた札は押せない）
-   - 写しの裏の取得（判断待ち）：`ui-check/sandboxes.md` は「friendtest 以外は切」だが、2026-11-26 に attrcheck・daily-ui・friend2-backup・prod-backup-20261118・prod-rehearsal・upd2check・updcheck が「入」だった。friendcheck も「入」で、測りの起動で BOOTH へ更新の確認が流れた（ゲートは通った）ので、friendcheck だけ「切」に戻した。ほかを切るか、文書を直すかを聞く
+   - 済み：写しの裏の取得：`ui-check/sandboxes.md` は「friendtest 以外は切」だが、2026-11-26 に attrcheck・daily-ui・friend2-backup・prod-backup-20261118・prod-rehearsal・upd2check・updcheck が「入」だった。friendcheck も「入」で、測りの起動で BOOTH へ更新の確認が流れた（ゲートは通った）ので、friendcheck を「切」に戻し、ユーザ判断（「切にしてよいです」）でほかの7つも「切」にした。今「入」は friendtest だけ
