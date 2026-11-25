@@ -176,7 +176,9 @@ public static class SearchModuleCatalog
         new(SearchModuleKind.Recent, "最近", "Unity送信・商品閲覧・取り込みをした日で絞ります。"),
         new(SearchModuleKind.BrokenZip, "壊れたzip", "壊れていて開けないzipがある商品で絞ります。"),
         new(SearchModuleKind.MissingFile, "見つからないファイル", "記録にはあるのに、置き場が見つからないファイルやフォルダがある商品で絞ります。"),
-        new(SearchModuleKind.NotOnBooth, "BOOTHに無い商品", "BOOTHに無い商品として登録した商品か、BOOTHの商品かで絞ります。"),
+        // 見出しと選択肢は登録のしかたで言う（ユーザ判断 2026-11-25「確実に言えるのはローカルかどうかだけ」。前の「BOOTHに無い商品」は、
+        // 仮のIDで登録した後でBOOTHに出た物も、商品IDのまま登録した非公開の物も言い当てていなかった）。種類の名前（NotOnBooth）は保存した状態に書くので変えない
+        new(SearchModuleKind.NotOnBooth, "登録のしかた", "商品IDで登録したか、仮のIDで登録したかで絞ります。"),
         new(SearchModuleKind.Updated, "更新通知あり", "未読の更新の通知がある商品を、変わった内容の種類で絞ります。"),
     ];
 

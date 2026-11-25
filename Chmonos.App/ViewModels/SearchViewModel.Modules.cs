@@ -819,7 +819,7 @@ public sealed partial class SearchViewModel
 
         // 仮のIDで登録した商品（BOOTHに無い商品・ローカル登録。ユーザ指示 2026-10-04 メモ31）。カードの「BOOTHで開く」を出さない判定と同じ式（ItemRecord.IsLocalOnly）
         SearchModuleKind.NotOnBooth => new ChoiceModule(kind,
-            [new(NotOnBoothKey, "BOOTHに無い商品だけ"), new("booth", "BOOTHの商品だけ"), new("both", "両方")],
+            [new(NotOnBoothKey, "仮のIDで登録した商品"), new("booth", "商品IDで登録した商品"), new("both", "両方")],
             "both", ChoiceMatches(kind)),
 
         // 要確認に未読の更新がある商品（ユーザ指示 2026-10-02）。カードの札「更新あり」と同じ表（SearchViewModel.Updates）を見る。
@@ -953,7 +953,7 @@ public sealed partial class SearchViewModel
     /// <summary>条件「見つからないファイル」の「ある」の鍵。</summary>
     private const string MissingFileKey = SearchModuleConditions.MissingFileKey;
 
-    /// <summary>条件「BOOTHに無い商品」の「BOOTHに無い商品だけ」の鍵。</summary>
+    /// <summary>条件「登録のしかた」（前の名前は「BOOTHに無い商品」）の「仮のIDで登録した商品」の鍵。</summary>
     private const string NotOnBoothKey = SearchModuleConditions.NotOnBoothKey;
 
     private const string PaidSource = SearchModuleConditions.PaidSource;
