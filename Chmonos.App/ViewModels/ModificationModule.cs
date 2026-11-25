@@ -28,6 +28,12 @@ public sealed class ModificationModule : SearchModule
     private readonly Func<ModificationRecord, Action, ImageSource?>? _modificationHoverIcon;
     private readonly Action<ModificationRecord>? _openModification;
 
+    /// <summary>アバターの枠の見出しの右クリックの「開く」の移り先（アバターの商品ID。ユーザ判断 2026-11-25）。無ければ右クリックを出さない。</summary>
+    public Action<string>? OpenAvatar { get; init; }
+
+    /// <summary>そのアバターがアバターの管理の一覧にあるか。無ければ（試験の組み立て）押せるとする。</summary>
+    public Func<string, bool>? CanOpenAvatar { get; init; }
+
     /// <summary>1段目の候補の文字 → (アバター, 改変か null)。</summary>
     private readonly Dictionary<string, (string Avatar, string? Modification)> _entries = new(StringComparer.CurrentCultureIgnoreCase);
     private readonly Dictionary<string, Candidate> _candidates = new(StringComparer.CurrentCultureIgnoreCase);
@@ -271,6 +277,8 @@ public sealed class ModificationModule : SearchModule
         {
             ModificationHoverIcon = _modificationHoverIcon,
             OpenModification = _openModification,
+            OpenAvatar = OpenAvatar,
+            CanOpenAvatar = CanOpenAvatar,
         };
         if (_byAvatar.TryGetValue(avatar, out var list))
         {
@@ -471,6 +479,26 @@ public sealed class ModificationAvatarRow : ViewModelBase
 
     /// <summary>改変の札の「改変を開く」の移り先（持ち主の <see cref="ModificationModule"/> から渡す）。無ければ札に右クリックを出さない</summary>
     public Action<ModificationRecord>? OpenModification { get; init; }
+
+    /// <summary>枠の見出しの「開く」（持ち主の <see cref="ModificationModule"/> から渡す）。無ければ右クリックを出さない</summary>
+    public Action<string>? OpenAvatar { get; init; }
+
+    public Func<string, bool>? CanOpenAvatar { get; init; }
+
+    private RelayCommand? _openAvatarCommand;
+
+    /// <summary>見出しの右クリックの「開く」。アバターの管理でこのアバターを選ぶ（Alt+← で検索の今の条件へ戻る）。</summary>
+    public RelayCommand? OpenAvatarCommand => OpenAvatar is null ? null : _openAvatarCommand ??= new RelayCommand(
+        () =>
+        {
+            if (CanOpenAvatar?.Invoke(Avatar) != false)
+            {
+                OpenAvatar(Avatar);
+            }
+        },
+        () => CanOpenAvatar?.Invoke(Avatar) != false);
+
+    public bool HasOpenAvatar => OpenAvatar is not null;
 
     /// <summary>2段目の候補の頭の絵に乗せた時の大きな絵（ユーザ判断 2026-11-20）。乗せた時に初めて読む</summary>
     public Func<string, Action, ImageSource?>? HoverIconSelector => ModificationHoverIcon is not { } hover
