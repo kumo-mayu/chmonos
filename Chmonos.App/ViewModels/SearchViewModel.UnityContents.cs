@@ -17,7 +17,7 @@ namespace Chmonos.App.ViewModels;
 /// </summary>
 public sealed partial class SearchViewModel
 {
-    /// <summary>「今開いているプロジェクト」の文。条件の要約にも出る。</summary>
+    /// <summary>条件「Unityプロジェクト」の中のスイッチ（検索欄の右の「開いているUnity」の写し）の文。</summary>
     public const string OpenProjectIncludeLabel = "今開いているプロジェクト";
 
     /// <summary>
@@ -90,8 +90,16 @@ public sealed partial class SearchViewModel
                 return;
             }
 
+            OpenUnitySwitchWrites++;
             _services.Commands.ExecuteAsync(new Core.Commands.UiCommand.ChangeUiState(
                 state => state with { SearchOpenUnityOnly = value })).Forget();
+
+            // 条件の中のチェックは写し。値はここだけが持つので、知らせるだけで往復しない
+            foreach (var module in ProjectContentsModules())
+            {
+                module.NotifyOpenUnitySwitch();
+            }
+
             ApplyFilters();
 
             // オンにしたときは開いているかを見直す（灰色にする前に Unity を閉じていたかもしれない）
@@ -101,6 +109,9 @@ public sealed partial class SearchViewModel
             }
         }
     }
+
+    /// <summary>スイッチの値を ui-state へ書きに出した回数（試験が、チェックとの往復で2回書かないかを見る）。</summary>
+    internal int OpenUnitySwitchWrites { get; private set; }
 
     /// <summary>
     /// スイッチを押せるか。開いていなければ灰色にし、オンのままでも絞らない（ユーザ判断 2026-11-03）。
@@ -140,6 +151,13 @@ public sealed partial class SearchViewModel
     {
         OnPropertyChanged(nameof(CanUseOpenUnity));
         OnPropertyChanged(nameof(OpenUnityDisabledReason));
+
+        // 条件の中のチェックも同じ時に灰色にする（ユーザ指示 2026-11-25「グレーアウトも同期」）
+        foreach (var module in ProjectContentsModules())
+        {
+            module.NotifyOpenUnitySwitch();
+        }
+
         OnPropertyChanged(nameof(IsOpenUnityFiltering));
         OnPropertyChanged(nameof(OpenUnityStatus));
         OnPropertyChanged(nameof(HasOpenUnityStatus));
@@ -267,12 +285,12 @@ public sealed partial class SearchViewModel
     }
 
     /// <summary>
-    /// 戻した条件が「今開いているプロジェクト」を見るなら、一覧を読むのと並べて確かめ始める。
+    /// スイッチ（条件の中の「今開いているプロジェクト」はその写し）がオンなら、一覧を読むのと並べて確かめ始める。
     /// 分かる前は絞らないので、確かめる前に一覧を出すと、全商品が一瞬出てから絞られる。
     /// </summary>
     private void StartFirstOpenProjectsCheck()
     {
-        if (_openUnityOnly || ProjectContentsModules().Any(module => module.IsEnabled && module.IncludeOn))
+        if (_openUnityOnly)
         {
             // 続きを別に回すのは、当てた見直しの途中（絞り直す前）に一覧を出す側の続きが割り込まないため
             _firstOpenProjectsApplied = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -354,11 +372,6 @@ public sealed partial class SearchViewModel
         var same = paths.SequenceEqual(_openProjects, StringComparer.OrdinalIgnoreCase) && unknown.SequenceEqual(_unknownOpenProjects);
         _openProjects = paths;
         _unknownOpenProjects = unknown;
-        foreach (var module in ProjectContentsModules())
-        {
-            module.IncludeUnavailable = paths.Count == 0;
-        }
-
         if (same)
         {
             RefreshProjectStatus();
@@ -372,11 +385,6 @@ public sealed partial class SearchViewModel
     /// <summary>効いている札と開いているプロジェクトのうち、まだ調べていない物を裏で調べ始める。</summary>
     private void EnsureProjectContents()
     {
-        foreach (var module in ProjectContentsModules())
-        {
-            module.IncludeUnavailable = _openProjects.Count == 0;
-        }
-
         // 前回の状態を戻したときは、まだ開いているプロジェクトを見ていない
         if (!_openProjectsChecked && ProjectContentsModules().Any())
         {
@@ -391,7 +399,7 @@ public sealed partial class SearchViewModel
 
         var keys = ProjectContentsModules()
             .Where(module => module.IsEnabled)
-            .SelectMany(module => module.Chips.Select(chip => chip.Key).Concat(module.IncludeOn ? _openProjects : []))
+            .SelectMany(module => module.Chips.Select(chip => chip.Key))
             .Concat(OpenUnityFilterOn ? _openProjects : [])
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -525,7 +533,8 @@ public sealed partial class SearchViewModel
                 lines.Add("Unityが開いていません。");
             }
 
-            var keys = module.Chips.Select(chip => chip.Key).Concat(module.IncludeOn ? _openProjects : []).Distinct(StringComparer.OrdinalIgnoreCase);
+            // 開いているプロジェクトの進み具合は件数の帯（OpenUnityStatus）が言う。ここでも言うと、チェックを入れた時に2か所に出る
+            var keys = module.Chips.Select(chip => chip.Key).Distinct(StringComparer.OrdinalIgnoreCase);
             lines.AddRange(keys
                 .Select(key => _projectContents.GetValueOrDefault(key) is { } contents
                     ? contents.Problem ?? (contents.IsScanning

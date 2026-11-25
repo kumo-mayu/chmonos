@@ -58,10 +58,10 @@ public sealed partial class SearchViewModel
 
                 var added = AddModule(kind);
                 ModuleAdded?.Invoke(added);
-                if (added is ListModule { Kind: SearchModuleKind.UnityProjectContents } contents)
+                if (added is ListModule { Kind: SearchModuleKind.UnityProjectContents })
                 {
-                    // 見たいのは大抵いま開いているプロジェクト。人が足したときだけ入れておく（保存した状態を戻すときは保存した値のまま）
-                    contents.IncludeOn = true;
+                    // 開いているプロジェクトのボタンを並べるために見直す。チェックはスイッチの写しなので、足しただけでは入れない
+                    // （ユーザ判断 2026-11-25・案A。前は既定で入れていたが、それだとスイッチまで勝手にオンになる）
                     RefreshOpenProjectsAsync().Forget();
                 }
             });
@@ -373,8 +373,6 @@ public sealed partial class SearchViewModel
         UnreadUpdateKinds = UnreadUpdateKinds,
         IsAwaitingDetection = itemId => _main?.IsAwaitingDetection(itemId) == true,
         ProjectContains = ProjectContains,
-        OpenProjectContains = OpenProjectContains,
-        HasOpenProject = _openProjects.Count > 0,
         UseDetectedVariationTargets = _services.Settings.UseDetectedVariationTargets,
         IncludeUnconfirmedConversion = _services.Settings.IncludeUnconfirmedConversion,
         // 変わっていなければ読み直さない（共有の写し）ので、条件を組むたびに読んでよい
@@ -992,13 +990,11 @@ public sealed partial class SearchViewModel
         SearchModuleKind.UnityProjectContents => new ListModule(kind, allowsAnd: true, "プロジェクトの名前で絞り込む",
             "Unityプロジェクトが見つかりません。プロジェクトを一度開くと表示されます。",
             ListMatches(kind),
-            flagLabel: SameNameFlagLabel,
-            includeLabel: OpenProjectIncludeLabel,
-            includeMatches: SearchModuleConditions.ListOf(kind)!.IncludeMatches,
-            includeApplies: SearchModuleConditions.ListOf(kind)!.IncludeApplies)
+            flagLabel: SameNameFlagLabel)
         {
             TrimsMiddle = true,
             FlagHint = SameNameFlagHint,
+            OpenUnitySwitch = new OpenUnitySwitchLink(() => OpenUnityOnly, on => OpenUnityOnly = on, () => CanUseOpenUnity, () => OpenUnityDisabledReason),
             ReloadCommand = new RelayCommand(ReloadProjectContents),
             ChipTextOf = Core.Models.DisplayText.FolderName,
         },

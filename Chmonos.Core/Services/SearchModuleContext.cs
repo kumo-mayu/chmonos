@@ -178,12 +178,6 @@ public sealed class SearchModuleContext
     /// </summary>
     public Func<string, string, bool, bool> ProjectContains { get; init; } = (_, _, _) => false;
 
-    /// <summary>今開いているプロジェクトのどれかに、その商品が入っているか（商品ID・「名前が同じ画像」でも当てるか）。</summary>
-    public Func<string, bool, bool> OpenProjectContains { get; init; } = (_, _) => false;
-
-    /// <summary>Unity のプロジェクトが1つ以上開いていると分かっているか。</summary>
-    public bool HasOpenProject { get; init; }
-
     /// <summary>
     /// 対応アバターの「持っているバリエーションの分だけ」で、検出したバリエーションの向き先も使うか（設定 <see cref="Models.AppSettings.UseDetectedVariationTargets"/>）。
     /// 既定は設定の既定と同じ。

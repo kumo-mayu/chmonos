@@ -88,7 +88,11 @@ public sealed record SearchModuleState
     /// </summary>
     public bool IncludeFavorites { get; init; }
 
-    /// <summary>条件「Unityプロジェクト」で、今開いているプロジェクトを対象にするか。JSON を開いて読めるよう、ショップの欄と分ける。</summary>
+    /// <summary>
+    /// 配った版（v1.0.0〜）が書いた、条件「Unityプロジェクト」の「今開いているプロジェクト」。**今は読まず、書かない**。
+    /// 2026-11-25（ユーザ判断・案A）にチェックを検索欄の右のスイッチの写しにし、値は ui-state の <c>searchOpenUnityOnly</c> だけが持つ。
+    /// 欄を残すのは、前の版の保存した条件・履歴を読んでも形が合うように。戻しても、スイッチは動かさない
+    /// </summary>
     [System.Text.Json.Serialization.JsonIgnore(
         Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     public bool IncludeOpenProject { get; init; }
@@ -140,7 +144,7 @@ public sealed record SearchModuleState
             text.Append(Enabled ? '1' : '0').Append(MatchAll ? '1' : '0').Append(Flag ? '1' : '0');
             text.Append(MinEnabled ? '1' : '0').Append(MaxEnabled ? '1' : '0');
             text.Append(ShowMatched ? '1' : '0').Append(ShowUnspecified ? '1' : '0');
-            text.Append(IgnoreOutliers ? '1' : '0').Append(IncludeFavorites || IncludeOpenProject ? '1' : '0');
+            text.Append(IgnoreOutliers ? '1' : '0').Append(IncludeFavorites ? '1' : '0');
             text.Append(string.Join((char)0x1E, (Toggles ?? new Dictionary<string, bool>()).OrderBy(pair => pair.Key, StringComparer.Ordinal).Select(pair => $"{pair.Key}={(pair.Value ? 1 : 0)}"))).Append(Separator);
 
             // 除くかどうかで結果が逆になるので、指紋に入れる（同じ値の「含む」と「除く」を履歴の1件にまとめない）
