@@ -511,6 +511,12 @@
                                                 （確かめでは文字の座標を取って実際のマウスで押していた。2026-09-30）。
                                                 どの商品の星かが分かる名前で、押せるボタンとして出す
                                             -->
+                                            <!--
+                                                スキ数は星の上（ユーザ判断 2026-11-25）。重ねて置くだけなので行の高さは変わらない。
+                                                値の無い商品は文字が空で何も描かれない（場所は空けたまま）。押せない字なので操作は下の欄へ通す
+                                            -->
+                                            <TextBlock Text="{Binding WishText}" Style="{StaticResource Mono}" FontSize="11"
+                                                       HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,0,34" IsHitTestVisible="False" />
                                             <controls:PressableBorder HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-4,2" Padding="4,0"
                                                     Background="Transparent" Cursor="Hand" ToolTip="{Binding FavoriteTip}"
                                                     MouseLeftButtonUp="OnFavoriteClick" Invoked="OnFavoriteInvoked"

@@ -167,6 +167,13 @@ public sealed class ItemCardViewModel : ViewModelBase
 
     public string SizeText { get; init; } = string.Empty;
 
+    /// <summary>
+    /// カードの星の上に出すスキ数（ユーザ判断 2026-11-25「星の上」）。商品ページの「♡ n」と同じ書き方。
+    /// BOOTH から一度も取れていない商品（手元だけの商品を含む）は 0 と書かず空にする（リストの列「スキ数」と同じ）。
+    /// 空なら何も描かれない。カードは数千枚並ぶので、増やす部品は文字1つだけ
+    /// </summary>
+    public string WishText => Item.Booth.WasEverFetched ? $"♡ {Item.Booth.WishListsCount:N0}" : string.Empty;
+
     public bool IsOwned { get; init; }
 
     public bool NeedsEdit { get; init; }
