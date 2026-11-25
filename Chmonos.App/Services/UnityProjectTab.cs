@@ -190,7 +190,7 @@ public static class UnityProjectTab
     /// <summary>
     /// プロジェクトタブで <paramref name="folderPath"/> のフォルダを選ぶだけで、開かない（1件だけ送った後に入った物を示す。ユーザ判断 2026-11-25）。
     /// 探し方と止め方は <see cref="SelectFolderAsync"/> と同じ（<see cref="Plan"/>）。**Enter を押さない**：選んだ物は Inspector に出て、
-    /// 検索の結果にそのフォルダが選ばれたまま残る。画像の選び方（<see cref="SelectImageAsync"/>）と同じ止め方に揃える。
+    /// 検索欄を空にすると、親のフォルダの中でそのフォルダが選ばれたまま見える。画像の選び方（<see cref="SelectImageAsync"/>）と同じ止め方に揃える。
     /// </summary>
     public static Task<UnityTabOutcome> HighlightFolderAsync(int processId, string projectPath, string folderPath)
         => SearchAsync(processId, () => Task.Run(() => Plan(projectPath, folderPath)), pressEnter: false);
@@ -313,8 +313,8 @@ public static class UnityProjectTab
                 }
             }
 
-            // 自分の押下のフォーカスの知らせは遅れて届く。流し切ってから覚えるのを戻す
-            await Task.Delay(300);
+            // 自分の押下のフォーカスの知らせは遅れて届く。流し切ってから覚えるのを戻す（前は 300ms）
+            await Task.Delay(150);
 
             if (opened.Count == 0)
             {
@@ -349,10 +349,12 @@ public static class UnityProjectTab
         var point = (IntPtr)((y << 16) | (x & 0xFFFF));
         PostMessage(tab, WmMButtonDown, MkMButton, point);
         PostMessage(tab, WmMButtonUp, IntPtr.Zero, point);
-        await Task.Delay(400);
+
+        // 前は 400ms・600ms。半分にしても、確かめ用のプロジェクトで続けて8回とも欄にフォーカスが来た（2026-11-26）
+        await Task.Delay(200);
 
         PostMessage(main, WmCommand, (IntPtr)findCommand, IntPtr.Zero);
-        await Task.Delay(600);
+        await Task.Delay(300);
 
         var box = FocusOf(main);
         if (box != tab)
@@ -361,11 +363,7 @@ public static class UnityProjectTab
         }
 
         // 前の語が残っていると混ざるので、末尾へ行ってから消す
-        Key(box, VkEnd);
-        for (var index = 0; index < ClearCount; index++)
-        {
-            Key(box, VkBack);
-        }
+        ClearBox(box);
 
         foreach (var character in query)
         {
@@ -377,17 +375,43 @@ public static class UnityProjectTab
             return true;
         }
 
-        // 検索は打つたびに走る。結果が出てから先頭を選ぶ
-        await Task.Delay(1200);
+        // 検索は打つたびに走る。結果が出てから先頭を選ぶ。
+        // 待ちは、確かめ用のプロジェクト（Unity 2022.3.22f1・2026-11-26）で 600ms でも8回とも取りこぼさなかったが、
+        // 普段使うプロジェクトは中身が多く結果が遅れ得るので、ここだけ余裕を残す（前は 1200ms。ユーザ判断 2026-11-20「待ちを短くする」）
+        await Task.Delay(800);
         Key(box, VkDown);
-        await Task.Delay(400);
+        await Task.Delay(200);
         if (pressEnter)
         {
+            // フォルダを開く。Unity は開いた時に検索欄を自分で空にする（1列・2列の表示とも、実機で確かめた 2026-11-26）
             Key(box, VkReturn);
-            await Task.Delay(500);
+            await Task.Delay(300);
+        }
+        else
+        {
+            // 選ぶだけの時（画像・1件送った後のフォルダ）は、語が残ると結果の一覧だけが出たままで、
+            // その階層の物が見られない（ユーザ指摘 2026-11-17）。選んだ後に欄を空にすると、Unity は選んだ物の入った
+            // フォルダを開き、選んだまま見せる（1列・2列の表示とも、実機で確かめた 2026-11-26）
+            PostMessage(main, WmCommand, (IntPtr)findCommand, IntPtr.Zero);
+            await Task.Delay(200);
+
+            // 欄にフォーカスが来ていなければ送らない。ほかの所（Inspector の入力欄など）へ BackSpace が届くと、利用者の値を消す
+            if (FocusOf(main) == tab)
+            {
+                ClearBox(tab);
+            }
         }
 
         return true;
+    }
+
+    private static void ClearBox(IntPtr box)
+    {
+        Key(box, VkEnd);
+        for (var index = 0; index < ClearCount; index++)
+        {
+            Key(box, VkBack);
+        }
     }
 
     /// <summary>
