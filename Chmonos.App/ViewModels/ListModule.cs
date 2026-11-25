@@ -296,7 +296,7 @@ public sealed class ListModule : SearchModule
     /// <summary>補助の切り替え（対応アバターの「素体経由の対応も含める」）。</summary>
     public string? FlagLabel { get; }
 
-    /// <summary>補助の切り替えの吹き出し。文だけでは何を足すのか読めない時に言う（Unityプロジェクトの「名前が同じ画像も含める」）。</summary>
+    /// <summary>補助の切り替えの吹き出し。文だけでは何を足すのか読めない時に言う（Unityプロジェクトの「名前が同じファイルも含める」）。</summary>
     public string? FlagHint { get; init; }
 
     /// <remarks>
