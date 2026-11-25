@@ -61,6 +61,9 @@ public sealed class StatsRowViewModel : ViewModelBase
 
     public bool CanOpen => OpenCommand is not null;
 
+    /// <summary>右クリック「アバターの管理で開く」（アバターの行だけ。押すと検索へ行く <see cref="OpenCommand"/> とは別の行き先）。</summary>
+    public RelayCommand? OpenInManagerCommand { get; init; }
+
     public string Tooltip { get; init; } = string.Empty;
 }
 
@@ -1154,7 +1157,13 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
             return;
         }
 
-        foreach (var row in AvatarRows(_snapshot, _ownedAvatarsOnly, ShowAvatar, ShowUnspecifiedAvatar))
+        // アバターの管理に並ぶ物（アバターの判定か「アバターとして扱わない」にした物。AvatarService.LoadAsync の絞りと同じ）だけ移れる
+        var inManager = _services.CachedAvatars.Load().Entries
+            .Where(entry => Core.Services.AvatarService.IsAvatar(entry) || entry.AvatarOverride == false)
+            .Select(entry => entry.ItemId)
+            .ToHashSet(StringComparer.Ordinal);
+        foreach (var row in AvatarRows(
+            _snapshot, _ownedAvatarsOnly, ShowAvatar, ShowUnspecifiedAvatar, id => _main.ShowAvatarAt(id, null), inManager.Contains))
         {
             Avatars.Add(row);
         }
@@ -1162,7 +1171,8 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
 
     /// <summary>行の組み立て（画面から切り離してあるので試験から直に呼べる）。</summary>
     internal static List<StatsRowViewModel> AvatarRows(
-        StatsSnapshot snapshot, bool ownedOnly, Action<string, string> showAvatar, Action showUnspecified)
+        StatsSnapshot snapshot, bool ownedOnly, Action<string, string> showAvatar, Action showUnspecified,
+        Action<string>? openInManager = null, Func<string, bool>? canOpenInManager = null)
     {
         var result = new List<StatsRowViewModel>();
         var owned = snapshot.Wearables.ToDictionary(w => w.AvatarItemId, StringComparer.Ordinal);
@@ -1199,6 +1209,9 @@ public sealed class StatsViewModel : ViewModelBase, ILeavingScreen
                 Ratio = max == 0 ? 0 : row.Total / (double)max,
                 Badge = row.IsOwned ? "持っている" : string.Empty,
                 OpenCommand = new RelayCommand(() => showAvatar(key, name)),
+                OpenInManagerCommand = openInManager is null
+                    ? null
+                    : new RelayCommand(() => openInManager(key), () => canOpenInManager?.Invoke(key) ?? true),
                 Tooltip = row.IsOwned ? "持っているアバターです。対応する商品を検索画面で開きます。" : "このアバターに対応する商品を検索画面で開きます。",
             });
         }

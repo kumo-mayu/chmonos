@@ -472,7 +472,19 @@
                                                             AutomationProperties.Name="{Binding Label, StringFormat={}{0}を開く}"
                                                             ToolTip="{Binding Tooltip}"
                                                             ContentTemplate="{StaticResource BarRow}"
-                                                            Content="{Binding}" />
+                                                            Content="{Binding}">
+                                                        <!-- 押すと検索へ行く行に、アバターの管理へ移る口を右クリックで足す（ユーザ判断 2026-11-25）。
+                                                             「未設定」の行は移る先が無いので、この項目は押せない -->
+                                                        <Button.ContextMenu>
+                                                            <ContextMenu>
+                                                                <MenuItem Header="開く" Command="{Binding OpenCommand}"
+                                                                          AutomationProperties.AutomationId="StatsAvatarRowMenu.Open" />
+                                                                <MenuItem Header="アバターの管理で開く" Command="{Binding OpenInManagerCommand}"
+                                                                          AutomationProperties.AutomationId="StatsAvatarRowMenu.OpenInManager"
+                                                                          controls:MenuTips.Disabled="アバターの管理にある物だけ開けます" />
+                                                            </ContextMenu>
+                                                        </Button.ContextMenu>
+                                                    </Button>
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </controls:ContentItemsControl>
