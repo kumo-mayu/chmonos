@@ -84,6 +84,7 @@
 | [modification-members.md](spec/modification-members.md) | 改変の詳細の「使ったもの」（1商品1欄・番号と送る順・並べ替え・見せる順） |
 | [unity.md](spec/unity.md) | Unity への受け渡し（窓を名指しして送る・連続送り・入り先・プロジェクトタブ・VCC） |
 | [unity-vpm.md](spec/unity-vpm.md) | Unity プロジェクトの VPM（読むだけで控える・改変の画面に並べる・同じ GUID の物を送る前に言う） |
+| [unity-select.md](spec/unity-select.md) | Unity で選ぶ（手で置いた画像を選ぶ・改変の入り先を開く・1件だけ送った後に入ったフォルダを選ぶ・GUID で今の場所を探す） |
 | [folder-view.md](spec/folder-view.md) | フォルダビューの根の決め方、右に出す物、ドライブ文字の読み替え、速さ |
 | [item-list-columns.md](spec/item-list-columns.md) | 商品のリストの列：画面ごとに出す列を選ぶ（見出しの右クリック・ドラッグの並べ替え・覚える所）・列の一覧と値・幅 |
 | [ui-rules.md](spec/ui-rules.md) | ナビ、並べ替えの出し方、窓と画面の状態、画面の幅、ドロップ、キー |

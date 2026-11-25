@@ -1164,6 +1164,15 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         set { if (SetField(ref _confirmUnitySend, value)) { Save(); } }
     }
 
+    private bool _selectAfterUnitySend;
+
+    /// <summary>1件だけ Unity へ送った時、入った物を Unity で選ぶか（ユーザ判断 2026-11-25。既定は切）。</summary>
+    public bool SelectAfterUnitySend
+    {
+        get => _selectAfterUnitySend;
+        set { if (SetField(ref _selectAfterUnitySend, value)) { Save(); } }
+    }
+
     private bool _sendModificationInRecordOrder;
 
     /// <summary>
@@ -1802,6 +1811,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             NotifyUnitySendResult = NotifyUnitySendResult,
             UnitySendResultToast = UnitySendResultToast,
             ConfirmUnitySend = ConfirmUnitySend,
+            SelectAfterUnitySend = SelectAfterUnitySend,
             SendModificationInRecordOrder = SendModificationInRecordOrder,
             NotificationRetentionCount = NotificationRetentionCount,
             NotificationArchiveMegabytes = NotificationArchiveMegabytes,

@@ -102,5 +102,10 @@ public class UnitySendStopTests
         Assert.Equal(
             ("「普段着」に追加して、Unityへ送りました。", false),
             ItemUnityActions.AfterRecordText("「普段着」", new ItemUnityActions.SendResult(true, null)));
+
+        // 入ったフォルダを選べなかったときは、その理由を続けて言う（送れたので失敗にはしない）
+        Assert.Equal(
+            ("「普段着」に追加して、Unityへ送りました。入ったフォルダを選択できませんでした。", false),
+            ItemUnityActions.AfterRecordText("「普段着」", new ItemUnityActions.SendResult(true, null, "入ったフォルダを選択できませんでした。")));
     }
 }
