@@ -110,6 +110,8 @@ public sealed partial class SettingsViewModel
         [nameof(UnitySendResultToast)] = new(vm => vm.UnitySendResultToast, Defaults.UnitySendResultByToast,
             _ => Defaults.UnitySendResultByToast ? "Windowsの通知" : "ウィンドウ",
             s => s with { UnitySendResultToast = Defaults.UnitySendResultByToast }, vm => vm.UnitySendResultToast = Defaults.UnitySendResultByToast),
+        [nameof(SelectAfterUnitySend)] = Flag(vm => vm.SelectAfterUnitySend, Defaults.SelectAfterUnitySend,
+            s => s with { SelectAfterUnitySend = Defaults.SelectAfterUnitySend }, (vm, v) => vm.SelectAfterUnitySend = v),
         [nameof(ProjectManagerShown)] = new(vm => vm.ProjectManager, Defaults.ProjectManager,
             vm => vm.ProjectManagers.First(option => option.Value == Defaults.ProjectManager).Label,
             s => s with { ProjectManager = Defaults.ProjectManager }, vm => vm.ProjectManager = Defaults.ProjectManager),

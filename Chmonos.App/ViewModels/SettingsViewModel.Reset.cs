@@ -127,6 +127,7 @@ public sealed partial class SettingsViewModel
         _notifyUnitySendResult = settings.NotifiesUnitySendResult;
         _unitySendResultToast = settings.UnitySendResultByToast;
         _confirmUnitySend = settings.ConfirmsUnitySend;
+        _selectAfterUnitySend = settings.SelectAfterUnitySend;
         _notificationRetentionCount = settings.NotificationRetentionCount;
         _notificationArchiveMegabytes = settings.NotificationArchiveMegabytes;
         _searchHistoryCount = settings.SearchHistoryCount;

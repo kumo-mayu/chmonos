@@ -448,6 +448,14 @@
                             <CheckBox controls:SettingDefault.Key="ConfirmUnitySend" Content="Unityへ送る前に確認する" Style="{StaticResource SettingCheck}"
                                       AutomationProperties.AutomationId="Settings.ConfirmUnitySend"
                                       IsChecked="{Binding ConfirmUnitySend, Mode=TwoWay}" />
+                            <!--
+                                1件だけ送った後、入った物（中身が枝分かれする最初のフォルダ）をプロジェクトタブで選ぶ（ユーザ判断 2026-11-25）。
+                                既定は切：Unity の検索欄と選択をこちらが書き換えるので、望む人だけが入れる
+                            -->
+                            <CheckBox controls:SettingDefault.Key="SelectAfterUnitySend" Content="1件だけ送ったら、入ったフォルダをUnityで選択する" Style="{StaticResource SettingCheck}"
+                                      AutomationProperties.AutomationId="Settings.SelectAfterUnitySend"
+                                      ToolTip="フォルダが1つに決まらない時は選択しません。"
+                                      IsChecked="{Binding SelectAfterUnitySend, Mode=TwoWay}" />
                             <CheckBox controls:SettingDefault.Key="NotifyUnitySendResult" Content="Unityへ送った結果を知らせる" Style="{StaticResource SettingCheck}"
                                       AutomationProperties.AutomationId="Settings.NotifyUnitySendResult"
                                       IsChecked="{Binding NotifyUnitySendResult, Mode=TwoWay}" />

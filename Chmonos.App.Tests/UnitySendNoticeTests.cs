@@ -138,4 +138,22 @@ public class UnitySendNoticeTests
         Assert.True(app.Services.Settings.UnitySendResultByToast);
         Assert.False(settings.UnitySendResultWindow);
     });
+
+    [Fact]
+    public Task 入ったフォルダを選択する設定は_既定で切で_入れると保存される() => TestApp.Run(async app =>
+    {
+        var main = await app.StartAsync();
+        var settings = new SettingsViewModel(app.Services, main);
+        await UiThread.Until(() => !settings.IsLoading, "設定を読み終わる");
+        Assert.False(settings.SelectAfterUnitySend);
+        Assert.False(app.Services.Settings.SelectAfterUnitySend);
+
+        settings.SelectAfterUnitySend = true;
+        await UiThread.Until(() => app.Services.Settings.SelectAfterUnitySend, "選択する設定が書かれる");
+        await app.SettleAsync();
+
+        // ほかの Unity の欄は変わらない
+        Assert.True(app.Services.Settings.ConfirmsUnitySend);
+        Assert.True(app.Services.Settings.NotifiesUnitySendResult);
+    });
 }

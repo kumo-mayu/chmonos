@@ -163,6 +163,7 @@ flowchart LR
 | 既定に戻す | ショートカットの各行 | クリック | その行だけ既定のキーへ | いつも | Settings.ShortcutReset・:395 |
 | 編集が終わったら検索に戻る | 編集 | 切替 | | いつも | （ID 無し）・:414 |
 | Unityへ送る前に確認する | Unity | 切替 | | いつも | Settings.ConfirmUnitySend |
+| 1件だけ送ったら、入ったフォルダをUnityで選択する | Unity | 切替 | 1件だけ送って入った後に、中身が分かれる最初のフォルダを Unity で選ぶ（既定は切） | いつも | Settings.SelectAfterUnitySend |
 | Unityへ送った結果を知らせる | Unity | 切替 | 切ると下の「知らせ方」が押せず薄くなる（値は残る） | いつも | Settings.NotifyUnitySendResult |
 | 知らせ方：ウィンドウ｜Windowsの通知 | Unity | 繋がったボタン | | いつも（親が切れている間は押せない） | Settings.UnitySendResultWindow・Settings.UnitySendResultToast |
 | プロジェクトの管理に使うアプリ | 改変 | 選ぶ | vcc:// に合わせる・VCC・ALCOM | 見つからない物は押せない | Settings.ProjectManager・:435 |

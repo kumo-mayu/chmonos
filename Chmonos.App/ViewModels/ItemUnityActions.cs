@@ -165,7 +165,21 @@ internal static class ItemUnityActions
         string title, UnitySendUi? ui, NoticeSink? notify, Action<ItemRecord>? presenceChanged = null)
     {
         // VPM の窓で「やめる」を押したときは、押した直後なので言わない（plan 40）
-        if (await SendOneAsync(services, item, editor, package, title, ui, presenceChanged) is { Stopped: { } stopped } && stopped != UnityVpmGuard.DeclinedMessage)
+        var sent = await SendOneAsync(services, item, editor, package, title, ui, presenceChanged);
+        if (sent is { Sent: true, SelectNote: { } note })
+        {
+            // 入ったフォルダを選べなかった理由。選ぶ設定を入れた人が、選ばれていないのを見て戸惑わないように言う
+            if (notify is not null)
+            {
+                notify(note);
+            }
+            else
+            {
+                UnitySendNotice.Result(services, note, title);
+            }
+        }
+
+        if (sent is { Stopped: { } stopped } && stopped != UnityVpmGuard.DeclinedMessage)
         {
             // 止めたのは人なので、失敗の顔（⚠）で出さない。まとめて送るときと同じ文で言う。
             // 取り込み画面が残ったときは閉じ方も要るので、黙りはしない
@@ -180,8 +194,11 @@ internal static class ItemUnityActions
         }
     }
 
-    /// <summary>1件を送った結果。<paramref name="Stopped"/> は人が止めたときの言い方（止めていなければ null）。</summary>
-    internal readonly record struct SendResult(bool Sent, string? Stopped);
+    /// <summary>
+    /// 1件を送った結果。<paramref name="Stopped"/> は人が止めたときの言い方（止めていなければ null）。
+    /// <paramref name="SelectNote"/> は、入ったフォルダを Unity で選ぶ設定のときに選べなかった理由（選んだ・選ばない決まりのときは null）。
+    /// </summary>
+    internal readonly record struct SendResult(bool Sent, string? Stopped, string? SelectNote = null);
 
     /// <summary>
     /// 1件を、選んだ Unity の窓へ名指しで送る（U14）。検索の複数選択・改変と同じ道（1件だけの列）。
@@ -239,7 +256,60 @@ internal static class ItemUnityActions
             services.Recent.TouchAsync(item.Id, RecentKind.Used).Forget();
         }
 
-        return new SendResult(true, null);
+        // 1件だけ送った時だけここを通る（複数は SendManyAsync）。取り込んだか既に全部入っていたときだけ選ぶ
+        var note = UnityImportedFolder.ShouldSelect(services.Settings.SelectAfterUnitySend, outcome.Opened, outcome.Cancelled, outcome.Problem)
+            ? await SelectImportedAsync(editor, package)
+            : null;
+        return new SendResult(true, null, note);
+    }
+
+    /// <summary>
+    /// 入った物（中身が枝分かれする最初のフォルダ。<see cref="UnityImportedFolder.Pick"/>）を、プロジェクトタブで選ぶ（開かない）。
+    /// 選べなかったときだけ、その理由の1文を返す。フォルダが1つに決まらない物は、決まりどおり黙って選ばない（ユーザ判断 2026-11-25）。
+    /// </summary>
+    private static async Task<string?> SelectImportedAsync(OpenUnityEditor editor, UnityPackageEntry package)
+    {
+        // 同じ名前のプロジェクトが2つ開いていると場所を決められない。ディスクで在るかを見られないまま探すと、
+        // 0件のとき前の選択が残って見間違える（「Unityで選択」と同じく止める）
+        if (editor.IsAmbiguous || await ProjectPathOf(editor) is not { } project)
+        {
+            return "プロジェクトの場所が分からないため、入ったフォルダを選択していません。";
+        }
+
+        var (folder, location) = await Task.Run<(string?, UnityRootLocation?)>(() =>
+        {
+            var assets = new UnityPackageReads().ReadAssets(package);
+            if (UnityImportedFolder.Pick(assets.Select(asset => asset.Path)) is not { } picked)
+            {
+                return (null, null);
+            }
+
+            // 既に全部入っていた物は、利用者がフォルダを移していることがある。GUID で今の場所を探す（改変の「Unityで選択」と同じ）
+            var found = UnityProjectMatcher.LocateRoot(project, picked, assets);
+            var exists = System.IO.Directory.Exists(System.IO.Path.Combine(project, found.Root.Replace('/', System.IO.Path.DirectorySeparatorChar)));
+            return (picked, exists ? found : null);
+        });
+
+        if (folder is null)
+        {
+            return null;
+        }
+
+        // 取り込み画面でフォルダの中身を全部外した・移した先が見つからない。Unity に触る前に止める（0件で ↓ を送ると前の選択が残る）
+        if (location is null)
+        {
+            return "入ったフォルダがプロジェクトに見つからないため、選択していません。";
+        }
+
+        var outcome = await UnityProjectTab.HighlightFolderAsync(editor.ProcessId, project, location.Root);
+        if (outcome.Problem is { } trouble)
+        {
+            return $"入ったフォルダを選択できませんでした。{trouble}";
+        }
+
+        return outcome.StopReason is { } reason
+            ? $"Unityで「{location.Root}」を探しました。{reason}、選択していません。"
+            : null;
     }
 
     /// <summary>
@@ -250,7 +320,7 @@ internal static class ItemUnityActions
     internal static (string Text, bool Failed) AfterRecordText(string names, SendResult sent)
         => sent switch
         {
-            { Sent: true } => ($"{names}に追加して、Unityへ送りました。", false),
+            { Sent: true } => ($"{names}に追加して、Unityへ送りました。{sent.SelectNote}", false),
             { Stopped: { } stopped } => ($"{names}に追加しました。{stopped}", false),
             _ => ($"{names}に追加しました。Unityへは送れませんでした。", true),
         };

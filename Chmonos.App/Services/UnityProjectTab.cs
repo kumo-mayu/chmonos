@@ -188,6 +188,14 @@ public static class UnityProjectTab
         => SearchAsync(processId, () => Task.Run(() => Plan(projectPath, folderPath)), pressEnter: true);
 
     /// <summary>
+    /// プロジェクトタブで <paramref name="folderPath"/> のフォルダを選ぶだけで、開かない（1件だけ送った後に入った物を示す。ユーザ判断 2026-11-25）。
+    /// 探し方と止め方は <see cref="SelectFolderAsync"/> と同じ（<see cref="Plan"/>）。**Enter を押さない**：選んだ物は Inspector に出て、
+    /// 検索の結果にそのフォルダが選ばれたまま残る。画像の選び方（<see cref="SelectImageAsync"/>）と同じ止め方に揃える。
+    /// </summary>
+    public static Task<UnityTabOutcome> HighlightFolderAsync(int processId, string projectPath, string folderPath)
+        => SearchAsync(processId, () => Task.Run(() => Plan(projectPath, folderPath)), pressEnter: false);
+
+    /// <summary>
     /// 画像の検索の語。パスで1件に絞る（同じ名前が別のフォルダにあっても取り違えない）。glob の記号は <c>?</c>（どの1字にも当たる）に置き換える。
     /// そのままだと <c>[作者]</c> の入るパスが0件で、記号を <c>?</c> にすると1件に当たった（Unity 2022.3.22f1・作り物の画像で確かめた 2026-11-01）。
     /// </summary>

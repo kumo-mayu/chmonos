@@ -235,6 +235,12 @@ public sealed record AppSettings
     /// </summary>
     public bool? ConfirmUnitySend { get; init; }
 
+    /// <summary>
+    /// 1件だけ Unity へ送った時、入った物（中身が枝分かれする最初のフォルダ。<see cref="Services.UnityImportedFolder"/>）を Unity のプロジェクトタブで選ぶか
+    /// （ユーザ判断 2026-11-25）。既定は切：Unity の検索欄と選択をこちらが書き換えるので、望む人だけが入れる。新しい欄なので前の版からの読み替えは無い
+    /// </summary>
+    public bool SelectAfterUnitySend { get; init; }
+
     /// <summary>送った結果を知らせるか（前の版の設定は知らせる）。</summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public bool NotifiesUnitySendResult => NotifyUnitySendResult ?? true;
