@@ -237,6 +237,7 @@ public sealed partial class ItemViewModel
                 IsOwned = isOwned(pair.Key),
                 IconFactory = () => AvatarIcon(pair.Key, _thumbnails.LoadForCard),
                 OpenCommand = new RelayCommand(() => OpenAvatarAsync(pair.Key).Forget()),
+                OpenInManagerCommand = OpenInManagerCommandFor(pair.Key),
             })
             .OrderByDescending(row => row.IsOwned)
             .ThenBy(row => row.Name, StringComparer.CurrentCulture)
@@ -259,11 +260,23 @@ public sealed partial class ItemViewModel
                 IsOtherVariation = isOtherVariation(pair.Key),
                 IconFactory = () => AvatarIcon(pair.Key, _thumbnails.LoadForCard),
                 OpenCommand = new RelayCommand(() => OpenAvatarAsync(pair.Key).Forget()),
+                OpenInManagerCommand = OpenInManagerCommandFor(pair.Key),
             })
             .OrderByDescending(row => row.IsOwned)
             .ThenBy(row => row.Name, StringComparer.CurrentCulture)
             .ToList();
     }
+
+    private HashSet<string> _managerAvatarIds = [];
+
+    private List<string> _managerBaseNames = [];
+
+    /// <summary>
+    /// 札の右クリック「アバターの管理で開く」。「開く」（持っていればその商品ページへ）とは別に、
+    /// アバターの管理でそのアバターを選んだ状態で開く（ユーザ判断 2026-11-25）。管理に並んでいない物は押せない
+    /// </summary>
+    private RelayCommand OpenInManagerCommandFor(string avatarItemId)
+        => new(() => _main.ShowAvatarAt(avatarItemId, null), () => _managerAvatarIds.Contains(avatarItemId));
 
     /// <summary>
     /// 札の並び。まとめないときは、記録した対応（持っている物が先・出品者の並び）→ 素体経由。
@@ -553,6 +566,14 @@ public sealed partial class ItemViewModel
         var registry = _services.CachedAvatars.Load();
         var names = AvatarNames.Map(registry.Entries);
 
+        // アバターの管理に並ぶ物（AvatarService.LoadAsync の絞りと同じ：アバターの判定か、「アバターとして扱わない」にした物）。
+        // 並んでいない物へ移ると別のアバターが選ばれて見えるので、札の「アバターの管理で開く」はその物では押せなくする
+        _managerAvatarIds = registry.Entries
+            .Where(entry => AvatarService.IsAvatar(entry) || entry.AvatarOverride == false)
+            .Select(entry => entry.ItemId)
+            .ToHashSet(StringComparer.Ordinal);
+        _managerBaseNames = registry.BaseGroups.Where(group => !group.Rejected).Select(group => group.Name).ToList();
+
         string NameOf(string id, string? cached)
             => names.TryGetValue(id, out var name) ? name : cached ?? id;
 
@@ -589,6 +610,7 @@ public sealed partial class ItemViewModel
                 // ツールチップに出す絵（R3）。乗せたときに初めて読む——248体の商品で全部を先に読むと開くのが遅れる
                 IconFactory = () => AvatarIcon(link.AvatarItemId, _thumbnails.LoadForCard),
                 OpenCommand = new RelayCommand(() => OpenAvatarAsync(link.AvatarItemId).Forget()),
+                OpenInManagerCommand = OpenInManagerCommandFor(link.AvatarItemId),
             })
             .OrderByDescending(row => row.IsOwned)
             .ThenBy(row => row.IsOtherVariation)
@@ -625,6 +647,9 @@ public sealed partial class ItemViewModel
             .Select(link => new AvatarBaseRow
             {
                 Name = link.BaseName,
+                OpenCommand = new RelayCommand(
+                    () => _main.ShowAvatarAt(null, link.BaseName),
+                    () => _managerBaseNames.Any(name => AvatarBaseNames.Same(name, link.BaseName))),
                 RejectCommand = new RelayCommand(() => RejectBaseAsync(link.BaseName).Forget(), () => !IsEditLocked),
                 IconFactory = () => AvatarBaseIcons.Load(_services, link.BaseName, _main.Search.FindItem, _thumbnails.LoadForCard),
             })

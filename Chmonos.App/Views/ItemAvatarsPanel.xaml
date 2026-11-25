@@ -56,6 +56,9 @@
             <ContextMenu>
                 <MenuItem Header="開く" Command="{Binding OpenCommand}"
                           AutomationProperties.AutomationId="ItemAvatarMenu.Open" />
+                <MenuItem Header="アバターの管理で開く" Command="{Binding OpenInManagerCommand}"
+                          AutomationProperties.AutomationId="ItemAvatarMenu.OpenInManager"
+                          controls:MenuTips.Disabled="アバターの管理にある物だけ開けます" />
                 <MenuItem Header="確認済みにする" Command="{Binding ConfirmCommand}"
                           AutomationProperties.AutomationId="ItemAvatarMenu.Confirm"
                           controls:MenuTips.Disabled="確認済みです" />
@@ -231,6 +234,9 @@
                                                         <ContextMenu>
                                                             <MenuItem Header="開く" Command="{Binding OpenCommand}"
                                                                       AutomationProperties.AutomationId="ItemAvatarMenu.Open" />
+                                                            <MenuItem Header="アバターの管理で開く" Command="{Binding OpenInManagerCommand}"
+                                                                      AutomationProperties.AutomationId="ItemAvatarMenu.OpenInManager"
+                                                                      controls:MenuTips.Disabled="アバターの管理にある物だけ開けます" />
                                                         </ContextMenu>
                                                     </Border.ContextMenu>
                                                     <Grid>
@@ -332,6 +338,15 @@
                                                     BorderThickness="1" CornerRadius="10" Padding="9,3" Margin="0,0,6,6"
                                                     AutomationProperties.AutomationId="ItemAvatarBaseChip"
                                                     ToolTip="{Binding Name}" ToolTipOpening="OnBaseChipToolTipOpening">
+                                                <!-- 札は押せないので、移る口は右クリックだけ（共通素体の見方でその素体を選ぶ。ユーザ判断 2026-11-25）。
+                                                     アバターの管理の素体の一覧に無い素体は押せなくして理由を言う（アバターの札と同じ） -->
+                                                <Border.ContextMenu>
+                                                    <ContextMenu>
+                                                        <MenuItem Header="開く" Command="{Binding OpenCommand}"
+                                                                  AutomationProperties.AutomationId="ItemAvatarBaseMenu.Open"
+                                                                  controls:MenuTips.Disabled="アバターの管理にある物だけ開けます" />
+                                                    </ContextMenu>
+                                                </Border.ContextMenu>
                                                 <StackPanel Orientation="Horizontal">
                                                     <TextBlock Text="{Binding Name}" FontSize="11.5" VerticalAlignment="Center" />
                                                     <TextBlock Text="共通素体" FontSize="10" Margin="7,0,0,0"
@@ -379,6 +394,9 @@
                                                         <ContextMenu>
                                                             <MenuItem Header="開く" Command="{Binding OpenCommand}"
                                                                       AutomationProperties.AutomationId="ItemAvatarMenu.Open" />
+                                                            <MenuItem Header="アバターの管理で開く" Command="{Binding OpenInManagerCommand}"
+                                                                      AutomationProperties.AutomationId="ItemAvatarMenu.OpenInManager"
+                                                                      controls:MenuTips.Disabled="アバターの管理にある物だけ開けます" />
                                                         </ContextMenu>
                                                     </Border.ContextMenu>
                                                     <Grid>

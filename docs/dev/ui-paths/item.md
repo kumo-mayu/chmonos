@@ -25,7 +25,7 @@
 | A5 | ページの中の言葉を探す | Ctrl+F → 打つ → Enter（次へ） | 3 | どこでも | 畳んだ説明の中の一致は開いて見せる | |
 | A6 | BOOTH のページで見る | 上の帯の「BOOTHで開く」 | 1 | 上の帯 | 手元だけの商品（仮ID）では押せない（吹き出しに理由） | |
 | A7 | 同じショップの商品を見る | 名前の枠のショップ名を押す | 1 | 名前の枠 | 小さな見出しのショップ名 | |
-| A8 | 対応アバター（共通素体）の商品を見る | 「対応アバター」の札を押す | 1 | 右の列 | 札の右クリック →「開く」（2）。札が多い商品は「アバター名で絞る（n 体）」に打ってから | |
+| A8 | 対応アバター（共通素体）の商品を見る | 「対応アバター」の札を押す | 1 | 右の列 | 札の右クリック →「開く」（2）か「アバターの管理で開く」（アバターの管理でそのアバターを選ぶ。持っているアバターでも管理へ行ける）。共通素体の札は右クリック →「開く」（共通素体の画面）。札が多い商品は「アバター名で絞る（n 体）」に打ってから | |
 | A9 | この商品を使った改変を見る | 「この商品を使った改変」の行の「開く」 | 1 | 右の列 | — | |
 | A10 | 前の画面へ戻る | 上の帯の「← 検索に戻る」（前の画面の名前） | 1 | 上の帯 | Alt+← ・マウスの戻るボタン | |
 | A11 | 見え方を整える（左右の幅・欄を畳む） | 左の列と右の列の境目をドラッグ | 1 | 左右の間 | 境目のダブルクリックで既定へ戻す。「ユーザータグ」「BOOTHのタグ」「属性」「バリエーション」「ローカルファイル」はそれぞれ三角で畳む。BOOTHのタグが多い時は「残り n を表示」 | |
@@ -170,8 +170,8 @@ flowchart LR
 | 「すべて確認済みにする」 | 対応アバター | クリック | 全部確認済み | 確認待ちがある時 | ItemAvatarConfirmAll・ItemAvatarsPanel.xaml:100 |
 | 「表示する」 | 対応アバター | クリック | 判定した結果を出す | 開いている間に判定が終わった時 | ItemShowDetectedAvatars・ItemAvatarsPanel.xaml:119 |
 | 「アバター名で絞る（n 体）」 | 対応アバター | 打つ | 札を絞る | 札が多い時 | —・ItemAvatarsPanel.xaml:141 |
-| 対応アバターの札・✓・× | 対応アバター | クリック・右クリック（「開く」「確認済みにする」「外す」） | 開く・確かめる・外す | 対応アバターがある時。× は乗せた時 | ItemAvatarChip／ItemAvatarConfirm／ItemAvatarReject・ItemAvatarsPanel.xaml:202,36,48,57-65 |
-| 共通素体の札・× | 対応アバター | クリック | 開く・外す | 共通素体がある時 | ItemAvatarViaBaseChip／ItemAvatarBaseReject・ItemAvatarsPanel.xaml:215,336 |
+| 対応アバターの札・✓・× | 対応アバター | クリック・右クリック（「開く」「アバターの管理で開く」「確認済みにする」「外す」） | 開く・確かめる・外す | 対応アバターがある時。× は乗せた時 | ItemAvatarChip／ItemAvatarConfirm／ItemAvatarReject・ItemAvatarsPanel.xaml:202,36,48,57-69 |
+| 共通素体の札・× | 対応アバター | クリック・右クリック（「開く」＝アバターの管理の共通素体の画面。管理に無い素体は押せない） | 開く・外す | 共通素体がある時 | ItemAvatarViaBaseChip／ItemAvatarBaseReject・ItemAvatarsPanel.xaml:215,336 |
 | 変換経由の札 | 対応アバター | クリック・右クリック「開く」 | 開く | 変換経由がある時 | ItemAvatarViaConversionChip・ItemAvatarsPanel.xaml:364 |
 | 「＋ 追加」・入力欄・「閉じる」 | 対応アバター | クリック → 打つ | 手で足す | いつも | ItemAvatarAdd／ItemAvatarAddInput／ItemAvatarAddClose・ItemAvatarsPanel.xaml:279,298,304 |
 | 「説明文にある共通素体」の「追加」・× | 対応アバター | クリック | 足す・候補を消す | 説明文に候補がある時 | ItemBaseMentionAdd／ItemBaseMentionDismiss・ItemAvatarsPanel.xaml:422,430 |

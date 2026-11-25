@@ -659,6 +659,9 @@ public class AvatarRow : ChipTile
 
     /// <summary>このアバターを開く（U13）。持っていれば商品ページ、持っていなければアバター画面で選んだ状態。</summary>
     public RelayCommand? OpenCommand { get; init; }
+
+    /// <summary>アバターの管理でこのアバターを開く（右クリック。「開く」が商品ページへ行く持っているアバターでも、管理へ移れる）。</summary>
+    public RelayCommand? OpenInManagerCommand { get; init; }
 }
 
 /// <summary>
@@ -753,6 +756,9 @@ public sealed class BaseMentionRow
 public sealed class AvatarBaseRow
 {
     public required string Name { get; init; }
+
+    /// <summary>アバターの管理の「共通素体」の見方でこの素体を開く（右クリック）。管理の一覧に無い素体は押せない。</summary>
+    public RelayCommand? OpenCommand { get; init; }
 
     /// <summary>この対応は違う、として消す。次の検出でも復活しない。</summary>
     public RelayCommand? RejectCommand { get; init; }

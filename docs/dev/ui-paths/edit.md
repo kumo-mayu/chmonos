@@ -123,7 +123,7 @@ flowchart LR
 | IDを変える | 左の列 | 押す | 窓で別のIDへ移す | いつも | EditView.xaml:471 |
 | 商品名・ショップ・ショップのURL・カテゴリの欄、ショップ・カテゴリの候補のボタン | 左の列 | 打つ・押す | 「保存して次へ」で書く | 「編集」で開いた時（候補は欄を触った時） | EditView.xaml:497・522・559・568・611・643 |
 | BOOTHのタグ（n） | 左の列 | 畳む・開く | 札を見せる | いつも | EditBoothTagsExpander・EditView.xaml:655 |
-| 対応アバターの欄（札・「すべて確認済みにする」・「表示する」・「＋ 追加」・「閉じる」・×・札の右クリック「開く」「確認済みにする」「外す」・説明文にある共通素体の「追加」×・外した物の「戻す」） | 左の列 | 押す・打つ・右クリック | 確認・追加・外す（その場で書く） | 商品を開いている時（後から組む） | ItemAvatarConfirm・ItemAvatarConfirmAll・ItemAvatarAdd・ItemBaseMentionAdd・ItemRejectedAvatarRestore・ItemAvatarsPanel.xaml:37〜462 |
+| 対応アバターの欄（札・「すべて確認済みにする」・「表示する」・「＋ 追加」・「閉じる」・×・札の右クリック「開く」「アバターの管理で開く」「確認済みにする」「外す」・共通素体の札の右クリック「開く」・説明文にある共通素体の「追加」×・外した物の「戻す」） | 左の列 | 押す・打つ・右クリック | 確認・追加・外す（その場で書く） | 商品を開いている時（後から組む） | ItemAvatarConfirm・ItemAvatarConfirmAll・ItemAvatarAdd・ItemBaseMentionAdd・ItemRejectedAvatarRestore・ItemAvatarsPanel.xaml:37〜462 |
 | ローカルファイルの欄（開く・折りたたむ・「追加…」・「Unityで画像を選択…」・「開く ▾」→「エクスプローラで開く」「パスをコピー」・「外す」・「この商品に戻す」・「古い版の記録を片付ける」・見つからない行の「探す…」・登録フォルダの候補の「この場所にする」） | 左の列 | 押す | 紐付け・外す・開く（その場で書く） | 商品を開いている時。「Unityで画像を選択…」は選べる画像がある時 [推測：編集画面でも出る] | ItemFilesToggle・ItemAttachFiles・ItemSelectImageInUnity・ItemFolderOpenMenu・ItemFolderUnregister・ItemFileFindMissing・ItemFolderFindMissing・ItemUseFolderCandidate・ItemFilesPanel.xaml:177〜476 |
 | （目的なし）動画の欄 | 左の列 | 畳む・押す | 動画をブラウザで開く | 説明文に YouTube がある時 [推測] | ItemVideosExpander・ItemVideoOpen・ItemVideosPanel.xaml:25・39 |
 | 商品説明（右クリック・下の縁のつまみ） | 左の列 | 右クリック・ドラッグ・ダブルクリック | リンクを開く・コピー・商品として登録／高さを変える・戻す | いつも | EditView.xaml:696・700・docs/spec/item-page-text-menu.md |
