@@ -84,10 +84,17 @@ public partial class AvatarsView : UserControl
     private void AvatarHeadGrid_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         var narrow = AvatarHeadGrid.ActualWidth < 84 + 16 + AvatarHeadTextMinWidth;
-        Grid.SetRow(AvatarHeadActions, narrow ? 2 : 1);
+        // 狭い時も置き場は行1のまま、絵が行0〜1をまたぐのをやめる。前は行2へ移して絵が行0〜1をまたいだままで、
+        // 空の行1が約44の高さで残り、「商品情報を取り直す」と下のボタンの間が約60空いた（2026-11-25 の調べ）
+        Grid.SetRow(AvatarHeadActions, 1);
         Grid.SetColumn(AvatarHeadActions, narrow ? 0 : 1);
         Grid.SetColumnSpan(AvatarHeadActions, narrow ? 2 : 1);
+        Grid.SetRowSpan(AvatarHeadImage, narrow ? 1 : 2);
         AvatarHeadActions.Margin = narrow ? new Thickness(0, 10, 0, 0) : new Thickness(6, 10, 0, 0);
+
+        // 名前は字の幅ぴったり（FitWidth）に決まるので、列より長いと右で切れた。絵と間と名前の左右の余白（4+4）を
+        // 引いた列の幅を上限にして、足りない時は折り返して全部読めるようにする。広い窓は今まで通りの上限 520
+        AvatarHeadName.MaxWidth = Math.Max(60, Math.Min(520, AvatarHeadGrid.ActualWidth - 84 - 16 - 8));
     }
 
     /// <summary>

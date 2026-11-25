@@ -1063,7 +1063,7 @@
                                         なので、この大きさなら拡大でぼやけない
                                     -->
                                     <!-- 乗せると大きな絵（ユーザ判断 2026-11-20・①）。吹き出しが行の HoverImage を引くので、枠の DataContext を選んだ行にする -->
-                                    <Border Grid.Column="0" Grid.RowSpan="2" Width="84" Height="84" CornerRadius="10" Margin="0,2,16,0"
+                                    <Border x:Name="AvatarHeadImage" Grid.Column="0" Grid.RowSpan="2" Width="84" Height="84" CornerRadius="10" Margin="0,2,16,0"
                                             DataContext="{Binding Selected}"
                                             ToolTip="{DynamicResource HoverImageTip}" ToolTipService.IsEnabled="{Binding HasHoverImage, FallbackValue=False}" ToolTipService.InitialShowDelay="300"
                                             VerticalAlignment="Top" Background="{DynamicResource AccentSoft}" ClipToBounds="True">
@@ -1083,7 +1083,7 @@
                                             言い方と作法はタグの管理の「名前を変更」の窓に揃える：Enter で確定・Esc で取り消し
                                         -->
                                         <WrapPanel Visibility="{Binding IsEditingName, Converter={x:Static vm:InverseBoolToVisibilityConverter.Instance}}">
-                                            <RichTextBox Style="{StaticResource SelectableBody}" controls:SelectableText.FitWidth="True" FontSize="19" FontWeight="Bold" Foreground="{DynamicResource Text}" Margin="4,3" MaxWidth="520" VerticalAlignment="Center" AutomationProperties.Name="{Binding SelectedName}" controls:SelectableText.PlainText="True" controls:SelectableText.Text="{Binding SelectedName}" />
+                                            <RichTextBox x:Name="AvatarHeadName" Style="{StaticResource SelectableBody}" controls:SelectableText.FitWidth="True" FontSize="19" FontWeight="Bold" Foreground="{DynamicResource Text}" Margin="4,3" MaxWidth="520" VerticalAlignment="Center" AutomationProperties.Name="{Binding SelectedName}" controls:SelectableText.PlainText="True" controls:SelectableText.Text="{Binding SelectedName}" />
                                             <Button AutomationProperties.AutomationId="AvatarRename" Content="名前を変更" Style="{StaticResource SmallButton}" Margin="8,0,0,0"
                                                     VerticalAlignment="Center" Command="{Binding StartRenameCommand}" Click="StartRename_Click"
                                                     ToolTip="このアプリで表示する名前を変えます。" />
