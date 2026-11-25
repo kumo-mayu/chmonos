@@ -25,9 +25,9 @@ public sealed partial class SearchViewModel
     /// 名前で当てるのは手で置いた画像だけ（unitypackage で入った物は名前では当てない）なので「画像」と言い、
     /// 吹き出しで手で置いた物の事だと分かるようにする（ユーザ判断 2026-11-25「画像などを想定していることが分かると嬉しい」）
     /// </summary>
-    public const string SameNameFlagLabel = "名前が同じ画像も含める";
+    public const string SameNameFlagLabel = "名前が同じファイルも含める";
 
-    public const string SameNameFlagHint = "手で置いた画像を、中身が違っても名前が同じなら含めます。";
+    public const string SameNameFlagHint = "手で置いた画像などを、中身が違っても名前が同じなら含めます。";
 
     private sealed class ProjectContents
     {
