@@ -227,6 +227,51 @@ public class StoreFormatTests : IDisposable
         Assert.Contains("\"writtenBy\": \"1.1.0\"", File.ReadAllText(PathOf(StoreFormat.MarkerFileName)));
     }
 
+    /// <summary>
+    /// 読める下限より古いファイルは、黙って読まずに止める（2026-11-28 の点検：下限の確かめを外しても落ちる試験が無かった）。
+    /// 今は下限が 1 なので版 0 は手で書いた物しか無いが、下限を上げた日に、古すぎるファイルをそのまま読む壊れ方を防ぐ
+    /// </summary>
+    [Fact]
+    public async Task 読める下限より古い版のファイルは読まずに止める()
+    {
+        var path = PathOf("old.json");
+        File.WriteAllText(path, $$"""{ "{{StoreFormat.VersionProperty}}": {{StoreFormat.OldestReadable - 1}}, "id": "1000001" }""");
+
+        Assert.False(StoreFormat.LeavesAsIs(StoreFormat.OldestReadable - 1));
+        Assert.Throws<FormatTooOldException>(() => JsonStore.Read<ItemRecord>(path));
+        await Assert.ThrowsAsync<FormatTooOldException>(() => JsonStore.ReadAsync<ItemRecord>(path));
+    }
+
+    /// <summary>
+    /// 中身を変える段を当てる通り道（2026-11-28 の点検：今の段は全部 null なので、段を飛ばしても順を違えても落ちなかった）。
+    /// 作り物の表で、段ごとに自分の版を配列へ足し、古い順に、ファイルの版より後の段だけが当たる事を見る
+    /// </summary>
+    [Fact]
+    public void 中身を変える段はファイルの版より後の段を古い順に全部当てる()
+    {
+        var steps = Enumerable.Range(StoreFormat.OldestReadable + 1, StoreFormat.Current - StoreFormat.OldestReadable)
+            .ToDictionary(version => version, version => (Func<System.Text.Json.Nodes.JsonNode, Type, System.Text.Json.Nodes.JsonNode>?)((node, _) =>
+            {
+                node["steps"]!.AsArray().Add(version);
+                return node;
+            }));
+        int[] Applied(int from)
+        {
+            var node = System.Text.Json.Nodes.JsonNode.Parse("""{ "steps": [] }""")!;
+            return StoreFormat.Migrate(node, from, typeof(ItemRecord), "作り物.json", steps)["steps"]!.AsArray().Select(step => (int)step!).ToArray();
+        }
+
+        Assert.Equal(Enumerable.Range(StoreFormat.OldestReadable + 1, StoreFormat.Current - StoreFormat.OldestReadable), Applied(StoreFormat.OldestReadable));
+        Assert.Equal([StoreFormat.Current], Applied(StoreFormat.Current - 1));
+        Assert.Empty(Applied(StoreFormat.Current));
+        Assert.False(StoreFormat.LeavesAsIs(StoreFormat.OldestReadable, steps));
+        Assert.True(StoreFormat.LeavesAsIs(StoreFormat.Current, steps));
+
+        // 段を表に足し忘れたら黙って飛ばさず、読めないと分かる
+        steps.Remove(StoreFormat.Current);
+        Assert.Throws<KeyNotFoundException>(() => Applied(StoreFormat.OldestReadable));
+    }
+
     [Fact]
     public void 保存先の版とアプリの関係を決める()
     {
