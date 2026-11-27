@@ -138,7 +138,7 @@ public sealed class ItemDeleteTests : IDisposable
     /// <summary>
     /// 本当に重ねる：取り込みが錠を持ってファイルを足しかけている間に「空なら消す」を始め、錠の前まで来てから放す。
     /// 上の試験は順に呼ぶだけで、DeleteIfAsync の錠を外しても通っていた（2026-11-28 の点検 M17）。
-    /// 錠が無いと、足す前の空を見て消してしまう（その後に取り込みが書き戻して商品は生き返るが、消したと答え、説明 HTML は消えている）
+    /// 錠が無いと、足す前の空を見て消してしまう（消したと答え、説明 HTML も消える）
     /// </summary>
     [Fact]
     public async Task DoesNotDeleteWhenAFileIsAddedWhileDeciding()
