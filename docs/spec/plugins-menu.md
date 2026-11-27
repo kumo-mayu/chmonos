@@ -9,9 +9,9 @@
 ソフトのトークンだけ（`api.json` のトークンは 403 `clientTokenRequired`）。丸ごと置き換え、空の `items` で消す。形は [plugins.md](plugins.md)「項目を宣言する」の例のとおり。
 
 - **検証**（合わなければ 400。黙って捨てない：思った所に出ない・押させたくない商品で押せる、を避ける）：
-  - `where` は `item`・`selection` だけ（`unknownWhere`）。子を持たない項目には1つ以上（`invalidWhere`）。
-  - `needs` は `itemId`・`name`・`shop`・`category`・`files`・`unityPackages`・`avatars`・`tags`（`unknownNeed`）。`modification` は改変の場所（`where: modification`）と一緒に後で足す。
-  - `when` は `hasUnityPackage`・`owned`・`hasAvatar`（true・false）と `category`（名前・64字まで）。知らない条件は `unknownWhen`、型違いは `invalidWhen`。
+  - `where` は `item`・`selection`・`file`・`unityPackage`・`modification`・`avatar`・`shop`（`unknownWhere`）。子を持たない項目には1つ以上（`invalidWhere`）。
+  - `needs` は、その項目の `where` のどれかで使える名前（`unknownNeed`。下の「場所を足した形」）。商品の場所は `itemId`・`name`・`shop`・`category`・`files`・`unityPackages`・`avatars`・`tags`。
+  - `when` は `hasUnityPackage`・`owned`・`hasAvatar`（true・false）と `category`（名前・64字まで）。知らない条件は `unknownWhen`、型違いは `invalidWhen`。`modification`・`shop` と一緒には書けない（`invalidWhen`。当てる商品が無い）。
   - `id` は英数字と `- _ .` の64字まで、下の段も含めて重ならない（`invalidId`・`duplicateId`）。`label` は1〜40字・制御文字なし（`invalidLabel`）。
   - `children` は2段まで（`tooDeep`）。子を持つ項目に `where`・`when`・`needs` は書けない（`invalidItem`）。
   - 1つ目の段は16個まで、下の段も合わせて32個まで（`tooManyItems`）。
@@ -61,6 +61,28 @@
 - ほかの出来事の欄にも `"menu": null` が付く（項目を省かない決まり）。
 - 下の帯（主の窓の下・非表示の帯と同じ置き場）に「{名前}に送りました。」。ログには名前と件数だけ（商品 ID・パス・結果の文は書かない）。
 
+## 場所を足した形（2026-11-27）[実装]
+
+決め事は [plugins.md](plugins.md)「開いた画面に付いていく」。名前・鍵・欄は作る担当が決めた（spec の括弧の中の物だけを渡す）。
+
+| `where` | 出す所 | `needs`（先頭はいつも渡す鍵） | `menu` の欄 |
+|---|---|---|---|
+| `file` | 商品ページ・編集画面のローカルファイルの行（右クリックと「開く ▾」は同じメニュー。フォルダの画面の右の商品ページも） | `hash`・`itemId`・`paths`・`state` | `file: { hash, itemId, paths, state }`（`/v1/items/{id}` の files の1行と同じ値） |
+| `unityPackage` | unitypackage の行の「Unity ▾」 | `itemId`・`fileHash`・`entry`・`roots` | `unityPackage: { itemId, fileHash, entry, roots }`（`fileHash` は入っている zip か単体のファイル。登録したフォルダの中は null） |
+| `modification` | 改変の画面の改変の行の右クリック | `modificationId`・`name`・`avatar`・`members`・`unityProject` | `modification: { id, name, avatarId, avatarName, members, unityProject }`（`/v1/modifications/{id}` と同じ。外した商品は入れない） |
+| `avatar` | アバターの管理の行の右クリック | `avatarId`・`name`・`baseName` | `avatar: { id, name, baseName }`（`/v1/avatars` の1行と同じ） |
+| `shop` | ショップの一覧のカードの右クリック | `shopKey`・`name`・`url` | `shop: { key, name, url }`（`/v1/shops/{key}` と同じ） |
+
+- 押した物は場所と同じ名前の欄に入れ、ほかの場所の欄と `items` は null（出来事の種類と同じ決まり）。`item`・`selection` は今までどおり `items`。
+- `needs` は項目に1本なので、出す場所のどれかで使える名前を受け、押した場所の分だけを詰める（同じ名前 `name`・`itemId` は場所ごとの物）。頼んでいない欄は null。ファイルの場所（`paths`）は頼まれた時だけ。
+- `when`：今の4条件を持ち主の商品に当てる（ファイル・unitypackage はその商品、アバターはアバターの商品）。場所だけの条件はまだ無い。
+- 押せない時：応答していない・写しに無い（作った直後・消した後。「読み込みの途中です。」）は今と同じ。
+- アバターの行は商品でもあるので、`avatar` と `item` の項目を1つの「プラグイン ▸ {名前}」にまとめる（`avatar` を先に。同じ ID の項目が両方にあれば `avatar` として送る）。
+- 許しの窓の「表示する場所」「渡す情報」に場所の名前（ファイルの右クリック・unitypackageのメニュー・改変の右クリック・アバターの右クリック・ショップの右クリック）と、場所ごとにいつも渡す鍵を書く。
+- `extensions`（拡張データの値）はまだ受けない（`unknownNeed`）[要確認]。拡張データはまだ無く、[local-api-extensions.md](local-api-extensions.md) は「プラグインの知らせから」を後回しにしている。受けるようにするのは名前を足すだけの互換の変更。
+- 足していない所：登録したフォルダの行・改変の画面の使った物の「Unity ▾」・ほかの画面のアバターの札。
+- 画面の確かめ：右クリックのメニューは台（ViewShot）で描けない（[ui-shots.md](../dev/ui-shots.md)）ので、中身は試験で見る。
+
 ## 結果を返す `POST /v1/plugin/events/{seq}/result`
 
 - 本文 `{ "ok": true, "message": "…", "epoch": "…" }`（`epoch` は書けば今の起動と照らす。通番は起動ごとに1からなので、前の起動の通番が今の別の出来事に当たり得る）。`ok` が無ければ 400 `invalidRequest`。
@@ -88,4 +110,4 @@
 
 ## まだ決めていない事
 
-- 改変・アバター・ファイルの場所（`where`）と `needs` の `modification`：2026-11-27 に5か所を足すと決めた（[plugins.md](plugins.md)「開いた画面に付いていく」）。まだ作っていない
+- `needs` の `extensions`（上の「場所を足した形」）と、場所だけの `when` の条件

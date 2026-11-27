@@ -82,4 +82,16 @@ public partial class ShopsView : UserControl
 
     private static IEnumerable<string> KeysOf(object row)
         => row is ShopCardRow cards ? cards.Cards.Select(card => card.Shop.Subdomain) : [];
+
+    /// <summary>
+    /// ショップのカードの右クリックに、プラグインの <c>shop</c> の項目を足す（docs/spec/plugins-menu.md）。
+    /// 押せるかはソフトの応答で決まるので、開くたびに作り直す
+    /// </summary>
+    private void OnShopMenuOpened(object sender, RoutedEventArgs e)
+    {
+        if (sender is ContextMenu { PlacementTarget: FrameworkElement { DataContext: ShopCardViewModel card } target } menu)
+        {
+            PluginMenuItems.AttachTo(menu, ItemCardResources.PluginMenusOf(target), [Chmonos.Api.PluginMenuSpot.Shop(card.Shop.Subdomain)]);
+        }
+    }
 }

@@ -430,7 +430,15 @@ public partial class ItemCardResources : ResourceDictionary
             var card = menu.PlacementTarget is FrameworkElement { DataContext: var context }
                 ? context as ItemCardViewModel ?? (context as IHasItemCard)?.Card
                 : null;
-            PluginMenuItems.AttachTo(menu, PluginMenusOf(menu.PlacementTarget), card?.Item.Id);
+            // アバターの管理の行は、アバターの場所の項目を先に（同じ項目が両方にあればアバターとして送る）
+            var itemId = card?.Item.Id;
+            List<Chmonos.Api.PluginMenuSpot> spots = itemId is null ? [] : [Chmonos.Api.PluginMenuSpot.Items(Chmonos.Api.PluginMenus.WhereItem, [itemId])];
+            if (itemId is not null && menu.PlacementTarget is { } target && PluginMenuItems.GetIsAvatarRow(target))
+            {
+                spots.Insert(0, Chmonos.Api.PluginMenuSpot.Avatar(itemId));
+            }
+
+            PluginMenuItems.AttachTo(menu, PluginMenusOf(menu.PlacementTarget), spots);
         }
     }
 

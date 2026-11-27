@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Chmonos.Core.Models;
+using Chmonos.Core.Services;
 using Chmonos.Query;
 
 namespace Chmonos.Api;
@@ -12,12 +13,47 @@ public static class PluginMenus
 {
     public const string WhereItem = "item";
     public const string WhereSelection = "selection";
+    public const string WhereFile = "file";
+    public const string WhereUnityPackage = "unityPackage";
+    public const string WhereModification = "modification";
+    public const string WhereAvatar = "avatar";
+    public const string WhereShop = "shop";
 
-    /// <summary>出せる場所（最初は2つ。ユーザ判断 2026-11-12「おすすめに賛成します」。file・modification・avatar は後から）。</summary>
-    public static IReadOnlyList<string> Wheres { get; } = [WhereItem, WhereSelection];
+    /// <summary>
+    /// 出せる場所。最初は item・selection の2つ（ユーザ判断 2026-11-12「おすすめに賛成します」）。
+    /// 2026-11-27 に file・unityPackage・modification・avatar・shop を足した（docs/spec/plugins.md「開いた画面に付いていく」）
+    /// </summary>
+    public static IReadOnlyList<string> Wheres { get; } = [WhereItem, WhereSelection, WhereFile, WhereUnityPackage, WhereModification, WhereAvatar, WhereShop];
 
-    /// <summary>詰められる情報（並べる順）。files は手元のファイルと登録したフォルダの両方を詰める。</summary>
-    public static IReadOnlyList<string> NeedNames { get; } = ["itemId", "name", "shop", "category", "files", "unityPackages", "avatars", "tags"];
+    /// <summary>商品の場所（item・selection）で詰められる情報。files は手元のファイルと登録したフォルダの両方を詰める。</summary>
+    private static readonly IReadOnlyList<string> ItemNeeds = ["itemId", "name", "shop", "category", "files", "unityPackages", "avatars", "tags"];
+
+    /// <summary>
+    /// 場所ごとに詰められる情報（並べる順）。先頭はいつも渡す鍵（押した物をソフトが見分けられないと使えないので、頼まれなくても入れる）。
+    /// 場所をまたいで同じ意味の物は同じ名前にした（name・itemId）。ファイルの場所は個人の情報を含むので、頼まれた時だけ渡す
+    /// </summary>
+    public static IReadOnlyDictionary<string, IReadOnlyList<string>> NeedsByWhere { get; } = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal)
+    {
+        [WhereItem] = ItemNeeds,
+        [WhereSelection] = ItemNeeds,
+        [WhereFile] = ["hash", "itemId", "paths", "state"],
+        [WhereUnityPackage] = ["itemId", "fileHash", "entry", "roots"],
+        [WhereModification] = ["modificationId", "name", "avatar", "members", "unityProject"],
+        [WhereAvatar] = ["avatarId", "name", "baseName"],
+        [WhereShop] = ["shopKey", "name", "url"],
+    };
+
+    /// <summary>詰められる情報の全部（整えた宣言はこの順に並べる）。</summary>
+    public static IReadOnlyList<string> NeedNames { get; } = Wheres.SelectMany(where => NeedsByWhere[where]).Distinct(StringComparer.Ordinal).ToList();
+
+    /// <summary>場所ごとにいつも渡す鍵（許しの窓でも必ず「渡す」と言う）。</summary>
+    public static string KeyOf(string where) => NeedsByWhere.TryGetValue(where, out var needs) ? needs[0] : "itemId";
+
+    /// <summary>
+    /// 持ち主の商品が無い場所。when の条件は商品に当てる物なので使えない。黙って無条件に押せる項目にしないよう、
+    /// when と一緒に宣言したら断る（場所ごとの条件を足す時に緩める。緩めるのは互換の変更）
+    /// </summary>
+    private static readonly IReadOnlyList<string> WheresWithoutItem = [WhereModification, WhereShop];
 
     /// <summary>
     /// 1つ目の段の項目の上限。メニューは画面の高さに収まらないと送りになって見つけにくい。ふつうのメニューの1段は十数項目までで、
@@ -121,8 +157,16 @@ public static class PluginMenus
                 throw QueryException.Invalid("invalidWhere", $"項目「{id}」の where に、出す場所を1つ以上書いてください（{string.Join("・", Wheres)}）。");
             }
 
-            var needs = NamesOf(element, "needs", NeedNames, "unknownNeed", "needs に知らない名前があります。使えるのは {0} です。");
-            result.Add(new PluginMenuItemRef(id, label, where, WhenOf(element), needs, []));
+            // needs は項目に1本なので、出す場所のどれかで使える名前を受け、押した場所の分だけを詰める
+            var usable = NeedNames.Where(need => where.Any(place => NeedsByWhere[place].Contains(need, StringComparer.Ordinal))).ToList();
+            var needs = NamesOf(element, "needs", usable, "unknownNeed", "needs に、出す場所で使えない名前があります。使えるのは {0} です。");
+            var when = WhenOf(element);
+            if (when is not null && where.Any(WheresWithoutItem.Contains))
+            {
+                throw QueryException.Invalid("invalidWhen", $"項目「{id}」の when は、modification・shop と一緒には書けません（商品に当てる条件のため）。");
+            }
+
+            result.Add(new PluginMenuItemRef(id, label, where, when, needs, []));
         }
 
         return result;
@@ -362,6 +406,116 @@ public static class PluginMenus
         return PluginMenuReason.Ok;
     }
 
+    /// <summary>
+    /// 押せない理由（場所ごと）。押した物が API の写しに無ければ読み込みの途中とする（取り込み・作った直後は写しが少し遅れる）。
+    /// when は持ち主の商品に当てる（ファイル・unitypackage はその商品、アバターはアバターの商品）
+    /// </summary>
+    public static PluginMenuReason Check(PluginMenuWhenRef? when, PluginMenuSpot spot, QuerySnapshot snapshot)
+    {
+        switch (spot.Where)
+        {
+            case WhereItem or WhereSelection:
+                return Check(when, spot.ItemIds, snapshot);
+            case WhereModification:
+                return snapshot.Modifications.Records.Any(record => record.Id == spot.Key) ? PluginMenuReason.Ok : new(PluginMenuBlock.NotLoaded);
+            case WhereShop:
+                return Catalogs.Shops(snapshot).Any(shop => string.Equals(shop.Key, spot.Key, StringComparison.OrdinalIgnoreCase))
+                    ? PluginMenuReason.Ok
+                    : new(PluginMenuBlock.NotLoaded);
+            case WhereAvatar:
+                if (!snapshot.Registry.Entries.Any(entry => entry.ItemId == spot.Key))
+                {
+                    return new(PluginMenuBlock.NotLoaded);
+                }
+
+                // 条件の無い項目は、商品の記録が無いアバター（名指しされただけ）でも押せる
+                return when is null ? PluginMenuReason.Ok : Check(when, [spot.Key!], snapshot);
+            case WhereFile:
+                if (spot.ItemIds.Count != 1 || !snapshot.ItemsById.TryGetValue(spot.ItemIds[0], out var owner)
+                    || !owner.Local.LocalFiles.Any(file => string.Equals(file.Hash, spot.Key, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return new(PluginMenuBlock.NotLoaded);
+                }
+
+                return Check(when, spot.ItemIds, snapshot);
+            default:
+                return spot.ItemIds.Count == 1 ? Check(when, spot.ItemIds, snapshot) : new(PluginMenuBlock.NotLoaded);
+        }
+    }
+
+    /// <summary>押した物を、押した場所の needs の欄だけ詰める（形はほかの読み取りと同じ写し方を通す）。</summary>
+    public static PluginMenuPressed Pressed(string id, PluginMenuSpot spot, QuerySnapshot snapshot, IReadOnlyList<string> needs)
+    {
+        bool Wants(string name) => needs.Contains(name, StringComparer.Ordinal);
+        switch (spot.Where)
+        {
+            case WhereFile:
+            {
+                var itemId = spot.ItemIds[0];
+                var file = ItemMapper.Detail(snapshot.ItemsById[itemId], snapshot).Files
+                    .FirstOrDefault(file => string.Equals(file.Hash, spot.Key, StringComparison.OrdinalIgnoreCase));
+                return new PluginMenuPressed(id, spot.Where, null, File: new PluginMenuFile(
+                    file?.Hash ?? spot.Key!,
+                    Wants("itemId") ? itemId : null,
+                    Wants("paths") ? file?.Paths ?? [] : null,
+                    Wants("state") ? file?.State : null));
+            }
+
+            case WhereUnityPackage:
+            {
+                var itemId = spot.ItemIds[0];
+                var roots = UnityPackageRoots(snapshot.ItemsById[itemId], spot.Key, spot.Entry);
+                return new PluginMenuPressed(id, spot.Where, null, UnityPackage: new PluginMenuUnityPackage(
+                    itemId,
+                    Wants("fileHash") ? spot.Key : null,
+                    Wants("entry") ? spot.Entry : null,
+                    Wants("roots") ? roots : null));
+            }
+
+            case WhereModification:
+            {
+                var modification = Catalogs.Modification(snapshot, spot.Key!);
+                return new PluginMenuPressed(id, spot.Where, null, Modification: new PluginMenuModification(
+                    modification.Id,
+                    Wants("name") ? modification.Name : null,
+                    Wants("avatar") ? modification.AvatarId : null,
+                    Wants("avatar") ? modification.AvatarName : null,
+                    Wants("members") ? modification.Members : null,
+                    Wants("unityProject") ? modification.UnityProject : null));
+            }
+
+            case WhereAvatar:
+            {
+                var avatar = Catalogs.Avatars(snapshot).FirstOrDefault(entry => entry.Id == spot.Key);
+                return new PluginMenuPressed(id, spot.Where, null, Avatar: new PluginMenuAvatar(
+                    spot.Key!,
+                    Wants("name") ? avatar?.Name : null,
+                    Wants("baseName") ? avatar?.BaseName : null));
+            }
+
+            case WhereShop:
+            {
+                var shop = Catalogs.Shop(snapshot, spot.Key!);
+                return new PluginMenuPressed(id, spot.Where, null, Shop: new PluginMenuShop(
+                    shop.Key,
+                    Wants("name") ? shop.Name : null,
+                    Wants("url") ? shop.Url : null));
+            }
+
+            default:
+                return new PluginMenuPressed(id, spot.Where, spot.ItemIds.Select(itemId => Target(snapshot.ItemsById[itemId], snapshot, needs)).ToList());
+        }
+    }
+
+    /// <summary>unitypackage の入る先（<c>/v1/unitypackages</c> の roots と同じ。登録したフォルダの中の物と、単体の物は空）。</summary>
+    private static IReadOnlyList<string> UnityPackageRoots(ItemRecord item, string? fileHash, string? entry)
+        => fileHash is null || entry is null
+            ? []
+            : item.Local.OwnedFiles
+                .Where(file => string.Equals(file.Hash, fileHash, StringComparison.OrdinalIgnoreCase))
+                .SelectMany(UnityHandoff.RecordedPackagesIn)
+                .FirstOrDefault(package => string.Equals(package.Entry, entry, StringComparison.Ordinal))?.Roots ?? [];
+
     /// <summary>押した時点の商品1つを、needs の欄だけ詰める（形はほかの読み取りと同じ写し方を通す）。</summary>
     public static PluginMenuTarget Target(ItemRecord item, QuerySnapshot snapshot, IReadOnlyList<string> needs)
     {
@@ -380,6 +534,29 @@ public static class PluginMenus
             Wants("avatars") ? detail!.CompatibleAvatars : null,
             Wants("tags") ? item.Local.UserTags.Select(tag => new UserTagRef(tag.Top, tag.Subs)).ToList() : null);
     }
+}
+
+/// <summary>
+/// 右クリックした物（どの場所の、どれか）。<see cref="ItemIds"/> は持ち主の商品（item・selection はその商品、file・unityPackage は持ち主の1つ。
+/// modification・shop・avatar は空）。<see cref="Key"/> はファイルのハッシュ・unitypackage の入った zip のハッシュ（フォルダの中なら null）・
+/// 改変の ID・アバターの ID・ショップの鍵。<see cref="Entry"/> は unitypackage の名前
+/// </summary>
+public sealed record PluginMenuSpot(string Where, IReadOnlyList<string> ItemIds, string? Key = null, string? Entry = null)
+{
+    public static PluginMenuSpot Items(string where, IReadOnlyList<string> itemIds) => new(where, itemIds);
+
+    public static PluginMenuSpot File(string itemId, string hash) => new(PluginMenus.WhereFile, [itemId], hash);
+
+    public static PluginMenuSpot UnityPackage(string itemId, string? fileHash, string entry) => new(PluginMenus.WhereUnityPackage, [itemId], fileHash, entry);
+
+    public static PluginMenuSpot Modification(string id) => new(PluginMenus.WhereModification, [], id);
+
+    public static PluginMenuSpot Avatar(string avatarId) => new(PluginMenus.WhereAvatar, [], avatarId);
+
+    public static PluginMenuSpot Shop(string key) => new(PluginMenus.WhereShop, [], key);
+
+    /// <summary>送る件数（ログ）。</summary>
+    public int Count => ItemIds.Count > 0 && Where is PluginMenus.WhereItem or PluginMenus.WhereSelection ? ItemIds.Count : 1;
 }
 
 /// <summary>許しの窓の1行（押せる項目1つ）。<see cref="Parent"/> は下の段なら親の名前。</summary>

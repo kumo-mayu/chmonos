@@ -68,8 +68,8 @@ public sealed class PluginMenuApprovalViewModel
             return new PluginMenuApprovalLine(label, where);
         }
 
-        // 渡す情報は人が許すかを決める物なので、何も詰めない項目でも「商品ID」は言う（ID はいつも渡す）
-        var needs = new[] { "itemId" }.Concat(line.Needs).Distinct(StringComparer.Ordinal).Select(NeedLabel);
+        // 渡す情報は人が許すかを決める物なので、何も詰めない項目でも、場所ごとにいつも渡す鍵（商品ID など）は言う
+        var needs = line.Where.Select(PluginMenus.KeyOf).Concat(line.Needs).Distinct(StringComparer.Ordinal).Select(NeedLabel);
         return new PluginMenuApprovalLine(label, $"{where}　渡す情報：{string.Join("・", needs)}");
     }
 
@@ -78,6 +78,11 @@ public sealed class PluginMenuApprovalViewModel
     {
         PluginMenus.WhereItem => "商品の右クリック",
         PluginMenus.WhereSelection => "複数選択の帯",
+        PluginMenus.WhereFile => "ファイルの右クリック",
+        PluginMenus.WhereUnityPackage => "unitypackageのメニュー",
+        PluginMenus.WhereModification => "改変の右クリック",
+        PluginMenus.WhereAvatar => "アバターの右クリック",
+        PluginMenus.WhereShop => "ショップの右クリック",
         _ => where,
     };
 
@@ -92,6 +97,20 @@ public sealed class PluginMenuApprovalViewModel
         "unityPackages" => "unitypackage",
         "avatars" => "対応アバター",
         "tags" => "タグ",
+        "hash" => "ファイルのハッシュ",
+        "paths" => "ファイルの場所",
+        "state" => "ファイルの状態",
+        "fileHash" => "zipのハッシュ",
+        "entry" => "unitypackageの名前",
+        "roots" => "入る先",
+        "modificationId" => "改変ID",
+        "avatar" => "アバター",
+        "members" => "使ったもの",
+        "unityProject" => "Unityプロジェクト",
+        "avatarId" => "アバターID",
+        "baseName" => "共通素体",
+        "shopKey" => "ショップID",
+        "url" => "URL",
         _ => need,
     };
 

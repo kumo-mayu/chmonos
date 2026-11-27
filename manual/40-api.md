@@ -333,9 +333,16 @@ Chmonos で開いている商品に合わせて表示を変えるツールのた
    ]}
    ```
 
-   - `where`：出す場所。`item`（商品の右クリックと商品ページ）・`selection`（複数選択の帯）。
+   - `where`：出す場所。`item`（商品の右クリックと商品ページ）・`selection`（複数選択の帯）。次のバージョンから `file`（ファイルの行）・`unityPackage`（unitypackage の「Unity ▾」）・`modification`（改変の行）・`avatar`（アバターの管理の行）・`shop`（ショップのカード）も使えます（下）。
    - `when`：押せる条件。`hasUnityPackage`・`owned`・`hasAvatar`（`true`・`false`）と `category`（カテゴリの名前）。合わない商品では灰色になります。複数選択では、選んだ商品がすべて合うときだけ押せます。
    - `needs`：押されたときに届ける情報。`itemId`（いつも届きます）・`name`・`shop`・`category`・`files`（ファイルとフォルダ）・`unityPackages`・`avatars`・`tags`。形は `/v1/items/{id}`・`/v1/unitypackages` と同じです。
+   - （次のバージョンから）`item`・`selection` 以外の場所では、届ける情報が場所ごとに違います。押した物は、`menu` の中の場所と同じ名前の欄（`file`・`unityPackage`・`modification`・`avatar`・`shop`）に入ります。先頭の物はいつも届きます。
+     - `file`：`hash`・`itemId`・`paths`・`state`
+     - `unityPackage`：`itemId`・`fileHash`（入っている zip のハッシュ）・`entry`・`roots`
+     - `modification`：`modificationId`・`name`・`avatar`・`members`・`unityProject`
+     - `avatar`：`avatarId`・`name`・`baseName`
+     - `shop`：`shopKey`・`name`・`url`
+     `modification`・`shop` に出す項目には `when` を書けません。
    - `children`：下の段（2段まで）。下の段を持つ項目には `where`・`when`・`needs` を書きません。
    - 項目は1段目に16個、下の段も合わせて32個まで。`label` は40字までです。
 2. 初めて送ったときと、項目を足した・変えたときは、Chmonos に「メニューの項目の許可」のウィンドウが開き、`202`（`pending`）で答えます。使う人が許可するまでは、前の項目のまま出ます。同じ内容を送り直しただけなら聞かれないので、起動のたびに送ってかまいません。項目を減らすだけのときも聞かれません。今の状態は `GET /v1/plugin/menu` の `state`（`approved`・`pending`・`denied`）で分かります。

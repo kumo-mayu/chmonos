@@ -208,7 +208,7 @@
                     Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}">
             <!-- 右クリック（メモ44 2026-10-05）。いつでも押せる（元が無いときは失敗の文を出す）。削除は確認の窓を出す（feedback 2026-11-18） -->
             <Border.ContextMenu>
-                <ContextMenu>
+                <ContextMenu Opened="OnModificationMenuOpened">
                     <MenuItem Header="複製…" AutomationProperties.AutomationId="ModificationRowMenu.Duplicate"
                               Command="{Binding PlacementTarget.Tag.DuplicateModificationCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                               CommandParameter="{Binding}"

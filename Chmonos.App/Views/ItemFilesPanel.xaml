@@ -28,7 +28,7 @@
                       AutomationProperties.AutomationId="ItemFolderOpenMenu.CopyPath"
                       Command="{Binding PlacementTarget.Tag.CopyPathCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
         </ContextMenu>
-        <ContextMenu x:Key="FileOpenContextMenu" x:Shared="False">
+        <ContextMenu x:Key="FileOpenContextMenu" x:Shared="False" Opened="OnFileMenuOpened">
             <MenuItem Header="エクスプローラで開く" CommandParameter="{Binding FirstPath}"
                       AutomationProperties.AutomationId="ItemFileOpenMenu.Explorer"
                       ToolTip="このファイルのある場所を開きます。zipは展開せずに中を開きます。"
@@ -162,7 +162,7 @@
                                                                                     IsEnabled="{Binding FileRow.CanReveal}"
                                                                                     ToolTipService.ShowOnDisabled="True" ToolTip="{Binding FileRow.UnityMenuTip}">
                                                                                 <Button.ContextMenu>
-                                                                                    <ContextMenu>
+                                                                                    <ContextMenu Opened="OnPackageMenuOpened">
                                                                                         <MenuItem Header="Unityへ送る" CommandParameter="{Binding Entry}"
                                                                                                   AutomationProperties.AutomationId="ItemPackageUnityMenu.Send"
                                                                                                   ToolTip="開いているUnityへ送ります。送る内容はUnity側で確認できます。"

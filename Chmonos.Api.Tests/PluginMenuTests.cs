@@ -38,7 +38,7 @@ public sealed class PluginMenuTests : IAsyncLifetime
         await _store.Items.SaveAsync(new ItemRecord
         {
             Id = WithPackage,
-            Booth = new BoothBlock { Name = "作り物の上着" },
+            Booth = new BoothBlock { Name = "作り物の上着", Shop = new BoothShop { Name = "作り物の店", Subdomain = "made-up-shop", Url = "https://made-up-shop.booth.pm/" } },
             Local = new LocalBlock
             {
                 LocalFiles = [new LocalFileRecord { Hash = new string('A', 64), Paths = [@"D:\作り物\coat.unitypackage"], SizeBytes = 10 }],
@@ -46,6 +46,8 @@ public sealed class PluginMenuTests : IAsyncLifetime
             },
         });
         await _store.Items.SaveAsync(new ItemRecord { Id = WithoutFiles, Booth = new BoothBlock { Name = "作り物の帽子" } });
+        await _store.Modifications.SaveAsync(new ModificationRecord { Id = "mod-0001", AvatarItemId = WithoutFiles, Name = "作り物の改変", UnityProject = @"D:\作り物\Project" });
+        JsonStore.Write(_store.Paths.AvatarRegistryFile, new AvatarRegistry { Entries = [new AvatarRegistryEntry { ItemId = WithoutFiles, BoothName = "作り物の帽子", BaseName = "作り物の素体" }] });
         JsonStore.Write(_store.Paths.ApiClientsFile, new ApiClientList
         {
             Clients =
@@ -136,7 +138,11 @@ public sealed class PluginMenuTests : IAsyncLifetime
         => Assert.Equal(HttpStatusCode.OK, (await SendAsync(HttpMethod.Get, "/v1/plugin/events?after=0&wait=0", token)).StatusCode);
 
     [Theory]
-    [InlineData("""{"items":[{"id":"a","label":"A","where":["file"]}]}""", "unknownWhere")]
+    [InlineData("""{"items":[{"id":"a","label":"A","where":["notification"]}]}""", "unknownWhere")]
+    [InlineData("""{"items":[{"id":"a","label":"A","where":["shop"],"needs":["files"]}]}""", "unknownNeed")]
+    [InlineData("""{"items":[{"id":"a","label":"A","where":["file","avatar"],"needs":["extensions"]}]}""", "unknownNeed")]
+    [InlineData("""{"items":[{"id":"a","label":"A","where":["item","modification"],"when":{"owned":true}}]}""", "invalidWhen")]
+    [InlineData("""{"items":[{"id":"a","label":"A","where":["shop"],"when":{"owned":true}}]}""", "invalidWhen")]
     [InlineData("""{"items":[{"id":"a","label":"A","where":["item"],"needs":["modification"]}]}""", "unknownNeed")]
     [InlineData("""{"items":[{"id":"a","label":"A","where":["item"],"when":{"isAdult":true}}]}""", "unknownWhen")]
     [InlineData("""{"items":[{"id":"a","label":"A","where":["item"],"when":{"owned":"yes"}}]}""", "invalidWhen")]
@@ -494,7 +500,7 @@ public sealed class PluginMenuTests : IAsyncLifetime
     [Fact]
     public void 控えを手で書き換えた合わない宣言は出さない()
     {
-        var records = new[] { new PluginMenuItemRecord { Id = "x", Label = "X", Where = ["file"] } };
+        var records = new[] { new PluginMenuItemRecord { Id = "x", Label = "X", Where = ["notification"] } };
         Assert.Empty(PluginMenus.FromRecords(records));
         Assert.Single(PluginMenus.FromRecords([new PluginMenuItemRecord { Id = "x", Label = "X", Where = ["item"] }]));
     }
@@ -539,5 +545,118 @@ public sealed class PluginMenuTests : IAsyncLifetime
         public TaskCompletionSource<ApiClientDecision> Decision { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public void Answer(ApiClientDecision decision) => Decision.SetResult(decision);
+    }
+
+    private static readonly object[] PlaceItems =
+    [
+        new { id = "file-info", label = "ファイルを調べる", where = new[] { "file" }, needs = new[] { "paths", "state" } },
+        new { id = "pkg", label = "中身を見る", where = new[] { "unityPackage" }, needs = new[] { "entry", "roots", "fileHash" } },
+        new { id = "mod", label = "改変を書き出す", where = new[] { "modification" }, needs = new[] { "name", "avatar", "members", "unityProject" } },
+        new { id = "av", label = "アバターを調べる", where = new[] { "avatar", "item" }, needs = new[] { "name", "baseName" } },
+        new { id = "shop", label = "ショップを調べる", where = new[] { "shop" }, needs = new[] { "url" } },
+    ];
+
+    private static readonly string Hash = new('A', 64);
+
+    /// <summary>場所の項目だけの宣言を許す（商品の場所の項目が無いので、ApproveFirstAsync の待ち方は使えない）。</summary>
+    private async Task ApprovePlacesAsync()
+    {
+        var put = PutMenuAsync(new { items = PlaceItems });
+        (await _approvals.NextAsync()).Answer(new ApiClientDecision(true, []));
+        Assert.Equal(HttpStatusCode.Accepted, (await put).StatusCode);
+        await WaitUntilAsync(() => _hub.MenusFor(PluginMenuSpot.Shop("made-up-shop")).Count > 0);
+    }
+
+    private async Task<JsonElement> MenuEventAsync(PluginMenuSpot spot, string id)
+    {
+        var sent = await _hub.SendMenuAsync("tool", id, spot);
+        Assert.True(sent.Sent, sent.Reason.Block.ToString());
+        var answer = await JsonOf(await SendAsync(HttpMethod.Get, $"/v1/plugin/events?after={sent.Seq - 1}&wait=0", ToolToken));
+        var menu = Assert.Single(answer.GetProperty("events").EnumerateArray()).GetProperty("menu");
+        Assert.Equal(id, menu.GetProperty("id").GetString());
+        Assert.Equal(spot.Where, menu.GetProperty("where").GetString());
+
+        // 押した場所の欄だけに入れ、ほかの場所の欄は null（項目を省かない）
+        var field = spot.Where is "item" or "selection" ? "items" : spot.Where;
+        foreach (var other in new[] { "items", "file", "unityPackage", "modification", "avatar", "shop" }.Where(name => name != field))
+        {
+            Assert.Equal(JsonValueKind.Null, menu.GetProperty(other).ValueKind);
+        }
+
+        return menu.GetProperty(field);
+    }
+
+    [Fact]
+    public async Task 場所ごとに宣言した項目だけを出し_許す前と応答していない間は送らない()
+    {
+        // 許す前は出さない
+        var put = PutMenuAsync(new { items = PlaceItems });
+        var asked = await _approvals.NextAsync();
+        Assert.Empty(_hub.MenusFor(PluginMenuSpot.Shop("made-up-shop")));
+        asked.Answer(new ApiClientDecision(true, []));
+        Assert.Equal(HttpStatusCode.Accepted, (await put).StatusCode);
+        await WaitUntilAsync(() => _hub.MenusFor(PluginMenuSpot.Shop("made-up-shop")).Count > 0);
+
+        // 取りに来ていないソフトの項目は押せない
+        Assert.Equal(PluginMenuBlock.NotResponding, Assert.Single(_hub.MenusFor(PluginMenuSpot.Modification("mod-0001"))).Reason.Block);
+        Assert.False((await _hub.SendMenuAsync("tool", "mod", PluginMenuSpot.Modification("mod-0001"))).Sent);
+        await PollAsync();
+
+        string[] Labels(PluginMenuSpot spot) => Assert.Single(_hub.MenusFor(spot)).Items.Select(item => item.Id).ToArray();
+        Assert.Equal(["file-info"], Labels(PluginMenuSpot.File(WithPackage, Hash)));
+        Assert.Equal(["pkg"], Labels(PluginMenuSpot.UnityPackage(WithPackage, Hash, "coat.unitypackage")));
+        Assert.Equal(["mod"], Labels(PluginMenuSpot.Modification("mod-0001")));
+        Assert.Equal(["av"], Labels(PluginMenuSpot.Avatar(WithoutFiles)));
+        Assert.Equal(["shop"], Labels(PluginMenuSpot.Shop("made-up-shop")));
+        Assert.Equal(["av"], Labels(PluginMenuSpot.Items(PluginMenus.WhereItem, [WithPackage])));
+        Assert.Empty(_hub.MenusFor(PluginMenus.WhereSelection, [WithPackage]));
+
+        // 写しに無い物は押せない（読み込みの途中）。場所の違う項目は送らない
+        Assert.Equal(PluginMenuBlock.NotLoaded, Assert.Single(_hub.MenusFor(PluginMenuSpot.Shop("no-such-shop"))).Items[0].Reason.Block);
+        Assert.Equal(PluginMenuBlock.NotLoaded, Assert.Single(_hub.MenusFor(PluginMenuSpot.File(WithPackage, new string('B', 64)))).Items[0].Reason.Block);
+        Assert.Equal(PluginMenuBlock.NotLoaded, Assert.Single(_hub.MenusFor(PluginMenuSpot.Modification("mod-9999"))).Items[0].Reason.Block);
+        Assert.Equal(PluginMenuBlock.Gone, (await _hub.SendMenuAsync("tool", "shop", PluginMenuSpot.Modification("mod-0001"))).Reason.Block);
+    }
+
+    [Fact]
+    public async Task 場所ごとに鍵をいつも入れ_needs_の欄だけ読み取りと同じ値で詰める()
+    {
+        await ApprovePlacesAsync();
+        await PollAsync();
+
+        var file = await MenuEventAsync(PluginMenuSpot.File(WithPackage, Hash), "file-info");
+        Assert.Equal(Hash, file.GetProperty("hash").GetString());
+        Assert.Equal(JsonValueKind.Null, file.GetProperty("itemId").ValueKind);
+        Assert.Equal(@"D:\作り物\coat.unitypackage", file.GetProperty("paths")[0].GetString());
+        Assert.Equal("present", file.GetProperty("state").GetString());
+
+        var package = await MenuEventAsync(PluginMenuSpot.UnityPackage(WithPackage, Hash, "coat.unitypackage"), "pkg");
+        Assert.Equal(WithPackage, package.GetProperty("itemId").GetString());
+        Assert.Equal(Hash, package.GetProperty("fileHash").GetString());
+        Assert.Equal("coat.unitypackage", package.GetProperty("entry").GetString());
+        Assert.Empty(package.GetProperty("roots").EnumerateArray());
+
+        var modification = await MenuEventAsync(PluginMenuSpot.Modification("mod-0001"), "mod");
+        Assert.Equal("mod-0001", modification.GetProperty("id").GetString());
+        Assert.Equal("作り物の改変", modification.GetProperty("name").GetString());
+        Assert.Equal(WithoutFiles, modification.GetProperty("avatarId").GetString());
+        Assert.Empty(modification.GetProperty("members").EnumerateArray());
+        Assert.Equal(@"D:\作り物\Project", modification.GetProperty("unityProject").GetString());
+
+        var avatar = await MenuEventAsync(PluginMenuSpot.Avatar(WithoutFiles), "av");
+        Assert.Equal(WithoutFiles, avatar.GetProperty("id").GetString());
+        Assert.Equal("作り物の素体", avatar.GetProperty("baseName").GetString());
+        var avatars = await JsonOf(await SendAsync(HttpMethod.Get, "/v1/avatars", ToolToken));
+        Assert.Equal(avatars.EnumerateArray().Single(entry => entry.GetProperty("id").GetString() == WithoutFiles).GetProperty("name").GetString(), avatar.GetProperty("name").GetString());
+
+        // needs に無い欄は null（ショップは url だけを頼んだ）
+        var shop = await MenuEventAsync(PluginMenuSpot.Shop("made-up-shop"), "shop");
+        Assert.Equal("made-up-shop", shop.GetProperty("key").GetString());
+        Assert.Equal(JsonValueKind.Null, shop.GetProperty("name").ValueKind);
+        Assert.Equal("https://made-up-shop.booth.pm/", shop.GetProperty("url").GetString());
+
+        // 商品の場所にも出す項目は、商品の場所では items に入れる（avatar の欄は null）
+        var items = await MenuEventAsync(PluginMenuSpot.Items(PluginMenus.WhereItem, [WithPackage]), "av");
+        Assert.Equal("作り物の上着", Assert.Single(items.EnumerateArray()).GetProperty("name").GetString());
     }
 }

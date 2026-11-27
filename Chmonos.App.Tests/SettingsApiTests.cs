@@ -480,7 +480,7 @@ public sealed class SettingsApiTests
         // 手で書き換えた控え（知らない出す場所）。メニューに出ないので、設定でも見せない
         JsonStore.Write(app.Services.Paths.ApiClientsFile, new ApiClientList
         {
-            Clients = [FakeClient("a1", "作り物の道具") with { Menu = [new PluginMenuItemRecord { Id = "x", Label = "作り物", Where = ["modification"] }] }],
+            Clients = [FakeClient("a1", "作り物の道具") with { Menu = [new PluginMenuItemRecord { Id = "x", Label = "作り物", Where = ["notification"] }] }],
         });
         var main = await app.StartAsync();
         var settings = new SettingsViewModel(app.Services, main);

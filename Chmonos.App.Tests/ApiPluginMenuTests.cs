@@ -58,10 +58,13 @@ public sealed class ApiPluginMenuTests
                     [
                         new PluginMenuItemRecord { Id = "send", Label = "送る_1", Where = ["item", "selection"], Needs = ["name"] },
                         new PluginMenuItemRecord { Id = "owned-only", Label = "持っている物だけ", Where = ["item"], When = new PluginMenuWhen { Owned = true } },
+                        new PluginMenuItemRecord { Id = "avatar-info", Label = "アバターを調べる", Where = ["avatar"], Needs = ["name"] },
                     ],
                 },
             ],
         });
+        // 1件目をアバターとして登録簿に載せる（アバターの場所の項目を押せるように）
+        JsonStore.Write(app.Services.Paths.AvatarRegistryFile, new AvatarRegistry { Entries = [new AvatarRegistryEntry { ItemId = "9600701", BoothName = "作り物の商品1" }] });
         var main = await app.StartAsync();
         await app.SettleAsync();
 
@@ -268,7 +271,7 @@ public sealed class ApiPluginMenuTests
         try
         {
             var settings = new SettingsViewModel(app.Services, main);
-            Assert.Equal(2, settings.ApiClients.Single().Menu.Lines.Count);
+            Assert.Equal(3, settings.ApiClients.Single().Menu.Lines.Count);
             Assert.False(settings.ApiClients.Single().Menu.IsPending);
 
             // 1つ足す宣言：聞いている間は「待っています」と、前の項目のまま並べる
@@ -282,7 +285,7 @@ public sealed class ApiPluginMenuTests
             var asked = await approvals.NextAsync();
             await UntilAsync(app, () => settings.ApiClients.Single().Menu.IsPending);
             Assert.Equal("項目の変更の許可を待っています。許可するまでは今の項目のままです。", settings.ApiClients.Single().Menu.PendingText);
-            Assert.Equal(2, settings.ApiClients.Single().Menu.Lines.Count);
+            Assert.Equal(3, settings.ApiClients.Single().Menu.Lines.Count);
 
             asked.SetResult(new ApiClientDecision(true, []));
             await UntilAsync(app, () => !settings.ApiClients.Single().Menu.IsPending);
@@ -382,5 +385,69 @@ public sealed class ApiPluginMenuTests
         Assert.Equal("「作り物の道具」がメニューに項目を追加しようとしています", first.Heading);
         Assert.False(first.IsChange);
         Assert.False(first.LastRefusal);
+    }
+
+    [Fact]
+    public Task アバターの行は_アバターと商品の項目を1つのプラグインにまとめ_押した項目の場所で送る() => Run(async (app, main, client) =>
+    {
+        await PollAsync(client);
+        var menus = app.Services.PluginMenus;
+        var menu = new ContextMenu();
+        menu.Items.Add(new MenuItem { Header = "非表示にする" });
+
+        PluginMenuItems.AttachTo(menu, menus, [Chmonos.Api.PluginMenuSpot.Avatar("9600701"), Chmonos.Api.PluginMenuSpot.Items(PluginMenus.WhereItem, ["9600701"])]);
+        Assert.Equal(3, menu.Items.Count);
+        var software = Assert.Single(((MenuItem)menu.Items[2]!).Items.Cast<MenuItem>());
+        Assert.Equal(["アバターを調べる", "送る__1", "持っている物だけ"], software.Items.Cast<MenuItem>().Select(item => (string)item.Header));
+
+        // 商品のカード（アバターの行でない）には、アバターの場所の項目を出さない
+        var card = new ContextMenu();
+        PluginMenuItems.AttachTo(card, menus, "9600701");
+        Assert.DoesNotContain("アバターを調べる", Child((MenuItem)card.Items[^1]!, 0).Items.Cast<MenuItem>().Select(item => AutomationProperties.GetName(item)));
+
+        Child(software, 0).RaiseEvent(new System.Windows.RoutedEventArgs(MenuItem.ClickEvent));
+        await WaitForEventsAsync(client, 1);
+        Child(software, 1).RaiseEvent(new System.Windows.RoutedEventArgs(MenuItem.ClickEvent));
+        await WaitForEventsAsync(client, 2);
+        var events = JsonDocument.Parse(await client.GetStringAsync("/v1/plugin/events?after=0&wait=0")).RootElement.GetProperty("events");
+        var avatar = events[0].GetProperty("menu");
+        Assert.Equal("avatar", avatar.GetProperty("where").GetString());
+        Assert.Equal("9600701", avatar.GetProperty("avatar").GetProperty("id").GetString());
+        Assert.Equal(JsonValueKind.Null, avatar.GetProperty("items").ValueKind);
+        var item = events[1].GetProperty("menu");
+        Assert.Equal("item", item.GetProperty("where").GetString());
+        Assert.Equal("作り物の商品1", item.GetProperty("items")[0].GetProperty("name").GetString());
+        Assert.Equal(JsonValueKind.Null, item.GetProperty("avatar").ValueKind);
+    });
+
+    private static async Task WaitForEventsAsync(HttpClient client, int count)
+    {
+        for (var i = 0; i < 200; i++)
+        {
+            var events = JsonDocument.Parse(await client.GetStringAsync("/v1/plugin/events?after=0&wait=0")).RootElement.GetProperty("events");
+            if (events.GetArrayLength() >= count)
+            {
+                return;
+            }
+
+            await Task.Delay(25);
+        }
+
+        Assert.Fail($"出来事が{count}件になりませんでした。");
+    }
+
+    [Fact]
+    public void 許し直しの窓は_足した場所の名前と_場所ごとにいつも渡す鍵を言う()
+    {
+        var change = new PluginMenuChange(
+            [new PluginMenuLine("shop", "調べる", null, ["modification", "shop"], ["url"], null)],
+            [new PluginMenuLine("file", "ファイル", null, ["file", "unityPackage", "avatar"], ["paths", "roots", "baseName"], null)],
+            []);
+        var model = new PluginMenuApprovalViewModel(new PluginMenuRequestInfo("作り物の道具", null, null, change, IsFirst: false));
+
+        Assert.Equal("表示する場所：改変の右クリック・ショップの右クリック　渡す情報：改変ID・ショップID・URL", model.Added[0].Detail);
+        Assert.Equal(
+            "表示する場所：ファイルの右クリック・unitypackageのメニュー・アバターの右クリック　渡す情報：ファイルのハッシュ・商品ID・アバターID・ファイルの場所・入る先・共通素体",
+            model.Changed[0].Detail);
     }
 }

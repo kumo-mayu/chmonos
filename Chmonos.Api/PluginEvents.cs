@@ -397,7 +397,10 @@ public sealed class PluginEventHub(Func<DateTimeOffset>? clock = null)
     /// <paramref name="where"/> に出す項目を、ソフトごとに押せるかと理由を添えて並べる（許した順）。
     /// 止めた（拒否が続いた）ソフトと、項目の無いソフトは入れない。API が止まっている・写しをまだ読んでいなければ空（「プラグイン」を出さない）
     /// </summary>
-    public IReadOnlyList<PluginMenuSoftware> MenusFor(string where, IReadOnlyList<string> itemIds)
+    public IReadOnlyList<PluginMenuSoftware> MenusFor(string where, IReadOnlyList<string> itemIds) => MenusFor(PluginMenuSpot.Items(where, itemIds));
+
+    /// <summary><paramref name="spot"/>（右クリックした物）に出す項目。商品の場所は上と同じ。</summary>
+    public IReadOnlyList<PluginMenuSoftware> MenusFor(PluginMenuSpot spot)
     {
         if (_book is not { } book || _snapshot?.Invoke() is not { } snapshot)
         {
@@ -414,7 +417,7 @@ public sealed class PluginEventHub(Func<DateTimeOffset>? clock = null)
             }
 
             var responding = IsResponding(client.Id);
-            var entries = EntriesOf(menu, where, itemIds, snapshot, responding);
+            var entries = EntriesOf(menu, spot, snapshot, responding);
             if (entries.Count == 0)
             {
                 continue;
@@ -428,14 +431,14 @@ public sealed class PluginEventHub(Func<DateTimeOffset>? clock = null)
     }
 
     private static List<PluginMenuEntry> EntriesOf(
-        IReadOnlyList<PluginMenuItemRef> items, string where, IReadOnlyList<string> itemIds, QuerySnapshot snapshot, bool responding)
+        IReadOnlyList<PluginMenuItemRef> items, PluginMenuSpot spot, QuerySnapshot snapshot, bool responding)
     {
         var result = new List<PluginMenuEntry>();
         foreach (var item in items)
         {
             if (item.Children.Count > 0)
             {
-                var children = EntriesOf(item.Children, where, itemIds, snapshot, responding);
+                var children = EntriesOf(item.Children, spot, snapshot, responding);
                 if (children.Count > 0)
                 {
                     result.Add(new PluginMenuEntry(item.Id, item.Label, FirstReason(children), children));
@@ -444,12 +447,12 @@ public sealed class PluginEventHub(Func<DateTimeOffset>? clock = null)
                 continue;
             }
 
-            if (!item.Where.Contains(where, StringComparer.Ordinal))
+            if (!item.Where.Contains(spot.Where, StringComparer.Ordinal))
             {
                 continue;
             }
 
-            var reason = responding ? PluginMenus.Check(item.When, itemIds, snapshot) : new PluginMenuReason(PluginMenuBlock.NotResponding);
+            var reason = responding ? PluginMenus.Check(item.When, spot, snapshot) : new PluginMenuReason(PluginMenuBlock.NotResponding);
             result.Add(new PluginMenuEntry(item.Id, item.Label, reason, []));
         }
 
@@ -464,8 +467,13 @@ public sealed class PluginEventHub(Func<DateTimeOffset>? clock = null)
     /// 項目が押された：押した時点の商品を needs のとおりに詰め、そのソフトの列に <c>menu</c> の出来事を積む（購読していなくても積む）。
     /// 押せるかは押した瞬間にも確かめ直す（開いた後に切れたソフトへ積むと、後で起動したときに古い操作が走る）
     /// </summary>
-    public async Task<PluginMenuSendResult> SendMenuAsync(string clientId, string menuId, string where, IReadOnlyList<string> itemIds)
+    public Task<PluginMenuSendResult> SendMenuAsync(string clientId, string menuId, string where, IReadOnlyList<string> itemIds)
+        => SendMenuAsync(clientId, menuId, PluginMenuSpot.Items(where, itemIds));
+
+    /// <summary>項目が押された（右クリックした物 <paramref name="spot"/> を、押した場所の needs のとおりに詰める）。</summary>
+    public async Task<PluginMenuSendResult> SendMenuAsync(string clientId, string menuId, PluginMenuSpot spot)
     {
+        var where = spot.Where;
         if (_book is not { } book || _snapshot?.Invoke() is not { } snapshot || book.ById(clientId) is not { } client)
         {
             return new PluginMenuSendResult(false, 0, string.Empty, new PluginMenuReason(PluginMenuBlock.NotResponding));
@@ -483,15 +491,14 @@ public sealed class PluginEventHub(Func<DateTimeOffset>? clock = null)
             return new PluginMenuSendResult(false, 0, client.Name, new PluginMenuReason(PluginMenuBlock.NotResponding));
         }
 
-        var reason = PluginMenus.Check(item.When, itemIds, snapshot);
+        var reason = PluginMenus.Check(item.When, spot, snapshot);
         if (!reason.IsOk)
         {
             return new PluginMenuSendResult(false, 0, client.Name, reason);
         }
 
         // 千件の詳細を作ると数十ms かかり得るので、画面のスレッドの外で詰める
-        var targets = await Task.Run(() => itemIds.Select(id => PluginMenus.Target(snapshot.ItemsById[id], snapshot, item.Needs)).ToList());
-        var pressed = new PluginMenuPressed(item.Id, where, targets);
+        var pressed = await Task.Run(() => PluginMenus.Pressed(item.Id, spot, snapshot, item.Needs));
         var at = _clock();
         long seq;
         lock (_lock)
@@ -517,7 +524,7 @@ public sealed class PluginEventHub(Func<DateTimeOffset>? clock = null)
         }
 
         // ログには名前と数だけ（商品 ID・パスは書かない。中身をログに残さない決まり）
-        Core.Diagnostics.AppLog.Note("外から使う API", $"ソフト「{client.Name}」の項目を押した（{targets.Count}件）");
+        Core.Diagnostics.AppLog.Note("外から使う API", $"ソフト「{client.Name}」の項目を押した（{where}・{spot.Count}件）");
         return new PluginMenuSendResult(true, seq, client.Name, PluginMenuReason.Ok);
     }
 

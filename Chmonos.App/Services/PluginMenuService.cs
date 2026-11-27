@@ -56,10 +56,17 @@ public sealed class PluginMenuService : ViewModelBase
     /// <summary>開いた時点で、出す項目と押せるか。</summary>
     public IReadOnlyList<PluginMenuSoftware> Build(string where, IReadOnlyList<string> itemIds) => _hub.MenusFor(where, itemIds);
 
+    /// <summary>開いた時点で、右クリックした物に出す項目と押せるか。</summary>
+    public IReadOnlyList<PluginMenuSoftware> Build(PluginMenuSpot spot) => _hub.MenusFor(spot);
+
     /// <summary>押した：ソフトの列に積み、帯で「送りました」か、送れなかった理由を言う。</summary>
-    public async Task PressAsync(PluginMenuSoftware software, PluginMenuEntry entry, string where, IReadOnlyList<string> itemIds)
+    public Task PressAsync(PluginMenuSoftware software, PluginMenuEntry entry, string where, IReadOnlyList<string> itemIds)
+        => PressAsync(software, entry, PluginMenuSpot.Items(where, itemIds));
+
+    /// <summary>押した（右クリックした物 <paramref name="spot"/> で）。</summary>
+    public async Task PressAsync(PluginMenuSoftware software, PluginMenuEntry entry, PluginMenuSpot spot)
     {
-        var sent = await _hub.SendMenuAsync(software.ClientId, entry.Id, where, itemIds);
+        var sent = await _hub.SendMenuAsync(software.ClientId, entry.Id, spot);
         if (sent.Sent)
         {
             _current = (software.ClientId, sent.Seq);

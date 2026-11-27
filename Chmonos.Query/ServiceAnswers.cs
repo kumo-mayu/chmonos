@@ -186,10 +186,38 @@ public sealed record PluginMenuWhenRef(bool? HasUnityPackage, bool? Owned, bool?
 public sealed record PluginMenuAnswer(string State, IReadOnlyList<PluginMenuItemRef> Items, IReadOnlyList<PluginMenuItemRef>? Pending);
 
 /// <summary>
-/// 項目が押された（<c>kind: "menu"</c>）。<see cref="Id"/> は押した項目の ID、<see cref="Where"/> は item・selection。
-/// <see cref="Items"/> は押した時点の商品（選択なら表示の並びの順）で、宣言の needs の欄だけ詰め、ほかは null
+/// 項目が押された（<c>kind: "menu"</c>）。<see cref="Id"/> は押した項目の ID、<see cref="Where"/> は押した場所。
+/// 押した物は場所と同じ名前の欄に入れ、ほかの場所の欄は null（出来事の種類と同じ決まり）。<see cref="Items"/> は item・selection の時の商品
+/// （選択なら表示の並びの順）。どれも宣言の needs の欄だけ詰め、ほかは null
 /// </summary>
-public sealed record PluginMenuPressed(string Id, string Where, IReadOnlyList<PluginMenuTarget> Items);
+public sealed record PluginMenuPressed(
+    string Id,
+    string Where,
+    IReadOnlyList<PluginMenuTarget>? Items,
+    PluginMenuFile? File = null,
+    PluginMenuUnityPackage? UnityPackage = null,
+    PluginMenuModification? Modification = null,
+    PluginMenuAvatar? Avatar = null,
+    PluginMenuShop? Shop = null);
+
+/// <summary>押したファイル（<c>where: file</c>）。<see cref="Hash"/> はいつも入る。ほかは <c>/v1/items/{id}</c> の files の1行と同じ値。</summary>
+public sealed record PluginMenuFile(string Hash, string? ItemId, IReadOnlyList<string>? Paths, string? State);
+
+/// <summary>
+/// 押した unitypackage（<c>where: unityPackage</c>）。<see cref="ItemId"/> はいつも入る。<see cref="FileHash"/> は入っている zip（単体の
+/// unitypackage はそのファイル）のハッシュで、登録したフォルダの中の物は null。<see cref="Entry"/>・<see cref="Roots"/> は <c>/v1/unitypackages</c> の1行と同じ
+/// </summary>
+public sealed record PluginMenuUnityPackage(string ItemId, string? FileHash, string? Entry, IReadOnlyList<string>? Roots);
+
+/// <summary>押した改変（<c>where: modification</c>）。<see cref="Id"/> はいつも入る。ほかは <c>/v1/modifications/{id}</c> と同じ値（外した商品は入れない）。</summary>
+public sealed record PluginMenuModification(
+    string Id, string? Name, string? AvatarId, string? AvatarName, IReadOnlyList<ModificationMemberRef>? Members, string? UnityProject);
+
+/// <summary>押したアバター（<c>where: avatar</c>）。<see cref="Id"/> はいつも入る。ほかは <c>/v1/avatars</c> の1行と同じ値。</summary>
+public sealed record PluginMenuAvatar(string Id, string? Name, string? BaseName);
+
+/// <summary>押したショップ（<c>where: shop</c>）。<see cref="Key"/> はいつも入る。ほかは <c>/v1/shops/{key}</c> と同じ値。</summary>
+public sealed record PluginMenuShop(string Key, string? Name, string? Url);
 
 /// <summary>
 /// 押された商品1つ。形はほかの読み取りと同じ（<c>/v1/items/{id}</c> の name・shop・category・files・folders・compatibleAvatars・userTags、

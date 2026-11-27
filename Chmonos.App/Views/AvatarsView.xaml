@@ -26,6 +26,8 @@
         <Style x:Key="AvatarRowStyle" TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
             <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}" />
             <Setter Property="ContextMenu" Value="{StaticResource CardMenu}" />
+            <!-- プラグインの項目は、商品の場所に加えてアバターの場所（avatar）の物も出す（docs/spec/plugins-menu.md） -->
+            <Setter Property="views:PluginMenuItems.IsAvatarRow" Value="True" />
             <!-- 中クリックで BOOTH の商品ページ（検索のカード・管理の一覧の行と同じ近道・open.md 136）。ID の無い行では何も開かない -->
             <Setter Property="controls:MiddleClick.Command" Value="{Binding DataContext.OpenBoothCommand, RelativeSource={RelativeSource AncestorType=ListBox}}" />
             <Setter Property="controls:MiddleClick.CommandParameter" Value="{Binding}" />

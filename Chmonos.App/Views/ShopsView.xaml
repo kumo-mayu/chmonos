@@ -155,7 +155,7 @@
                             </Button.ToolTip>
                             <!-- 右クリック（ユーザ指示 2026-09-20・M2）。押したときと同じ2つの行き先を出す -->
                             <Button.ContextMenu>
-                                <ContextMenu>
+                                <ContextMenu Opened="OnShopMenuOpened">
                                     <MenuItem AutomationProperties.AutomationId="ShopCardMenu.Open" Header="ショップを開く" Command="{Binding OpenCommand}"
                                               ToolTip="このショップの商品を、アプリの中のショップ画面で開きます。" />
                                     <MenuItem AutomationProperties.AutomationId="ShopCardMenu.OpenBooth" Header="BOOTHのショップページを開く" Command="{Binding OpenBoothCommand}"
