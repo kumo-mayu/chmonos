@@ -56,14 +56,14 @@ public class ItemListColumnRealizeTests
         var scroll = Descendants<ScrollViewer>(list).First(viewer => ReferenceEquals(viewer.TemplatedParent, list));
         Assert.True(scroll.ExtentWidth > scroll.ViewportWidth * 2, "全部の列は一覧の幅を大きく超える");
 
-        // 左端（0〜800）：右の列は作らず空。左の列と選ぶ列は作る
+        // 左端（0〜800）：右の列は作らず空。左の列は作る
         var shown = Expected(view, 0, scroll.ViewportWidth);
         Assert.Contains(false, shown);
         AssertCells(list, view, shown);
         var lastKey = columns.Order[^1];
         Assert.False(shown[^1], $"右端の列（{lastKey}）は見えない");
 
-        // 右端まで流す：右の列が作られ、左の列（選ぶ列のほか）は空に戻る
+        // 右端まで流す：右の列が作られ、左の列は空に戻る
         scroll.ScrollToHorizontalOffset(scroll.ExtentWidth);
         Layout(host);
         shown = Expected(view, scroll.HorizontalOffset, scroll.ViewportWidth);
@@ -129,11 +129,10 @@ public class ItemListColumnRealizeTests
         element.UpdateLayout();
     }
 
-    /// <summary>今の幅と横の位置から、作るはずの列（選ぶ列はいつも作る）。</summary>
+    /// <summary>今の幅と横の位置から、作るはずの列。</summary>
     private static bool[] Expected(GridView view, double offset, double viewport)
     {
         var shown = ItemListColumnsView.VisibleColumns(view.Columns.Select(column => column.ActualWidth).ToList(), offset, viewport, ItemListColumnsView.RealizeMargin);
-        shown[0] = true;
         return shown;
     }
 

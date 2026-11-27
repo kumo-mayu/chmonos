@@ -180,8 +180,7 @@ public static class ItemListColumnsView
                     continue;
                 }
 
-                // 選ぶ列はいつも作る：中のチェックは Tab で止まる所で、作らないと横に流した後の Tab が飛ばす。細く軽い
-                var template = shown[i] || _keys[column] == ItemListColumnCatalog.Select ? real : s_emptyCell;
+                var template = shown[i] ? real : s_emptyCell;
                 if (!ReferenceEquals(column.CellTemplate, template))
                 {
                     column.CellTemplate = template;
