@@ -81,7 +81,7 @@ public sealed class ProfileModule : SearchModule
     private bool _requireBoth;
 
     /// <summary>
-    /// 「単体で変換できるものだけ」（既定は切・ユーザ判断 2026-11-09）。両方の欄に入れたときに、変換元と変換先の両方を1つの商品でまかなえる物
+    /// 「両方を持つ商品のみ」（既定は切・ユーザ判断 2026-11-09。名前は 2026-11-27 に「単体で変換できるものだけ」から変えた：意味が分かりにくいとユーザ指摘）。両方の欄に入れたときに、変換元と変換先の両方を1つの商品でまかなえる物
     /// （素体用の物・何体分もまとめた物）だけにする。欄の中の AND は置かない（商品1件に B 用と C 用の両方が入っている物はまれで、0件を「持っていない」と読み違える）
     /// </summary>
     public bool RequireBoth
@@ -96,7 +96,10 @@ public sealed class ProfileModule : SearchModule
         }
     }
 
-    /// <summary>「単体で変換できるものだけ」が効くのは、両方の欄に入れたとき。</summary>
+    /// <summary>画面の名前と要約で同じ語を使う（要約だけ古い名前のまま残らないように1か所に置く）。</summary>
+    public const string RequireBothLabel = "両方を持つ商品のみ";
+
+    /// <summary>「両方を持つ商品のみ」が効くのは、両方の欄に入れたとき。</summary>
     public bool BothApplies => Source.Chips.Count > 0 && Destination.Chips.Count > 0;
 
     /// <summary>両方の欄に入れたときの「そろっているか」の1行。手元の全部のプロファイルで見る（絞り込みの結果ではない）。</summary>
@@ -193,7 +196,7 @@ public sealed class ProfileModule : SearchModule
                 + (_viaBase ? string.Empty : "（素体経由を除く）")
                 + (_includeUnconfirmed ? string.Empty : "（確認したものだけ）")
                 + (_showCounterpart && CounterpartApplies ? "（組み合わせられるプロファイルも含める）" : string.Empty)
-                + (_requireBoth && BothApplies ? "（単体で変換できるものだけ）" : string.Empty);
+                + (_requireBoth && BothApplies ? $"（{RequireBothLabel}）" : string.Empty);
         }
     }
 
