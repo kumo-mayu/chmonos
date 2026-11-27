@@ -254,7 +254,7 @@ public sealed class ApiInternalListTests : IAsyncLifetime
 
         // 1件ずつたどると、ページの境が同じ日時（2 と 3 は Day2）の間に来る。印が記録の位置を持たないと、同じ日時の2件目を飛ばす
         // （まとめて外すと同じ日時が何千件も並ぶ。2026-11-28 の点検）
-        var walked = new List<string>();
+        var walked = new List<string?>();
         string? next = null;
         for (var page = 0; page < 5; page++)
         {

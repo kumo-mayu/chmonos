@@ -130,8 +130,10 @@ public sealed class ApiNoBoothTests : IAsyncLifetime
         Assert.True(unknown.Count == 0, "許していない命令：" + string.Join("、", unknown));
     }
 
+    // BOOTH へ問い合わせない事は、上の型の参照と命令の一覧の2本で守る。お気に入りの書き込みは BoothClient に届かないので、
+    // ここで問い合わせを数えても必ず0になり、壊しても落ちなかった（2026-11-28。数えを外した）
     [Fact]
-    public async Task 書き込みは本物の命令の口を通り_ほかの欄を残し_BOOTHへ問い合わせない()
+    public async Task 書き込みは本物の命令の口を通り_ほかの欄を残す()
     {
         using (var answer = await _client.SendAsync(Put($"/v1/items/{ItemId}/favorite", """{"value":true}""")))
         {
@@ -141,7 +143,6 @@ public sealed class ApiNoBoothTests : IAsyncLifetime
         var saved = (await _store.Items.LoadAsync(ItemId))!;
         Assert.True(saved.Local.IsFavorite);
         Assert.Equal("作り物のメモ", saved.Local.Memo);
-        Assert.Equal(0, _booth.Calls);
     }
 
     [Fact]
@@ -161,7 +162,6 @@ public sealed class ApiNoBoothTests : IAsyncLifetime
         Assert.Contains("itemBeingEdited", await editing.Content.ReadAsStringAsync());
 
         Assert.Equal(before, await File.ReadAllTextAsync(_store.Paths.ItemFile(ItemId)));
-        Assert.Equal(0, _booth.Calls);
     }
 
     private static HttpRequestMessage Put(string path, string body)
