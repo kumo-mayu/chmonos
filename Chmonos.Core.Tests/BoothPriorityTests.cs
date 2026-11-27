@@ -132,19 +132,31 @@ public class BoothPriorityTests
     }
 
     /// <summary>範囲を出れば元の優先度に戻る。段を抜けた後まで引きずらない。</summary>
+    /// <remarks>
+    /// 前は <c>Assert.True(true)</c> だけで、戻さない形に壊しても通った（2026-11-28 の点検の M22）。今の段は試験から見える
+    /// （<see cref="BoothClient.CurrentPriority"/>）ので、範囲ごとに値で比べる。
+    /// 別の流れで回すのは、壊したときに残った段がほかの試験へ漏れないように
+    /// </remarks>
     [Fact]
-    public void RestoresThePreviousPriorityWhenTheScopeEnds()
+    public async Task RestoresThePreviousPriorityWhenTheScopeEnds()
     {
-        using (BoothClient.Prioritize(BoothPriority.Metadata))
+        await Task.Run(() =>
         {
-            using (BoothClient.Prioritize(BoothPriority.Gallery))
+            Assert.Equal(BoothPriority.Background, BoothClient.CurrentPriority);
+            using (BoothClient.Prioritize(BoothPriority.Metadata))
             {
-                // 内側が勝つ
-            }
-        }
+                using (BoothClient.Prioritize(BoothPriority.Gallery))
+                {
+                    // 内側が勝つ
+                    Assert.Equal(BoothPriority.Gallery, BoothClient.CurrentPriority);
+                }
 
-        // 例外なく元へ戻ればよい。値そのものは外から見えない（見せる必要も無い）
-        Assert.True(true);
+                Assert.Equal(BoothPriority.Metadata, BoothClient.CurrentPriority);
+            }
+
+            // 範囲が無ければ一番下の段
+            Assert.Equal(BoothPriority.Background, BoothClient.CurrentPriority);
+        }).WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     private static Task Start(BoothClient client, BoothPriority priority, string itemId)
@@ -354,6 +366,81 @@ public class BoothPriorityTests
         Assert.False(spinning.Task.IsCompleted, $"⑧どうしが譲り合って進まない（待ち {Volatile.Read(ref waits)} 回）");
         await both;
         Assert.Equal(new[] { "1", "2", "3" }.Select(BoothClient.ItemJsonUrl), handler.Requests);
+    }
+
+    /// <summary>
+    /// 人が押した操作の中で、門に並んでいる間に取り消しても、同じ操作の次の1本は通る。
+    /// 取り消しで操作の中の順番（1本ずつにする錠）を返し忘れると、次の1本が永久に待つ。試験が無く、壊しても通った（2026-11-28 の点検の M13）
+    /// </summary>
+    [Fact]
+    public async Task 人が押した操作の中で並んでいる間に取り消しても_同じ操作の次の1本は通る()
+    {
+        var handler = new BlockingHandler();
+        var client = new BoothClient(new HttpClient(handler), new AppSettings { FetchIntervalMs = 0 }, TestWait.None);
+
+        // ⑦の1本が門を持ったまま通信の最中
+        var due = Start(client, BoothPriority.Background, "7");
+        await handler.FirstArrived.WaitAsync(TimeSpan.FromSeconds(5));
+
+        var user = Task.Run(async () =>
+        {
+            using var _ = BoothClient.Prioritize(BoothPriority.User);
+            using var held = BoothClient.HoldForUserOperation();
+            using var cancel = new CancellationTokenSource();
+
+            var canceled = client.GetItemJsonAsync("1", cancel.Token);
+            await WaitUntilQueued(client, 1);
+            cancel.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => canceled.WaitAsync(TimeSpan.FromSeconds(5)));
+
+            handler.Release();
+            await client.GetItemJsonAsync("2").WaitAsync(TimeSpan.FromSeconds(5));
+        });
+
+        await Task.WhenAll(due, user).WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.Equal([BoothClient.ItemJsonUrl("7"), BoothClient.ItemJsonUrl("2")], handler.Requests);
+    }
+
+    /// <summary>
+    /// ⑧は⑦（期限の取り直し）にも譲る。決め事は「間隔を待ち終えたときに⑦以上の段が並んでいれば譲る」
+    /// （`docs/spec/background-and-network.md` の⑧）。上の試験は人の操作だけを並ばせていて、⑦への譲りは見ていなかった
+    /// </summary>
+    [Fact]
+    public async Task 先回りは間隔を待つ間に並んだ期限の取り直しへも譲る()
+    {
+        var handler = new RecordingHandler();
+        var waiting = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var go = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var blocking = false;
+        var settings = new AppSettings { FetchIntervalMs = 1500 };
+        var client = new BoothClient(
+            new HttpClient(handler),
+            () => settings,
+            async (_, token) =>
+            {
+                if (Volatile.Read(ref blocking))
+                {
+                    waiting.TrySetResult();
+                    await go.Task.WaitAsync(token);
+                }
+            },
+            machineGate: null,
+            new StoppedClock());
+
+        await Start(client, BoothPriority.Metadata, "1").WaitAsync(TimeSpan.FromSeconds(5));
+
+        Volatile.Write(ref blocking, true);
+        var prefetch = Start(client, BoothPriority.Prefetch, "2");
+        await waiting.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        // ⑧が門を持って間隔を待っている間に、⑦が並ぶ
+        var due = Start(client, BoothPriority.Background, "3");
+        await WaitUntilQueued(client, 1);
+
+        go.TrySetResult();
+        await Task.WhenAll(prefetch, due).WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.Equal(new[] { "1", "3", "2" }.Select(BoothClient.ItemJsonUrl), handler.Requests);
     }
 
     /// <summary>進まない時計。間隔は毎回まるごと残っているので、待ちを差し替えた所でだけ進む（実時間に左右されない）</summary>
