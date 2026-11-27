@@ -840,7 +840,8 @@ public static class UnityImportQueue
     /// 進捗の窓も出さない**（実機 2026-11-27・スクリプトの無い102件の物で4回）。見張りはログと窓しか見ないので、5秒後に取り消しと決め、
     /// 入っているのに「取り消した」と言い、入ったフォルダも選ばなかった。Unity は取り込んだ物に必ずファイルと <c>.meta</c> を書き、
     /// Cancel では何も書かないので、増えたかで見分けられる。
-    /// 増えないまま取り込む物（入っていた物を同じ物で上書きしただけ）は見分けられず、今まで通り取り消しになる。
+    /// 全部はそろっていない物で、増えないまま上書きだけした物は見分けられず、取り消しのままになる（ユーザ判断 2026-11-27：記録のみ。
+    /// データは傷まず、知らせ・足跡・選択が抜けるだけ）。全部そろっている物は送る前に「既に全部入っている」と決まり、ここを通らない。
     /// </summary>
     internal static UnityImportState Reconsider(UnityImportState state, int presentBefore, int presentAfter)
         => state == UnityImportState.Cancelled && presentAfter > presentBefore ? UnityImportState.Imported : state;
