@@ -256,5 +256,17 @@ public sealed class ApiInternalListTests : IAsyncLifetime
 
         Assert.Equal(3, (await JsonOf("/v1/excluded")).GetProperty("total").GetInt32());
         Assert.Equal(3, (await JsonOf("/v1/recent")).GetProperty("total").GetInt32());
+
+        // 読み終えていないので2分ごとの見比べのたびに読み直すが、中身は変わらないので知らせない（改変の点検32と同じ）
+        var sequence = (await JsonOf("/v1/changes")).GetProperty("sequence").GetInt64();
+        for (var round = 0; round < 3; round++)
+        {
+            var everything = new Chmonos.Query.StoreChangeSet();
+            everything.Add(Chmonos.Query.StorePart.Excluded);
+            _sync.Enqueue(everything);
+            await _sync.ApplyPendingAsync();
+        }
+
+        Assert.Equal(sequence, (await JsonOf("/v1/changes")).GetProperty("sequence").GetInt64());
     }
 }

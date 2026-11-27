@@ -211,6 +211,13 @@ internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock, DataS
         {
             reported.Remove(StorePart.Modifications);
         }
+
+        // 外したファイルの記録も同じ。読めない間は前の写しの一覧をそのまま使う（同じ参照）ので、見比べのたびに知らせない
+        if (reported.Contains(StorePart.Excluded) && ReferenceEquals(before.Excluded, after.Excluded))
+        {
+            reported.Remove(StorePart.Excluded);
+        }
+
         if (itemIds.Count > 0)
         {
             reported.Add(StorePart.Items);
