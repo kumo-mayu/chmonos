@@ -32,8 +32,33 @@ public sealed class ApiInternalListTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         _store = new DataStore(new AppPaths(_root));
-        await _store.Items.SaveAsync(new ItemRecord { Id = "9700001", Booth = new BoothBlock { Name = "作り物の上着" } });
-        await _store.Items.SaveAsync(new ItemRecord { Id = "9700002", Booth = new BoothBlock { Name = "作り物の靴" } });
+        // 登録したフォルダ：見つからない物・2つの商品が同じ場所を登録・大文字小文字だけ違う場所（並びを一意にする試し）
+        await _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = "9700001",
+            Booth = new BoothBlock { Name = "作り物の上着" },
+            Local = new LocalBlock
+            {
+                LocalFolders =
+                [
+                    new LocalFolderRecord { Path = @"D:\assets\Coat", FileCount = 3, TotalBytes = 300, RegisteredAt = Day1, UnityPackages = ["coat.unitypackage"] },
+                    new LocalFolderRecord { Path = @"c:\old\Coat", FileCount = 1, TotalBytes = 10, MissingSince = Day2 },
+                ],
+            },
+        });
+        await _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = "9700002",
+            Booth = new BoothBlock { Name = "作り物の靴" },
+            Local = new LocalBlock
+            {
+                LocalFolders =
+                [
+                    new LocalFolderRecord { Path = @"D:\assets\coat", RegisteredAt = Day2 },
+                    new LocalFolderRecord { Path = @"D:\assets\Coat", RegisteredAt = Day2 },
+                ],
+            },
+        });
 
         // 足跡：同じ商品の行が2つ（新しい方を取る）・写しに無い商品の行（消した直後。行は残して返す）
         await _store.Recent.SaveAsync(new RecentLog
@@ -143,5 +168,42 @@ public sealed class ApiInternalListTests : IAsyncLifetime
         var after = await JsonOf("/v1/recent");
         Assert.Equal(["9700002"], Ids(after));
         Assert.Equal(Day3, after.GetProperty("items")[0].GetProperty("usedAt").GetDateTimeOffset());
+    }
+
+    [Fact]
+    public async Task 登録したフォルダは_全部の商品から場所の順に並べ_見つからない物も状態つきで返す()
+    {
+        var first = await JsonOf("/v1/folders?limit=3");
+        Assert.Equal(4, first.GetProperty("total").GetInt32());
+        var rows = first.GetProperty("items");
+        Assert.Equal([@"c:\old\Coat", @"D:\assets\Coat", @"D:\assets\Coat"], rows.EnumerateArray().Select(row => row.GetProperty("path").GetString()));
+        Assert.Equal(["9700001", "9700001", "9700002"], Ids(first));
+
+        // 見つからない物は外さずに状態で返す（ファイルの逆引きのフォルダと同じ present／missing）
+        Assert.Equal("missing", rows[0].GetProperty("state").GetString());
+        Assert.Equal(Day2, rows[0].GetProperty("missingSince").GetDateTimeOffset());
+        Assert.Equal("present", rows[1].GetProperty("state").GetString());
+        Assert.Equal(JsonValueKind.Null, rows[1].GetProperty("missingSince").ValueKind);
+        Assert.Equal("作り物の上着", rows[1].GetProperty("itemName").GetString());
+        Assert.Equal(["coat.unitypackage"], rows[1].GetProperty("unityPackages").EnumerateArray().Select(entry => entry.GetString()));
+
+        // 記録した日時が無い物は null（西暦1年を返さない）
+        Assert.Equal(JsonValueKind.Null, rows[0].GetProperty("registeredAt").ValueKind);
+
+        var cursor = Uri.EscapeDataString(first.GetProperty("nextCursor").GetString()!);
+        var second = await JsonOf($"/v1/folders?limit=3&cursor={cursor}");
+        Assert.Equal([@"D:\assets\coat"], second.GetProperty("items").EnumerateArray().Select(row => row.GetProperty("path").GetString()));
+        Assert.Equal(JsonValueKind.Null, second.GetProperty("nextCursor").ValueKind);
+
+        // 商品の詳細の folders と同じ値（同じ ItemMapper.Folder から作る）
+        var detail = await JsonOf("/v1/items/9700001");
+        var coat = detail.GetProperty("folders").EnumerateArray().Single(row => row.GetProperty("path").GetString() == @"D:\assets\Coat");
+        Assert.Equal(rows[1].GetProperty("totalBytes").GetInt64(), coat.GetProperty("totalBytes").GetInt64());
+        Assert.Equal(rows[1].GetProperty("registeredAt").GetDateTimeOffset(), coat.GetProperty("registeredAt").GetDateTimeOffset());
+
+        // 別の URL の続きの印は断る
+        var recentCursor = (await JsonOf("/v1/recent?limit=1")).GetProperty("nextCursor").GetString()!;
+        await AssertProblem($"/v1/folders?cursor={Uri.EscapeDataString(recentCursor)}", "invalidCursor");
+        await AssertProblem("/v1/folders?limit=0", "invalidLimit");
     }
 }

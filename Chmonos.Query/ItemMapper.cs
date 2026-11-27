@@ -88,10 +88,7 @@ public static class ItemMapper
                 .Where(file => includes.HasFlag(ItemIncludes.AllFiles) || FileState(file) is "present" or "missing")
                 .Select(file => File(file, includes.HasFlag(ItemIncludes.Contents)))
                 .ToList(),
-            Folders = local.LocalFolders.Select(folder => new FolderRef(
-                folder.Path, folder.FileCount, folder.TotalBytes, folder.MissingSince, folder.UnityPackages,
-                // 手で書いた記録で欄が欠けると既定値（西暦1年）になる。日時として返さず「無い」にする
-                folder.RegisteredAt == default ? null : folder.RegisteredAt)).ToList(),
+            Folders = local.LocalFolders.Select(Folder).ToList(),
             Thumbnail = Thumbnail(item, snapshot),
             Videos = (snapshot.Videos.GetValueOrDefault(item.Id) ?? [])
                 .Select(video => new VideoRef(video.VideoId, video.Url, snapshot.VideoTitles.GetValueOrDefault(video.VideoId)))
@@ -217,6 +214,21 @@ public static class ItemMapper
     /// <summary>ファイルの状態（<see cref="FileRef.State"/>）。見つからないの数え方はカードの印と同じ（<see cref="ItemRecord.HasMissingFile"/>）。</summary>
     internal static string FileState(LocalFileRecord file)
         => file.Detached ? "detached" : file.IsOldVersion ? "oldVersion" : file.IsRecordedMissing ? "missing" : "present";
+
+    /// <summary>
+    /// 登録したフォルダの答え（商品の詳細の <c>folders</c> と <c>/v1/folders</c> で同じ物）。
+    /// </summary>
+    internal static FolderRef Folder(LocalFolderRecord folder)
+        => new(
+            folder.Path, folder.FileCount, folder.TotalBytes, folder.MissingSince, folder.UnityPackages ?? [],
+            // 手で書いた記録で欄が欠けると既定値（西暦1年）になる。日時として返さず「無い」にする
+            folder.RegisteredAt == default ? null : folder.RegisteredAt);
+
+    /// <summary>
+    /// フォルダの状態（<c>present</c>・<c>missing</c>）。カードの印・条件「見つからないファイル」と同じく、取り込みが書いた
+    /// <see cref="LocalFolderRecord.MissingSince"/> だけを見る（<see cref="ItemRecord.HasMissingFile"/>。答えるたびにディスクを見に行かない）。
+    /// </summary>
+    internal static string FolderState(LocalFolderRecord folder) => folder.MissingSince is null ? "present" : "missing";
 
     /// <summary>画面のカードと同じ並べ方・同じ1枚目（<see cref="ItemImageOrder"/>）。</summary>
     private static (ImageRef? Thumbnail, IReadOnlyList<ImageRef> All) Images(ItemRecord item, QuerySnapshot snapshot)

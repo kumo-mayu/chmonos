@@ -15,5 +15,9 @@ internal static partial class ApiEndpoints
         app.MapGet("/v1/recent", (ApiState state, string? cursor, int? limit) =>
             ApiHost.Json(RecentList.Page(state.Snapshot, cursor, limit), json.RecentPage))
             .Answers<RecentPage>("「最近」の足跡（商品ごとの取り込んだ・使った・開いた日時。商品 ID の順・cursor で続き）");
+
+        app.MapGet("/v1/folders", (ApiState state, string? cursor, int? limit) =>
+            ApiHost.Json(FolderList.Page(state.Snapshot, cursor, limit), json.FolderPage))
+            .Answers<FolderPage>("商品として登録したフォルダ（全部の商品から。場所の順・state は取り込みが見た present／missing・cursor で続き）");
     }
 }

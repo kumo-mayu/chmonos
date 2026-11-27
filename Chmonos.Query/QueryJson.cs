@@ -94,6 +94,7 @@ namespace Chmonos.Query;
 [JsonSerializable(typeof(ArchivedNotificationsPage))]
 [JsonSerializable(typeof(IReadOnlyList<CandidateSearchRef>))]
 [JsonSerializable(typeof(RecentPage))]
+[JsonSerializable(typeof(FolderPage))]
 public sealed partial class QueryJsonContext : JsonSerializerContext
 {
 }

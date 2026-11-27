@@ -145,6 +145,7 @@ if ($result.state -eq "approved") {
 | （v1.2.0 から）`GET /v1/items/{id}/description` | 商品の説明文（短い説明・見出しごとの文・表示用の HTML） |
 | （v1.2.0 から）`GET /v1/images/{商品ID}/{名前}?format=png&size=256` | 画像を PNG か JPEG にして、長い辺を縮めて返す（下の「画像の形式と大きさ」） |
 | （次のバージョンから）`GET /v1/recent` | 「最近」の記録。商品ごとに、取り込んだ日時（`addedAt`）・Unity へ送った日時（`usedAt`）・商品ページを開いた日時（`viewedAt`）。商品 ID の順で、続きは答えの `nextCursor` を `cursor` に入れて取ります |
+| （次のバージョンから）`GET /v1/folders` | 商品として登録したフォルダを、全部の商品から場所の順に。見つからなくなったフォルダは `state` が `missing` です（取り込みのときに見た結果で、問い合わせのたびには確かめません）。続きは `/v1/recent` と同じく `cursor` で取ります |
 
 対応アバター（`compatibleAvatars`）は検索の「対応アバター」と同じ数え方です。まだ確認していない推定の対応も入り、消した対応と説明文のリンクは入りません。
 

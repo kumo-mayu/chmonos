@@ -32,7 +32,7 @@
 | `GET /v1/items/{id}/unitypackage-assets`・`POST /v1/unitypackages/lookup` | 包みの中身（GUID → パス）・GUID から包みと商品を逆に引く。形は [local-api-stored.md](local-api-stored.md) | 作った（2026-11-11） |
 | `POST /v1/zip-images/lookup` | 画像の CRC と大きさから、それが入っている zip と商品を引く。形は [local-api-stored.md](local-api-stored.md) | 作った（2026-11-11） |
 | `GET /v1/unity-scans` | Unity プロジェクトを調べた結果の控え（入っている商品と割合・手で置いた画像）。形は [local-api-stored.md](local-api-stored.md) | 作った（2026-11-11） |
-| `GET /v1/folders`・`/v1/unresolved`・`/v1/excluded`・`/v1/volumes` | 登録したフォルダ・商品が決まっていないファイル・外したファイル・ドライブ | volumes 以外は出す（2026-11-27。まだ作っていない）。volumes は後回し |
+| `GET /v1/folders`・`/v1/unresolved`・`/v1/excluded`・`/v1/volumes` | 登録したフォルダ・商品が決まっていないファイル・外したファイル・ドライブ | folders は作った（2026-11-27。形は下の「内部の一覧」）。unresolved・excluded は出す（まだ作っていない）。volumes は後回し |
 | `GET /v1/unresolved/candidates?hash=` | 未確定の自動検索の控え（対象ごとの候補）。形は [local-api-stored.md](local-api-stored.md) | 作った（2026-11-11） |
 | `GET /v1/user-tags`・`/v1/attributes`・`/v1/categories`・`/v1/booth-tags` | 分類と件数（マスタに無いのに付いている物も返す） | 作った |
 | `GET /v1/shops`・`/v1/shops/{key}` | ショップ（星・メモ・件数） | 作った |
@@ -193,3 +193,4 @@
 | URL | 1件の形 | 並び・決まり |
 |---|---|---|
 | `GET /v1/recent` | `{ itemId, name, addedAt, usedAt, viewedAt }` | 商品 ID の順（3種類の日時のどれで並べても1つに決まらない。種類で絞って新しい順は検索の条件 `recent`）。値は条件「最近」と同じ `RecentActivity.Times`（同じ商品の行が2つなら種類ごとに新しい方）。写しに無い商品の行（消した直後・起動時の整理の前）も返し、`name` を null |
+| `GET /v1/folders` | `{ itemId, itemName, path, state, missingSince, fileCount, totalBytes, unityPackages, registeredAt }` | 場所の順（大文字小文字を区別しない→区別する）・商品 ID・商品の中の位置。「登録したフォルダ」は商品として登録したフォルダ（`LocalFolders`。最初の案 2026-10-12 の言葉。設定の取り込み元の履歴・監視するフォルダは設定なので出さない）。形は商品の詳細の `folders` と同じ `ItemMapper.Folder`、`state`（`present`・`missing`）は `files/lookup` と同じ `ItemMapper.FolderState`（取り込みが見た `missingSince` だけ・ディスクは見ない） |

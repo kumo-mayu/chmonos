@@ -334,7 +334,7 @@ public static class Catalogs
                 if (string.Equals(root, wanted, StringComparison.OrdinalIgnoreCase)
                     || wanted.StartsWith(FolderTree.UnderPrefix(folder.Path), StringComparison.OrdinalIgnoreCase))
                 {
-                    result.Add(new FileOwnerRef(item.Id, item.DisplayName, "folder", folder.MissingSince is null ? "present" : "missing", folder.Path, null));
+                    result.Add(new FileOwnerRef(item.Id, item.DisplayName, "folder", ItemMapper.FolderState(folder), folder.Path, null));
                 }
             }
         }
