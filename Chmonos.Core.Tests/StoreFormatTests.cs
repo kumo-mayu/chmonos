@@ -265,6 +265,26 @@ public class StoreFormatTests : IDisposable
         Assert.False(Directory.Exists(Path.Combine(target, "images")));
     }
 
+    /// <summary>
+    /// 写すフォルダの一覧から1つ外しても前の試験は落ちなかった（2026-11-27 の点検）。使う人のデータのフォルダを1つずつ置いて、全部写る事を見る。
+    /// unityscans は VPM の履歴を持ち、作り直せない（書き出しには入れている）。控えから漏れると、古い版へ戻した時に新しい形のまま残って読めなかった
+    /// </summary>
+    [Theory]
+    [InlineData("items")]
+    [InlineData("modifications")]
+    [InlineData("unitypackages")]
+    [InlineData("zipimages")]
+    [InlineData(AppPaths.UnityScansDirName)]
+    public void 控えは使う人のデータのフォルダを全部写す(string folder)
+    {
+        Directory.CreateDirectory(PathOf(folder));
+        File.WriteAllText(PathOf($"{folder}/a.json"), "{}");
+
+        var target = StoreFormat.Backup(_root, 1, new DateTimeOffset(2026, 11, 27, 12, 0, 0, TimeSpan.Zero));
+
+        Assert.True(File.Exists(Path.Combine(target, folder, "a.json")));
+    }
+
     [Fact]
     public void 控えの数と大きさを数えて消せる()
     {

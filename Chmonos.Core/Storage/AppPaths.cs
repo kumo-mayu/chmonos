@@ -153,7 +153,10 @@ public sealed class AppPaths
 
     public string ZipImageFile(string hash) => Path.Combine(ZipImagesDir, StoreIds.RequirePackageHash(hash).ToUpperInvariant() + ".json");
 
-    /// <summary>プロジェクトの中を調べた結果の控え（<see cref="UnityScanStore"/>）。消してよい。</summary>
+    /// <summary>
+    /// プロジェクトの中を調べた結果の控え（<see cref="UnityScanStore"/>）。見つかった商品は調べ直せるが、VPM の履歴は前の控えから引き継いで足す物で作り直せないので、
+    /// 書き出しと形式の控えに入れる。
+    /// </summary>
     public const string UnityScansDirName = "unityscans";
 
     public string UnityScanFile(string key) => Path.Combine(Root, UnityScansDirName, key + ".json");

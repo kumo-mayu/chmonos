@@ -271,7 +271,9 @@ public static class StoreFormat
             yield return file;
         }
 
-        foreach (var folder in new[] { "items", "modifications", "unitypackages", "zipimages" })
+        // unityscans は VPM の履歴を持ち、作り直せない（書き出しにも入れる。ユーザ判断 2026-11-12）。
+        // 控えから漏れていると、古い版へ戻した時に新しい形のまま残って読めない（2026-11-27 の点検で見つけ、ユーザ判断「Aでお願いします」）
+        foreach (var folder in new[] { "items", "modifications", "unitypackages", "zipimages", AppPaths.UnityScansDirName })
         {
             var directory = Path.Combine(root, folder);
             if (Directory.Exists(directory))
