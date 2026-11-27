@@ -584,4 +584,80 @@ public sealed class BoothMachineGateTests : IDisposable
         using var next = await Gate().EnterAsync().WaitAsync(TimeSpan.FromSeconds(30));
         Assert.NotNull(next);
     }
+
+    /// <summary>
+    /// **待っている間に別のアプリが問い合わせたら、その1本から間隔を待ち直してから出る**（絶対に破らない決め事1）。
+    /// 待つ間は PC の門を放すので、その隙に別のアプリが出られる。待ち終えたときに中身を見直さずに出ると、
+    /// 割り込んだ1本との間が 1.5 秒を切る（2026-11-28 の点検の M24 で、どの試験も落ちなかった）。
+    /// 割り込む側も本物のクライアントで、同じ時計を進めるので、順序は実時間に左右されない
+    /// </summary>
+    [Fact]
+    public async Task 待っている間に別のクライアントが問い合わせたら待ち直してから出る()
+    {
+        var first = Client(Handler());
+        var third = Client(Handler());
+        var interrupted = false;
+        var second = new BoothClient(
+            new HttpClient(Handler()),
+            SettingsSource.Fixed(new AppSettings { FetchIntervalMs = 1500 }),
+            async (duration, _) =>
+            {
+                _clock.Advance(duration);
+
+                // 最初の刻みの待ちの間に、別のアプリ（別に開いた門）が1本を送り終える
+                if (!interrupted)
+                {
+                    interrupted = true;
+                    await third.GetItemJsonAsync("3");
+                }
+            },
+            Gate(),
+            _clock);
+
+        await first.GetItemJsonAsync("1");
+        var result = await second.GetItemJsonAsync("2").WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.True(result.IsSuccess);
+        Assert.True(interrupted);
+        Assert.Equal(3, _log.Count);
+        for (var index = 1; index < _log.Count; index++)
+        {
+            var gap = TimeSpan.FromTicks(_log[index].Start - _log[index - 1].End);
+            Assert.True(gap >= TimeSpan.FromMilliseconds(1500), $"{index} 本目の前の間：{gap}");
+        }
+    }
+
+    /// <summary>
+    /// **送る前に「送っている最中」の印を書く。**送ったまま落ちると終わった刻みを書く人が居ないので、
+    /// 次に握るアプリはこの印を見て、終わるまでの分も空ける。前の試験は印を手で置いていて、書く側を確かめていなかった（点検の M18）。
+    /// 送っている最中は送り手が錠を握っているので、外から中身は読めない。門を閉じて落ちたときと同じにしてから読む
+    /// </summary>
+    [Fact]
+    public async Task 送る前に送っている最中の印を書き落ちた後の人がそれを見る()
+    {
+        var crashing = Handler();
+        crashing.Hold = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var crashedGate = Gate();
+        var crashed = Client(crashing, gate: crashedGate);
+
+        // 応答を返さないまま止めておく（落ちたアプリの問い合わせは終わらない）。結果は見ない
+        _ = crashed.GetItemJsonAsync("1");
+        await crashing.Entered.Task.WaitAsync(TimeSpan.FromSeconds(30));
+        var sentAt = _clock.GetTimestamp();
+
+        // 放さずにファイルごと閉じる（プロセスが落ちると OS がこうする）
+        crashedGate.Dispose();
+
+        var state = Peek();
+        Assert.True(state.InFlight);
+        Assert.Equal(sentAt, state.EndedAt);
+
+        // 次のアプリは、終わるまでの分（2秒）と間隔（1.5秒）を空けて出る
+        _clock.Advance(TimeSpan.FromMinutes(10));
+        var waits = new List<TimeSpan>();
+        var result = await Client(Handler(), waits).GetItemJsonAsync("2").WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.True(result.IsSuccess);
+        AssertWaited(TimeSpan.FromMilliseconds(3500), waits);
+    }
 }
