@@ -278,4 +278,88 @@ public class EditSaveTests
         var edit = Assert.IsType<EditViewModel>(main.CurrentViewModel);
         Assert.Equal("作り物の衣装に戻る", edit.FinishButtonText);
     });
+
+    // ---- 所持している商品だけ（設定 EditOwnedOnly・ユーザ判断 2026-11-27） ----
+
+    private static ItemRecord InfoOnly(string id, string name) => Make.Item(id, name).WithFiles();
+
+    [Fact]
+    public Task 既定では_ファイルの無い商品を順番にもナビの数にも入れない() => TestApp.Run(async app =>
+    {
+        var (main, edit) = await OpenEditAsync(
+            app, Make.Item("1000001", "作り物の衣装"), InfoOnly("1000002", "作り物の情報だけ"), Make.Item("1000003", "作り物の靴"));
+
+        Assert.True(edit.OwnedOnly);
+        Assert.Equal("1 / 2 件", edit.StepText);
+        Assert.DoesNotContain("1000002", app.Store.EditSession.Load().ItemIds);
+        Assert.Equal(2, main.NeedsEditCount);
+    });
+
+    [Fact]
+    public Task 切ると情報だけの商品が後ろへ足され_入に戻すと書きかけの無い物だけ外れる() => TestApp.Run(async app =>
+    {
+        var (main, edit) = await OpenEditAsync(
+            app, Make.Item("1000001", "作り物の衣装"), InfoOnly("1000002", "作り物の情報だけ"), InfoOnly("1000003", "作り物の下書き"));
+        Assert.Equal("1 / 1 件", edit.StepText);
+        var current = edit.CurrentItemId;
+
+        await edit.SetOwnedOnlyAsync(false);
+        await app.SettleAsync();
+        Assert.False(app.Services.Settings.EditOwnedOnly);
+        Assert.Equal(3, app.Store.EditSession.Load().ItemIds.Count);
+        Assert.Equal(current, edit.CurrentItemId);
+        Assert.Equal(3, main.NeedsEditCount);
+
+        // 情報だけの商品の1件に書きかけを作る（未保存の入力）
+        edit.SkipCommand.Execute(null);
+        await app.SettleAsync();
+        var draftId = edit.CurrentItemId!;
+        edit.Memo = "あとで書く";
+        edit.SkipCommand.Execute(null);
+        await app.SettleAsync();
+        Assert.True(main.Drafts.Contains(draftId));
+
+        await edit.SetOwnedOnlyAsync(true);
+        await app.SettleAsync();
+
+        // 書きかけのある商品と、いま開いている商品は残る。残りの情報だけの商品が外れる
+        var ids = app.Store.EditSession.Load().ItemIds;
+        Assert.Contains(draftId, ids);
+        Assert.Contains(edit.CurrentItemId!, ids);
+        Assert.Contains("1000001", ids);
+        Assert.DoesNotContain(
+            ids, id => id != draftId && id != edit.CurrentItemId && id != "1000001");
+
+        // 「未:」は所持している商品だけ（書きかけのある情報だけの商品も、順番には残るが数えない）
+        Assert.Equal(1, main.NeedsEditCount);
+    });
+
+    [Fact]
+    public Task 入り直すと_順番に残っていた情報だけの商品を外し_切のままなら残す() => TestApp.Run(async app =>
+    {
+        await app.ChangeSettingsAsync(settings => settings with { EditOwnedOnly = false });
+        var (main, _) = await OpenEditAsync(
+            app, Make.Item("1000001", "作り物の衣装"), InfoOnly("1000002", "作り物の情報だけ"));
+        Assert.Equal(2, app.Store.EditSession.Load().ItemIds.Count);
+
+        main.ShowSearchCommand.Execute(null);
+        await app.SettleAsync();
+        main.ShowEditCommand.Execute(null);
+        await app.SettleAsync();
+        Assert.Equal(2, app.Store.EditSession.Load().ItemIds.Count);
+
+        await app.ChangeSettingsAsync(settings => settings with { EditOwnedOnly = true });
+        main.ShowSearchCommand.Execute(null);
+        await app.SettleAsync();
+        main.ShowEditCommand.Execute(null);
+        await app.SettleAsync();
+        Assert.Equal(["1000001"], app.Store.EditSession.Load().ItemIds);
+    });
+
+    [Fact]
+    public void 設定ファイルに項目が無ければ_所持している商品だけが入で読まれる()
+    {
+        var settings = System.Text.Json.JsonSerializer.Deserialize<AppSettings>("{}")!;
+        Assert.True(settings.EditOwnedOnly);
+    }
 }

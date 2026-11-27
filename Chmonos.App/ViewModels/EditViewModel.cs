@@ -693,10 +693,14 @@ public sealed partial class EditViewModel : ViewModelBase, IPendingWrites, ILeav
         // 他の入り方でタグを付けた商品（写しでユーザータグがある）も外す。書きかけのある商品は保存していても残す
         // 消えた商品も外す（写しに無いだけの商品は取り込み中かもしれないので、ディスクで確かめる。
         // 残すと帯に絵の無い枠が並んだ）
+        // 「所持している商品だけ」が入っているときは、所持していない商品も外す（書きかけのある商品は残す）
+        var ownedOnly = _services.Settings.EditOwnedOnly;
         var saved = session.SavedItemIds.ToHashSet(StringComparer.Ordinal);
         bool Keep(string id) => _services.Store.Items.Exists(id)
             && (_main.Drafts.Contains(id)
-                || (!saved.Contains(id) && _main.Search.FindItem(id) is not { Local.UserTags.Count: > 0 }));
+                || (!saved.Contains(id)
+                    && _main.Search.FindItem(id) is not { Local.UserTags.Count: > 0 }
+                    && (!ownedOnly || _main.Search.FindItem(id) is not { IsOwned: false })));
 
         var kept = session.ItemIds.Where(Keep).ToList();
         if (kept.Count == 0)
