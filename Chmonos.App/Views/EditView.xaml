@@ -219,6 +219,11 @@
                             VerticalAlignment="Center" Command="{Binding OpenDraftsCommand}"
                             ToolTip="保存していない入力がある商品だけを並べて開きます。"
                             Visibility="{Binding Drafts.HasAny, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                    <!-- 未編集の順番のときだけ。指定して入った編集は頼まれた商品をそのまま並べるので出さない -->
+                    <CheckBox Content="所持している商品だけ" IsChecked="{Binding OwnedOnly, Mode=TwoWay}" Margin="14,0,0,0"
+                              VerticalAlignment="Center"
+                              ToolTip="外すと、ファイルやフォルダの無い商品も順番に出します。"
+                              Visibility="{Binding ShowsOwnedOnly, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
                 </StackPanel>
 
                 <!--

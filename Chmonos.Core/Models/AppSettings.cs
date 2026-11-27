@@ -305,6 +305,13 @@ public sealed record AppSettings
     /// </summary>
     public bool ShowEditQueueStrip { get; init; } = true;
 
+    /// <summary>
+    /// 編集の流れ（未編集の順番）を、所持している商品だけにするか（ユーザ判断 2026-11-27）。
+    /// 所持はファイルかフォルダを1つ以上持つこと。URL や文だけで登録した商品（情報だけ）は順番に入れず、ナビの「未:」の数からも外す。
+    /// 既定は入れる。古い設定ファイルには無い項目なので、欠けていれば既定（入）で読まれる
+    /// </summary>
+    public bool EditOwnedOnly { get; init; } = true;
+
     // --- 取り込み ---
 
     /// <summary>

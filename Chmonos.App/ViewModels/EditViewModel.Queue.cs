@@ -91,6 +91,83 @@ public sealed partial class EditViewModel
     /// <summary>上の帯を出すか。要らない人もいるので設定で消せる（ユーザ指示）。</summary>
     public bool ShowsQueueStrip => _services.Settings.ShowEditQueueStrip;
 
+    /// <summary>
+    /// 順番を所持している商品だけにするか（設定 <c>EditOwnedOnly</c>。帯のチェック）。
+    /// 押すと設定に書き、今の未編集の順番にもすぐ当てる。
+    /// </summary>
+    public bool OwnedOnly
+    {
+        get => _services.Settings.EditOwnedOnly;
+        set
+        {
+            if (value != OwnedOnly)
+            {
+                SetOwnedOnlyAsync(value).Forget();
+            }
+        }
+    }
+
+    /// <summary>未編集の順番のときだけチェックを出す。指定して入った編集は、頼まれた商品をそのまま並べるので関係しない。</summary>
+    public bool ShowsOwnedOnly => _run is null;
+
+    internal async Task SetOwnedOnlyAsync(bool value)
+    {
+        try
+        {
+            await _services.Commands.ExecuteAsync(new UiCommand.ChangeSettings(settings => settings with { EditOwnedOnly = value }));
+            if (_run is null && !_hasLeft)
+            {
+                await ApplyOwnedOnlyToQueueAsync();
+            }
+        }
+        finally
+        {
+            // 書けなかったときも、チェックは保存してある値に合わせ直す
+            OnPropertyChanged(nameof(OwnedOnly));
+            _main.Search.NoteNeedsEditCountChanged();
+        }
+    }
+
+    /// <summary>
+    /// 切り替えを、今の未編集の順番に当てる。
+    /// 入にしたときは、所持していない商品を順番から外す。ただし使う人が手を入れた物は外さない：
+    /// 書きかけのある商品・この回で保存した商品（帯の緑の印）・いま開いている商品（開いたまま消えると入力が宙に浮く）。
+    /// 切にしたときは、外してあった未編集の商品を後ろへ足す（作り直しと同じ順。入り直しの足し方と同じ）。
+    /// 位置は開いている商品に合わせる
+    /// </summary>
+    private async Task ApplyOwnedOnlyToQueueAsync()
+    {
+        var ownedOnly = _services.Settings.EditOwnedOnly;
+        var current = CurrentItemId;
+        bool Keep(string id) => !ownedOnly
+            || id == current
+            || _saved.Contains(id)
+            || _main.Drafts.Contains(id)
+            || _main.Search.FindItem(id) is not { } item
+            || item.IsOwned;
+
+        var kept = _queue.Where(Keep).ToList();
+        var known = _queue.ToHashSet(StringComparer.Ordinal);
+        kept.AddRange((await BuildDefaultQueueAsync()).Where(id => !known.Contains(id)));
+        if (kept.SequenceEqual(_queue))
+        {
+            return;
+        }
+
+        var index = current is null ? Math.Min(_index, kept.Count) : Math.Max(0, kept.IndexOf(current));
+
+        // 順番と位置は1回で書く。積み直すと保存した印が空になるので、この回の分を書き直す
+        await _services.Commands.ExecuteAsync(new UiCommand.StartEditSession(kept, index));
+        foreach (var id in kept.Where(_saved.Contains))
+        {
+            await _services.Commands.ExecuteAsync(new UiCommand.NoteEditSaved(id));
+        }
+
+        _queue = kept;
+        _index = index;
+        RaiseItemChanged();
+    }
+
     private RelayCommand? _goFirstCommand;
 
     /// <summary>1件目へ戻る（ユーザ指示）。いま開いている商品の入力は保存しない（スキップと同じ）。</summary>
@@ -334,8 +411,11 @@ public sealed partial class EditViewModel
     private async Task<List<string>> BuildDefaultQueueAsync()
     {
         var loaded = await _services.Store.Items.LoadAllAsync();
+        var ownedOnly = _services.Settings.EditOwnedOnly;
         var unedited = loaded.Items
             .Where(item => item.Local.UserTags.Count == 0)
+            // 所持している商品だけ（設定。ファイルかフォルダを持たない、情報だけの商品は積まない）
+            .Where(item => !ownedOnly || item.IsOwned)
             // 取り込みの③がまだの商品は積まない（U8・U10）。③が済めば次に開いたときに入る
             .Where(item => !_main.IsAwaitingDetection(item.Id));
 

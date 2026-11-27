@@ -1009,7 +1009,7 @@ public sealed partial class MainViewModel : ViewModelBase
     /// 未から編へ1件移る。数え方は検索の未編集と同じ（ユーザータグが無く、取り込みの③を待っていない）
     /// </summary>
     public int NeedsEditBadgeCount => NeedsEditCount - Drafts.ItemIds.Count(id =>
-        Search.FindItem(id) is { } item && item.Local.UserTags.Count == 0 && !IsAwaitingDetection(id));
+        Search.FindItem(id) is { } item && Search.CountsAsNeedsEdit(item));
 
     /// <summary>
     /// ナビの頭の件数。内部の言葉（item）を画面に出さない決め事なので日本語で言う

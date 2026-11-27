@@ -334,8 +334,20 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
     /// 編集を待っている件数（ナビのバッジ）。取り込みの③がまだの商品は数えない——
     /// 数えると、押して開いた編集画面にその商品が出てこない（U8・U10）
     /// </summary>
-    public int NeedsEditCount => _allItems.Count(item =>
-        item.Local.UserTags.Count == 0 && _main?.IsAwaitingDetection(item.Id) != true);
+    public int NeedsEditCount => _allItems.Count(CountsAsNeedsEdit);
+
+    /// <summary>
+    /// ナビの「未:」に数える商品か。編集の順番（<c>BuildDefaultQueueAsync</c>）と同じ条件にそろえる。
+    /// 「所持している商品だけ」（設定）が入っているときは、情報だけの商品も数えない——数えると、押して開いた編集画面に出てこない（③待ちと同じ理由）。
+    /// 検索の条件「編集状況」の未入力は、画面で自由に絞る道具なので、この切り替えには従わない
+    /// </summary>
+    internal bool CountsAsNeedsEdit(ItemRecord item)
+        => item.Local.UserTags.Count == 0
+            && _main?.IsAwaitingDetection(item.Id) != true
+            && (!_services.Settings.EditOwnedOnly || item.IsOwned);
+
+    /// <summary>設定の切り替えで数が変わったことを、ナビへ知らせる。</summary>
+    internal void NoteNeedsEditCountChanged() => OnPropertyChanged(nameof(NeedsEditCount));
 
     /// <summary>
     /// 一覧を下へ読み進めているか。取り込みで増えた商品を黙って入れるか、
