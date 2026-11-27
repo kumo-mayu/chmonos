@@ -15,7 +15,8 @@ namespace Chmonos.Api;
 /// <param name="Scopes">欲しい書き込みの種類（<see cref="ApiScopes"/>。知っている物だけ）。</param>
 /// <param name="Replaces">前に許した同じソフト（名前・exe・オリジンが同じ）がある。許すと前のトークンは使えなくなる。</param>
 /// <param name="RefusalsLeft">あと何回拒否したら止めるか（上限が0で数えないときは null）。窓が「あと1回」を言うため。</param>
-public sealed record ApiClientRequestInfo(string Name, string? ExePath, string? Origin, IReadOnlyList<string> Scopes, bool Replaces, int? RefusalsLeft = null);
+/// <param name="Namespace">ソフトが名乗った名前空間（外のソフトの情報の置き場。名乗らなければ null）。</param>
+public sealed record ApiClientRequestInfo(string Name, string? ExePath, string? Origin, IReadOnlyList<string> Scopes, bool Replaces, int? RefusalsLeft = null, string? Namespace = null);
 
 /// <summary>同じソフトの行の ID と、その時の権限（<see cref="ApiScopes.All"/> の順に「,」でつないだ物）。古い許しを見分けるために照らす。</summary>
 public sealed record ApiClientRowStamp(string Id, string Scopes);
@@ -202,7 +203,13 @@ internal sealed class ApiClientBook(Func<DataStore> store, Func<DateTimeOffset> 
         var clients = (list.Clients ?? [])
             .Where(client => client is not null && !string.IsNullOrEmpty(client.TokenHash) && !string.IsNullOrEmpty(client.Id))
             // 知らない種類（新しい版が足した物）は、この版では許していない物として扱う
-            .Select(client => client with { Scopes = (client.Scopes ?? []).Where(ApiScopes.IsKnown).Distinct(StringComparer.Ordinal).ToList() })
+            .Select(client => client with
+            {
+                Scopes = (client.Scopes ?? []).Where(ApiScopes.IsKnown).Distinct(StringComparer.Ordinal).ToList(),
+
+                // 手で書いた控えの、決まりに合わない名前空間は無い物とする（フォルダの名前になるので、外へ出る名前を通さない）
+                Namespace = ExtensionNamespace.Normalize(client.Namespace),
+            })
             .ToList();
 
         // 同じ ID の行が2つある（手で書いた控え）：出来事の列・項目の宣言は ID で引くので、片方を残すと、残らなかった方のトークンの持ち主へ
@@ -261,6 +268,15 @@ internal sealed class ApiClientBook(Func<DataStore> store, Func<DateTimeOffset> 
 
     /// <summary>前に許した同じソフト（名前・exe・オリジンが同じ）があるか。</summary>
     public bool HasSame(string name, string? exePath, string? origin) => _index.All.Any(client => client.IsSame(name, exePath, origin));
+
+    /// <summary>この名前空間を持つ、別のソフト（名前・exe・オリジンのどれかが違う）の行。無ければ null。</summary>
+    public ApiClientRecord? NamespaceHolder(string ns, string name, string? exePath, string? origin)
+        => NamespaceHolder(_index.All, ns, name, exePath, origin);
+
+    private static ApiClientRecord? NamespaceHolder(IEnumerable<ApiClientRecord?> clients, string ns, string name, string? exePath, string? origin)
+        => clients.FirstOrDefault(client => client is not null
+            && string.Equals(ExtensionNamespace.Normalize(client.Namespace), ns, StringComparison.Ordinal)
+            && !client.IsSame(name, exePath, origin));
 
     /// <summary>
     /// 拒否が続いて止めているソフトか（窓を出さずに断る）。上限が0のときは止めない
@@ -348,6 +364,12 @@ internal sealed class ApiClientBook(Func<DataStore> store, Func<DateTimeOffset> 
             {
                 var clients = list.Clients ?? [];
                 if (!Equals(SameRow(clients, record.Name, record.ExePath, record.Origin), replaces))
+                {
+                    return null;
+                }
+
+                // 窓を出している間に、別のソフトが同じ名前空間で許された。2つのソフトが同じ置き場に書けるようにはしない（求め直してもらう）
+                if (record.Namespace is { } ns && NamespaceHolder(clients, ns, record.Name, record.ExePath, record.Origin) is not null)
                 {
                     return null;
                 }
@@ -586,6 +608,7 @@ internal sealed class ApiClientRequests
             ExePath = entry.Info.ExePath,
             Origin = entry.Info.Origin,
             Scopes = entry.Scopes,
+            Namespace = entry.Info.Namespace,
             TokenHash = ApiClientBook.HashOf(token),
             GrantedAt = _clock(),
         };

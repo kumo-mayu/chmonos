@@ -57,6 +57,13 @@ internal sealed class ApiWriter(ApiState state, StoreSync sync, ApiWriteHooks? h
     public void Guard(HttpContext context, string scope)
     {
         var caller = ApiCallerInfo.Of(context);
+
+        // api.json のトークンには名前空間が無いので、外のソフトの情報は書かせない（読むのは許す。spec「付け先の変化・守り・ほかの口」）
+        if (caller.Client is null && scope == Core.Models.ApiScopes.Extensions)
+        {
+            throw new QueryException(403, "scopeNotGranted", "ソフトの情報を書くには、ソフトごとの許しが要ります（POST /v1/clients/request で namespace を名乗って求めてください）。");
+        }
+
         if (caller.Client is { } client)
         {
             if (!client.Scopes.Contains(scope, StringComparer.Ordinal))

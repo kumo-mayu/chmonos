@@ -201,6 +201,12 @@ public abstract record UiCommand
     public record ChangeConversionPairs(Func<Models.ConversionPairFile, Models.ConversionPairFile> Change) : UiCommand;
 
     /// <summary>
+    /// 外のソフトの情報の宣言を変える（extensions/&lt;名前空間&gt;/schema.json。docs/spec/local-api-extensions.md）。
+    /// 変え方を関数で渡し、錠の中で今の宣言に当てる（断るときは関数が null を返し、理由は呼び手が関数の外へ控える）
+    /// </summary>
+    public record ChangeExtensionSchema(string Namespace, Func<Models.ExtensionSchemaFile?, Models.ExtensionSchemaFile?> Change) : UiCommand;
+
+    /// <summary>
     /// 動画のタイトルを控える（video-titles.json）。<paramref name="Title"/> が null なら控えを消す（非公開・削除で取れなくなった）。
     /// 書くついでに30日を過ぎた控えも落とす（YouTube の開発者ポリシー・<see cref="Services.VideoTitleBook"/>）。
     /// </summary>
@@ -849,6 +855,9 @@ public abstract record CommandResult
 
     /// <summary>変換の組を変えた結果（書いた後の全部）。</summary>
     public record ConversionPairsChanged(Models.ConversionPairFile Pairs) : CommandResult;
+
+    /// <summary>外のソフトの情報の宣言を変えた結果（書いた宣言。書かなかったら null）。</summary>
+    public record ExtensionSchemaChanged(Models.ExtensionSchemaFile? Schema) : CommandResult;
 
     /// <summary>属性の改名・削除の結果。書き換えたitem数を持つ。</summary>
     public record AttributesRewritten(Services.AttributeEditResult Result) : CommandResult;

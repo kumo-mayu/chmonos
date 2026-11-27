@@ -101,6 +101,7 @@
 | `modifications` | 改変 | `POST /v1/modifications`・改変の `memo`・`blueprint-id`・`unity-project`・`members`（足す・外す・戻す） |
 | `unity` | Unityへ送る | `POST …/send-to-unity`（商品・改変）・`/v1/unity/sends/{sendId}/cancel` |
 | `open` | 画面・エクスプローラで開く | `POST …/show`・`…/reveal`（データは変えないが、使う人の画面を動かす） |
+| `extensions` | ソフトの情報の置き場 | `PUT /v1/extensions/{ns}/schema` など。書けるのは許しを求めた時に名乗った名前空間（`namespace`）だけ（403 `notOwner`）。古いトークンには許さない（`me` にも出さない）。[local-api-extensions.md](local-api-extensions.md) |
 
 - 書き込みの守り（`ApiWriter.Guard`）は種類を**省けない引数**で受ける（入れ忘れた道が黙って通らないように）。足りなければ 403 `scopeNotGranted`。古いトークンは今までどおり 403 `writesDisabled`。
 - 1つの道に1つの種類。Unity へ送った後の「使った」の足跡・改変の行の記録は、送るの一部として `unity` だけで許す。

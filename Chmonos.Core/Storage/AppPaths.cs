@@ -107,6 +107,9 @@ public sealed class AppPaths
     /// <summary>人が足した変換の組（<see cref="Models.ConversionPairFile"/>）。商品の変換扱いとは別に、組だけを1ファイルに持つ。</summary>
     public string ConversionPairsFile => Path.Combine(Root, "conversion-pairs.json");
 
+    /// <summary>外のソフトの情報（拡張データ。<see cref="ExtensionRepository"/>）。名前空間ごとのフォルダを持つ。</summary>
+    public string ExtensionsDir => Path.Combine(Root, "extensions");
+
     /// <summary>YouTube の動画のタイトルの控え（30日で取り直す・<see cref="Models.VideoTitleRecord"/>）。</summary>
     public string VideoTitlesFile => Path.Combine(Root, "video-titles.json");
 

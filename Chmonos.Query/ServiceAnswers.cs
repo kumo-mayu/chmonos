@@ -103,7 +103,7 @@ public sealed record ModificationMemberRequest(string ItemId, long? VariationId,
 public sealed record AcceptedAnswer(string Busy);
 
 /// <summary>ソフトが許しを求める（plan 31。トークンなしで受ける）。<see cref="Scopes"/> は欲しい書き込みの種類（読むのはいつも許す）。</summary>
-public sealed record ClientRequestBody(string Name, IReadOnlyList<string>? Scopes);
+public sealed record ClientRequestBody(string Name, IReadOnlyList<string>? Scopes, string? Namespace = null);
 
 /// <summary>許しを求めたのを受け付けた（202）。<see cref="RequestId"/> は結果を取る合言葉なので、URL に入れず本文で送り返してもらう。</summary>
 public sealed record ClientRequestAccepted(string RequestId, string State);
@@ -117,8 +117,22 @@ public sealed record ClientResultRequest(string RequestId, int? Wait);
 /// </summary>
 public sealed record ClientResultAnswer(string State, string? Token, string? ClientId, IReadOnlyList<string>? Scopes);
 
+/// <summary>情報の欄の宣言を置き換える要求（<c>PUT /v1/extensions/{ns}/schema</c>）。欄の形は保存する宣言と同じ。</summary>
+public sealed record ExtensionSchemaRequest(string? Label, IReadOnlyList<Chmonos.Core.Models.ExtensionField?>? Fields);
+
+/// <summary>
+/// ソフトが宣言した情報の欄（1つの名前空間）。<see cref="Software"/> は宣言した時のソフトの名前、<see cref="Mine"/> は問い合わせたソフトが持ち主か。
+/// <see cref="HiddenFields"/>（宣言から外した欄）は、持ち主が <c>?include=hidden</c> で頼んだ時と、宣言を書いた答えだけ（ほかは null）
+/// </summary>
+public sealed record ExtensionSchemaRef(
+    string Namespace, string Label, string Software, bool Mine,
+    IReadOnlyList<Chmonos.Core.Models.ExtensionField> Fields, IReadOnlyList<Chmonos.Core.Models.ExtensionField>? HiddenFields);
+
+/// <summary>宣言の一覧（<c>GET /v1/extensions</c>。名前空間の順）。</summary>
+public sealed record ExtensionSchemaList(IReadOnlyList<ExtensionSchemaRef> Extensions);
+
 /// <summary>今のトークンが誰で、何を許されているか（<c>GET /v1/clients/me</c>）。<see cref="Kind"/> は legacy（api.json のトークン）・client。</summary>
-public sealed record ClientSelfAnswer(string Kind, string? ClientId, string? Name, IReadOnlyList<string> Scopes);
+public sealed record ClientSelfAnswer(string Kind, string? ClientId, string? Name, IReadOnlyList<string> Scopes, string? Namespace = null);
 
 /// <summary>
 /// ソフトへの出来事1つ（<c>GET /v1/plugin/events</c>。plan 44・docs/spec/plugins.md）。<see cref="Seq"/> はソフトごとの通番（起動ごとに 1 から）。

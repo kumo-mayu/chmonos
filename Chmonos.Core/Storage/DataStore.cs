@@ -287,6 +287,7 @@ public sealed class DataStore
         ShopNotes = new JsonFileStore<List<ShopNoteRecord>>(paths.ShopNotesFile);
         // 商品ページを開くたび・検索の条件を組むたびに読む。中身は init だけの型なので共有する
         ConversionPairs = new JsonFileStore<ConversionPairFile>(paths.ConversionPairsFile, shareLoaded: true);
+        Extensions = new ExtensionRepository(paths);
         ApiSettings = new JsonFileStore<ApiSettings>(paths.ApiSettingsFile);
         ApiClients = new JsonFileStore<ApiClientList>(paths.ApiClientsFile);
         VideoTitles = new JsonFileStore<List<VideoTitleRecord>>(paths.VideoTitlesFile);
@@ -355,6 +356,9 @@ public sealed class DataStore
 
     /// <summary>人が足した変換の組（<c>conversion-pairs.json</c>）。書くのは <c>UiCommand.ChangeConversionPairs</c> と、ID の変更・素体の改名と削除の読み替え。</summary>
     public JsonFileStore<ConversionPairFile> ConversionPairs { get; }
+
+    /// <summary>外のソフトの情報（<c>extensions/</c>）。書くのは <c>UiCommand.ChangeExtensionSchema</c> など。</summary>
+    public ExtensionRepository Extensions { get; }
 
     /// <summary>外から使う API の設定（ポート・許可する Web ページ。設定画面と、手で書いたファイルの両方から変わる）。</summary>
     public JsonFileStore<ApiSettings> ApiSettings { get; }

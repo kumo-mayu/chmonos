@@ -59,6 +59,27 @@ internal static class ApiClientEndpoints
             var exePath = owners.ExePathOf(context.Connection.LocalPort, context.Connection.RemotePort);
             var origin = context.Request.Headers.Origin is { Count: > 0 } header ? header.ToString() : null;
 
+            // 名前空間（外のソフトの情報の置き場。docs/spec/local-api-extensions.md「名前空間の決まり」）
+            string? ns = null;
+            if (body.Namespace is not null)
+            {
+                ns = ExtensionNamespace.Normalize(body.Namespace)
+                    ?? throw QueryException.Invalid("invalidNamespace",
+                        $"namespace は{ExtensionNamespace.MinLength}〜{ExtensionNamespace.MaxLength}字の英小文字・数字・ハイフンで、英小文字で始めてください（chmonos で始まる名前と、nul などの Windows の予約の名前は使えません）。");
+
+                // 窓で人に知らせて決めてもらう作りはまだ無い（画面の段で作る）。それまでは、別のソフトが持つ名前空間は断る。
+                // 黙って許すと、別の exe が同じ置き場に書けてしまう
+                if (state.Clients.NamespaceHolder(ns, name, exePath, origin) is not null)
+                {
+                    throw new QueryException(409, "namespaceTaken", $"名前空間「{ns}」は、ほかのソフトが使っています。別の名前空間で求めるか、Chmonos の設定の「API」で前のソフトの許しを取り消してから求めてください。");
+                }
+            }
+
+            if (ns is null && scopes.Contains(ApiScopes.Extensions))
+            {
+                throw QueryException.Invalid("namespaceRequired", "extensions を求めるときは、namespace に名前空間を書いてください。");
+            }
+
             // 人が拒否を続けたソフトは、窓を出さずに断る（2026-11-11。人が設定で止めを外せば、また聞く）
             if (state.Clients.IsBlocked(name, exePath, origin))
             {
@@ -73,7 +94,7 @@ internal static class ApiClientEndpoints
 
             var orderedScopes = ApiScopes.All.Where(scopes.Contains).ToList();
             var requestId = requests.Submit(new ApiClientRequestInfo(
-                    name, exePath, origin, orderedScopes, state.Clients.HasSame(name, exePath, origin), state.Clients.RefusalsLeft(name, exePath, origin)))
+                    name, exePath, origin, orderedScopes, state.Clients.HasSame(name, exePath, origin), state.Clients.RefusalsLeft(name, exePath, origin), ns))
                 ?? throw new QueryException(429, "tooManyRequests", "答えを待っている求めが多すぎます。先の求めに答えてから、もう一度求めてください。");
 
             Core.Diagnostics.AppLog.Note("外から使う API", $"ソフト「{name}」が許しを求めた");
@@ -112,8 +133,8 @@ internal static class ApiClientEndpoints
         {
             var caller = ApiCallerInfo.Of(context);
             var answer = caller.Client is { } client
-                ? new ClientSelfAnswer("client", client.Id, client.Name, ["read", .. client.Scopes])
-                : new ClientSelfAnswer("legacy", null, null, state.AllowWrites ? ["read", .. ApiScopes.Writes] : ["read"]);
+                ? new ClientSelfAnswer("client", client.Id, client.Name, ["read", .. client.Scopes], client.Namespace)
+                : new ClientSelfAnswer("legacy", null, null, state.AllowWrites ? ["read", .. ApiScopes.LegacyWrites] : ["read"]);
             return ApiHost.Json(answer, json.ClientSelfAnswer);
         })
             .Produces<ClientSelfAnswer>(StatusCodes.Status200OK, "application/json")

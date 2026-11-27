@@ -96,6 +96,12 @@ public sealed record ApiClientRecord
     /// </summary>
     public IReadOnlyList<PluginMenuItemRecord>? Menu { get; init; }
 
+    /// <summary>
+    /// 許しを求めた時にソフトが名乗った名前空間（外のソフトの情報の置き場。docs/spec/local-api-extensions.md「名前空間」。名乗らなければ null）。
+    /// 行の ID は求め直すと置き換わり、表示名はほかのソフトと重なるので、置き場はこの名前で分ける。書けるのはこの名前空間だけ
+    /// </summary>
+    public string? Namespace { get; init; }
+
     /// <summary>このソフトか（名前・exe・オリジンが同じ）。</summary>
     public bool IsSame(string name, string? exePath, string? origin)
         => string.Equals(Name, name, StringComparison.Ordinal)
@@ -182,6 +188,12 @@ public static class ApiScopes
     public const string Open = "open";
 
     /// <summary>
+    /// 外のソフトの情報（拡張データ）を、自分の名前空間に書く（docs/spec/local-api-extensions.md）。
+    /// 名前空間の無い api.json のトークンには許さない（読むのは許す）
+    /// </summary>
+    public const string Extensions = "extensions";
+
+    /// <summary>
     /// 見張り：商品ページを開いた、をソフトへ知らせる（plan 44・docs/spec/plugins.md）。見張りは書き込みではないが、使う人の操作を外へ出すので人が選んで許す
     /// （ユーザ判断 2026-11-12「選ばせましょう」）。名前は <c>watch.</c> と出来事の種類（<c>/v1/plugin/subscriptions</c> の <c>kinds</c>）
     /// </summary>
@@ -202,7 +214,10 @@ public static class ApiScopes
     public const string WatchPrefix = "watch.";
 
     /// <summary>書き込みの種類（画面に並べる順。軽い物から）。</summary>
-    public static IReadOnlyList<string> Writes { get; } = [Marks, Recent, Notifications, Tags, Avatars, Modifications, Unity, Open];
+    public static IReadOnlyList<string> Writes { get; } = [Marks, Recent, Notifications, Tags, Avatars, Modifications, Unity, Open, Extensions];
+
+    /// <summary>api.json のトークン（古い1本）に、書き込みを許した時に渡る種類。名前空間を持たないので、外のソフトの情報は入れない。</summary>
+    public static IReadOnlyList<string> LegacyWrites { get; } = [.. Writes.Where(scope => scope != Extensions)];
 
     /// <summary>見張りの種類（画面に並べる順）。</summary>
     public static IReadOnlyList<string> Watches { get; } = [WatchItemOpened, WatchSelectionChanged, WatchImportFinished, WatchScreen];
@@ -236,6 +251,7 @@ public static class ApiScopes
         Modifications => "改変",
         Unity => "Unityへ送る",
         Open => "画面・エクスプローラで開く",
+        Extensions => "ソフトの情報の置き場",
         WatchItemOpened => "商品ページを開いたこと",
         WatchSelectionChanged => "選んだ商品",
         WatchImportFinished => "取り込みが終わったこと",
