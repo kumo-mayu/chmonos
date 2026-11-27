@@ -69,7 +69,13 @@ public static class SavedSearches
             return list;
         }
 
-        return list.Select(other => SameName(other.Name, name) ? other with { Name = trimmed } : other).ToList();
+        // 条件「保存した検索」で指していれば、その名前も書き換える（名前の変更に付いていく・2026-11-27）。消したときは書き換えない（当たらない理由が見える）
+        return list
+            .Select(other => SameName(other.Name, name) ? other with { Name = trimmed } : other)
+            .Select(other => other.Modules.Any(module => module is not null && module.Kind == SavedSearchReferences.Kind)
+                ? other with { Modules = other.Modules.Select(module => module is null ? module! : SavedSearchReferences.Rename(module, name, trimmed)).ToList() }
+                : other)
+            .ToList();
     }
 
     public static IReadOnlyList<SearchHistoryEntry> Remove(IEnumerable<SearchHistoryEntry> entries, string name)

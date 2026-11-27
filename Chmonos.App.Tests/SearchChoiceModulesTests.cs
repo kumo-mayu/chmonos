@@ -23,7 +23,8 @@ public class SearchChoiceModulesTests
     {
         var search = (await app.StartAsync()).Search;
 
-        foreach (var kind in SearchModuleCatalog.All.Select(info => info.Kind))
+        // 保存した検索は選ぶ形ではなく、メニューに名前が無いと足せない
+        foreach (var kind in SearchModuleCatalog.All.Select(info => info.Kind).Where(kind => kind != SearchModuleKind.SavedSearch))
         {
             if (SearchModules.Add(search, kind) is not ChoiceModule choice)
             {

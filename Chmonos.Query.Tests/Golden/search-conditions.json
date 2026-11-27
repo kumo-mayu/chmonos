@@ -289,5 +289,13 @@
       "sale",
       "page"
     ]
+  },
+  {
+    "kind": "savedSearch",
+    "shape": "savedSearch",
+    "choices": null,
+    "options": null,
+    "allowsAll": false,
+    "fields": null
   }
 ]

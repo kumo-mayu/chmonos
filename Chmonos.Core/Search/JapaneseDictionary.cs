@@ -92,8 +92,35 @@ public sealed class JapaneseDictionary
     /// キャッシュは手元で組んだものなので配布物には入らない
     /// （＝加工した辞書を配らないので、継承条項に触れる物が無い）。
     /// </summary>
+    /// <summary>
+    /// このスレッドで、組めている節だけを引き、組みも控えを読みもしない間（<see cref="LoadedOnly{T}"/>）。
+    /// 条件「保存した検索」の別表記は打つたびの数え直しの中で広げるので、ここで初めて組むと数秒止まる（ユーザ判断 2026-11-27 ①a）
+    /// </summary>
+    [ThreadStatic]
+    private static bool t_loadedOnly;
+
+    /// <summary>組めている節だけで <paramref name="work"/> を動かす（組めていない節は空として引く）。</summary>
+    public static T LoadedOnly<T>(Func<T> work)
+    {
+        var before = t_loadedOnly;
+        t_loadedOnly = true;
+        try
+        {
+            return work();
+        }
+        finally
+        {
+            t_loadedOnly = before;
+        }
+    }
+
     private PackedIndex? EnsureLoaded(int section)
     {
+        if (t_loadedOnly)
+        {
+            return _failed ? null : _sections[section];
+        }
+
         if (_sections[section] is not null || _failed)
         {
             return _sections[section];

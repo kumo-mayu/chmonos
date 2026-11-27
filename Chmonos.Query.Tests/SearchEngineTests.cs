@@ -449,4 +449,32 @@ public sealed class SearchEngineTests : IDisposable
         Assert.Contains("\"name\":\"夏の水着\"", json);
         Assert.Contains("\"nextCursor\":null", json);
     }
+    /// <summary>条件「保存した検索」（2026-11-27）：今の中身で当て、文字を外せ、名前が無ければ何にも当たらない。保存した検索が変わると写しを読み直す</summary>
+    [Fact]
+    public async Task 保存した検索の条件は_今の中身で当て_文字を外すと広がり_無い名前は当たらない()
+    {
+        var store = new DataStore(new AppPaths(_root));
+        var first = await SnapshotAsync();
+        await store.SavedSearches.SaveAsync(new Chmonos.Core.Services.SavedSearchList
+        {
+            Entries =
+            [
+                new SearchHistoryEntry
+                {
+                    Name = "夏の衣装",
+                    Text = "夏",
+                    Modules = [new SearchModuleState { Kind = "Category", Items = ["3D衣装"] }],
+                },
+            ],
+        });
+        var snapshot = await QuerySnapshot.LoadAsync(store);
+
+        Assert.Equal(["9700001"], Ids(snapshot, Condition(new() { Kind = "savedSearch", Values = ["夏の衣装"] })));
+        Assert.Equal(["9700001", "9700002"], Ids(snapshot, Condition(new() { Kind = "savedSearch", Values = ["夏の衣装"], UseText = false })));
+        Assert.Empty(Ids(snapshot, Condition(new() { Kind = "savedSearch", Values = ["無い"] })));
+        Assert.Equal(5, Ids(snapshot, new() { Not = Condition(new() { Kind = "savedSearch", Values = ["無い"] }) }).Length);
+        Assert.Equal("invalidCondition", Assert.Throws<QueryException>(() => Ids(snapshot, Condition(new() { Kind = "savedSearch" }))).Code);
+        Assert.Empty(Ids(first, Condition(new() { Kind = "savedSearch", Values = ["夏の衣装"] })));
+        Assert.Equal(StorePart.SavedSearches, StoreChanges.Classify(new AppPaths(_root), new AppPaths(_root).SavedSearchesFile)?.Part);
+    }
 }

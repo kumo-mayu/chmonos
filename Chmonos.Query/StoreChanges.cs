@@ -20,6 +20,9 @@ public enum StorePart
     Settings,
     VideoTitles,
 
+    /// <summary>保存した検索（saved-searches.json）。条件「保存した検索」が今の中身で当てる（2026-11-27）。</summary>
+    SavedSearches,
+
     /// <summary>管理から外したファイル（excluded.json）。<c>/v1/excluded</c> が読む。</summary>
     Excluded,
 
@@ -143,6 +146,7 @@ public static class StoreChanges
             "recent.json" => StorePart.Recent,
             "settings.json" => StorePart.Settings,
             "video-titles.json" => StorePart.VideoTitles,
+            "saved-searches.json" => StorePart.SavedSearches,
             "excluded.json" => StorePart.Excluded,
             "unresolved.json" => StorePart.Unresolved,
             "format.json" => StorePart.Format,
@@ -186,6 +190,7 @@ public static class StoreChanges
             StorePart.Recent => paths.RecentFile,
             StorePart.Settings => paths.SettingsFile,
             StorePart.VideoTitles => paths.VideoTitlesFile,
+            StorePart.SavedSearches => paths.SavedSearchesFile,
             StorePart.Excluded => paths.ExcludedFile,
             StorePart.Unresolved => paths.UnresolvedFile,
             StorePart.Format => Path.Combine(paths.Root, StoreFormat.MarkerFileName),

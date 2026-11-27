@@ -258,6 +258,14 @@ public class SearchModuleConditionParityTests
         }
 
         var search = (await app.StartAsync()).Search;
+        if (kind == SearchModuleKind.SavedSearch)
+        {
+            // メニューに出るのは保存した検索の名前なので、文字と条件のある物を1つ作っておく
+            search.QueryText = "衣装";
+            await search.SaveCurrentSearchAsync("作り物の保存");
+            search.QueryText = string.Empty;
+        }
+
         var module = SearchModules.Add(search, kind);
         var context = search.CreateModuleContext();
 
@@ -284,6 +292,21 @@ public class SearchModuleConditionParityTests
                 var actual = module.IsExcluded ? condition.MatchesExcluded(item, context) : condition.Matches(item, context);
                 Assert.True(expected == actual, $"{kind} {saved.Fingerprint} 除く={module.IsExcluded} {item.Id}: 画面={expected} Core={actual}");
             }
+        }
+    });
+
+    /// <summary>条件「保存した検索」は中の条件の「除く」を Core で読むので、どの種類が除くを持つかを画面と揃える</summary>
+    [Fact]
+    public Task 除くを持つ種類は_画面とCoreで同じ() => TestApp.Run(async app =>
+    {
+        var search = (await app.StartAsync()).Search;
+        search.QueryText = "衣装";
+        await search.SaveCurrentSearchAsync("作り物の保存");
+        search.QueryText = string.Empty;
+        foreach (var kind in Enum.GetValues<SearchModuleKind>())
+        {
+            Assert.True(SearchModules.Add(search, kind).SupportsExclude == SearchModuleConditions.SupportsExclude(kind), kind.ToString());
+            Assert.Equal(SearchModuleCatalog.Of(kind).OrSameKind, SearchModuleConditions.OrSameKind(kind));
         }
     });
 

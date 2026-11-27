@@ -828,6 +828,26 @@
                                 </DataTemplate>
 
                                 <!--
+                                    保存した検索（2026-11-27）。どれを使うかはメニューで選んで決まるので、欄は名前を言うだけ。
+                                    元が無い・輪のときは、0件の理由が読めるように欄に書く。チェックは元に文字があるときだけ
+                                -->
+                                <DataTemplate DataType="{x:Type vm:SavedSearchModule}">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Description}" FontSize="12.5" Foreground="{DynamicResource Text}" TextWrapping="Wrap"
+                                                   AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Name'}" />
+                                        <TextBlock Text="{Binding ProblemText}" FontSize="12" Margin="0,5,0,0" Foreground="{DynamicResource Warn}" TextWrapping="Wrap"
+                                                   AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Problem'}"
+                                                   Visibility="{Binding HasProblem, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}" />
+                                        <CheckBox IsChecked="{Binding UseText, Mode=TwoWay}" Margin="0,7,0,0"
+                                                  AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.UseText'}"
+                                                  AutomationProperties.Name="検索文字列も使う"
+                                                  Visibility="{Binding ShowsUseText, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                            <TextBlock Text="検索文字列も使う" FontSize="12" Foreground="{DynamicResource Text}" TextWrapping="Wrap" />
+                                        </CheckBox>
+                                    </StackPanel>
+                                </DataTemplate>
+
+                                <!--
                                     編集状況（2026-10-01。前の「未編集」）。三項に、どの項目を見るかのトグルを足した形。
                                     項目の件数は他の条件のもとでその項目が未入力の商品の数。最後の1つは外せない（全部切ると何も選ばない）
                                 -->

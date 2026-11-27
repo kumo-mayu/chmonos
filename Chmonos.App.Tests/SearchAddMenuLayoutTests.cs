@@ -67,7 +67,8 @@ public class SearchAddMenuLayoutTests
     {
         var shown = SearchModuleCatalog.Menu.SelectMany(layout => layout.Groups).SelectMany(group => group).ToHashSet();
 
-        Assert.All(SearchModuleCatalog.All, info => Assert.Contains(info.Kind, shown));
+        // 保存した検索は種類ではなく名前が並ぶ見出し（保存した検索が変わるたびに作る。SavedSearchConditionTests）
+        Assert.All(SearchModuleCatalog.All.Where(info => info.Kind != SearchModuleKind.SavedSearch), info => Assert.Contains(info.Kind, shown));
     }
 
     [Fact]

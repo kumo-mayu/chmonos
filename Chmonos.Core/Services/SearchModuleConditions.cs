@@ -384,9 +384,22 @@ public static class SearchModuleConditions
                 (itemId, context) => context.UnreadUpdateKinds(itemId)),
             SearchModuleKind.Recent => RecentFrom(state),
             SearchModuleKind.Profile => ProfileFrom(state),
+            SearchModuleKind.SavedSearch => new SavedSearchCondition(state.Items.FirstOrDefault() ?? string.Empty, !state.IgnoreText),
             _ => null,
         };
     }
+
+    /// <summary>
+    /// 「除く」を持つ種類か（画面の条件の SupportsExclude と同じ。試験 SavedSearchConditionTests で揃いを確かめる）。
+    /// 持たない種類に書かれた「除く」は読まない（前の版の状態・手で直した JSON）
+    /// </summary>
+    public static bool SupportsExclude(SearchModuleKind kind)
+        => ListOf(kind) is not null || RangeOf(kind) is not null || DateOf(kind) is not null
+            || kind is SearchModuleKind.Attribute or SearchModuleKind.Modification or SearchModuleKind.Recent
+                or SearchModuleKind.UserTag or SearchModuleKind.SavedSearch;
+
+    /// <summary>同じ種類を1つのまとまりにし、どれかに当たれば通す種類か（範囲・日付。画面の SearchModuleInfo.OrSameKind と同じ）</summary>
+    public static bool OrSameKind(SearchModuleKind kind) => RangeOf(kind) is not null || DateOf(kind) is not null;
 
     private static RecentCondition RecentFrom(SearchModuleState state)
     {

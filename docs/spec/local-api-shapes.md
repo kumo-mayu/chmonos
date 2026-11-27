@@ -117,6 +117,7 @@
 | editStatus | editStatus | `choice`（`unedited`・`edited`・`both`）・`fields`・`match` |
 | updateNotice | updateNotice | `choice`（`updated`・`other`・`both`）・`fields`（種類）・`match` |
 | recent | recent | `recent`（`used`・`viewed`・`added`）・`fromDays`・`toDays` |
+| savedSearch | savedSearch | `values`（保存した検索の名前を1つ）・`useText`（既定 true・元の検索文字列も照らす）。今の中身で当て、表示順・表示の形は使わない。別表記は広げない。名前が無い・輪のときは何にも当たらない（`not` では全部が通る。2026-11-27） |
 
 読めない値は既定で読まず、決まった名前の誤りで返す（`unknownCondition`・`invalidChoice`・`invalidOption`・`invalidCondition`）。
 編集状況の「取り込みの③待ちは未入力に数えない」は API では分からないので、待っていない物として数える。

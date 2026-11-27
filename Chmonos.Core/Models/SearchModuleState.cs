@@ -124,6 +124,13 @@ public sealed record SearchModuleState
     /// </summary>
     public IReadOnlyList<string> Fields { get; init; } = [];
 
+    /// <summary>
+    /// 条件「保存した検索」で、元の検索文字列を照らさないか（チェック「検索文字列も使う」を外した・ユーザ判断 2026-11-27 案2）。
+    /// 既定（使う）は書かない——使う側を false で持つと、どの条件の状態にも欄が書かれる。v1.2.0 は知らない欄を無視して読み、書き戻すと落とす（文字も使う形に戻る）
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool IgnoreText { get; init; }
+
     /// <summary>一覧に出す1行（検索の履歴の要約に使う・見るだけ）。</summary>
     public string? Summary { get; init; }
 
@@ -145,6 +152,13 @@ public sealed record SearchModuleState
             text.Append(MinEnabled ? '1' : '0').Append(MaxEnabled ? '1' : '0');
             text.Append(ShowMatched ? '1' : '0').Append(ShowUnspecified ? '1' : '0');
             text.Append(IgnoreOutliers ? '1' : '0').Append(IncludeFavorites ? '1' : '0');
+
+            // 既定（文字も使う）のときは何も足さない：前に書いた指紋（履歴の重なりの判定）を変えない
+            if (IgnoreText)
+            {
+                text.Append('T');
+            }
+
             text.Append(string.Join((char)0x1E, (Toggles ?? new Dictionary<string, bool>()).OrderBy(pair => pair.Key, StringComparer.Ordinal).Select(pair => $"{pair.Key}={(pair.Value ? 1 : 0)}"))).Append(Separator);
 
             // 除くかどうかで結果が逆になるので、指紋に入れる（同じ値の「含む」と「除く」を履歴の1件にまとめない）

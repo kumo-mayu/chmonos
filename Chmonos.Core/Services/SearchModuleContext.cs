@@ -194,4 +194,26 @@ public sealed class SearchModuleContext
 
     /// <summary>人が足した変換の組（<c>conversion-pairs.json</c>）。変換経由の計算に、プロファイルのつなぎ先と合わせて使う。</summary>
     public IReadOnlyList<ConversionPair> ConversionPairs { get; init; } = [];
+
+    // ---- 条件「保存した検索」（2026-11-27） ----
+
+    /// <summary>保存した検索の並び（<c>saved-searches.json</c>）。条件「保存した検索」が名前で引く。</summary>
+    public IReadOnlyList<SearchHistoryEntry> SavedSearches { get; init; } = [];
+
+    /// <summary>商品の検索用の文字列（画面は覚えた物、API は写しの物）。null を返した商品は文字では落とさない（画面の検索と同じ）。無ければ文字を照らさない</summary>
+    public Func<ItemRecord, SearchHaystack?>? Haystack { get; init; }
+
+    /// <summary>記法（is: など）の答えに使う材料。</summary>
+    public SearchFacts? Facts { get; init; }
+
+    /// <summary>
+    /// 別表記へ広げる関数。**組めている索引だけを引き、組まない**物を渡す（打つたびの数え直しで数秒止めない）。null なら広げない（API）
+    /// </summary>
+    public Func<SearchNode, SearchNode>? WidenText { get; init; }
+
+    /// <summary>名前ごとに組んだ保存した検索（この材料＝数え直し1回の中で使い回す）。</summary>
+    internal Dictionary<string, SavedSearchMatcher> SavedSearchMatchers { get; } = new(StringComparer.CurrentCultureIgnoreCase);
+
+    /// <summary>輪の中の名前（初めて要ったときに1回だけ求める）。</summary>
+    internal IReadOnlySet<string>? SavedSearchCycles { get; set; }
 }

@@ -36,6 +36,9 @@ public sealed partial class SearchViewModel
     /// <summary>「条件を追加」のメニュー。見出しの下に条件が並ぶ（同じ条件が2つの見出しに出ることがある）。</summary>
     public IReadOnlyList<SearchModuleMenuHeading> ModuleMenu { get; private set; } = [];
 
+    /// <summary>種類で決まる見出し（起動時に1回作る）。保存した検索の見出しは、保存した検索が変わるたびに足し直す。</summary>
+    private IReadOnlyList<SearchModuleMenuHeading> _baseModuleMenu = [];
+
     public bool HasModules => Modules.Count > 0;
 
     /// <summary>
@@ -68,7 +71,7 @@ public sealed partial class SearchViewModel
         }
 
         // 見出しの中は意味のまとまりの順に並べ、まとまりの間に区切り線を入れる（ユーザ判断 2026-09-16・案1）
-        ModuleMenu = SearchModuleCatalog.Menu
+        _baseModuleMenu = SearchModuleCatalog.Menu
             .Select(layout => new SearchModuleMenuHeading(
                 layout.Title,
                 layout.Groups
@@ -76,6 +79,7 @@ public sealed partial class SearchViewModel
                         .Concat(group.Select(kind => (object)_moduleMenuEntries[kind])))
                     .ToList()))
             .ToList();
+        RebuildModuleMenu();
 
         if (saved is null)
         {
@@ -270,6 +274,62 @@ public sealed partial class SearchViewModel
         ApplyFilters();
     }
 
+    /// <summary>
+    /// 「条件を追加」の見出しを作り直す：種類の見出しの後に「保存した検索」（ユーザ判断 2026-11-27）。
+    /// 一覧と同じ並び（フォルダの外 → フォルダごと）で、フォルダの間に区切り線を引く。メニューは2段までなので、フォルダは名前の頭に付けて分かるようにする
+    /// </summary>
+    private void RebuildModuleMenu()
+    {
+        var entries = new List<object>();
+        string? folder = null;
+        foreach (var entry in SavedSearches.Grouped(_saved).Where(entry => entry.IsNamed))
+        {
+            var name = entry.Name!;
+            var entryFolder = SavedSearches.FolderOf(entry);
+            if (entries.Count > 0 && !SavedSearches.SameFolder(folder, entryFolder))
+            {
+                entries.Add(new SearchModuleMenuSeparator());
+            }
+
+            folder = entryFolder;
+            entries.Add(new SearchModuleMenuEntry(
+                entryFolder is null ? name : $"{entryFolder} ／ {name}",
+                "この保存した検索に当てはまる商品で絞ります。",
+                () => AddSavedSearchModule(name)));
+        }
+
+        if (entries.Count == 0)
+        {
+            entries.Add(new SearchModuleMenuEntry("保存した検索はありません", "検索を保存すると、ここから条件に使えます。", null));
+        }
+
+        ModuleMenu = [.. _baseModuleMenu, new SearchModuleMenuHeading(SearchModuleCatalog.SavedSearch, entries)];
+        OnPropertyChanged(nameof(ModuleMenu));
+    }
+
+    private void AddSavedSearchModule(string name)
+    {
+        var added = AddModule(SearchModuleKind.SavedSearch, new SearchModuleState { Kind = nameof(SearchModuleKind.SavedSearch), Items = [name] });
+        ModuleAdded?.Invoke(added);
+    }
+
+    /// <summary>保存した検索が変わった：メニューを作り直し、条件の欄の出し分けを知らせ直し、使っていれば絞り直す（中身で当てるので結果が変わる）</summary>
+    private void RefreshSavedSearchModules()
+    {
+        RebuildModuleMenu();
+        var used = false;
+        foreach (var module in Modules.OfType<SavedSearchModule>())
+        {
+            module.RefreshSource();
+            used |= module.IsActive;
+        }
+
+        if (used)
+        {
+            ApplyFilters();
+        }
+    }
+
     private void RefreshModuleMenu()
     {
         foreach (var (kind, entry) in _moduleMenuEntries)
@@ -377,6 +437,14 @@ public sealed partial class SearchViewModel
         IncludeUnconfirmedConversion = _services.Settings.IncludeUnconfirmedConversion,
         // 変わっていなければ読み直さない（共有の写し）ので、条件を組むたびに読んでよい
         ConversionPairs = _services.Store.ConversionPairs.Load().Pairs,
+
+        // 条件「保存した検索」：一覧に読んだ並びと、今の検索と同じ文字の照らし方（検索用の文字列・記法の材料・組めている索引だけの別表記）
+        SavedSearches = _saved,
+        Haystack = item => _haystacks.TryGetValue(item.Id, out var haystack) ? haystack : null,
+        Facts = _searchFacts ??= CreateSearchFacts(),
+        WidenText = _services.Bridge.IsAvailable && _bridgeOptions.Any
+            ? node => _services.Bridge.WidenLoaded(node, _bridgeOptions)
+            : null,
     };
 
     /// <summary>種類ごとの照らし方（Core の一覧表。API と同じ物）を、選ぶ条件の形で渡す。選ぶ条件の照らし方は材料を使わない。</summary>
@@ -962,6 +1030,8 @@ public sealed partial class SearchViewModel
 
         // 変換ツールのプロファイル（ユーザ判断 2026-11-09・案B）。「変換元」（逆方向）と「変換先」（順方向）の2つの欄。
         // 欄の候補は対応アバターと同じ（アバターと共通素体）。何も選ばないときはプロファイルの商品すべて
+        SearchModuleKind.SavedSearch => new SavedSearchModule(() => _saved),
+
         SearchModuleKind.Profile => new ProfileModule(ProfileSide("変換元のアバターか共通素体"), ProfileSide("変換先のアバターか共通素体")),
 
         SearchModuleKind.Favorite => new ChoiceModule(kind,

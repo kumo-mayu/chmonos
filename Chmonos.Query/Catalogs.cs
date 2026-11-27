@@ -107,7 +107,7 @@ public sealed record NotificationRef(string Id, string Kind, string? ItemId, str
 public sealed record DisplaySettingsRef(bool ShowAdult, bool ShowHiddenCountInSearch, bool ShowRemovedBoothImages, string ThumbnailRole);
 
 /// <summary>検索の条件の種類（<c>/v1/search/conditions</c>）。外の道具が条件の画面を組むため。</summary>
-/// <param name="Shape">値の形：<c>choice</c>・<c>list</c>・<c>avatar</c>・<c>range</c>・<c>date</c>・<c>attribute</c>・<c>userTag</c>・<c>modification</c>・<c>editStatus</c>・<c>updateNotice</c>・<c>recent</c>。</param>
+/// <param name="Shape">値の形：<c>choice</c>・<c>list</c>・<c>avatar</c>・<c>range</c>・<c>date</c>・<c>attribute</c>・<c>userTag</c>・<c>modification</c>・<c>editStatus</c>・<c>updateNotice</c>・<c>recent</c>・<c>savedSearch</c>。</param>
 /// <param name="Choices">選ぶ条件の選択肢（先頭が既定）。</param>
 /// <param name="Options">選ぶ条件の補助の切り替え（名前と既定）。</param>
 /// <param name="Fields">編集状況の項目・更新通知ありの種類の名前。</param>
@@ -518,6 +518,7 @@ public static class Catalogs
                     SearchModuleKind.Recent => new ConditionKindRef(name, "recent", ["used", "viewed", "added"], null, false, null),
                     SearchModuleKind.Attribute => new ConditionKindRef(name, "attribute", null, null, true, null),
                     SearchModuleKind.UserTag => new ConditionKindRef(name, "userTag", null, null, true, null),
+                    SearchModuleKind.SavedSearch => new ConditionKindRef(name, "savedSearch", null, null, false, null),
                     _ => new ConditionKindRef(name, "modification", null, null, true, null),
                 };
             })

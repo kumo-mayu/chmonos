@@ -136,6 +136,9 @@ public static class SearchModuleCatalog
     public const string Slider = "スライダー";
     public const string Usage = "利用状況";
 
+    /// <summary>保存した検索を条件にする見出し（2026-11-27）。中身は保存した検索の名前で、保存した検索が変わるたびに作り直す</summary>
+    public const string SavedSearch = "保存した検索";
+
     /// <summary>
     /// 保存された並びが無いときに出しておく条件（ユーザ指示 2026-09-29。前は 所持・ユーザータグ・対応アバター＝2026-09-16 Q9）。
     /// どれも足しただけでは絞らない形（カテゴリは空・お気に入りは「両方」）なので、最初に全件が見える。
@@ -180,6 +183,8 @@ public static class SearchModuleCatalog
         // 仮のIDで登録した後でBOOTHに出た物も、商品IDのまま登録した非公開の物も言い当てていなかった）。種類の名前（NotOnBooth）は保存した状態に書くので変えない
         new(SearchModuleKind.NotOnBooth, "登録のしかた", "商品IDで登録したか、仮のIDで登録したかで絞ります。"),
         new(SearchModuleKind.Updated, "更新通知あり", "未読の更新の通知がある商品を、変わった内容の種類で絞ります。"),
+        // メニューには種類ではなく保存した検索の名前が並ぶ（見出し「保存した検索」）。ここの説明は欄の名前と読み上げに使う
+        new(SearchModuleKind.SavedSearch, "保存した検索", "保存した検索に当てはまる商品で絞ります。", AllowsMany: true),
     ];
 
     /// <summary>
@@ -641,6 +646,16 @@ public sealed class SearchModuleMenuEntry : ViewModelBase
         Label = info.Label;
         Hint = info.Hint;
         AddCommand = new RelayCommand(() => add(Kind), () => IsAvailable);
+    }
+
+    /// <summary>保存した検索1つ（見出し「保存した検索」の中）。種類は同じで、押すとその名前で条件を足す</summary>
+    public SearchModuleMenuEntry(string label, string hint, Action? add)
+    {
+        Kind = SearchModuleKind.SavedSearch;
+        Label = label;
+        Hint = hint;
+        _isAvailable = add is not null;
+        AddCommand = new RelayCommand(() => add?.Invoke(), () => IsAvailable);
     }
 
     public SearchModuleKind Kind { get; }

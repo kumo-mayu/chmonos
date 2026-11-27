@@ -280,7 +280,7 @@ internal static class ChmonosTools
         var answer = new JsonObject
         {
             ["howToWrite"] = "where の1段は and・or・not・text・condition のどれか1つ。例：{\"and\":[{\"text\":\"夏\"},{\"condition\":{\"kind\":\"category\",\"values\":[\"3D衣装\"]}}]}。"
-                + "choice の種類は choice に選択肢の1つ、list は values、avatar は avatars（ID）か bases（素体名）、range は min・max、date は from・to（YYYY-MM-DD）。",
+                + "choice の種類は choice に選択肢の1つ、list は values、avatar は avatars（ID）か bases（素体名）、range は min・max、date は from・to（YYYY-MM-DD）。savedSearch は values にアプリで保存した検索の名前を1つ書き、今の中身で当てる（useText:false で元の検索文字列を照らさない）。",
             ["conditions"] = conditions?.DeepClone(),
         };
         return AnswerShaper.Fit(answer);

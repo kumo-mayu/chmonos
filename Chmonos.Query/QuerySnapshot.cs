@@ -90,6 +90,9 @@ public sealed class QuerySnapshot
 
     public required IReadOnlyDictionary<string, string> VideoTitles { get; init; }
 
+    /// <summary>保存した検索（条件「保存した検索」が名前で引く）。</summary>
+    public IReadOnlyList<SearchHistoryEntry> SavedSearches { get; init; } = [];
+
     /// <summary>
     /// 管理から外したファイル（<c>excluded.json</c> の記録のまま・記録の順）。見張りの部分に入れて写しに持つ：
     /// 人が外す・戻すたびに知らせが出て、ページを送る間も1つの写しの並びで答えられる。
@@ -119,6 +122,11 @@ public sealed class QuerySnapshot
         UseDetectedVariationTargets = Settings.UseDetectedVariationTargets,
         IncludeUnconfirmedConversion = Settings.IncludeUnconfirmedConversion,
         ConversionPairs = ConversionPairs,
+
+        // 条件「保存した検索」：文字は写しの検索用の文字列で照らす（SearchGate の中で照らす）。別表記は広げない（API は辞書の索引を持たない）
+        SavedSearches = SavedSearches,
+        Haystack = HaystackOf,
+        Facts = Facts,
     };
 
     /// <summary>検索用の文字列を照らす間に取る錠（文字列は対象を初めて探すときに畳んで覚えるので、同時に畳み合わない）。</summary>
@@ -317,6 +325,9 @@ public sealed class QuerySnapshot
             Settings = Need(StorePart.Settings) ? store.Settings.Load() : previous!.Settings,
             UserTagMaster = Need(StorePart.UserTags) ? store.UserTags.Load() : previous!.UserTagMaster,
             AttributeMaster = Need(StorePart.Attributes) ? store.Attributes.Load() : previous!.AttributeMaster,
+            SavedSearches = Need(StorePart.SavedSearches)
+                ? store.SavedSearches.Load().Entries.Where(entry => entry is not null).ToList()
+                : previous!.SavedSearches,
             VideoTitles = Need(StorePart.VideoTitles)
                 ? store.VideoTitles.Load()
                     .GroupBy(record => record.VideoId, StringComparer.Ordinal)

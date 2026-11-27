@@ -148,6 +148,13 @@ public sealed class SearchBridge
     }
 
     /// <summary>
+    /// 組めている索引だけで広げる（組めていない変換は広げない）。条件「保存した検索」が数え直しのたびに使う。
+    /// 増えるのは組んだ索引を引く手間（語ごとに1回）と、広げた語を照らす手間だけで、索引は組まない
+    /// </summary>
+    public Services.SearchNode WidenLoaded(Services.SearchNode node, BridgeOptions? options = null)
+        => JapaneseDictionary.LoadedOnly(() => Widen(node, new Dictionary<string, List<BridgeCandidate>>(StringComparer.Ordinal), options));
+
+    /// <summary>
     /// 組み立て済みの検索式の中の語を「その語 または 別表記」に置き換える。
     ///
     /// **文字列を作り直さず、木を組み替える。**そうしないと

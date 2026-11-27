@@ -119,6 +119,9 @@ public sealed class ConditionRequest
 
     /// <summary>最近：何日前まで。送らなければそれより前もすべて。</summary>
     public int? ToDays { get; init; }
+
+    /// <summary>保存した検索：元の検索文字列も照らすか（既定 true。画面の「検索文字列も使う」）。名前は <see cref="Values"/> の1つ目</summary>
+    public bool? UseText { get; init; }
 }
 
 /// <summary>属性の範囲。省いた側は端まで（min は 0・max は 100。属性の値は 0〜100）。</summary>
@@ -164,6 +167,7 @@ public static class ConditionKinds
         ("missingFile", SearchModuleKind.MissingFile),
         ("notOnBooth", SearchModuleKind.NotOnBooth),
         ("updateNotice", SearchModuleKind.Updated),
+        ("savedSearch", SearchModuleKind.SavedSearch),
     ];
 
     public static SearchModuleKind? Of(string? name)
@@ -367,6 +371,15 @@ public static class ConditionKinds
                     Min = (request.FromDays ?? 0).ToString(CultureInfo.InvariantCulture),
                     Max = request.ToDays?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
                 };
+
+            // 名前が無い・保存した検索に無い・輪のときも、画面と同じく何にも当たらない条件として受ける（名前の間違いは0件で分かる）
+            case SearchModuleKind.SavedSearch:
+                if (request.Values is not [var savedName] || savedName.Trim().Length == 0)
+                {
+                    throw QueryException.Invalid("invalidCondition", "savedSearch は values に保存した検索の名前を1つ書きます。");
+                }
+
+                return state with { Items = [savedName.Trim()], IgnoreText = request.UseText == false };
 
             default:
                 throw QueryException.Invalid("unknownCondition", $"知らない条件の種類です: {request.Kind}");

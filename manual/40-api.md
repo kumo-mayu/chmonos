@@ -178,6 +178,7 @@ if ($result.state -eq "approved") {
 - （v1.2.0 から）Unity へ送れる unitypackage を持つ商品だけにするときは、`"hasUnityPackage": true` を送ります。`false` なら持たない商品だけです。
 - （v1.2.0 から）一覧の1件には並べ替えに使う値（`publishedAt`・`acquiredAt`・`wishCount`・`paid`）と BOOTH の値段（`priceText`）も入ります。`acquiredAt` は並べ替えと同じく、購入の日付のうち最も早い日です（購入の記録が無ければ商品の入手日）。商品の詳細の `acquiredAt` も同じ値で、入手日の欄に入れた値そのものは `acquiredAtEntered` にあります。
 - （v1.2.0 から）条件 `unityProject` の場所は、`/` 区切りでも、末尾に区切りがあっても当たります。
+- （次のバージョンから）条件 `savedSearch` は、アプリで保存した検索に当たる商品です。`values` に名前を1つ書きます（例：`{"kind": "savedSearch", "values": ["夏の衣装"]}`）。保存した検索の今の中身で当て、表示順は使いません。元の検索文字列を使わないときは `"useText": false` を送ります。名前が無いときは何にも当たりません。
 
 ## 詳しい情報を足す
 

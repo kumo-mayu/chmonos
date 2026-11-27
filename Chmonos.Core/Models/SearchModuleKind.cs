@@ -55,4 +55,10 @@ public enum SearchModuleKind
     /// アバターを選ばないときは、プロファイルの商品すべて（扱わないにした物は除く）。docs/spec/conversion.md「検索」
     /// </summary>
     Profile,
+
+    /// <summary>
+    /// 保存した検索に当たる商品（ユーザ判断 2026-11-27・docs/spec/search-saved.md「条件にする・フォルダ」）。名前は <see cref="SearchModuleState.Items"/> の1つ目。
+    /// v1.2.0 は知らない種類を読み飛ばす（落ちない・書き戻しても文字のまま残る）ので、形式の版は上げない
+    /// </summary>
+    SavedSearch,
 }

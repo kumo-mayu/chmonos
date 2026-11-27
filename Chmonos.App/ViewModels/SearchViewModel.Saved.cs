@@ -130,7 +130,34 @@ public sealed partial class SearchViewModel
         }
 
         var entry = CurrentSaved(trimmed) with { UsedAt = DateTimeOffset.Now };
-        await ChangeSavedAsync(list => SavedSearches.Add(list, entry));
+        await ChangeSavedRefusingCycleAsync(list => SavedSearches.Add(list, entry), trimmed);
+    }
+
+    /// <summary>
+    /// 保存・上書きで、条件「保存した検索」をたどると自分に戻るなら書かずに断る（ユーザ判断 2026-11-27）。
+    /// 判定は錠の中の今の並びに当てる（ほかの所から同時に変わっても、輪を書かない）
+    /// </summary>
+    private async Task ChangeSavedRefusingCycleAsync(
+        Func<IReadOnlyList<SearchHistoryEntry>, IReadOnlyList<SearchHistoryEntry>> change,
+        string name,
+        string? focus = null)
+    {
+        var refused = false;
+        await ChangeSavedAsync(list =>
+        {
+            var next = change(list);
+            refused = SavedSearchReferences.InCycle(next, name);
+            return refused ? list : next;
+        }, focus);
+
+        if (refused)
+        {
+            Services.Notice.Show(
+                $"条件の保存した検索をたどると「{name}」に戻るため、保存できません。",
+                "保存した検索",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
     }
 
     /// <summary>
@@ -150,7 +177,7 @@ public sealed partial class SearchViewModel
         }
 
         var entry = CurrentSaved(name) with { UsedAt = DateTimeOffset.Now };
-        await ChangeSavedAsync(list => SavedSearches.Overwrite(list, name, entry), focus: name);
+        await ChangeSavedRefusingCycleAsync(list => SavedSearches.Overwrite(list, name, entry), name, focus: name);
     }
 
     private void AskRenameSaved(string name)
@@ -164,8 +191,23 @@ public sealed partial class SearchViewModel
         }
     }
 
-    public Task RenameSavedAsync(string name, string newName)
-        => ChangeSavedAsync(list => SavedSearches.Rename(list, name, newName), focus: newName.Trim());
+    /// <summary>名前を変える。保存した検索の中の条件（Core）と、今の条件の欄の両方が付いていく</summary>
+    public async Task RenameSavedAsync(string name, string newName)
+    {
+        var renamed = false;
+        await ChangeSavedAsync(list =>
+        {
+            var next = SavedSearches.Rename(list, name, newName);
+            renamed = SavedSearches.Find(next, newName) is not null && SavedSearches.Find(list, name) is not null;
+            return next;
+        }, focus: newName.Trim());
+
+        if (renamed && Modules.OfType<SavedSearchModule>().Aggregate(false, (any, module) => module.FollowRename(name, newName) | any))
+        {
+            SaveModulesLater();
+            ApplyFilters();
+        }
+    }
 
     public async Task DeleteSavedAsync(string name)
     {
@@ -244,6 +286,7 @@ public sealed partial class SearchViewModel
         // 手で直した JSON で、並びの中に null が書かれていても落ちないように飛ばす
         _saved = entries.Where(entry => entry is not null).ToList();
         RebuildSavedRows();
+        RefreshSavedSearchModules();
         OnPropertyChanged(nameof(SavedSearchCount));
         OnPropertyChanged(nameof(HasSavedSearches));
         OnPropertyChanged(nameof(ShowsSavedFilter));
