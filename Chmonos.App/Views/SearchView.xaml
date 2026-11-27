@@ -726,7 +726,7 @@
                                     <Setter Property="ItemsPanel">
                                         <Setter.Value>
                                             <ItemsPanelTemplate>
-                                                <controls:ChipWrapPanel IsExpanded="{Binding IsExpanded}" HiddenCount="{Binding HiddenCount}"
+                                                <controls:ChipWrapPanel IsExpanded="{Binding IsExpanded}" HiddenCount="{Binding HiddenCount}" MaxLines="{Binding MaxLines, Mode=OneTime}"
                                                                         Overflows="{Binding Overflows}" RevealRequested="{Binding RevealRequested}" />
                                             </ItemsPanelTemplate>
                                         </Setter.Value>

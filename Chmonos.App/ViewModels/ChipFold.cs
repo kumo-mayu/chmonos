@@ -3,14 +3,14 @@ using System.Collections.ObjectModel;
 namespace Chmonos.App.ViewModels;
 
 /// <summary>
-/// 検索の左の条件で積んだ札（チップ）の並びを、2行を超えたら畳む状態。札の並び（<c>FoldingChipList</c>）が1つずつ持つ。
+/// 検索の左の条件で積んだ札（チップ）の並びを、決めた行数（<see cref="MaxLines"/>。既定は2行）を超えたら畳む状態。札の並び（<c>FoldingChipList</c>）が1つずつ持つ。
 ///
 /// 札が多いと条件の枠が縦に伸び、下の条件が見えなくなる。札のまま一覧できることも大切なので、表に変えずに2行で切り、
 /// 末尾の「ほか n 件」で全部を広げる（ユーザ判断 2026-11-20「チップのままで、折り畳めるようにしよう。一覧できることも大切だ。」）。
 ///
 /// 広げたかは条件ごとにアプリを閉じるまで覚える。画面の側に持つと、枠を畳んだ時・並べ替えた時に部品が作り直されて消える。
 /// 保存した検索と状態の JSON には書かない（見せ方で、条件ではない）。
-/// 隠した数と「全部を並べると2行を超えるか」は、並べた高さで決まるので、並べる部品（<see cref="Controls.ChipWrapPanel"/>）が書く
+/// 隠した数と「全部を並べると決めた行数を超えるか」は、並べた高さで決まるので、並べる部品（<see cref="Controls.ChipWrapPanel"/>）が書く
 /// </summary>
 public sealed class ChipFold : ViewModelBase
 {
@@ -26,6 +26,13 @@ public sealed class ChipFold : ViewModelBase
     }
 
     public ObservableCollection<ListChip> Chips { get; }
+
+    /// <summary>
+    /// 畳んでいる間の行の数。既定は2行。対応アバターは1行（ユーザ判断 2026-11-27「チップを折り畳む機能は一つを残して畳んで良い。現在は2つ残る。」）。
+    /// アバターの札は名前と商品IDで長く、検索の左の欄では1行に1つしか入らないので、2行だと2つ残っていた。
+    /// ほかの並びは2行のまま：札が短く2行で数個が一目で見え、「一覧できることも大切だ」（2026-11-20）に沿う
+    /// </summary>
+    public int MaxLines { get; init; } = 2;
 
     public bool IsExpanded
     {

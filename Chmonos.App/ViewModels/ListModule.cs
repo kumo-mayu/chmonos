@@ -229,8 +229,8 @@ public sealed class ListModule : SearchModule
 
     public ObservableCollection<ListChip> Chips { get; } = [];
 
-    /// <summary>札の並びを2行で畳む状態（変換元・変換先の札もこの型の札なので同じ物を使う）。</summary>
-    public ChipFold Fold => _fold ??= new ChipFold(Chips);
+    /// <summary>札の並びを畳む状態（変換元・変換先の札もこの型の札なので同じ物を使う）。対応アバターだけ1行で畳む（<see cref="ChipFold.MaxLines"/>）。</summary>
+    public ChipFold Fold => _fold ??= new ChipFold(Chips) { MaxLines = Kind == SearchModuleKind.Avatar ? 1 : 2 };
 
     public bool AllowsAnd { get; }
 
