@@ -313,6 +313,43 @@ public sealed class BackupArchiveTests : IDisposable
     }
 
     /// <summary>
+    /// 名前のぶつからない物だけが入った場所へも戻さない（2026-11-28 の点検：上の試験は同じ名前のファイルに当たる別の例外でも通り、
+    /// 空かの確かめを外しても落ちなかった）。戻すと関係の無い物と混ざる。断ったら何も書かない
+    /// </summary>
+    [Fact]
+    public void 関係の無い物だけがある場所にも戻さず_何も書かない()
+    {
+        var zip = Path.Combine(_dir, "backup.zip");
+        BackupArchive.Export(Store, zip, includeImages: false);
+        var destination = Path.Combine(_dir, "other");
+        Directory.CreateDirectory(destination);
+        File.WriteAllText(Path.Combine(destination, "memo.txt"), "関係の無い物");
+
+        Assert.Throws<IOException>(() => BackupArchive.Restore(zip, destination));
+
+        Assert.Equal(["memo.txt"], Directory.EnumerateFileSystemEntries(destination).Select(entry => Path.GetFileName(entry)!).ToArray());
+    }
+
+    /// <summary>
+    /// よけた壊れた記録（items/_broken）は書き出しに入れ、戻すと同じ場所に戻る。そこにしか無い入力があるため（BackupArchive.IsLeftOut のコメント・data-model.md）。
+    /// 2026-11-28 の点検で、書き出しから外しても落ちる試験が無かった
+    /// </summary>
+    [Fact]
+    public void よけた壊れた記録は書き出しに入り_戻すと同じ場所に戻る()
+    {
+        Directory.CreateDirectory(Path.Combine(Store, "items", "_broken"));
+        File.WriteAllText(Path.Combine(Store, "items", "_broken", "111-20261128-120000.json"), "{ 壊れた");
+        var zip = Path.Combine(_dir, "backup.zip");
+
+        BackupArchive.Export(Store, zip, includeImages: false);
+
+        Assert.Contains("items/_broken/111-20261128-120000.json", EntriesOf(zip));
+        var destination = Path.Combine(_dir, "restored");
+        BackupArchive.Restore(zip, destination);
+        Assert.Equal("{ 壊れた", File.ReadAllText(Path.Combine(destination, "items", "_broken", "111-20261128-120000.json")));
+    }
+
+    /// <summary>
     /// 戻すが途中で止まったら、展開した物を消す（2026-10-01）。残すと展開先が空でなくなり、
     /// 同じ場所へ戻し直すと断られた（作り物の2GBで、半分で止めると 44,014 ファイルが残った）。
     /// </summary>

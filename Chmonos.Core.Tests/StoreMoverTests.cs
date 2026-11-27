@@ -88,6 +88,38 @@ public class StoreMoverTests : IDisposable
         Assert.True(result.Succeeded, result.Error);
     }
 
+    /// <summary>
+    /// 引越しは保存先ごと運ぶ（docs/spec/data-format.md「控え」：書き出しから外す物も引越しでは運ぶ）。
+    /// 2026-11-28 の点検で、運ぶ物から items/_broken を黙って外しても落ちなかった——突き合わせは運ぶ物と同じ数え方なので、
+    /// 運ぶ物から落ちた物は突き合わせでも分からない。アプリの仕組みのフォルダを全部置いて、着いた事を見る
+    /// </summary>
+    [Fact]
+    public void MovesEveryFolderOfTheStoreIncludingTheOnesLeftOutOfBackups()
+    {
+        string[] extras =
+        [
+            "items/_broken/123-20261128-120000.json",
+            "items/.prev/123.json",
+            $"{AppPaths.UnityScansDirName}/0123456789ABCDEF.json",
+            $"{AppPaths.NotificationArchiveDirName}/2026-11.zip",
+            $"{StoreFormat.BackupsDirName}/v1-20261128-120000/settings.json",
+            "extensions/ns/items/123.json",
+            "logs/app.log",
+        ];
+        foreach (var relative in extras)
+        {
+            var path = Path.Combine(Source, relative);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, relative);
+        }
+
+        var result = StoreMover.Move(Source, Destination);
+
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal(3 + extras.Length, result.Copied);
+        Assert.All(extras, relative => Assert.Equal(relative, File.ReadAllText(Path.Combine(Destination, relative))));
+    }
+
     /// <summary>その場で呼ぶ進み具合（<see cref="Progress{T}"/> は後で呼ぶので、運び終わる前に書けない）。</summary>
     private sealed class SyncProgress(Action<StoreMoveProgress> report) : IProgress<StoreMoveProgress>
     {

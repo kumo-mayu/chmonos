@@ -62,8 +62,13 @@ public static class StoreFormat
     /// その版のファイルを、移し替えずにそのまま読めるか（読める範囲で、今の版までの段がどれも中身を変えない）。
     /// 段の関数を表に足し忘れると、ここで <see cref="KeyNotFoundException"/> になり、古い版のファイルが読めないと分かる
     /// </summary>
-    internal static bool LeavesAsIs(int from)
-        => from >= OldestReadable && Enumerable.Range(from + 1, Math.Max(0, Current - from)).All(version => Migrations[version] is null);
+    internal static bool LeavesAsIs(int from) => LeavesAsIs(from, Migrations);
+
+    /// <summary>
+    /// 段の表を渡せる方。今の表は段が全部 null で、中身を変える段の通り道を試験で通せないため、試験から作り物の表を渡す（2026-11-28 の点検）
+    /// </summary>
+    internal static bool LeavesAsIs(int from, IReadOnlyDictionary<int, Func<JsonNode, Type, JsonNode>?> steps)
+        => from >= OldestReadable && Enumerable.Range(from + 1, Math.Max(0, Current - from)).All(version => steps[version] is null);
 
     /// <summary>
     /// 版の欄を持てる型か。いちばん外側が配列・辞書の物（JSON の配列か、鍵が自由なオブジェクト）は持てないので 1 とみなす。
@@ -155,7 +160,10 @@ public static class StoreFormat
         => json.StartsWith((ReadOnlySpan<byte>)[0xEF, 0xBB, 0xBF]) ? json[3..] : json;
 
     /// <summary>古い版の JSON を今の版へ直す。読める範囲より古ければ例外。</summary>
-    internal static JsonNode Migrate(JsonNode node, int from, Type type, string path)
+    internal static JsonNode Migrate(JsonNode node, int from, Type type, string path) => Migrate(node, from, type, path, Migrations);
+
+    /// <summary>段の表を渡せる方（<see cref="LeavesAsIs(int, IReadOnlyDictionary{int, Func{JsonNode, Type, JsonNode}?})"/> と同じ理由）。</summary>
+    internal static JsonNode Migrate(JsonNode node, int from, Type type, string path, IReadOnlyDictionary<int, Func<JsonNode, Type, JsonNode>?> steps)
     {
         if (from < OldestReadable)
         {
@@ -164,7 +172,7 @@ public static class StoreFormat
 
         for (var version = from + 1; version <= Current; version++)
         {
-            if (Migrations[version] is { } migrate)
+            if (steps[version] is { } migrate)
             {
                 node = migrate(node, type);
             }
