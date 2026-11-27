@@ -240,6 +240,20 @@ public sealed class ApiHostTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, (await _client.SendAsync(batchAgain)).StatusCode);
     }
 
+    /// <summary>まとめて引く件数は検索の limit と同じ上限（200件）。上限を外しても落ちる試験が無かった（2026-11-28 の点検）</summary>
+    [Fact]
+    public async Task まとめて引くのは上限の件数までで_1件多いと断る()
+    {
+        static string Ids(int count) => JsonSerializer.Serialize(new { ids = Enumerable.Range(0, count).Select(index => (9700000 + index).ToString()).ToArray() });
+
+        var atLimit = await _client.SendAsync(Request(HttpMethod.Post, "/v1/items/batch", body: Ids(Chmonos.Query.Search.SearchEngine.MaxLimit)));
+        Assert.Equal(HttpStatusCode.OK, atLimit.StatusCode);
+        Assert.Equal(Chmonos.Query.Search.SearchEngine.MaxLimit, (await JsonOf(atLimit)).GetProperty("missing").GetArrayLength());
+
+        var over = await _client.SendAsync(Request(HttpMethod.Post, "/v1/items/batch", body: Ids(Chmonos.Query.Search.SearchEngine.MaxLimit + 1)));
+        await AssertProblem(over, HttpStatusCode.BadRequest, "invalidLimit");
+    }
+
     [Fact]
     public async Task トークンが無い_違うときは断る()
     {

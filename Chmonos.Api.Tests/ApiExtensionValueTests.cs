@@ -219,6 +219,46 @@ public sealed class ApiExtensionValueTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.RequestEntityTooLarge, memoStatus);
     }
 
+    /// <summary>
+    /// 本文そのものの上限（メモ欄の上限の4倍）。値は小さく、空白の詰め物だけで上限を超える本文を送る。上の試験は値の上限で落ちるので、
+    /// 本文の上限を外しても通ってしまっていた（2026-11-28 の点検）。長さを名乗る本文と、名乗らない本文（chunked）の両方を見る。
+    /// 名乗る本文は、名乗った長さで断る所と読みながら断る所の2重で守る（片方だけを外しても働きでは見分けられない）
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task 本文が上限を超えると_値が小さくても413で断り_書かない(bool knownLength)
+    {
+        const int limit = ExtensionLimits.MemoBytes * 4;
+        async Task<HttpStatusCode> PutPadded(int padding)
+        {
+            var body = """{ "values": { "polyCount": 1 } }""" + new string(' ', padding);
+            using var request = new HttpRequestMessage(HttpMethod.Put, Path0) { Content = new BodyContent(Encoding.UTF8.GetBytes(body), knownLength) };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", TokenA);
+            using var response = await _client.SendAsync(request).WaitAsync(TimeSpan.FromSeconds(30));
+            return response.StatusCode;
+        }
+
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, await PutPadded(limit));
+        Assert.False(File.Exists(ValueFile));
+
+        // 詰め物そのものは読める（上限の内側なら書ける）。断ったのは大きさのため
+        Assert.Equal(HttpStatusCode.OK, await PutPadded(limit / 2));
+        Assert.True(File.Exists(ValueFile));
+    }
+
+    /// <summary>長さを名乗るか選べる本文（名乗らなければ HttpClient は chunked で送る）</summary>
+    private sealed class BodyContent(byte[] bytes, bool knownLength) : HttpContent
+    {
+        protected override Task SerializeToStreamAsync(Stream stream, System.Net.TransportContext? context) => stream.WriteAsync(bytes).AsTask();
+
+        protected override bool TryComputeLength(out long length)
+        {
+            length = bytes.Length;
+            return knownLength;
+        }
+    }
+
     [Fact]
     public async Task 書けるのは持ち主だけ_メモ欄は読むのも持ち主だけ()
     {
