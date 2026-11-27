@@ -418,6 +418,10 @@ public sealed class UnresolvedOffThreadTests : IDisposable
     /// <summary>
     /// 取り込みの終わりの書き込み（見つけた物で一覧を作り直す）と登録が重なっても、登録した物は一覧へ戻らず、
     /// 取り込みが新しく見つけた物は欠けない。どちらが先に錠を取っても同じ結果になる。
+    ///
+    /// 重なりは運に任せない（2026-11-28 の点検：前は <c>Task.Run</c> を並べるだけで、取り込みの読みと書きの間に登録が
+    /// 入ったかを確かめていなかった）。各回で、取り込みが一覧を読んだ後・書く前に、1〜5件の登録を済ませておく
+    /// （＝必ず重なる）。残りの登録は、取り込みの書き込みと同時に走らせる（どちらが先に錠を取ってもよい）。
     /// </summary>
     [Fact]
     public async Task RegisteringWhileAnImportWritesNeitherLosesNorRestoresEntries()
@@ -436,13 +440,31 @@ public sealed class UnresolvedOffThreadTests : IDisposable
             var found = known.Concat(fresh).ToList();
             var registered = known.Take(5).ToList();
 
+            // 取り込みが読んだ後・書く前に済んだ登録。1件は必ず入れ、回ごとに数を変えて、同時に走る側の数も変える
+            var settled = registered.Take(1 + (round % registered.Count)).ToList();
+            foreach (var file in settled)
+            {
+                await _service.RegisterLocalItemAsync(file.Hash, "作り物の商品");
+            }
+
+            // 重なった事の確かめ：取り込みが書く時の一覧からは消えていて、取り込みが読んだ一覧と見つけた物には在る。
+            // この形の時だけ、取り込みの書き込みが「人が外した物を戻す」かどうかが試される
+            var beforeImportWrites = Hashes(_store.Unresolved.Load());
+            Assert.All(settled, file =>
+            {
+                Assert.DoesNotContain(file.Hash, beforeImportWrites);
+                Assert.Contains(lastWritten, entry => entry.Hash == file.Hash);
+                Assert.Contains(found, entry => entry.Hash == file.Hash);
+            });
+
             var work = registered
+                .Skip(settled.Count)
                 .Select(file => Task.Run(() => _service.RegisterLocalItemAsync(file.Hash, "作り物の商品")))
                 .Cast<Task>()
                 .ToList();
-            work.Insert(round % work.Count, Task.Run(() => _store.Unresolved.UpdateAsync(
+            work.Insert(round % (work.Count + 1), Task.Run(() => _store.Unresolved.UpdateAsync(
                 current => UnresolvedMerge.ForImport(current, lastWritten, found, scanned, offline))));
-            await Task.WhenAll(work);
+            await Task.WhenAll(work).WaitAsync(TimeSpan.FromSeconds(30));
 
             Assert.Equal(Hashes(known.Skip(5).Concat(fresh)), Hashes(_store.Unresolved.Load()));
         }

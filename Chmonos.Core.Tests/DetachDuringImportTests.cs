@@ -133,6 +133,50 @@ public sealed class DetachDuringImportTests : IDisposable
     }
 
     /// <summary>
+    /// 付け直しの道：手掛かりの無いファイルを商品が持っていて、記録に無い場所で見つかった（移した）。
+    /// 取り込みが読んだ後・付け直す前に人が外したら、新しい場所を足さず、外した印も下ろさない。
+    ///
+    /// 読む時の持ち主の一覧は外したファイルを入れないので、錠の中の確かめが効くのはこの重なりの時だけ。
+    /// 2026-11-28 の点検で、その確かめを外しても落ちる試験が無かった（M15）。
+    /// </summary>
+    [Fact]
+    public async Task 付け直す間に外したファイルは外したまま残る()
+    {
+        var zip = Path.Combine(_source, "moved.zip");
+        using (var archive = ZipFile.Open(zip, ZipArchiveMode.Create))
+        {
+            // 商品の URL を書かない（手掛かりで決まらず、持ち主への付け直しの道を通る）
+            using var writer = new StreamWriter(archive.CreateEntry("readme.txt").Open());
+            writer.Write("手掛かりの無い作り物");
+        }
+
+        var hash = HashOf(zip);
+
+        // 人が手で結んだ時の場所（今は無い＝別の場所へ移した）
+        var oldPath = Path.Combine(_root, "before-move", "moved.zip");
+        await _store.Items.SaveAsync(new ItemRecord
+        {
+            Id = ItemId,
+            Booth = new BoothBlock { FetchedAt = DateTimeOffset.Now, Name = "作り物の商品" },
+            Local = new LocalBlock
+            {
+                LocalFiles = [new LocalFileRecord { Hash = hash, Paths = [oldPath], SizeBytes = new FileInfo(zip).Length }],
+            },
+        });
+        await _store.Items.SaveDescriptionHtmlAsync(ItemId, "<p>説明</p>");
+
+        await ItemLockRace.WhileAnotherWriterChangesAsync(
+            _store,
+            ItemId,
+            local => Detach(local, hash),
+            () => Pipeline().RunAsync([_source]));
+
+        var file = Assert.Single((await _store.Items.LoadAsync(ItemId))!.Local.LocalFiles);
+        Assert.True(file.Detached);
+        Assert.DoesNotContain(zip, file.Paths);
+    }
+
+    /// <summary>
     /// 作る道：読んだ時は無かった商品を、BOOTH から取っている間に人が作り、そのファイルを外していた。
     /// 作る直前に在ったので今の値に重ねるが、外した印は下ろさない。
     /// </summary>
