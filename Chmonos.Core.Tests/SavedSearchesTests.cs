@@ -129,4 +129,44 @@ public class SavedSearchesTests
         Assert.DoesNotContain("folder", System.Text.Json.JsonSerializer.Serialize(entry, options));
         Assert.Contains("\"folder\": \"衣装\"", System.Text.Json.JsonSerializer.Serialize(entry with { Folder = "衣装" }, options));
     }
+    [Fact]
+    public void 含める物を選ぶと_文字は空_表示順と形はnullと別の印で持ち_今の検索と比べるときは含めない物を見ない()
+    {
+        var current = new SearchHistoryEntry { Text = "夏", Sort = "名前順", View = ResultView.List };
+        var saved = SavedSearches.WithParts(current, text: false, sort: false, view: false);
+        Assert.Equal(string.Empty, saved.Text);
+        Assert.Null(saved.Sort);
+        Assert.True(saved.KeepSort);
+        Assert.Null(saved.View);
+        Assert.True(saved.KeepView);
+
+        // 表示順と形は比べない（何に変えても同じ）。文字は空で持つので、文字を打っていれば別
+        var blank = current with { Text = string.Empty };
+        Assert.True(SavedSearches.SameAsCurrent(saved, blank));
+        Assert.True(SavedSearches.SameAsCurrent(saved, blank with { Sort = null, View = ResultView.Card }));
+        Assert.False(SavedSearches.SameAsCurrent(saved, current));
+
+        // 含める物は今までどおり比べる。表示順 null（入手日が新しい順）と「含めない」は別物
+        var full = SavedSearches.WithParts(current, text: true, sort: true, view: true);
+        Assert.False(full.KeepSort || full.KeepView);
+        Assert.True(SavedSearches.SameAsCurrent(full, current));
+        Assert.False(SavedSearches.SameAsCurrent(full, current with { Sort = null }));
+        Assert.False(SavedSearches.SameAsCurrent(full, current with { View = ResultView.Card }));
+        Assert.NotEqual(saved.Fingerprint, (saved with { KeepSort = false }).Fingerprint);
+    }
+
+    [Fact]
+    public void 含めない印は_立っている時だけJSONに書き_読み戻せる()
+    {
+        var options = Chmonos.Core.Storage.JsonStore.Options;
+        var entry = new SearchHistoryEntry { Name = "A", Text = "夏" };
+        var plain = System.Text.Json.JsonSerializer.Serialize(entry, options);
+        Assert.DoesNotContain("keepSort", plain);
+        Assert.DoesNotContain("keepView", plain);
+
+        var kept = System.Text.Json.JsonSerializer.Serialize(entry with { KeepSort = true, KeepView = true }, options);
+        Assert.Contains("\"keepSort\": true", kept);
+        var back = System.Text.Json.JsonSerializer.Deserialize<SearchHistoryEntry>(kept, options)!;
+        Assert.True(back.KeepSort && back.KeepView);
+    }
 }

@@ -233,6 +233,12 @@ internal sealed class TestApp
     /// <summary>出すはずだった、名前を変える窓。</summary>
     public List<RenameTagDialogViewModel> RenameDialogs { get; } = [];
 
+    /// <summary>保存した検索の小窓（保存・上書き）への答え（窓は出ない）。既定は「キャンセル」。</summary>
+    public Func<SavedSearchNameDialogViewModel, bool> AnswerSavedSearch { get; set; } = _ => false;
+
+    /// <summary>出すはずだった、保存した検索の小窓。</summary>
+    public List<SavedSearchNameDialogViewModel> SavedSearchDialogs { get; } = [];
+
     /// <summary>改変を作る・複製するときの名前の窓への答え（窓は出ない）。名前は窓の Name を書き換えて決める。既定は「キャンセル」。</summary>
     public Func<ModificationNameDialogViewModel, bool> NameModification { get; set; } = _ => false;
 
@@ -417,6 +423,11 @@ internal sealed class TestApp
                 app.RenameDialogs.Add(model);
                 return app.AnswerRename(model);
             };
+            SavedSearchDialogAsk.Intercept = model =>
+            {
+                app.SavedSearchDialogs.Add(model);
+                return app.AnswerSavedSearch(model);
+            };
             ModificationNameDialogViewModel.Intercept = model =>
             {
                 app.ModificationNameDialogs.Add(model);
@@ -591,6 +602,7 @@ internal sealed class TestApp
             MissingSearchScopeViewModel.Intercept = null;
             ChangeItemIdDialogViewModel.Intercept = null;
             RenameDialogAsk.Intercept = null;
+            SavedSearchDialogAsk.Intercept = null;
             ModificationNameDialogViewModel.Intercept = null;
             LocalItemNameDialogViewModel.Intercept = null;
             BulkTagDialogViewModel.Intercept = null;

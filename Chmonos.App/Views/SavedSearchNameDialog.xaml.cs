@@ -16,6 +16,13 @@ public partial class SavedSearchNameDialog : Window
         // 名前の欄に止まり、入れて始めた要約を全部選んでおく。そのまま打てば置き換わり、Enter ならそのまま保存できる
         Loaded += (_, _) =>
         {
+            // 上書きは名前の欄が無い。取り返しがつかないので、止まるのはキャンセル（Enter で上書きしない・D4）
+            if (!model.ShowsName)
+            {
+                CancelButton.Focus();
+                return;
+            }
+
             NameBox.Focus();
             NameBox.SelectAll();
         };

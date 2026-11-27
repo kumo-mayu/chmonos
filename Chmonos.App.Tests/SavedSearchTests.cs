@@ -172,13 +172,13 @@ public class SavedSearchTests
 
         search.QueryText = "コート";
         Assert.True(Row(search, "A").OverwriteCommand.CanExecute(null));
-        app.Answer = _ => MessageBoxResult.OK;
+        app.AnswerSavedSearch = _ => true;
         await search.OverwriteSavedAsync("A");
 
         Assert.Equal(["A", "B"], StoredNames(app));
         Assert.Equal("コート", app.Store.SavedSearches.Load().Entries[0].Text);
         Assert.Equal("A", search.CurrentSavedName);
-        Assert.Contains("戻せません", app.Notices.Last().Text);
+        Assert.Contains("戻せません", app.SavedSearchDialogs.Last().Message);
     });
 
     [Fact]
@@ -192,8 +192,9 @@ public class SavedSearchTests
         await search.OverwriteSavedAsync("A");
         await search.DeleteSavedAsync("A");
 
-        Assert.Equal(2, app.Notices.Count);
-        Assert.All(app.Notices, notice => Assert.Equal(MessageBoxResult.Cancel, notice.DefaultResult));
+        // 上書きは含める物を選ぶ窓（Enter で押さない）、削除は確かめの知らせ（既定はキャンセル）
+        Assert.False(Assert.Single(app.SavedSearchDialogs).CommitIsDefault);
+        Assert.Equal(MessageBoxResult.Cancel, Assert.Single(app.Notices).DefaultResult);
         var stored = Assert.Single(app.Store.SavedSearches.Load().Entries);
         Assert.Equal("夏", stored.Text);
     });
@@ -283,7 +284,7 @@ public class SavedSearchTests
         Assert.Equal("夏 / カテゴリ：衣装", search.SavedNamePrefill());
 
         var dialog = new SavedSearchNameDialogViewModel(SavedSearchNameDialogViewModel.Purpose.Save, search.SavedNamePrefill(), ["夏の衣装"]);
-        Assert.Equal("条件、検索文字列、表示順などが保存されます。", dialog.Note);
+        Assert.Equal("条件と「対象」「オプション」は、いつも保存されます。", dialog.Note);
         Assert.True(dialog.CanCommit);
         dialog.Name = " 夏の衣装 ";
         Assert.True(dialog.IsTaken);
@@ -344,9 +345,122 @@ public class SavedSearchTests
         search.QueryText = "冬";
         await search.OverwriteSavedAsync("A");
 
-        var notice = Assert.Single(app.Notices);
-        Assert.Equal("条件を上書き", notice.Caption);
-        Assert.Contains("条件を上書きします", notice.Text);
+        var dialog = Assert.Single(app.SavedSearchDialogs);
+        Assert.Equal("条件を上書き", dialog.Title);
+        Assert.Contains("条件を上書きします", dialog.Message);
+        Assert.False(dialog.ShowsName);
+        Assert.Empty(app.Notices);
+    });
+
+    // ---- 含める物を選ぶ（ユーザ判断 2026-11-27・案1） ----
+
+    [Fact]
+    public Task 保存の小窓は_文字を打っている時だけ検索文字列のチェックを出し_表示順と形はいつも出す() => TestApp.Run(async app =>
+    {
+        var search = await StartAsync(app);
+        UseCategory(search, "衣装");
+        search.SaveCurrentSearchCommand.Execute(null);
+        search.QueryText = "夏";
+        search.SaveCurrentSearchCommand.Execute(null);
+
+        Assert.Equal(2, app.SavedSearchDialogs.Count);
+        Assert.False(app.SavedSearchDialogs[0].ShowsTextPart);
+        Assert.True(app.SavedSearchDialogs[1].ShowsTextPart);
+        Assert.All(app.SavedSearchDialogs, dialog =>
+        {
+            Assert.True(dialog.ShowsParts);
+            Assert.True(dialog.IncludeText && dialog.IncludeSort && dialog.IncludeView);
+            Assert.DoesNotContain("表示順", dialog.Note);
+        });
+    });
+
+    [Fact]
+    public Task 検索文字列を外して保存すると_文字は空で書かれ_呼び出すと文字を消して条件だけで絞る() => TestApp.Run(async app =>
+    {
+        var search = await StartAsync(app);
+        search.QueryText = "夏";
+        UseCategory(search, "衣装");
+        app.AnswerSavedSearch = dialog =>
+        {
+            dialog.IncludeText = false;
+            return true;
+        };
+        search.SaveCurrentSearchCommand.Execute(null);
+        await app.SettleAsync();
+
+        var stored = Assert.Single(app.Store.SavedSearches.Load().Entries);
+        Assert.Equal(string.Empty, stored.Text);
+        Assert.False(stored.KeepSort);
+        Assert.False(search.ShowsCurrentSaved);
+
+        Row(search, stored.Name!).ApplyCommand.Execute(null);
+        Assert.Equal(string.Empty, search.QueryText);
+        Assert.Equal(["1000001", "1000003"], Shown(search));
+    });
+
+    [Fact]
+    public Task 表示順と形を外して保存すると_nullと別の印で書かれ_呼び出しても今の順と形のまま_印も付く() => TestApp.Run(async app =>
+    {
+        var search = await StartAsync(app);
+        UseCategory(search, "衣装");
+        await search.SaveCurrentSearchAsync("A", entry => SavedSearches.WithParts(entry, text: true, sort: false, view: false));
+
+        var json = await File.ReadAllTextAsync(app.Store.Paths.SavedSearchesFile);
+        Assert.Contains("\"keepSort\": true", json);
+        Assert.Contains("\"keepView\": true", json);
+        var stored = Assert.Single(app.Store.SavedSearches.Load().Entries);
+        Assert.Null(stored.Sort);
+        Assert.Null(stored.View);
+
+        // 順と形を変えても、呼び出して変わらないので今の検索と同じ（✓ が付いたまま）
+        SortByName(search);
+        search.IsListMode = true;
+        Assert.Equal("A", search.CurrentSavedName);
+
+        Row(search, "A").ApplyCommand.Execute(null);
+        Assert.Equal(SortKind.Name, search.SortField!.Kind);
+        Assert.True(search.IsListMode);
+    });
+
+    [Fact]
+    public Task 含めるのが既定なら_新しい欄は書かれない() => TestApp.Run(async app =>
+    {
+        var search = await StartAsync(app);
+        search.QueryText = "夏";
+        await search.SaveCurrentSearchAsync("A");
+
+        var json = await File.ReadAllTextAsync(app.Store.Paths.SavedSearchesFile);
+        Assert.DoesNotContain("keepSort", json);
+        Assert.DoesNotContain("keepView", json);
+    });
+
+    [Fact]
+    public Task 上書きの窓は_元の行に合わせて始まり_選んだ物で書く() => TestApp.Run(async app =>
+    {
+        var search = await StartAsync(app);
+        UseCategory(search, "衣装");
+        await search.SaveCurrentSearchAsync("文字なし", entry => SavedSearches.WithParts(entry, text: true, sort: false, view: true));
+        search.QueryText = "夏";
+        await search.SaveCurrentSearchAsync("文字あり");
+
+        search.QueryText = "コート";
+        app.AnswerSavedSearch = _ => false;
+        await search.OverwriteSavedAsync("文字なし");
+        await search.OverwriteSavedAsync("文字あり");
+        var (empty, full) = (app.SavedSearchDialogs[0], app.SavedSearchDialogs[1]);
+        Assert.True(empty.ShowsTextPart);
+        Assert.False(empty.IncludeText);
+        Assert.False(empty.IncludeSort);
+        Assert.True(empty.IncludeView);
+        Assert.True(full.IncludeText && full.IncludeSort && full.IncludeView);
+
+        // 初めの状態のまま上書き：文字は空、表示順は含めないまま
+        app.AnswerSavedSearch = _ => true;
+        await search.OverwriteSavedAsync("文字なし");
+        var stored = app.Store.SavedSearches.Load().Entries[0];
+        Assert.Equal("文字なし", stored.Name);
+        Assert.Equal(string.Empty, stored.Text);
+        Assert.True(stored.KeepSort);
     });
 
     [Fact]

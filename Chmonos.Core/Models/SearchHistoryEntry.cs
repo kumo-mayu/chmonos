@@ -74,6 +74,20 @@ public sealed record SearchHistoryEntry
     /// </summary>
     public ResultView? View { get; init; }
 
+    /// <summary>
+    /// 呼び出しても表示順を変えない（保存の小窓で「表示順」を外した・ユーザ判断 2026-11-27）。**保存した検索だけ**。<see cref="Sort"/> は書かない。
+    /// <see cref="Sort"/> の null は「入手日が新しい順」の意味なので、「含めない」は別の欄で持つ（既存の欄の意味を変えない・data-format.md）。
+    /// v1.2.0 はこの欄を知らないので、呼び出すと入手日が新しい順に戻す。既定（含める）は書かない
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool KeepSort { get; init; }
+
+    /// <summary>
+    /// 呼び出してもカードかリストかを変えない（保存の小窓で外した）。<see cref="View"/> は書かない。v1.2.0 は知らないので、呼び出すとカードにする
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool KeepView { get; init; }
+
     /// <summary>最後に使った時刻。並びと、古いものを落とす判断に使う。保存した検索では、保存・上書きした時刻。</summary>
     public DateTimeOffset UsedAt { get; init; }
 
@@ -119,7 +133,8 @@ public sealed record SearchHistoryEntry
             text.Append(WidthSensitive ? '1' : '0');
             text.Append(KanaInsensitive ? '1' : '0');
             text.Append(SearchAlternates ? '1' : '0').Append(Separator);
-            text.Append(Sort).Append(Separator);
+            // 表示順を含めない保存した検索は、表示順を比べない（今の順が何でも、呼び出して変わらないので同じ。比べる側も同じ印にそろえる）
+            text.Append(KeepSort ? "\u0001" : Sort).Append(Separator);
             text.Append(string.Join(',', Targets.OrderBy(name => name, StringComparer.Ordinal))).Append(Separator);
 
             // 並べ替えてから繋ぐ。積んだ順が違うだけで別物にはしない

@@ -53,6 +53,26 @@ public static class SavedSearches
         return list;
     }
 
+    /// <summary>
+    /// 保存の小窓・上書きの窓で選んだ物だけを残す（ユーザ判断 2026-11-27・案1）。条件と探す対象と区別は、いつも含める（保存した検索の中心）。
+    /// 文字を含めないときは空で持つ（呼び出すと文字を消す）。表示順・カードかリストかを含めないときは、呼び出しても今のままにする印を立てる
+    /// </summary>
+    public static SearchHistoryEntry WithParts(SearchHistoryEntry entry, bool text, bool sort, bool view) => entry with
+    {
+        Text = text ? entry.Text : string.Empty,
+        Sort = sort ? entry.Sort : null,
+        KeepSort = !sort,
+        View = view ? entry.View : null,
+        KeepView = !view,
+    };
+
+    /// <summary>
+    /// 今の検索がこの保存した検索と同じか（一覧の ✓）。含めない表示順・カードかリストかは比べない（変えただけで ✓ が外れないように）
+    /// </summary>
+    public static bool SameAsCurrent(SearchHistoryEntry saved, SearchHistoryEntry current)
+        => saved.Fingerprint == (current with { KeepSort = saved.KeepSort }).Fingerprint
+            && (saved.KeepView || (saved.View ?? ResultView.Card) == (current.View ?? ResultView.Card));
+
     /// <summary>名前と場所はそのまま、中身を今の検索に替える。名前が無ければ（別の所で消された）何もしない</summary>
     public static IReadOnlyList<SearchHistoryEntry> Overwrite(IEnumerable<SearchHistoryEntry> entries, string name, SearchHistoryEntry entry)
         => entries.Select(other => SameName(other.Name, name) ? entry with { Name = other.Name, Folder = other.Folder } : other).ToList();

@@ -391,7 +391,14 @@ internal static partial class Scenes
         }),
 
         DialogScene("catalog-dialog-saved-search-save", "検索の保存の窓：今の検索を保存（名前の初めの値あり）", _ => Task.FromResult<Window>(
-            new SavedSearchNameDialog(new SavedSearchNameDialogViewModel(SavedSearchNameDialogViewModel.Purpose.Save, "夏の衣装", ["お気に入りの髪"])))),
+            new SavedSearchNameDialog(new SavedSearchNameDialogViewModel(SavedSearchNameDialogViewModel.Purpose.Save, "夏の衣装", ["お気に入りの髪"], hasText: true)))),
+
+        DialogScene("catalog-dialog-saved-search-overwrite", "検索の上書きの窓：含める物を選ぶ（元の行は表示順を含めずに保存した物）", _ =>
+        {
+            var model = new SavedSearchNameDialogViewModel(SavedSearchNameDialogViewModel.Purpose.Overwrite, "夏の衣装", [], hasText: true);
+            model.StartFrom(new Chmonos.Core.Models.SearchHistoryEntry { Text = "夏", KeepSort = true });
+            return Task.FromResult<Window>(new SavedSearchNameDialog(model));
+        }),
 
         DialogScene("catalog-dialog-saved-search-taken", "検索の保存の窓：今ある名前と同じ（欄の下の「既にあります」と押せない保存）", _ => Task.FromResult<Window>(
             new SavedSearchNameDialog(new SavedSearchNameDialogViewModel(SavedSearchNameDialogViewModel.Purpose.Save, "お気に入りの髪", ["お気に入りの髪"])))),

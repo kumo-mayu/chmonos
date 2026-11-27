@@ -142,7 +142,7 @@ public class SavedSearchConditionTests
         // 今の検索（条件 B）で A を上書きすると A → B → A の輪になる
         ClearAll(search);
         AddSaved(search, "B");
-        app.Answer = _ => MessageBoxResult.OK;
+        app.AnswerSavedSearch = _ => true;
         await search.OverwriteSavedAsync("A");
 
         var stored = app.Store.SavedSearches.Load().Entries;

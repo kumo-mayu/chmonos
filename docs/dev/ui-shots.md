@@ -208,7 +208,7 @@ dotnet run --project tools/ViewShot -- diff <前の回の置き場> <今回の�
 | 主の窓の知らせの帯（隠した・離れたページの操作・取り込みを始められない・監視をやめた・編集の書きかけを控えた） | `catalog-notice-hidden`・`catalog-notice-changed-away`・`catalog-notice-import-not-started`・`catalog-notice-folder-removed`・`catalog-notice-draft` |
 | 知らせの窓（OK/キャンセル・はい/いいえ・エラー） | `notice-okcancel-long`・`notice-yesno-warning`・`notice-error-short` |
 | 2択・3択の窓 | `catalog-dialog-choice-two`・`catalog-dialog-choice-three`・ボタンの名前が長い2択（取り込みの中断）`catalog-dialog-import-cancel` |
-| 検索の保存・名前を変える（今ある名前） | `catalog-dialog-saved-search-save`・`-taken`・`-rename` |
+| 検索の保存・上書き・名前を変える（今ある名前） | `catalog-dialog-saved-search-save`・`-overwrite`・`-taken`・`-rename` |
 | BOOTHに無い商品を名前だけで登録する窓（検索の件数の帯から） | `catalog-dialog-local-item-name` |
 | 商品IDを変える窓（確かめる前） | `catalog-dialog-change-item-id` |
 | 初回の窓（長いパス・短いパス・環境変数） | `first-run-*` |

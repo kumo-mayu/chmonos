@@ -113,15 +113,16 @@ public sealed partial class SearchViewModel
     private void AskSaveCurrent()
     {
         var model = new SavedSearchNameDialogViewModel(
-            SavedSearchNameDialogViewModel.Purpose.Save, SavedNamePrefill(), _saved.Select(entry => entry.Name ?? string.Empty).ToList());
-        if (new Views.SavedSearchNameDialog(model).ShowDialog() == true)
+            SavedSearchNameDialogViewModel.Purpose.Save, SavedNamePrefill(), _saved.Select(entry => entry.Name ?? string.Empty).ToList(),
+            hasText: _queryText.Trim().Length > 0);
+        if (SavedSearchDialogAsk.Ask(model))
         {
-            SaveCurrentSearchAsync(model.Name).Forget();
+            SaveCurrentSearchAsync(model.Name, model.Apply).Forget();
         }
     }
 
-    /// <summary>今の検索を名前を付けて末尾に足す。</summary>
-    public async Task SaveCurrentSearchAsync(string name)
+    /// <summary>今の検索を名前を付けて末尾に足す。<paramref name="parts"/> は含める物を選んだ形にする（省けば全部含める）</summary>
+    public async Task SaveCurrentSearchAsync(string name, Func<SearchHistoryEntry, SearchHistoryEntry>? parts = null)
     {
         var trimmed = name.Trim();
         if (trimmed.Length == 0)
@@ -129,7 +130,8 @@ public sealed partial class SearchViewModel
             return;
         }
 
-        var entry = CurrentSaved(trimmed) with { UsedAt = DateTimeOffset.Now };
+        var current = CurrentSaved(trimmed) with { UsedAt = DateTimeOffset.Now };
+        var entry = parts is null ? current : parts(current);
         await ChangeSavedRefusingCycleAsync(list => SavedSearches.Add(list, entry), trimmed);
     }
 
@@ -161,22 +163,24 @@ public sealed partial class SearchViewModel
     }
 
     /// <summary>
-    /// 保存した検索を今の検索で上書きする。前の条件は残らないので、押す前に確かめる（取り返しがつかない操作は既定をキャンセル側に倒す・D4）
+    /// 保存した検索を今の検索で上書きする。前の条件は残らないので、押す前に確かめる（取り返しがつかない操作は既定をキャンセル側に倒す・D4）。
+    /// 同じ窓で含める物を選ぶ（初めの状態は元の行に合わせる・ユーザ判断 2026-11-27・案1）
     /// </summary>
     public async Task OverwriteSavedAsync(string name)
     {
-        var answer = Services.Notice.Show(
-            $"「{name}」の条件を上書きします。\n上書きすると、前の内容には戻せません。",
-            "条件を上書き",
-            MessageBoxButton.OKCancel,
-            MessageBoxImage.Question,
-            MessageBoxResult.Cancel);
-        if (answer != MessageBoxResult.OK)
+        var model = new SavedSearchNameDialogViewModel(
+            SavedSearchNameDialogViewModel.Purpose.Overwrite, name, [], hasText: _queryText.Trim().Length > 0);
+        if (SavedSearches.Find(_saved, name) is { } original)
+        {
+            model.StartFrom(original);
+        }
+
+        if (!SavedSearchDialogAsk.Ask(model))
         {
             return;
         }
 
-        var entry = CurrentSaved(name) with { UsedAt = DateTimeOffset.Now };
+        var entry = model.Apply(CurrentSaved(name) with { UsedAt = DateTimeOffset.Now });
         await ChangeSavedRefusingCycleAsync(list => SavedSearches.Overwrite(list, name, entry), name, focus: name);
     }
 
@@ -270,7 +274,8 @@ public sealed partial class SearchViewModel
     {
         // 一覧は呼び出したら閉じる（メニューから選んだのと同じ）。知らせの窓が出る前に閉じる
         SavedApplied?.Invoke();
-        var sortFound = ApplySearch(entry, replaceSort: true, view: entry.View ?? ResultView.Card);
+        // 表示順・カードかリストかを含めずに保存した物は、今のままにする（ユーザ判断 2026-11-27・案1）
+        var sortFound = ApplySearch(entry, replaceSort: !entry.KeepSort, view: entry.KeepView ? null : entry.View ?? ResultView.Card);
         if (!sortFound)
         {
             Services.Notice.Show(
@@ -350,8 +355,7 @@ public sealed partial class SearchViewModel
         if (_saved.Count > 0)
         {
             var now = CurrentSaved(null);
-            var print = now.Fingerprint;
-            current = _saved.FirstOrDefault(entry => entry.Fingerprint == print && (entry.View ?? ResultView.Card) == now.View)?.Name;
+            current = _saved.FirstOrDefault(entry => SavedSearches.SameAsCurrent(entry, now))?.Name;
         }
 
         foreach (var row in SavedRows)
