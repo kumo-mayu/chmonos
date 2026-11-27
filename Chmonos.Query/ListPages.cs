@@ -5,7 +5,7 @@ using System.Text.Json.Serialization;
 namespace Chmonos.Query;
 
 /// <summary>
-/// 内部の一覧（<c>/v1/recent</c>・<c>/v1/folders</c>・<c>/v1/excluded</c>）を何件かずつ返す（docs/spec/local-api.md「共通の決まり」：1回 200 件まで・並びは必ず一意）。
+/// 内部の一覧（<c>/v1/recent</c>・<c>/v1/folders</c>・<c>/v1/excluded</c>・<c>/v1/conversion-pairs</c> など）を何件かずつ返す（docs/spec/local-api.md「共通の決まり」：1回 200 件まで・並びは必ず一意）。
 /// 続きの印は、最後に返した1件の並べる鍵と、どの一覧の印かの名前。違う一覧の印は断る。中身は約束にしない。
 /// </summary>
 internal static class ListPages

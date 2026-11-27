@@ -27,5 +27,9 @@ internal static partial class ApiEndpoints
         app.MapGet("/v1/unresolved", (ApiState state, string? cursor, int? limit) =>
             ApiHost.Json(state.UnresolvedList.Page(state.Snapshot, cursor, limit), json.UnresolvedPage))
             .Answers<UnresolvedPage>("商品が決まっていないファイル（場所・大きさ・推定の候補 ID・BOOTH に無かった記録。場所の順・cursor で続き。自動検索の控えは /v1/unresolved/candidates?hash=。決めるのは画面で）");
+
+        app.MapGet("/v1/conversion-pairs", (ApiState state, string? cursor, int? limit) =>
+            ApiHost.Json(ConversionPairList.Page(state.Snapshot, cursor, limit), json.ConversionPairPage))
+            .Answers<ConversionPairPage>("人が足した変換の組（元→先の1方向。端はアバターの avatarId か共通素体の baseName。ツールの名前・メモつき。足した順・cursor で続き。足す・外すのは画面で）");
     }
 }

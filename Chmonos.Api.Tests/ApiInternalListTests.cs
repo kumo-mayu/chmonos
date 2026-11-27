@@ -338,4 +338,59 @@ public sealed class ApiInternalListTests : IAsyncLifetime
         await File.WriteAllTextAsync(_store.Paths.UnresolvedFile, "{ 壊れた");
         Assert.Equal([new string('8', 64)], Ids(await JsonOf("/v1/unresolved"), "hash"));
     }
+
+    /// <summary>
+    /// 人が足した変換の組は足した順に、端を商品の conversion.targets と同じ名前（avatarId・baseName）で返す。
+    /// 記録の行は潰さない（端が空の行も、計算に使わないかは外の道具が端を見て分かる）。書いたら見張りの部分 conversionPairs で知らせて読み直す
+    /// </summary>
+    [Fact]
+    public async Task 変換の組は_足した順に端とツールとメモを返し_書いたら読み直して知らせる()
+    {
+        var empty = await JsonOf("/v1/conversion-pairs");
+        Assert.Equal(0, empty.GetProperty("total").GetInt32());
+        Assert.Equal(JsonValueKind.Null, empty.GetProperty("nextCursor").ValueKind);
+        var sequence = (await JsonOf("/v1/changes")).GetProperty("sequence").GetInt64();
+
+        await _store.ConversionPairs.SaveAsync(new ConversionPairFile
+        {
+            Pairs =
+            [
+                new ConversionPair { From = ConversionEnd.Avatar("9700002"), To = ConversionEnd.Avatar("9700001"), Tool = "作り物の変換ツール", Memo = "袖を直す" },
+                new ConversionPair { From = ConversionEnd.Base("作り物の素体"), To = ConversionEnd.Avatar("9700001") },
+                new ConversionPair { From = ConversionEnd.Avatar("9700001"), To = new ConversionEnd() },
+            ],
+        });
+        _sync.Note(_store.Paths.ConversionPairsFile);
+        await _sync.ApplyPendingAsync();
+
+        var changes = await JsonOf($"/v1/changes?since={sequence}");
+        Assert.Contains(changes.GetProperty("changes").EnumerateArray(), change => change.GetProperty("parts").EnumerateArray().Any(part => part.GetString() == "conversionPairs"));
+
+        var first = await JsonOf("/v1/conversion-pairs?limit=2");
+        Assert.Equal(3, first.GetProperty("total").GetInt32());
+        var pair = first.GetProperty("items")[0];
+        Assert.Equal("9700002", pair.GetProperty("from").GetProperty("avatarId").GetString());
+        Assert.Equal(JsonValueKind.Null, pair.GetProperty("from").GetProperty("baseName").ValueKind);
+        Assert.Equal("9700001", pair.GetProperty("to").GetProperty("avatarId").GetString());
+        Assert.Equal("作り物の変換ツール", pair.GetProperty("tool").GetString());
+        Assert.Equal("袖を直す", pair.GetProperty("memo").GetString());
+
+        var fromBase = first.GetProperty("items")[1];
+        Assert.Equal("作り物の素体", fromBase.GetProperty("from").GetProperty("baseName").GetString());
+        Assert.Equal(JsonValueKind.Null, fromBase.GetProperty("from").GetProperty("avatarId").ValueKind);
+        Assert.Equal(JsonValueKind.Null, fromBase.GetProperty("tool").ValueKind);
+        Assert.Equal(JsonValueKind.Null, fromBase.GetProperty("memo").ValueKind);
+
+        var cursor = Uri.EscapeDataString(first.GetProperty("nextCursor").GetString()!);
+        var second = await JsonOf($"/v1/conversion-pairs?limit=2&cursor={cursor}");
+        var blank = second.GetProperty("items").EnumerateArray().Single();
+        Assert.Equal("9700001", blank.GetProperty("from").GetProperty("avatarId").GetString());
+        Assert.Equal(JsonValueKind.Null, blank.GetProperty("to").GetProperty("avatarId").ValueKind);
+        Assert.Equal(JsonValueKind.Null, blank.GetProperty("to").GetProperty("baseName").ValueKind);
+        Assert.Equal(JsonValueKind.Null, second.GetProperty("nextCursor").ValueKind);
+
+        // ほかの一覧の印は断る
+        var foldersCursor = Uri.EscapeDataString((await JsonOf("/v1/folders?limit=1")).GetProperty("nextCursor").GetString()!);
+        await AssertProblem($"/v1/conversion-pairs?cursor={foldersCursor}", "invalidCursor");
+    }
 }

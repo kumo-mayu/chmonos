@@ -40,6 +40,7 @@
 | `GET /v1/notifications` | 通知（既読・片付けた印つき） | 作った（変化の中身はまだ） |
 | `GET /v1/notifications/archive`・`/archive/{month}` | 保管した通知（月ごと・新しい順・商品名で絞る・続きの印）。形は [local-api-stored.md](local-api-stored.md) | 作った（2026-11-11） |
 | `GET /v1/recent`・`/v1/stats` | 最近の足跡・統計 | recent は作った（2026-11-27。形は [local-api-internal.md](local-api-internal.md)「内部の一覧」）・stats は後回し |
+| `GET /v1/conversion-pairs` | 人が足した変換の組（元→先・ツール・メモ） | 作った（2026-11-27。形は [local-api-internal.md](local-api-internal.md)「内部の一覧」） |
 | `GET /v1/images/{itemId}/{name}`・`/v1/modifications/{id}/images/{name}` | 画像の本体（ブラウザの画面のため） | 作った |
 
 アバター・素体・ショップから商品を引く専用の URL は作らない（検索の式で書く。ユーザ判断 2026-10-12）。
