@@ -91,7 +91,7 @@ public sealed partial class ItemViewModel
 
     /// <summary>
     /// 共通素体経由で対応しているアバター（ユーザ指示 2026-11-04・設定「共通素体経由の対応アバターも表示する」）。点線の札で、記録した対応
-    /// （<see cref="Avatars"/>）とは分けて持つ。保存はしない（検索の「素体経由の対応も含める」と同じ計算を表示のたびにする）
+    /// （<see cref="Avatars"/>）とは分けて持つ。保存はしない（検索の「素体経由を含める」と同じ計算を表示のたびにする）
     /// </summary>
     public IReadOnlyList<AvatarRow> ViaBaseAvatars { get; private set; } = [];
 
@@ -215,7 +215,7 @@ public sealed partial class ItemViewModel
     }
 
     /// <summary>
-    /// 共通素体経由の札（ユーザ指示 2026-11-04）。検索の「素体経由の対応も含める」と同じ計算（<see cref="AvatarCompatibilityIndex.Resolve"/>）から、
+    /// 共通素体経由の札（ユーザ指示 2026-11-04）。検索の「素体経由を含める」と同じ計算（<see cref="AvatarCompatibilityIndex.Resolve"/>）から、
     /// **記録にあるアバターは除く**：消したアバター（素体の兄弟として計算に戻ってくる。人が消した物を点線で出し直さない）と、
     /// 説明文のリンクから拾った確認待ち（もう札がある）。この商品そのもの（アバターの商品が自分の素体を宣言している）も除く
     /// </summary>

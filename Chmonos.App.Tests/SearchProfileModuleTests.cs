@@ -90,12 +90,16 @@ public class SearchProfileModuleTests
         await app.SettleAsync();
         Assert.Equal("「キキ」に着せるプロファイルがありません。", module.StatusText);
 
-        // 単体で変換できるものだけ：1つの商品で、アオイの衣装の変換とキキ・モモへの着せ替えの両方をまかなえる物は無い
+        // 両方を持つ商品のみ：1つの商品で、アオイの衣装の変換とキキ・モモへの着せ替えの両方をまかなえる物は無い
         Assert.False(module.RequireBoth);
         Assert.True(module.BothApplies);
+        Assert.DoesNotContain(ProfileModule.RequireBothLabel, module.SummaryText, StringComparison.Ordinal);
         module.RequireBoth = true;
         await app.SettleAsync();
         Assert.Empty(Shown(main));
+
+        // 畳んだ姿の要約も画面の名前と同じ語で言う（2026-11-27 の改名で要約だけ古い名前が残らないように）
+        Assert.EndsWith("（両方を持つ商品のみ）", module.SummaryText, StringComparison.Ordinal);
     });
 
     [Fact]

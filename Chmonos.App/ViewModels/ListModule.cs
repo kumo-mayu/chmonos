@@ -33,9 +33,21 @@ public sealed class ListChip : ViewModelBase
                 OnPropertyChanged(nameof(ToolTipText));
                 OnPropertyChanged(nameof(DisplayText));
                 OnPropertyChanged(nameof(Initial));
+
+                // 字から絵を引く札は、字が変わったら引き直す。状態を戻す時は候補より先に札ができ、
+                // 字は後で候補の字に揃うので、前の字で引いた絵（多くは無し）を覚えたままだと頭文字のまま残る
+                if (IconFromText && _iconRead)
+                {
+                    _iconRead = false;
+                    _icon = null;
+                    OnPropertyChanged(nameof(Icon));
+                }
             }
         }
     }
+
+    /// <summary>絵を札の字から引くか（鍵から引く札は字が変わっても絵は同じなので、引き直さない）。</summary>
+    internal bool IconFromText { get; set; }
 
     public int Count
     {
@@ -114,8 +126,9 @@ public sealed class ListChip : ViewModelBase
     public bool HasIconSource => IconSource is not null;
 
     /// <summary>
-    /// 札の頭に小さな絵を出すか（改変の札。絵が無ければ頭文字）。対応アバターの札は吹き出しにだけ絵を出す今の形のまま
-    /// （ユーザ判断 2026-10-06「アバターのアイコンは良いと思います。このままにしましょう」）。
+    /// 札の頭に小さな絵を出すか（改変・対応アバター・プロファイルの欄の札。絵が無ければ頭文字）。
+    /// アバターの札は前は吹き出しにだけ絵を出していた（ユーザ判断 2026-10-06）が、2026-11-27 に「アバターのチップにはアイコンを表示する」（ユーザ判断）。
+    /// 絵は見えている札だけが読む（<see cref="Controls.ChipWrapPanel.IsPlacedProperty"/>）
     /// </summary>
     public bool ShowsIcon { get; internal set; }
 
@@ -221,6 +234,7 @@ public sealed class ListModule : SearchModule
         _flagDefault = flagDefault;
         _flag = flagDefault;
         _isUnspecified = isUnspecified;
+        PropertyChanged += OnOwnPropertyChanged;
     }
 
     public ObservableCollection<string> Suggestions { get; } = [];
@@ -229,8 +243,8 @@ public sealed class ListModule : SearchModule
 
     public ObservableCollection<ListChip> Chips { get; } = [];
 
-    /// <summary>札の並びを2行で畳む状態（変換元・変換先の札もこの型の札なので同じ物を使う）。</summary>
-    public ChipFold Fold => _fold ??= new ChipFold(Chips);
+    /// <summary>札の並びを畳む状態（変換元・変換先の札もこの型の札なので同じ物を使う）。対応アバターだけ1行で畳む（<see cref="ChipFold.MaxLines"/>）。</summary>
+    public ChipFold Fold => _fold ??= new ChipFold(Chips) { MaxLines = Kind == SearchModuleKind.Avatar ? 1 : 2 };
 
     public bool AllowsAnd { get; }
 
@@ -291,7 +305,7 @@ public sealed class ListModule : SearchModule
         }
     }
 
-    /// <summary>補助の切り替え（対応アバターの「素体経由の対応も含める」）。</summary>
+    /// <summary>補助の切り替え（対応アバターの「素体経由を含める」）。</summary>
     public string? FlagLabel { get; }
 
     /// <summary>補助の切り替えの吹き出し。文だけでは何を足すのか読めない時に言う（Unityプロジェクトの「名前が同じファイルも含める」）。</summary>
@@ -360,7 +374,7 @@ public sealed class ListModule : SearchModule
 
     /// <summary>
     /// 対応アバターの「持っているバリエーションの分だけ」（ユーザ判断 2026-11-06・既定は切）。アバターごとにバリエーションで売っている衣装で、
-    /// 持っていない分のアバターでは当てない。使い回しの Flag は「素体経由の対応も含める」が持つので、名前で持つ（<see cref="SearchModuleConditions.OwnedVariationsToggle"/>）
+    /// 持っていない分のアバターでは当てない。使い回しの Flag は「素体経由を含める」が持つので、名前で持つ（<see cref="SearchModuleConditions.OwnedVariationsToggle"/>）
     /// </summary>
     public bool HasOwnedVariations => Kind == SearchModuleKind.Avatar && Chips.Count > 0;
 
@@ -379,7 +393,7 @@ public sealed class ListModule : SearchModule
     private bool _viaConversion;
 
     /// <summary>
-    /// 対応アバターの「変換で使える物も含める」（docs/spec/conversion.md「検索」・既定は切・ユーザ判断 2026-11-06）。
+    /// 対応アバターの「変換経由を含める」（docs/spec/conversion.md「検索」・既定は切・ユーザ判断 2026-11-06）。
     /// 持っているプロファイルで変換できる見込みの商品も当てる。名前で持つ（<see cref="SearchModuleConditions.ViaConversionToggle"/>）
     /// </summary>
     public bool ViaConversion
@@ -407,6 +421,82 @@ public sealed class ListModule : SearchModule
     /// 「含める」も「指定が無いものだけ見る」も要る。3つの意味がそのまま印の付け方になり、言い換えが要らない。
     /// </summary>
     public bool HasGroups => _isUnspecified is not null;
+
+    /// <summary>対応アバターの「範囲」の段の中の名前（ユーザ判断 2026-11-27。前は「素体経由の対応も含める」「変換で使える物も含める」）。</summary>
+    public const string ViaBaseLabel = "素体経由を含める";
+
+    public const string ViaConversionLabel = "変換経由を含める";
+
+    /// <summary>
+    /// 対応アバターの選択肢を3つに分けて出すか（ユーザ判断 2026-11-27）。いつも開いている段＝AND／OR と「持っているバリエーションの分だけ」、
+    /// 畳める「範囲」＝素体経由・変換経由、畳める「表示するもの」＝今の分類。使い回しの Flag をほかの条件（Unityプロジェクトの中身）が持つので、
+    /// 対応アバターの間だけ Flag を「範囲」の中に移す
+    /// </summary>
+    public bool IsAvatar => Kind == SearchModuleKind.Avatar;
+
+    /// <summary>Flag をいつも開いている所に出すか（対応アバター以外。対応アバターは「範囲」の中）。</summary>
+    public bool ShowsPlainFlag => HasFlag && !IsAvatar;
+
+    /// <summary>「範囲」の段を出すか。中の2つはアバターを選んで初めて効くので、選ぶまで段ごと出さない（前の2つのチェックと同じ）。</summary>
+    public bool HasRange => IsAvatar && Chips.Count > 0;
+
+    private bool _isRangeExpanded;
+    private bool _isShownExpanded;
+
+    /// <summary>
+    /// 「範囲」を開いているか。初めは畳み、見出しに今の値を書く（ユーザ判断 2026-11-27）。
+    /// 開け閉めは画面の中の畳み方と同じくアプリを閉じるまで覚え（`docs/spec/ui-rules.md`）、保存した検索と状態には書かない（見せ方で、条件ではない）
+    /// </summary>
+    public bool IsRangeExpanded
+    {
+        get => _isRangeExpanded;
+        set => SetField(ref _isRangeExpanded, value);
+    }
+
+    /// <summary>「表示するもの」を開いているか（初めは畳む。覚え方は <see cref="IsRangeExpanded"/> と同じ）。</summary>
+    public bool IsShownExpanded
+    {
+        get => _isShownExpanded;
+        set => SetField(ref _isShownExpanded, value);
+    }
+
+    /// <summary>畳んだ「範囲」の見出し。畳んだままでも、どこまで当てているかが読めるように今の値を書く。</summary>
+    public string RangeHeader => "範囲：" + (_flag, _viaConversion) switch
+    {
+        (true, true) => "素体経由・変換経由",
+        (true, false) => "素体経由",
+        (false, true) => "変換経由",
+        _ => "直接の対応のみ",
+    };
+
+    /// <summary>畳んだ「表示するもの」の見出し（最後の1つは外せないので、両方切った形は無い）。</summary>
+    public string ShownHeader => "表示するもの：" + (_showMatched, _showUnspecified) switch
+    {
+        (true, true) => "対応している商品と指定が無い商品",
+        (true, false) => "対応している商品",
+        _ => "対応の指定が無い商品",
+    };
+
+    /// <summary>
+    /// 見出しの今の値を、値の変わる道（押した・他の画面から渡した・クリア・状態を戻した）のどれでも出し直す。
+    /// どの道も値の名前で知らせるので、ここで受けて見出しの知らせに替える（道ごとに足すと、足し忘れた道で見出しが古いまま残る）
+    /// </summary>
+    private void OnOwnPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        switch (e.PropertyName)
+        {
+            case nameof(Flag) or nameof(ViaConversion):
+                OnPropertyChanged(nameof(RangeHeader));
+                break;
+            case nameof(ShowMatched) or nameof(ShowUnspecified):
+                OnPropertyChanged(nameof(ShownHeader));
+                break;
+            case nameof(HasFlag):
+                OnPropertyChanged(nameof(ShowsPlainFlag));
+                OnPropertyChanged(nameof(HasRange));
+                break;
+        }
+    }
 
     /// <summary>選んだアバターに対応している商品を出すか。切ると、アバターの欄は意味を持たない（薄くする）。</summary>
     public bool ShowMatched
@@ -475,6 +565,9 @@ public sealed class ListModule : SearchModule
 
     /// <summary>候補の頭に出す絵（対応アバター）。</summary>
     public Func<string, ImageSource?>? IconSelector { get; set; }
+
+    /// <summary>積んだ札の頭と吹き出しの絵を、札の鍵から引く口（対応アバター・プロファイルの欄。無ければ <see cref="IconSelector"/> で字から引く）。</summary>
+    public Func<string, ImageSource?>? ChipIconSelector { get; set; }
 
     /// <summary>
     /// 候補の頭の絵に乗せた時の大きな絵（ユーザ判断 2026-11-20「候補の欄の絵：アバターの管理の外の欄にも」。<see cref="Controls.SuggestBox.HoverIconSelector"/>）。
@@ -635,10 +728,19 @@ public sealed class ListModule : SearchModule
             ? new ListChip(key, chipText(key)) { FullText = key }
             : new ListChip(key, _textOfKey.TryGetValue(key, out var known) ? known : text ?? key);
         chip.TrimsMiddle = TrimsMiddle && ChipTextOf is null;
-        if (IconSelector is { } icon)
+        if (ChipIconSelector is { } keyIcon)
         {
-            // 候補の頭に出す絵と同じ物を、チップの吹き出しにも添える（対応アバター。メモ82）。候補の文字から引くので、乗せた時点の文字で引く
+            // 候補の頭に出す絵と同じ物を、チップの頭と吹き出しにも添える（対応アバター・プロファイルの欄。メモ82・ユーザ判断 2026-11-27）。
+            // 鍵から引く：札の字は設定で商品IDを出さない形になり、字から商品IDを読み戻せない事がある。共通素体の札は素体の絵になる
+            chip.IconSource = () => keyIcon(key);
+            chip.ShowsIcon = true;
+        }
+        else if (IconSelector is { } icon)
+        {
+            // 鍵から引く口が無い時は候補の文字から引く（読む時点の文字で引く）
             chip.IconSource = () => icon(chip.Text);
+            chip.IconFromText = true;
+            chip.ShowsIcon = true;
         }
 
         chip.RemoveCommand = new RelayCommand(() =>
@@ -703,12 +805,18 @@ public sealed class ListModule : SearchModule
             var values = Chips.Select(chip => chip.Text)
                 .Concat(HasInclude && _includeOn ? [_includeLabel!] : Array.Empty<string>());
             return JoinValues(values, _matchAll && AllowsAnd)
-                + (HasFlag && _flag != _flagDefault ? $"（{(_flag ? FlagLabel : FlagLabel + "を除く")}）" : string.Empty)
+                + (HasFlag && _flag != _flagDefault ? $"（{FlagSummary}）" : string.Empty)
                 + (HasGroups && _showUnspecified ? "（対応の指定が無い商品も含める）" : string.Empty)
-                + (HasOwnedVariations && _viaConversion ? "（変換で使える物も含める）" : string.Empty)
+                + (HasOwnedVariations && _viaConversion ? $"（{ViaConversionLabel}）" : string.Empty)
                 + (HasOwnedVariations && _ownedVariationsOnly ? "（持っているバリエーションの分だけ）" : string.Empty);
         }
     }
+
+    /// <summary>
+    /// 既定と違う時の Flag の言い方。対応アバターの既定は入なので、外した時に出る。「素体経由を含めるを除く」と読めないよう、
+    /// プロファイルの要約と同じ「素体経由を除く」にする
+    /// </summary>
+    private string FlagSummary => IsAvatar && !_flag ? "素体経由を除く" : _flag ? FlagLabel! : FlagLabel + "を除く";
 
     public override void Clear()
     {

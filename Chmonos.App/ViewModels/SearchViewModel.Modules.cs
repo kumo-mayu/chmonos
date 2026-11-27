@@ -394,6 +394,7 @@ public sealed partial class SearchViewModel
         "アバターがまだ見つかっていません。アバターの管理から検出できます。", (_, _, _, _) => false)
     {
         IconSelector = AvatarIconSelector,
+        ChipIconSelector = AvatarChipIconSelector,
         HoverIconSelector = AvatarHoverIconSelector,
         InfoSelector = text => _avatarSuggestInfo.GetValueOrDefault(text),
         GroupHeadings = AvatarSuggestionText.Headings,
@@ -947,14 +948,16 @@ public sealed partial class SearchViewModel
         // 素体経由は推定なので含めるかを選べるようにする。既定で含めるのは「対応が確認できていないものを既定で隠さない」方針（メモ82 で確かめた）
         SearchModuleKind.Avatar => new ListModule(kind, allowsAnd: true, "名前、ID、素体で絞り込む",
             "アバターがまだ見つかっていません。アバターの管理から検出できます。", ListMatches(kind),
-            "素体経由の対応も含める", flagDefault: SearchModuleConditions.ListOf(kind)!.FlagDefault,
+            ListModule.ViaBaseLabel, flagDefault: SearchModuleConditions.ListOf(kind)!.FlagDefault,
             isUnspecified: SearchModuleConditions.ListOf(kind)!.IsUnspecified)
         {
             IconSelector = AvatarIconSelector,
+            ChipIconSelector = AvatarChipIconSelector,
             HoverIconSelector = AvatarHoverIconSelector,
             InfoSelector = text => _avatarSuggestInfo.GetValueOrDefault(text),
             GroupHeadings = AvatarSuggestionText.Headings,
             OpenOf = AvatarChipOpen,
+            FlagHint = "同じ共通素体を通して対応する商品も含めます。",
         },
 
         // 変換ツールのプロファイル（ユーザ判断 2026-11-09・案B）。「変換元」（逆方向）と「変換先」（順方向）の2つの欄。
@@ -1060,7 +1063,7 @@ public sealed partial class SearchViewModel
 
     /// <summary>
     /// 人が足す変換の組を変えたことを知る。条件を組むたびに組を読むので、絞り直すだけでよい
-    /// （対応アバターの条件の「変換で使える物も含める」の結果が変わりうる）
+    /// （対応アバターの条件の「変換経由を含める」の結果が変わりうる）
     /// </summary>
     public void NoteConversionPairsChanged() => ApplyFilters();
 
@@ -1145,6 +1148,20 @@ public sealed partial class SearchViewModel
     /// </summary>
     public Func<string, Action, System.Windows.Media.ImageSource?> AvatarHoverIconSelector => (entry, onLoaded) =>
         AvatarSuggestionIcon(entry, path => _thumbnails.PeekForCard(path, onLoaded));
+
+    /// <summary>
+    /// 積んだ札の頭の絵（ユーザ判断 2026-11-27「アバターのチップにはアイコンを表示する」）。札の鍵（`avatar:` + 商品ID・`base:` + 素体名）から引く。
+    /// 札の字は設定で商品IDを出さない形（名前だけ）になるので、字から商品IDを読み戻すと引けない事がある。
+    /// 場所の決め方は候補の頭の絵と同じ（持っていれば商品の1枚目・素体は素体の絵）
+    /// </summary>
+    public Func<string, System.Windows.Media.ImageSource?> AvatarChipIconSelector => key =>
+        key.StartsWith(AvatarKey, StringComparison.Ordinal)
+            ? Core.Services.AvatarImageSync.IconPath(_services.Paths, key[AvatarKey.Length..], FindItem(key[AvatarKey.Length..]), _services.Settings.ShowRemovedBoothImages) is { } path
+                ? _thumbnails.LoadForTile(path)
+                : null
+            : key.StartsWith(BaseKey, StringComparison.Ordinal)
+                ? AvatarBaseIcons.Load(_services, key[BaseKey.Length..], FindItem, _thumbnails.LoadForTile)
+                : null;
 
     private System.Windows.Media.Imaging.BitmapSource? AvatarSuggestionIcon(string entry, Func<string, System.Windows.Media.Imaging.BitmapSource?> load)
         => _baseNamesBySuggestion.TryGetValue(entry, out var baseName)

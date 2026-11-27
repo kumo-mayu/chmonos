@@ -668,7 +668,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
 
     private bool _includeUnconfirmedConversion;
 
-    /// <summary>変換経由の計算に、確認していないプロファイルのつなぎ先も使うか（既定はオフ）。検索の「変換で使える物も含める」にも効くので、一覧を読み直す</summary>
+    /// <summary>変換経由の計算に、確認していないプロファイルのつなぎ先も使うか（既定はオフ）。検索の「変換経由を含める」にも効くので、一覧を読み直す</summary>
     public bool IncludeUnconfirmedConversion
     {
         get => _includeUnconfirmedConversion;

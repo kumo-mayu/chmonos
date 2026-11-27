@@ -51,7 +51,7 @@ public sealed class ChoiceCondition(
 /// </summary>
 /// <param name="keys">積んだ値の鍵。</param>
 /// <param name="matchAll">全部を満たすか（AND を選べない種類では false を渡す）。</param>
-/// <param name="flag">補助の切り替え（対応アバターの「素体経由の対応も含める」）。</param>
+/// <param name="flag">補助の切り替え（対応アバターの「素体経由を含める」）。</param>
 /// <param name="isUnspecified">
 /// 商品が「指定が無い」かたまりに入るか（対応アバターだけ）。渡すと「対応している」「対応の指定が無い」のどちらを出すかで照らす。
 /// </param>

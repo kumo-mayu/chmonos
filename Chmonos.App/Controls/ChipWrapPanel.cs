@@ -5,6 +5,7 @@ namespace Chmonos.App.Controls;
 
 /// <summary>
 /// 札（チップ）を折り返して並べ、全部で <see cref="MaxLines"/> 行を超えるときは、畳んでいる間その行数で切るパネル。
+/// 畳んでも札は必ず1つは見せる（先頭の札が最後の行の空きに入らなければ、その幅に縮めて名前を「…」で切る）。
 /// 検索の左の条件で積んだ札の並び（ユーザ判断 2026-11-20「チップのままで、折り畳めるようにしよう。一覧できることも大切だ。」）。
 ///
 /// 行の数は実際に並べた幅で決める（札の数では決めない。名前の長さで1行に入る数が変わる）。
@@ -25,6 +26,24 @@ public sealed class ChipWrapPanel : Panel
     public static readonly DependencyProperty OverflowsProperty = DependencyProperty.Register(
         nameof(Overflows), typeof(bool), typeof(ChipWrapPanel),
         new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault));
+
+    /// <summary>畳んでいる間の行の数。並びごとに変える（対応アバターは1行。<see cref="ViewModels.ChipFold.MaxLines"/>）。</summary>
+    public static readonly DependencyProperty MaxLinesProperty = DependencyProperty.Register(
+        nameof(MaxLines), typeof(int), typeof(ChipWrapPanel),
+        new FrameworkPropertyMetadata(2, FrameworkPropertyMetadataOptions.AffectsMeasure));
+
+    /// <summary>
+    /// 札が並びに置かれて見えているか（このパネルが子に書き、札の中へ受け継ぐ）。札の頭の絵は見えている札だけが読む：
+    /// 隠した札も部品は作られ、結びは見えるかに関わらず働くので、絵を直に結ぶと「ほか n 件」の中の札まで読む。
+    /// 既定は false（並べる前に結びが絵を読まないように）
+    /// </summary>
+    public static readonly DependencyProperty IsPlacedProperty = DependencyProperty.RegisterAttached(
+        "IsPlaced", typeof(bool), typeof(ChipWrapPanel),
+        new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.Inherits));
+
+    public static bool GetIsPlaced(DependencyObject element) => (bool)element.GetValue(IsPlacedProperty);
+
+    public static void SetIsPlaced(DependencyObject element, bool value) => element.SetValue(IsPlacedProperty, value);
 
     public static readonly DependencyProperty RevealRequestedProperty = DependencyProperty.Register(
         nameof(RevealRequested), typeof(bool), typeof(ChipWrapPanel),
@@ -58,8 +77,12 @@ public sealed class ChipWrapPanel : Panel
         set => SetValue(RevealRequestedProperty, value);
     }
 
-    /// <summary>畳んでいる間の行の数。2行なら札が数個は一目で見え、枠の高さは札1行ぶんしか増えない。</summary>
-    public int MaxLines { get; set; } = 2;
+    /// <summary>畳んでいる間の行の数。既定の2行なら札が数個は一目で見え、枠の高さは札1行ぶんしか増えない。</summary>
+    public int MaxLines
+    {
+        get => (int)GetValue(MaxLinesProperty);
+        set => SetValue(MaxLinesProperty, value);
+    }
 
     /// <summary>
     /// 最後の行の右に「ほか n 件」「折りたたむ」のために空ける幅。11.5px の字の「ほか 13 件」が撮った画で約48px（2026-11-20）なので、
@@ -68,6 +91,9 @@ public sealed class ChipWrapPanel : Panel
     public double ReserveWidth { get; set; } = 62;
 
     private Layout _layout = Layout.Empty;
+
+    /// <summary>全部の幅で測った大きさ。縮めて測り直した札も、行の割り振りはこの大きさで決める（縮めた幅で割り振ると、溢れるかが測るたびに変わる）。</summary>
+    private Size[] _fullSizes = [];
 
     protected override Size MeasureOverride(Size availableSize)
     {
@@ -81,16 +107,31 @@ public sealed class ChipWrapPanel : Panel
             sizes[i] = child.DesiredSize;
         }
 
+        _fullSizes = sizes;
         _layout = Lay(sizes, availableSize.Width, MaxLines, ReserveWidth, IsExpanded);
+
+        // 縮めて置く札は、その幅で測り直す。全部の幅で測ったまま狭く置くと、名前が「…」にならずに右が切れる
+        for (var i = 0; i < sizes.Length; i++)
+        {
+            if (_layout.Places[i] is { } place && place.Width < sizes[i].Width)
+            {
+                InternalChildren[i].Measure(new Size(place.Width, double.PositiveInfinity));
+            }
+        }
+
         return _layout.Size;
     }
 
     protected override Size ArrangeOverride(Size finalSize)
     {
-        var sizes = new Size[InternalChildren.Count];
-        for (var i = 0; i < sizes.Length; i++)
+        var sizes = _fullSizes;
+        if (sizes.Length != InternalChildren.Count)
         {
-            sizes[i] = InternalChildren[i].DesiredSize;
+            sizes = new Size[InternalChildren.Count];
+            for (var i = 0; i < sizes.Length; i++)
+            {
+                sizes[i] = InternalChildren[i].DesiredSize;
+            }
         }
 
         var layout = Lay(sizes, finalSize.Width, MaxLines, ReserveWidth, IsExpanded);
@@ -104,6 +145,7 @@ public sealed class ChipWrapPanel : Panel
                 child.Arrange(place);
                 shownChanged |= !child.IsEnabled;
                 child.SetCurrentValue(IsEnabledProperty, true);
+                child.SetCurrentValue(IsPlacedProperty, true);
             }
             else
             {
@@ -112,6 +154,7 @@ public sealed class ChipWrapPanel : Panel
                 child.Arrange(new Rect(0, 0, 0, 0));
                 shownChanged |= child.IsEnabled;
                 child.SetCurrentValue(IsEnabledProperty, false);
+                child.SetCurrentValue(IsPlacedProperty, false);
             }
         }
 
@@ -208,6 +251,17 @@ public sealed class ChipWrapPanel : Panel
                     rowX += sizes[i].Width;
                     rowHeight = Math.Max(rowHeight, sizes[i].Height);
                     i++;
+                }
+
+                // 1つも置けないまま最後の行に来た（1行で畳む並びの先頭が長い札）。札が1つも見えないと何を選んだか分からないので、
+                // 空きの幅に縮めて先頭の札を置く（ユーザ判断 2026-11-27「一つを残して畳んで良い」）
+                if (i == 0 && row == maxLines - 1)
+                {
+                    var shrunk = Math.Max(0, Math.Min(sizes[0].Width, limit));
+                    places[0] = new Rect(0, y, shrunk, sizes[0].Height);
+                    rowX = shrunk;
+                    rowHeight = sizes[0].Height;
+                    i = 1;
                 }
 
                 // 最後の行に1つも入らなくても、ボタンを置くので1行ぶんの高さを取る

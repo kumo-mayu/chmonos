@@ -33,13 +33,13 @@ public sealed class ConditionRequest
     /// <summary>選ぶ条件の補助の切り替え（名前は <c>/v1/search/conditions</c>）。</summary>
     public IReadOnlyDictionary<string, bool>? Options { get; init; }
 
-    /// <summary>対応アバター：素体経由の対応も含めるか（既定 true）。</summary>
+    /// <summary>対応アバター：素体経由も当てるか（既定 true。画面の「素体経由を含める」）。</summary>
     public bool? ViaBase { get; init; }
 
     /// <summary>対応アバター：持っているバリエーションの分だけで照らすか（既定 false。画面の「持っているバリエーションの分だけ」）。</summary>
     public bool? OwnedVariationsOnly { get; init; }
 
-    /// <summary>対応アバター：変換で使える物も含めるか（既定 false。画面の「変換で使える物も含める」）。</summary>
+    /// <summary>対応アバター：変換経由も当てるか（既定 false。画面の「変換経由を含める」）。</summary>
     public bool? ViaConversion { get; init; }
 
     /// <summary>プロファイル：自動で推して確認していないつなぎ先も当てるか（既定 true。画面の「確認待ちも含める」）。</summary>
@@ -60,7 +60,7 @@ public sealed class ConditionRequest
     /// <summary>プロファイル：片方だけ送ったとき、空の側の候補（反対の向きの物）も当てるか（既定 false。画面の「組み合わせられるプロファイルも含める」）。</summary>
     public bool? ShowCounterpart { get; init; }
 
-    /// <summary>プロファイル：両方送ったとき、1つの商品で変換元から変換先への変換が済むものだけにするか（既定 false。画面の「単体で変換できるものだけ」）。</summary>
+    /// <summary>プロファイル：両方送ったとき、1つの商品で変換元から変換先への変換が済むものだけにするか（既定 false。画面の「両方を持つ商品のみ」）。</summary>
     public bool? RequireBoth { get; init; }
 
     /// <summary>対応アバター：対応している商品を出すか（既定 true）。</summary>

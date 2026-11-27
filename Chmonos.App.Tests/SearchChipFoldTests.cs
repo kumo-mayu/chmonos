@@ -174,6 +174,51 @@ public class SearchChipFoldTests
     });
 
     [Fact]
+    public void 一行で畳む並びは_長い札でも先頭の1つを空きの幅に縮めて残す()
+    {
+        // 対応アバターの札は1行に1つしか入らない長さ。1行で畳むと、空き（200 - 72）に入らなくても先頭の札は見せる
+        Size[] sizes = [new(190, 20), new(190, 20), new(190, 20)];
+
+        var layout = ChipWrapPanel.Lay(sizes, 200, 1, Reserve, expanded: false);
+
+        Assert.True(layout.Overflows);
+        Assert.Equal(2, layout.Hidden);
+        Assert.Equal(new Rect(0, 0, 128, 20), layout.Places[0]); // ボタンの下に潜らない幅
+        Assert.Equal(20, layout.Size.Height); // 1行に札とボタン
+    }
+
+    [Fact]
+    public void 一行で畳む並びは_短い札なら1行に入る分だけ残す()
+    {
+        var layout = ChipWrapPanel.Lay(Chips(6), 200, 1, Reserve, expanded: false);
+
+        Assert.True(layout.Overflows);
+        Assert.Equal(4, layout.Hidden); // 空きの128に幅50が2つ
+        Assert.Equal(20, layout.Size.Height);
+    }
+
+    [Fact]
+    public void 一行で畳む並びも_1行に収まる間は畳まない()
+    {
+        var layout = ChipWrapPanel.Lay([new(190, 20)], 200, 1, Reserve, expanded: false);
+
+        Assert.False(layout.Overflows);
+        Assert.Equal(0, layout.Hidden);
+        Assert.Equal(new Rect(0, 0, 190, 20), layout.Places[0]);
+    }
+
+    [Theory]
+    [InlineData(SearchModuleKind.Avatar, 1)]
+    [InlineData(SearchModuleKind.Shop, 2)]
+    [InlineData(SearchModuleKind.Profile, 2)]
+    public void 対応アバターだけ1行で畳む(SearchModuleKind kind, int lines)
+    {
+        var module = new ListModule(kind, allowsAnd: false, "", "", (_, _, _, _) => true);
+
+        Assert.Equal(lines, module.Fold.MaxLines);
+    }
+
+    [Fact]
     public void 候補から足すと広げる印が付き_空にすると畳んだ姿へ戻る()
     {
         var module = new ListModule(SearchModuleKind.Shop, allowsAnd: false, "ショップで絞り込む", "", (_, _, _, _) => true);
@@ -213,6 +258,92 @@ public class SearchChipFoldTests
         Assert.True(host.Toggle.Focusable);
         Assert.True(KeyboardNavigation.GetIsTabStop(host.Toggle));
     });
+
+    [Fact]
+    public Task 並びに置いた札だけに置いた印が付き_隠した札と並べる前の札には付かない() => UiThread.Run(() =>
+    {
+        // 札の頭の絵はこの印が付いた札だけが読む（隠した札も部品は作られ、結びは見えるかに関わらず働く）
+        using var host = new Host(10);
+
+        var placed = Enumerable.Range(0, 10).Count(index => ChipWrapPanel.GetIsPlaced(host.Container(index)));
+        Assert.Equal(10 - host.Fold.HiddenCount, placed);
+        Assert.True(host.Fold.HiddenCount > 0);
+        Assert.False(ChipWrapPanel.GetIsPlaced(host.Container(9)));
+        Assert.True(ChipWrapPanel.GetIsPlaced(host.Chip(0))); // 札の中の部品へ受け継ぐ
+
+        host.Fold.IsExpanded = true;
+        host.Layout();
+        Assert.True(ChipWrapPanel.GetIsPlaced(host.Container(9)));
+
+        Assert.False(ChipWrapPanel.GetIsPlaced(new Button())); // 並べる前は付かない
+    });
+
+    [Fact]
+    public void 札の絵は読むまで引かず_字が候補の字に揃うと引き直す()
+    {
+        var reads = new List<string>();
+        var module = new ListModule(SearchModuleKind.Avatar, allowsAnd: true, "", "", (_, _, _, _) => true)
+        {
+            IconSelector = text =>
+            {
+                reads.Add(text);
+                return null;
+            },
+        };
+
+        // 状態を戻す時は候補より先に札ができる（字は鍵のまま）
+        module.AddKey("1", notify: false);
+        var chip = module.Chips[0];
+        Assert.True(chip.ShowsIcon);
+        Assert.Empty(reads);
+
+        _ = chip.Icon;
+        Assert.Equal(["1"], reads);
+
+        var changed = new List<string?>();
+        chip.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        module.SetSuggestions([("作り物のアバター（1）", "1")]);
+        Assert.Contains(nameof(ListChip.Icon), changed);
+
+        _ = chip.Icon;
+        Assert.Equal(["1", "作り物のアバター（1）"], reads);
+    }
+
+    [Fact]
+    public void 鍵から絵を引く札は_字が変わっても鍵で引き_引き直さない()
+    {
+        // 札の字は設定で商品IDを出さない形（名前だけ）になるので、対応アバターの札の絵は鍵（avatar: + 商品ID）から引く
+        var reads = new List<string>();
+        var module = new ListModule(SearchModuleKind.Avatar, allowsAnd: true, "", "", (_, _, _, _) => true)
+        {
+            IconSelector = _ => throw new InvalidOperationException("字からは引かない"),
+            ChipIconSelector = key =>
+            {
+                reads.Add(key);
+                return null;
+            },
+        };
+
+        module.AddKey("avatar:1", notify: false);
+        var chip = module.Chips[0];
+        Assert.True(chip.ShowsIcon);
+        Assert.Empty(reads);
+
+        _ = chip.Icon;
+        module.SetSuggestions([("作り物のアバター", "avatar:1")]);
+        _ = chip.Icon;
+
+        Assert.Equal(["avatar:1"], reads);
+    }
+
+    [Fact]
+    public void 絵を引かない並びの札は_頭に絵を出さない()
+    {
+        var module = new ListModule(SearchModuleKind.Shop, allowsAnd: false, "", "", (_, _, _, _) => true);
+        module.AddKey("shop1", notify: false);
+
+        Assert.False(module.Chips[0].ShowsIcon);
+    }
 
     /// <summary>幅200の札の並び（札は幅50・中に ×）を出さない窓口に載せた台。並べ方は検索の画面の FoldingChipList と同じ。</summary>
     private sealed class Host : IDisposable

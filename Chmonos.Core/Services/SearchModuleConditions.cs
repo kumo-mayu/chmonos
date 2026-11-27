@@ -43,12 +43,12 @@ public static class SearchModuleConditions
 
     /// <summary>
     /// 対応アバターの「持っているバリエーションの分だけ」の切り替えの名前（<see cref="SearchModuleState.Toggles"/>。既定は切・ユーザ判断 2026-11-06）。
-    /// 使い回しの Flag は「素体経由の対応も含める」が持っているので、名前で分ける
+    /// 使い回しの Flag は「素体経由を含める」が持っているので、名前で分ける
     /// </summary>
     public const string OwnedVariationsToggle = "ownedVariationsOnly";
 
     /// <summary>
-    /// 対応アバターの「変換で使える物も含める」の切り替えの名前（docs/spec/conversion.md「検索」・既定は切・ユーザ判断 2026-11-06：入にすると、更新しただけで今の絞り込みの結果が増える）。
+    /// 対応アバターの「変換経由を含める」の切り替えの名前（docs/spec/conversion.md「検索」・既定は切・ユーザ判断 2026-11-06：入にすると、更新しただけで今の絞り込みの結果が増える）。
     /// </summary>
     public const string ViaConversionToggle = "viaConversion";
 
@@ -65,7 +65,7 @@ public static class SearchModuleConditions
     public const string CounterpartToggle = "showCounterpart";
 
     /// <summary>
-    /// 条件「プロファイル」の「単体で変換できるものだけ」の切り替えの名前（既定は切・ユーザ判断 2026-11-09）。両方の欄に入れたときに、
+    /// 条件「プロファイル」の「両方を持つ商品のみ」の切り替えの名前（既定は切・ユーザ判断 2026-11-09）。両方の欄に入れたときに、
     /// 変換元の逆方向と変換先の順方向を1つの商品で両方まかなえる物（素体用の物・何体分もまとめた物）だけにする。
     /// </summary>
     public const string RequireBothToggle = "requireBoth";
@@ -655,7 +655,7 @@ public static class SearchModuleConditions
 /// <summary>
 /// 条件「プロファイル」（ユーザ判断 2026-11-09・docs/spec/conversion.md「検索」の案B）。A 用の衣装を B に着せるには、A の逆方向と B の順方向が要る。
 /// 「変換元」の欄は逆方向、「変換先」の欄は順方向で当てる。両方入れたら、どちらかに当たる物（和）を出す（そろっているかは画面が1行で言う）。
-/// 「単体で変換できるものだけ」を入れると、両方の欄に当たる物（1つの商品で変換元と変換先の両方をまかなえる物）だけにする。
+/// 「両方を持つ商品のみ」を入れると、両方の欄に当たる物（1つの商品で変換元と変換先の両方をまかなえる物）だけにする。
 /// 片方だけ入れたときは、その向きの物だけ。「組み合わせられるプロファイルも含める」を入れると、空の側を「持っている物全部」として反対の向きの物も出す。
 /// 両方空なら、プロファイルの商品すべて。どの場合も、プロファイルの商品でない物と「扱わない」にした物は出さない。
 /// </summary>
