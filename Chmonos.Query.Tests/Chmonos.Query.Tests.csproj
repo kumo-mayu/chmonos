@@ -22,4 +22,9 @@
     <ProjectReference Include="..\Chmonos.Query\Chmonos.Query.csproj" />
   </ItemGroup>
 
+  <!-- 画面・Core・API の3か所を同じ作り物と同じ期待で比べるため、App.Tests の作り物を共有する（Core の型だけを使う） -->
+  <ItemGroup>
+    <Compile Include="..\Chmonos.App.Tests\Support\SearchParityFixture.cs" Link="Shared\SearchParityFixture.cs" />
+  </ItemGroup>
+
 </Project>
