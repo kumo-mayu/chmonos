@@ -29,13 +29,18 @@ public sealed class ApiPluginScreenTests
         return port;
     }
 
-    private static async Task Run(Func<TestApp, MainViewModel, HttpClient, ManualTime, Task> body) => await TestApp.Run(async app =>
+    private static Task Run(Func<TestApp, MainViewModel, HttpClient, ManualTime, Task> body) => Run(async app =>
     {
         for (var index = 1; index <= 4; index++)
         {
             await app.AddItemAsync(Make.Item($"96006{index:00}", $"作り物の商品{index}"));
         }
+    }, body);
 
+    /// <param name="prepare">主画面を作る前に保存先へ置く物。</param>
+    private static async Task Run(Func<TestApp, Task> prepare, Func<TestApp, MainViewModel, HttpClient, ManualTime, Task> body) => await TestApp.Run(async app =>
+    {
+        await prepare(app);
         JsonStore.Write(app.Services.Paths.ApiClientsFile, new ApiClientList
         {
             Clients =
@@ -155,36 +160,138 @@ public sealed class ApiPluginScreenTests
         Assert.Equal(JsonValueKind.Null, item.GetProperty("selection").ValueKind);
     });
 
+    /// <summary>最後に流れた画面（まだ何も流れていなければ null）。</summary>
+    private static async Task<string?> LastAsync(HttpClient client)
+        => (await ScreensAsync(client)) is { Length: > 0 } screens ? Describe(screens[^1]) : null;
+
+    // 画面の中の変化は、係が画面の知らせ（プロパティの名前）を聞いて拾う。名前が外れると黙って流れなくなるので、道ごとに「流れる」を確かめる。
+    // どれも、変えた直後はまだ流れず（画面の差し替えではなく画面の中の変化として拾った印）、300ms 進めると流れる
+
     [Fact]
-    public Task 主画面から開ける画面は_どれも名前を持つ() => TestApp.Run(async app =>
+    public Task フォルダで行を選ぶと_右に出た商品ページが流れる() => Run(async app =>
     {
-        await app.AddItemAsync(Make.Item("9600701", "作り物の商品"));
-        var main = await app.StartAsync();
-        var item = main.Search.ListItems[0].Item;
-
-        var opens = new (string Screen, Func<Task> Open)[]
+        await app.AddItemAsync(Make.Item("9600801", "作り物のドレス").WithFiles(Make.File(app.NewFile(@"lib\a\dress.zip"))));
+    }, async (app, main, client, time) =>
+    {
+        main.ShowFolders();
+        var folders = Assert.IsType<FolderViewModel>(main.CurrentViewModel);
+        await UiThread.Until(() => folders.EmptyText != "読み込んでいます…", "フォルダビューの読み込みが済む");
+        while (folders.Rows.FirstOrDefault(row => row.CanExpand && !row.IsExpanded) is { } closed)
         {
-            ("search", () => { main.ShowSearch(); return Task.CompletedTask; }),
-            ("item", () => { main.ShowItem(item); return Task.CompletedTask; }),
-            ("edit", () => main.ShowEditAsync([item.Id])),
-            ("import", () => { main.ShowImport(); return Task.CompletedTask; }),
-            ("resolve", () => { main.ShowResolve(); return Task.CompletedTask; }),
-            ("inbox", () => { main.ShowInbox(); return Task.CompletedTask; }),
-            ("shops", () => { main.ShowShops(); return Task.CompletedTask; }),
-            ("folder", () => { main.ShowFolders(); return Task.CompletedTask; }),
-            ("stats", () => { main.ShowStats(); return Task.CompletedTask; }),
-            ("avatar", () => { main.ShowAvatars(); return Task.CompletedTask; }),
-            ("modification", () => { main.ShowModifications(); return Task.CompletedTask; }),
-            ("settings", () => { main.ShowSettings(); return Task.CompletedTask; }),
-            ("tagManage", () => { main.ShowTagManage(); return Task.CompletedTask; }),
-            ("attributeManage", () => { main.ShowAttributeManage(); return Task.CompletedTask; }),
-        };
-
-        foreach (var (screen, open) in opens)
-        {
-            await open();
-            await app.SettleAsync();
-            Assert.Equal(screen, PluginScreenTracker.StateOf(main.CurrentViewModel)?.Screen);
+            folders.ToggleCommand.Execute(closed);
         }
+
+        folders.Selected = folders.Rows.First(row => row.Name == "dress.zip");
+        await app.SettleAsync();
+        Assert.IsType<ItemViewModel>(folders.Detail);
+        Assert.Equal("folder:-", await LastAsync(client));
+
+        time.Advance(PluginScreenTracker.Delay);
+        Assert.Equal("folder:item/9600801:embedded", await LastAsync(client));
     });
+
+    [Fact]
+    public Task アバターの管理で選ぶと_選んだアバターが流れる() => Run(async app =>
+    {
+        await app.Store.Avatars.SaveAsync(new AvatarRegistry
+        {
+            Entries =
+            [
+                new AvatarRegistryEntry { ItemId = "9600901", BoothName = "作り物のアバター", AvatarOverride = true },
+                new AvatarRegistryEntry { ItemId = "9600902", BoothName = "もう1体のアバター", AvatarOverride = true },
+            ],
+        });
+    }, async (app, main, client, time) =>
+    {
+        main.ShowAvatars();
+        var avatars = Assert.IsType<AvatarsViewModel>(main.CurrentViewModel);
+        await UiThread.Until(() => !avatars.IsLoading && avatars.Rows.Count > 0, "アバターの読み込みが済む");
+        time.Advance(PluginScreenTracker.Delay);
+        var before = await LastAsync(client);
+
+        avatars.Selected = avatars.Rows.Single(row => row.ItemId == "9600902");
+        Assert.Equal(before, await LastAsync(client));
+        time.Advance(PluginScreenTracker.Delay);
+        Assert.Equal("avatar:avatar/9600902:embedded", await LastAsync(client));
+    });
+
+    [Fact]
+    public Task 改変の画面で右に出た改変と使った物が流れる() => Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item("9601001", "作り物のアバター"));
+        await app.AddItemAsync(Make.Item("9601002", "作り物の衣装"));
+    }, async (app, main, client, time) =>
+    {
+        var created = Assert.IsType<Chmonos.Core.Commands.CommandResult.ModificationCreated>(
+            await app.Services.Commands.ExecuteAsync(new Chmonos.Core.Commands.UiCommand.CreateModification("9601001", "作り物の改変")));
+        await app.Services.Commands.ExecuteAsync(new Chmonos.Core.Commands.UiCommand.AddModificationMember(
+            created.Record.Id, new ModificationMember { ItemId = "9601002" }));
+
+        main.ShowModifications(ModificationHubLevel.Modification, new ModificationHubSelection(ModificationHubSelectionKind.Modification, created.Record.Id));
+        var hub = Assert.IsType<ModificationHubViewModel>(main.CurrentViewModel);
+        await UiThread.Until(() => hub.Detail is ModificationViewModel, "右に改変が出る");
+        Assert.Equal("modification:-", await LastAsync(client));
+        time.Advance(PluginScreenTracker.Delay);
+        Assert.Equal($"modification:modification/{created.Record.Id}:embedded", await LastAsync(client));
+
+        main.ShowModifications(ModificationHubLevel.Modification, new ModificationHubSelection(ModificationHubSelectionKind.Member, created.Record.Id, 0));
+        var members = Assert.IsType<ModificationHubViewModel>(main.CurrentViewModel);
+        await UiThread.Until(() => members.Detail is HubItemDetail, "右に使った物が出る");
+        time.Advance(PluginScreenTracker.Delay);
+        Assert.Equal("modification:item/9601002:embedded", await LastAsync(client));
+    });
+
+    [Fact]
+    public Task 編集で保存して次へ進むと_次の商品が流れる() => Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item("9601101", "作り物の衣装"));
+        await app.AddItemAsync(Make.Item("9601102", "作り物の髪型"));
+        await app.ChangeSettingsAsync(settings => settings with { ReturnToSearchWhenEditDone = false });
+    }, async (app, main, client, time) =>
+    {
+        await main.ShowEditAsync(["9601101", "9601102"]);
+        await app.SettleAsync();
+        var edit = Assert.IsType<EditViewModel>(main.CurrentViewModel);
+        time.Advance(PluginScreenTracker.Delay);
+        Assert.Equal("edit:item/9601101", await LastAsync(client));
+
+        edit.SaveAndNextCommand.Execute(null);
+        await app.SettleAsync();
+        Assert.Equal("9601102", edit.ItemPage?.Item.Id);
+        Assert.Equal("edit:item/9601101", await LastAsync(client));
+        time.Advance(PluginScreenTracker.Delay);
+        Assert.Equal("edit:item/9601102", await LastAsync(client));
+    });
+
+    [Fact]
+    public Task ショップのページを開くと_ショップの鍵が流れる() => Run(async app =>
+    {
+        await app.AddItemAsync(Make.Item("9601201", "作り物の衣装", shop: "sample-shop"));
+    }, async (app, main, client, time) =>
+    {
+        main.ShowShop(new Chmonos.Core.Services.ShopSummary { Subdomain = "sample-shop", Name = "作り物のショップ", KnownCount = 1, OwnedCount = 1, SpentYen = 0 });
+        await app.SettleAsync();
+
+        Assert.Equal("shop:shop/sample-shop", await LastAsync(client));
+    });
+
+    [Fact]
+    public void 主画面が作る画面の型は_どれも名前を持つ()
+    {
+        // 主画面が作るが、主画面の画面（CurrentViewModel）には入れない物（通信の様子・サブ画面・窓・画面が持ち回る控え）
+        var notScreens = new HashSet<Type>
+        {
+            typeof(BoothActivityViewModel), typeof(FilePoolViewModel), typeof(LocalItemNameDialogViewModel), typeof(RegisterPastedItemsDialogViewModel),
+            typeof(PaneColumn), typeof(EditDraftStore), typeof(ResolveSearchState),
+        };
+        var constructed = ConstructedTypes.Of(typeof(MainViewModel)).Where(type => typeof(ViewModelBase).IsAssignableFrom(type)).ToList();
+
+        // 集め方が効いている印：検索（作るのは主画面の作り始め）と商品ページ（開くたび・戻るたび）が入る
+        Assert.Contains(typeof(SearchViewModel), constructed);
+        Assert.Contains(typeof(ItemViewModel), constructed);
+        Assert.Contains(typeof(AvatarsViewModel), constructed);
+
+        var unnamed = constructed.Where(type => !notScreens.Contains(type) && PluginScreenTracker.ScreenNameOf(type) == "other").Select(type => type.Name).ToList();
+        Assert.True(unnamed.Count == 0, $"名前の無い画面：{string.Join("・", unnamed)}（PluginScreenTracker の一覧か、この試験の「画面ではない」に足す）");
+    }
 }

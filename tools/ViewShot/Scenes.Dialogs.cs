@@ -66,7 +66,7 @@ internal static partial class Scenes
         },
 
         // ソフトが API の許しを求めてきた窓（plan 31）。長いパス・ブラウザのオリジン・前に許したソフト・種類2つのうち1つを外した
-        new Scene("api-client-approval", "APIの利用の許可の窓：長い exe のパス・オリジン・前に許可したソフト・求められた変更2つ（1つ外した）・知らせる操作3つ（1つ外した）", context =>
+        new Scene("api-client-approval", "APIの利用の許可の窓：長い exe のパス・オリジン・前に許可したソフト・求められた変更2つ（1つ外した）・知らせる操作4つ（1つ外した）", context =>
         {
             var model = new Chmonos.App.ViewModels.ApiClientApprovalViewModel(new Chmonos.Api.ApiClientRequestInfo(
                 "作り物の整理ツール",

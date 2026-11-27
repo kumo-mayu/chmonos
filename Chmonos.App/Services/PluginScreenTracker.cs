@@ -180,33 +180,59 @@ internal sealed class PluginScreenTracker
         return new PluginScreenNow(state, withSelection ? source?.SelectedItemIdsForPlugins() : null);
     }
 
-    /// <summary>
-    /// 画面の英字の名前と、そこで開いている物（docs/spec/plugins.md の一覧）。画面がまだ無ければ null。
-    /// 知らない画面は <c>other</c>（新しい画面を足して書き忘れても、前の画面のままに見せない。試験で全部の画面が名前を持つことを確かめる）
-    /// </summary>
-    internal static PluginScreen? StateOf(object? screen) => screen switch
+    /// <summary>画面の型 → 英字の名前（docs/spec/plugins.md の一覧）。</summary>
+    private static readonly Dictionary<Type, string> ScreenNames = new()
     {
-        null => null,
-        ItemViewModel page => Plain("item", Item(page.Item.Id)),
-        EditViewModel edit => Plain("edit", (edit.ItemPage?.Item ?? edit.Item) is { } item ? Item(item.Id) : null),
-        SearchViewModel => Plain("search", null),
-        ImportViewModel => Plain("import", null),
-        ResolveViewModel => Plain("resolve", null),
-        InboxViewModel => Plain("inbox", null),
-        ShopsViewModel => Plain("shops", null),
-        ShopViewModel shop => Plain("shop", new PluginTarget("shop", shop.Shop.Subdomain)),
-        FolderViewModel folder => Pane("folder", (folder.RightItem.Page ?? folder.Detail as ItemViewModel) is { } page ? Item(page.Item.Id) : null),
-        StatsViewModel => Plain("stats", null),
-        AvatarsViewModel avatars => Pane("avatar", avatars.RightItem.Page is { } page
-            ? Item(page.Item.Id)
-            : avatars.Selected is { } row ? new PluginTarget("avatar", row.ItemId) : null),
-        ModificationHubViewModel hub => Pane("modification", hub.RightItem.Page is { } page ? Item(page.Item.Id) : HubTarget(hub.Detail)),
-        ModificationViewModel modification => Plain("modification", new PluginTarget("modification", modification.Record.Id)),
-        SettingsViewModel => Plain("settings", null),
-        TagManageViewModel tags => Pane("tagManage", tags.RightItem.Page is { } page ? Item(page.Item.Id) : null),
-        AttributeManageViewModel attributes => Pane("attributeManage", attributes.RightItem.Page is { } page ? Item(page.Item.Id) : null),
-        _ => Plain("other", null),
+        [typeof(SearchViewModel)] = "search",
+        [typeof(ItemViewModel)] = "item",
+        [typeof(EditViewModel)] = "edit",
+        [typeof(ImportViewModel)] = "import",
+        [typeof(ResolveViewModel)] = "resolve",
+        [typeof(InboxViewModel)] = "inbox",
+        [typeof(ShopsViewModel)] = "shops",
+        [typeof(ShopViewModel)] = "shop",
+        [typeof(FolderViewModel)] = "folder",
+        [typeof(StatsViewModel)] = "stats",
+        [typeof(AvatarsViewModel)] = "avatar",
+        [typeof(ModificationHubViewModel)] = "modification",
+        [typeof(ModificationViewModel)] = "modification",
+        [typeof(SettingsViewModel)] = "settings",
+        [typeof(TagManageViewModel)] = "tagManage",
+        [typeof(AttributeManageViewModel)] = "attributeManage",
     };
+
+    /// <summary>
+    /// 画面の型の名前。知らない画面は <c>other</c>（新しい画面を足して書き忘れても、前の画面のままに見せない）。
+    /// 主画面が作る型がどれもここか「画面ではない」の一覧に入っていることは、試験が主画面の命令列から型を集めて確かめる
+    /// </summary>
+    internal static string ScreenNameOf(Type type) => ScreenNames.GetValueOrDefault(type, "other");
+
+    /// <summary>画面の英字の名前と、そこで開いている物（docs/spec/plugins.md の一覧）。画面がまだ無ければ null。</summary>
+    internal static PluginScreen? StateOf(object? screen)
+    {
+        if (screen is null)
+        {
+            return null;
+        }
+
+        var name = ScreenNameOf(screen.GetType());
+        return screen switch
+        {
+            ItemViewModel page => Plain(name, Item(page.Item.Id)),
+            EditViewModel edit => Plain(name, (edit.ItemPage?.Item ?? edit.Item) is { } item ? Item(item.Id) : null),
+            ShopViewModel shop => Plain(name, new PluginTarget("shop", shop.Shop.Subdomain)),
+            FolderViewModel folder => Pane(name, (folder.RightItem.Page ?? folder.Detail as ItemViewModel) is { } page ? Item(page.Item.Id) : null),
+            AvatarsViewModel avatars => Pane(name, avatars.RightItem.Page is { } page
+                ? Item(page.Item.Id)
+                : avatars.Selected is { } row ? new PluginTarget("avatar", row.ItemId) : null),
+            ModificationHubViewModel hub => Pane(name, hub.RightItem.Page is { } page ? Item(page.Item.Id) : HubTarget(hub.Detail)),
+            ModificationViewModel modification => Plain(name, new PluginTarget("modification", modification.Record.Id)),
+
+            // タグ・属性の管理：右に重ねた商品ページだけ
+            IRightPaneItemHost host => Pane(name, host.RightItem.Page is { } page ? Item(page.Item.Id) : null),
+            _ => Plain(name, null),
+        };
+    }
 
     private static PluginTarget Item(string id) => new("item", id);
 

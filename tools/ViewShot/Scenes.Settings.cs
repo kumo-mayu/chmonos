@@ -214,7 +214,7 @@ internal static partial class Scenes
                             Id = "b2", Name = "作り物のWebページ", Origin = "http://localhost:5173",
 
                             // 知らせる操作だけを許したページ（plan 44）
-                            Scopes = [Chmonos.Core.Models.ApiScopes.WatchItemOpened, Chmonos.Core.Models.ApiScopes.WatchSelectionChanged],
+                            Scopes = [Chmonos.Core.Models.ApiScopes.WatchItemOpened, Chmonos.Core.Models.ApiScopes.WatchSelectionChanged, Chmonos.Core.Models.ApiScopes.WatchScreen],
                             TokenHash = new string('1', 64), GrantedAt = DateTimeOffset.Now.AddDays(-1),
                         },
                     ],
