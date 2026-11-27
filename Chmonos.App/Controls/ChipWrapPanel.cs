@@ -32,6 +32,19 @@ public sealed class ChipWrapPanel : Panel
         nameof(MaxLines), typeof(int), typeof(ChipWrapPanel),
         new FrameworkPropertyMetadata(2, FrameworkPropertyMetadataOptions.AffectsMeasure));
 
+    /// <summary>
+    /// 札が並びに置かれて見えているか（このパネルが子に書き、札の中へ受け継ぐ）。札の頭の絵は見えている札だけが読む：
+    /// 隠した札も部品は作られ、結びは見えるかに関わらず働くので、絵を直に結ぶと「ほか n 件」の中の札まで読む。
+    /// 既定は false（並べる前に結びが絵を読まないように）
+    /// </summary>
+    public static readonly DependencyProperty IsPlacedProperty = DependencyProperty.RegisterAttached(
+        "IsPlaced", typeof(bool), typeof(ChipWrapPanel),
+        new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.Inherits));
+
+    public static bool GetIsPlaced(DependencyObject element) => (bool)element.GetValue(IsPlacedProperty);
+
+    public static void SetIsPlaced(DependencyObject element, bool value) => element.SetValue(IsPlacedProperty, value);
+
     public static readonly DependencyProperty RevealRequestedProperty = DependencyProperty.Register(
         nameof(RevealRequested), typeof(bool), typeof(ChipWrapPanel),
         new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsArrange | FrameworkPropertyMetadataOptions.BindsTwoWayByDefault));
@@ -132,6 +145,7 @@ public sealed class ChipWrapPanel : Panel
                 child.Arrange(place);
                 shownChanged |= !child.IsEnabled;
                 child.SetCurrentValue(IsEnabledProperty, true);
+                child.SetCurrentValue(IsPlacedProperty, true);
             }
             else
             {
@@ -140,6 +154,7 @@ public sealed class ChipWrapPanel : Panel
                 child.Arrange(new Rect(0, 0, 0, 0));
                 shownChanged |= child.IsEnabled;
                 child.SetCurrentValue(IsEnabledProperty, false);
+                child.SetCurrentValue(IsPlacedProperty, false);
             }
         }
 

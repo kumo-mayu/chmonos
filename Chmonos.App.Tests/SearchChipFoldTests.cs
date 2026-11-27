@@ -259,6 +259,65 @@ public class SearchChipFoldTests
         Assert.True(KeyboardNavigation.GetIsTabStop(host.Toggle));
     });
 
+    [Fact]
+    public Task 並びに置いた札だけに置いた印が付き_隠した札と並べる前の札には付かない() => UiThread.Run(() =>
+    {
+        // 札の頭の絵はこの印が付いた札だけが読む（隠した札も部品は作られ、結びは見えるかに関わらず働く）
+        using var host = new Host(10);
+
+        var placed = Enumerable.Range(0, 10).Count(index => ChipWrapPanel.GetIsPlaced(host.Container(index)));
+        Assert.Equal(10 - host.Fold.HiddenCount, placed);
+        Assert.True(host.Fold.HiddenCount > 0);
+        Assert.False(ChipWrapPanel.GetIsPlaced(host.Container(9)));
+        Assert.True(ChipWrapPanel.GetIsPlaced(host.Chip(0))); // 札の中の部品へ受け継ぐ
+
+        host.Fold.IsExpanded = true;
+        host.Layout();
+        Assert.True(ChipWrapPanel.GetIsPlaced(host.Container(9)));
+
+        Assert.False(ChipWrapPanel.GetIsPlaced(new Button())); // 並べる前は付かない
+    });
+
+    [Fact]
+    public void 札の絵は読むまで引かず_字が候補の字に揃うと引き直す()
+    {
+        var reads = new List<string>();
+        var module = new ListModule(SearchModuleKind.Avatar, allowsAnd: true, "", "", (_, _, _, _) => true)
+        {
+            IconSelector = text =>
+            {
+                reads.Add(text);
+                return null;
+            },
+        };
+
+        // 状態を戻す時は候補より先に札ができる（字は鍵のまま）
+        module.AddKey("1", notify: false);
+        var chip = module.Chips[0];
+        Assert.True(chip.ShowsIcon);
+        Assert.Empty(reads);
+
+        _ = chip.Icon;
+        Assert.Equal(["1"], reads);
+
+        var changed = new List<string?>();
+        chip.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        module.SetSuggestions([("作り物のアバター（1）", "1")]);
+        Assert.Contains(nameof(ListChip.Icon), changed);
+
+        _ = chip.Icon;
+        Assert.Equal(["1", "作り物のアバター（1）"], reads);
+    }
+
+    [Fact]
+    public void 絵を引かない並びの札は_頭に絵を出さない()
+    {
+        var module = new ListModule(SearchModuleKind.Shop, allowsAnd: false, "", "", (_, _, _, _) => true);
+        module.AddKey("shop1", notify: false);
+
+        Assert.False(module.Chips[0].ShowsIcon);
+    }
+
     /// <summary>幅200の札の並び（札は幅50・中に ×）を出さない窓口に載せた台。並べ方は検索の画面の FoldingChipList と同じ。</summary>
     private sealed class Host : IDisposable
     {

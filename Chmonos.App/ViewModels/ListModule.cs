@@ -33,6 +33,15 @@ public sealed class ListChip : ViewModelBase
                 OnPropertyChanged(nameof(ToolTipText));
                 OnPropertyChanged(nameof(DisplayText));
                 OnPropertyChanged(nameof(Initial));
+
+                // 絵は字から引く（対応アバター：候補の字から商品ID・素体を引く）。状態を戻す時は候補より先に札ができ、
+                // 字は後で候補の字に揃うので、前の字で引いた絵（多くは無し）を覚えたままだと頭文字のまま残る
+                if (IconSource is not null && _iconRead)
+                {
+                    _iconRead = false;
+                    _icon = null;
+                    OnPropertyChanged(nameof(Icon));
+                }
             }
         }
     }
@@ -114,8 +123,9 @@ public sealed class ListChip : ViewModelBase
     public bool HasIconSource => IconSource is not null;
 
     /// <summary>
-    /// 札の頭に小さな絵を出すか（改変の札。絵が無ければ頭文字）。対応アバターの札は吹き出しにだけ絵を出す今の形のまま
-    /// （ユーザ判断 2026-10-06「アバターのアイコンは良いと思います。このままにしましょう」）。
+    /// 札の頭に小さな絵を出すか（改変・対応アバター・プロファイルの欄の札。絵が無ければ頭文字）。
+    /// アバターの札は前は吹き出しにだけ絵を出していた（ユーザ判断 2026-10-06）が、2026-11-27 に「アバターのチップにはアイコンを表示する」（ユーザ判断）。
+    /// 絵は見えている札だけが読む（<see cref="Controls.ChipWrapPanel.IsPlacedProperty"/>）
     /// </summary>
     public bool ShowsIcon { get; internal set; }
 
@@ -714,8 +724,10 @@ public sealed class ListModule : SearchModule
         chip.TrimsMiddle = TrimsMiddle && ChipTextOf is null;
         if (IconSelector is { } icon)
         {
-            // 候補の頭に出す絵と同じ物を、チップの吹き出しにも添える（対応アバター。メモ82）。候補の文字から引くので、乗せた時点の文字で引く
+            // 候補の頭に出す絵と同じ物を、チップの頭と吹き出しにも添える（対応アバター・プロファイルの欄。メモ82・ユーザ判断 2026-11-27）。
+            // 候補の文字から引くので、読む時点の文字で引く。共通素体の札は候補と同じく素体の絵になる
             chip.IconSource = () => icon(chip.Text);
+            chip.ShowsIcon = true;
         }
 
         chip.RemoveCommand = new RelayCommand(() =>

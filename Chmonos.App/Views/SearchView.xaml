@@ -674,8 +674,10 @@
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
                                             <!--
-                                                改変の札だけ、頭に小さな絵（改変の写真 → アバターの絵 → 頭文字。ユーザ指摘 2026-10-06）。
-                                                札の高さを変えないよう、字の高さに収まる14pxにする
+                                                改変の札と、対応アバター・プロファイルの欄の札は、頭に小さな絵（改変の写真 → アバターの絵 → 頭文字。ユーザ指摘 2026-10-06。
+                                                アバターの札はユーザ判断 2026-11-27「アバターのチップにはアイコンを表示する」・共通素体の札は素体の絵）。
+                                                札の高さを変えないよう、字の高さに収まる14pxにする。
+                                                絵は並びに置かれた札だけが読む（ChipWrapPanel.IsPlaced）。隠した札も部品は作られ、直に結ぶと「ほか n 件」の中まで読む
                                             -->
                                             <Border Grid.Column="0" Width="14" Height="14" Margin="-4,0,5,0" CornerRadius="3" ClipToBounds="True"
                                                     Background="{DynamicResource SurfaceAlt}" VerticalAlignment="Center"
@@ -683,7 +685,21 @@
                                                 <Grid>
                                                     <TextBlock Text="{Binding Initial}" FontSize="8.5" Foreground="{DynamicResource TextMuted}"
                                                                HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                    <Image Source="{Binding Icon}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+                                                    <Image Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality">
+                                                        <Image.Style>
+                                                            <Style TargetType="Image">
+                                                                <Style.Triggers>
+                                                                    <MultiDataTrigger>
+                                                                        <MultiDataTrigger.Conditions>
+                                                                            <Condition Binding="{Binding Path=(controls:ChipWrapPanel.IsPlaced), RelativeSource={RelativeSource Self}}" Value="True" />
+                                                                            <Condition Binding="{Binding ShowsIcon}" Value="True" />
+                                                                        </MultiDataTrigger.Conditions>
+                                                                        <Setter Property="Source" Value="{Binding Icon}" />
+                                                                    </MultiDataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Image.Style>
+                                                    </Image>
                                                 </Grid>
                                             </Border>
                                             <!-- 吹き出しは名前と、対応アバターならそのアバターのサムネイル（メモ82。絵は開いたときに読む） -->

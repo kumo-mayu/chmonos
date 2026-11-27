@@ -355,7 +355,7 @@ public class SearchChoiceModulesTests
     });
 
     [Fact]
-    public Task 対応アバターの札は吹き出しに絵を添え_ほかの条件の札は添えない() => TestApp.Run(async app =>
+    public Task 対応アバターの札は頭と吹き出しに絵を添え_ほかの条件の札は添えない() => TestApp.Run(async app =>
     {
         var search = (await app.StartAsync()).Search;
         var avatar = (ListModule)SearchModules.Add(search, SearchModuleKind.Avatar);
@@ -368,8 +368,8 @@ public class SearchChoiceModulesTests
         Assert.True(avatar.Chips.Single().HasIconSource);
         Assert.False(category.Chips.Single().HasIconSource);
 
-        // 札そのものに絵を出すのは改変の札だけ。対応アバターの札は吹き出しだけの今の形（ユーザ判断 2026-10-06）
-        Assert.False(avatar.Chips.Single().ShowsIcon);
+        // 札の頭にも絵を出す（前は吹き出しだけ・ユーザ判断 2026-10-06 → 2026-11-27「アバターのチップにはアイコンを表示する」）
+        Assert.True(avatar.Chips.Single().ShowsIcon);
         Assert.False(category.Chips.Single().ShowsIcon);
     });
 
