@@ -51,9 +51,13 @@ public class DueRefreshTests : IDisposable
         /// <summary>商品ごとの取り直しの結果。無ければ取れた（Updated）。</summary>
         public Dictionary<string, RefreshOutcome> Outcomes { get; } = [];
 
+        /// <summary>取り直しを呼んだ時の段の印（呼んだ順）。</summary>
+        public List<Booth.BoothPriority> Priorities { get; } = [];
+
         public Task<RefreshOutcome> RefreshAsync(string itemId, CancellationToken cancellationToken = default)
         {
             Refreshed.Add(itemId);
+            Priorities.Add(Booth.BoothClient.CurrentPriority);
             return Throws.Contains(itemId)
                 ? throw new IOException("想定外")
                 : Task.FromResult(Outcomes.GetValueOrDefault(itemId, RefreshOutcome.Updated));
@@ -247,6 +251,29 @@ public class DueRefreshTests : IDisposable
 
         Assert.Equal(2, await _due.RunAsync());
         Assert.Equal(["9900008", "9900007"], _items.Refreshed);
+    }
+
+    /// <summary>
+    /// ⑦の取り直しは、呼び手の段に関わらず一番下に近い段（Background）で門に並ぶ。
+    /// 取り込み・人の操作と同時に走っても、それらに先を譲るため。
+    ///
+    /// 呼び手が人の段（User）を掛けていても⑦へ下げる事まで見る。印の無い問い合わせは Background に倒れるので、
+    /// 呼び手の段を掛けないと、⑦の印を付け忘れても通ってしまう（2026-11-28 の点検 M32 は印を①②へ上げても落ちなかった）。
+    /// </summary>
+    [Fact]
+    public async Task RefreshesAtTheBackgroundPriorityWhateverTheCallerHeld()
+    {
+        var now = DateTimeOffset.Now;
+
+        await SaveAsync("9900009", now.AddDays(-2));
+        await SaveAsync("9900010", now.AddDays(-9));
+
+        using (Booth.BoothClient.Prioritize(Booth.BoothPriority.User))
+        {
+            Assert.Equal(2, await _due.RunAsync());
+        }
+
+        Assert.Equal([Booth.BoothPriority.Background, Booth.BoothPriority.Background], _items.Priorities);
     }
 
     /// <summary>

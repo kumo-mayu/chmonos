@@ -25,6 +25,9 @@ public class ImportLadderTests : IDisposable
     /// <summary>BOOTHへ行った順番。ここに梯子がそのまま出る。</summary>
     private readonly List<string> _requests = [];
 
+    /// <summary>問い合わせごとの段の印（<see cref="_requests"/> と同じ順）。門の割り込みの順は、この印で決まる。</summary>
+    private readonly List<BoothPriority> _priorities = [];
+
     public ImportLadderTests()
     {
         _root = Path.Combine(Path.GetTempPath(), "bam-ladder-" + Guid.NewGuid().ToString("N"));
@@ -85,6 +88,7 @@ public class ImportLadderTests : IDisposable
             lock (owner._requests)
             {
                 owner._requests.Add(url);
+                owner._priorities.Add(BoothClient.CurrentPriority);
             }
 
             if (url.EndsWith(".json", StringComparison.Ordinal))
@@ -260,6 +264,38 @@ public class ImportLadderTests : IDisposable
         Assert.Equal(["json", "html", "detect", "image1", "image2", "icon"], kinds);
     }
 
+    /// <summary>
+    /// 各段の問い合わせに、その段の印が付いている（①② Metadata・③ Detection・④ Thumbnail・⑤ Gallery・⑥ ShopIcon）。
+    ///
+    /// 上の試験は1本の取り込みの中のコードの順だけを見るので、印を入れ替えても落ちなかった（2026-11-28 の点検 M03〜M05）。
+    /// 印は、⑦期限・⑧先回り・人の操作と同時に走った時に、門がどちらを先に通すかを決める。
+    /// 印の無い問い合わせは一番下の段（Background）に倒れるので、付け忘れもここで分かる。
+    /// </summary>
+    [Fact]
+    public async Task MarksEachStageWithItsOwnPriority()
+    {
+        var settings = new AppSettings { FetchIntervalMs = 0 };
+        var client = new BoothClient(new HttpClient(new LadderHandler(this)), settings, TestWait.None);
+        var detector = new RecordingAvatarService(_requests, _priorities);
+
+        var pipeline = new ImportPipeline(_store, client, new ImagePipeline(client, _paths, settings), settings, detector);
+
+        await pipeline.RunAsync([CreateSource("111")]);
+
+        var stages = _requests.Select(Kind).Zip(_priorities, (kind, priority) => $"{kind}:{priority}").ToList();
+
+        Assert.Equal(
+            [
+                "json:Metadata",
+                "html:Metadata",
+                "detect:Detection",
+                "image1:Thumbnail",
+                "image2:Gallery",
+                "icon:ShopIcon",
+            ],
+            stages);
+    }
+
     /// <summary>検出が転んでも取り込みは成立する。アバター画面からやり直せる。</summary>
     [Fact]
     public async Task FinishesTheImportEvenWhenDetectionThrows()
@@ -285,7 +321,7 @@ public class ImportLadderTests : IDisposable
     }
 
     /// <summary>検出の呼ばれた位置だけを記録する。中身は別のテストで見ている。</summary>
-    private sealed class RecordingAvatarService(List<string> requests) : IAvatarService
+    private sealed class RecordingAvatarService(List<string> requests, List<BoothPriority>? priorities = null) : IAvatarService
     {
         public string? Fail { get; init; }
 
@@ -299,6 +335,7 @@ public class ImportLadderTests : IDisposable
             lock (requests)
             {
                 requests.Add("detect://ran");
+                priorities?.Add(BoothClient.CurrentPriority);
             }
 
             if (Fail is { } message)
