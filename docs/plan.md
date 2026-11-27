@@ -247,7 +247,9 @@
       - 済み：④ 変換の組（a6e80e8b。`GET /v1/conversion-pairs`。内部の一覧の決め事は `docs/spec/local-api-internal.md` へ分けた dba82d71）
       - 後で決める：内部の一覧5本（recent・folders・excluded・unresolved・conversion-pairs）を MCP に出すか。出すなら、変換の組は端が隠したアバターの組を組ごと落とす処理が要る（今の `Visibility.Scrub` は入れ子の端を見ない）
       - 記録だけ：`docs/spec/item-page.md` が202行で、1ファイル200行の決まりを超えている（前から）
-      - 作っている：保存した検索を条件にする・1階層のフォルダ（`docs/spec/search-saved.md`「条件にする・フォルダ」。ユーザ判断「3と5も含めてその形で良いと思う」）→ ⑤ 保存した検索（その形を出す）
+      - 済み：保存した検索の1階層のフォルダ（515234bb。古い版 v1.2.0 は `folder` を無視して読み、書き戻すと落とす・知らない条件の種類は飛ばして読み、文字列のまま残す〔担当がコードで確かめた〕）
+      - 判断待ち：条件「保存した検索」の別表記の扱いと、元が無い・輪の時の「除く」
+      - 次：保存した検索を条件にする・1階層のフォルダ（`docs/spec/search-saved.md`「条件にする・フォルダ」。ユーザ判断「3と5も含めてその形で良いと思う」）→ ⑤ 保存した検索（その形を出す）
    2. 開いた画面に付いていく（`screenChanged`・`GET /v1/plugin/current`・`watch.screen`）
    3. 右クリックの5か所（file・unityPackage・modification・avatar・shop）
    4. 拡張データ：上限を測る（測る前に kumo-ime に聞く・VRChat 中は測らない）→ 宣言と値と include → 画面 → 検索の条件と目盛り → まとめて書く口
