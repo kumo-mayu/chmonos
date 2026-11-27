@@ -136,6 +136,29 @@ public sealed class ItemDeleteTests : IDisposable
     }
 
     /// <summary>
+    /// 本当に重ねる：取り込みが錠を持ってファイルを足しかけている間に「空なら消す」を始め、錠の前まで来てから放す。
+    /// 上の試験は順に呼ぶだけで、DeleteIfAsync の錠を外しても通っていた（2026-11-28 の点検 M17）。
+    /// 錠が無いと、足す前の空を見て消してしまう（その後に取り込みが書き戻して商品は生き返るが、消したと答え、説明 HTML は消えている）
+    /// </summary>
+    [Fact]
+    public async Task DoesNotDeleteWhenAFileIsAddedWhileDeciding()
+    {
+        await SaveItemAsync();
+        await _store.Items.SaveDescriptionHtmlAsync(ItemId, "<p>説明</p>");
+        var deleted = (bool?)null;
+
+        await ItemLockRace.WhileAnotherWriterChangesAsync(
+            _store,
+            ItemId,
+            local => ItemLockRace.AddFile(local),
+            async () => deleted = await _store.Items.DeleteIfAsync(ItemId, item => item.Local.LocalFiles.Count == 0));
+
+        Assert.False(deleted);
+        Assert.Equal("BBBB", Assert.Single((await _store.Items.LoadAsync(ItemId))!.Local.LocalFiles).Hash);
+        Assert.True(File.Exists(_paths.ItemHtmlFile(ItemId)));
+    }
+
+    /// <summary>
     /// 移してから消す間は元の商品の錠を持つ。その間に来た書き込みは消した後に回り、**消えた商品を作り直さずに断られる**
     /// （前は読み直してから消すまでの間に書けて、書いた分が元と一緒に黙って消えていた）。
     /// </summary>

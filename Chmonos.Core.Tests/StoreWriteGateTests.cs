@@ -133,4 +133,137 @@ public class StoreWriteGateTests : IDisposable
         await saving.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.True(File.Exists(path));
     }
+
+    /// <summary>
+    /// 専用のスレッドで同期の口を走らせ、門で止まる（待ちの状態になる）か、終わるまで見る。
+    /// 時計は試験が止まったままにならないための打ち切りだけで、門が効いていれば止まった所で返る
+    /// </summary>
+    private static Thread StartAndWaitUntilBlocked(Action action, Action<Exception> failed)
+    {
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception exception)
+            {
+                failed(exception);
+            }
+        })
+        { IsBackground = true };
+        thread.Start();
+
+        var waited = System.Diagnostics.Stopwatch.StartNew();
+        while (thread.IsAlive && !thread.ThreadState.HasFlag(ThreadState.WaitSleepJoin) && waited.Elapsed < TimeSpan.FromSeconds(10))
+        {
+            Thread.Sleep(1);
+        }
+
+        return thread;
+    }
+
+    /// <summary>
+    /// 同期の入口も、運んでいる間は呼んだスレッドを止めて待たせ、開けたら通す。
+    /// 非同期の口しか見ていなかったので、同期の Enter が閉じた門を素通りしても通っていた（2026-11-28 の点検 M19）。
+    /// 同期で書くのは unitypackage の控えなど裏のスレッドの保存で、引越しの間に古い場所へ書かれると失われる
+    /// </summary>
+    [Fact]
+    public async Task SyncEnterWaitsWhileMoving()
+    {
+        var entered = 0;
+        Exception? failure = null;
+        var hold = await StoreWriteGate.HoldAsync().WaitAsync(TimeSpan.FromSeconds(10));
+        Thread thread;
+        try
+        {
+            thread = StartAndWaitUntilBlocked(
+                () =>
+                {
+                    using var writing = StoreWriteGate.Enter();
+                    Volatile.Write(ref entered, 1);
+                },
+                exception => failure = exception);
+
+            Assert.True(thread.IsAlive);
+            Assert.Equal(0, Volatile.Read(ref entered));
+        }
+        finally
+        {
+            hold.Dispose();
+        }
+
+        Assert.True(thread.Join(TimeSpan.FromSeconds(10)));
+        Assert.Null(failure);
+        Assert.Equal(1, Volatile.Read(ref entered));
+    }
+
+    /// <summary>
+    /// 同期の <see cref="JsonStore.Write{T}"/> も門を通る（<see cref="JsonSavesWaitWhileMoving"/> の同期版）。
+    /// 同期の Write が門を通らなくなっても通っていた（2026-11-28 の点検 M25）
+    /// </summary>
+    [Fact]
+    public async Task SyncJsonSavesWaitWhileMoving()
+    {
+        var path = Path.Combine(_directory, "sync.json");
+        Exception? failure = null;
+        var hold = await StoreWriteGate.HoldAsync().WaitAsync(TimeSpan.FromSeconds(10));
+        Thread thread;
+        try
+        {
+            thread = StartAndWaitUntilBlocked(() => JsonStore.Write(path, new { Name = "x" }), exception => failure = exception);
+
+            Assert.True(thread.IsAlive);
+            Assert.False(File.Exists(path));
+        }
+        finally
+        {
+            hold.Dispose();
+        }
+
+        Assert.True(thread.Join(TimeSpan.FromSeconds(10)));
+        Assert.Null(failure);
+        Assert.True(File.Exists(path));
+    }
+
+    /// <summary>
+    /// 商品を消すのも書き込みなので、運んでいる間は待ち、開けたら消す。
+    /// 削除が門を通らなくなっても通っていた（2026-11-28 の点検 M26）。運んでいる間に消すと、写し済みの側に商品が残って生き返る。
+    ///
+    /// 錠の中の条件（門の直前）で「ここまで来た」を受け取る。非同期の待ちは外から見えないので、その後は打ち切りつきで
+    /// 終わらない事を見る。門が効いていれば打ち切りまで待つだけで、待ちが短すぎても見逃しの側に倒れるだけ（誤って落ちない）。
+    /// 200ms は、門を素通りした削除（ファイル3つと空のフォルダ）が終わるのに十分で、この試験を重くしない長さ
+    /// </summary>
+    [Fact]
+    public async Task ItemDeletesWaitWhileMoving()
+    {
+        const string itemId = "777";
+        var store = new DataStore(new AppPaths(Path.Combine(_directory, "store")));
+        store.Paths.EnsureCreated();
+        await store.Items.SaveAsync(new Models.ItemRecord { Id = itemId, Booth = new Models.BoothBlock(), Local = new Models.LocalBlock() });
+        var decided = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var hold = await StoreWriteGate.HoldAsync().WaitAsync(TimeSpan.FromSeconds(10));
+        Task<bool> deleting;
+        try
+        {
+            deleting = Task.Run(() => store.Items.DeleteIfAsync(itemId, _ =>
+            {
+                decided.TrySetResult();
+                return true;
+            }));
+            await decided.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            await Task.WhenAny(deleting, Task.Delay(TimeSpan.FromMilliseconds(200)));
+
+            Assert.False(deleting.IsCompleted);
+            Assert.True(File.Exists(store.Paths.ItemFile(itemId)));
+        }
+        finally
+        {
+            hold.Dispose();
+        }
+
+        Assert.True(await deleting.WaitAsync(TimeSpan.FromSeconds(10)));
+        Assert.False(File.Exists(store.Paths.ItemFile(itemId)));
+    }
 }
