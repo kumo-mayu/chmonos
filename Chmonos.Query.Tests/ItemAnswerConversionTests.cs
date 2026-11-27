@@ -102,6 +102,25 @@ public sealed class ItemAnswerConversionTests : IDisposable
         Assert.Equal("notProfile", plain.EffectiveMode);
     }
 
+    /// <summary>
+    /// 人が「プロファイルではない」と決めた商品は、中にプロファイルがあっても実質 notProfile。人が決めた扱いは mode にそのまま返す
+    /// （2026-11-28 の点検：mode の notProfile を通す試験が無く、取り違えても落ちなかった）
+    /// </summary>
+    [Fact]
+    public async Task 人が決めた扱いは_自動の判定より先に効き_modeにそのまま返す()
+    {
+        var store = await StoreAsync();
+        var item = (await store.Items.LoadAsync("9900001"))!;
+        await store.Items.SaveAsync(item with { Local = item.Local with { Conversion = new ConversionSetting { Mode = ConversionMode.NotProfile } } });
+        var snapshot = await QuerySnapshot.LoadAsync(store);
+
+        var conversion = ItemMapper.Detail(snapshot.ItemsById["9900001"], snapshot).Conversion;
+        Assert.Equal("notProfile", conversion.Mode);
+        Assert.True(conversion.HasProfileFiles);
+        Assert.Equal("notProfile", conversion.EffectiveMode);
+        Assert.Equal("notProfile", Json(ItemMapper.Detail(snapshot.ItemsById["9900001"], snapshot)).GetProperty("conversion").GetProperty("mode").GetString());
+    }
+
     /// <summary>対応アバター（compatibleAvatars と avatarLinks）と同じ分け方：既定は外した物を除き確認待ちは入れる、帳簿は頼んだときだけ全部</summary>
     [Fact]
     public async Task つなぎ先は_既定で外した物を除き_帳簿は頼んだときだけ外した物も返す()

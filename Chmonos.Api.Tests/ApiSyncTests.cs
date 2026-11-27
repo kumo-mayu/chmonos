@@ -108,8 +108,13 @@ public sealed class ApiSyncTests : IAsyncLifetime
         _sync.SetBusy("import", since);
         Assert.Equal(JsonValueKind.Null, (await ProgressAsync()).ValueKind);
 
-        // 走査の途中は 0 / 0 で、取る物が無いのと見分けられないので返さない
-        await _store.ImportState.SaveAsync(new ImportState { StoppedAt = since.AddMinutes(1), Scanning = true });
+        // 走査の途中は返さない。2周目からの走査は前の周回の数（Total > 0）を持ったまま走るので、0 / 0 でない場合で見る
+        // （0 / 0 だけで見ると、走査の印を見ずに Total だけで断る誤りを見逃す。2026-11-28 の点検）
+        await _store.ImportState.SaveAsync(new ImportState { Done = 2, Total = 5, StoppedAt = since.AddMinutes(1), Scanning = true });
+        Assert.Equal(JsonValueKind.Null, (await ProgressAsync()).ValueKind);
+
+        // 走査を終えても取る物が無い回（全体が 0）は返さない
+        await _store.ImportState.SaveAsync(new ImportState { Done = 0, Total = 0, StoppedAt = since.AddSeconds(90) });
         Assert.Equal(JsonValueKind.Null, (await ProgressAsync()).ValueKind);
 
         await _store.ImportState.SaveAsync(new ImportState { Done = 2, Total = 5, StoppedAt = since.AddMinutes(2) });

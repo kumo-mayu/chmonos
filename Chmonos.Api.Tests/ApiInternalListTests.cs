@@ -252,6 +252,23 @@ public sealed class ApiInternalListTests : IAsyncLifetime
         Assert.Equal(Day1, oldest.GetProperty("excludedAt").GetDateTimeOffset());
         Assert.Equal(JsonValueKind.Null, second.GetProperty("nextCursor").ValueKind);
 
+        // 1件ずつたどると、ページの境が同じ日時（2 と 3 は Day2）の間に来る。印が記録の位置を持たないと、同じ日時の2件目を飛ばす
+        // （まとめて外すと同じ日時が何千件も並ぶ。2026-11-28 の点検）
+        var walked = new List<string>();
+        string? next = null;
+        for (var page = 0; page < 5; page++)
+        {
+            var answer = await JsonOf("/v1/excluded?limit=1" + (next is null ? string.Empty : "&cursor=" + Uri.EscapeDataString(next)));
+            walked.AddRange(Ids(answer, "hash"));
+            next = answer.GetProperty("nextCursor").GetString();
+            if (next is null)
+            {
+                break;
+            }
+        }
+
+        Assert.Equal([new string('3', 64), new string('2', 64), new string('1', 64)], walked);
+
         // 画面が外した（見張りの知らせと同じ道：excluded.json の場所から部分を見分けて読み直す）
         await _store.Excluded.SaveAsync([new ExcludedEntry { Hash = new string('4', 64), Paths = [@"D:\inbox\d.zip"], ExcludedAt = Day3, Reason = ExcludeSources.ResolveArchiveText }]);
         _sync.Note(_store.Paths.ExcludedFile);
@@ -287,6 +304,15 @@ public sealed class ApiInternalListTests : IAsyncLifetime
         }
 
         Assert.Equal(sequence, (await JsonOf("/v1/changes")).GetProperty("sequence").GetInt64());
+
+        // 読み直してはいる：直った記録は、次の見比べで読み、知らせる（読み直さない誤りでは、上の「知らせない」だけでは見分けられない）
+        await _store.Excluded.SaveAsync([new ExcludedEntry { Hash = new string('4', 64), Paths = [@"D:\inbox\d.zip"], ExcludedAt = Day3 }]);
+        var repaired = new Chmonos.Query.StoreChangeSet();
+        repaired.Add(Chmonos.Query.StorePart.Excluded);
+        _sync.Enqueue(repaired);
+        await _sync.ApplyPendingAsync();
+        Assert.Equal([new string('4', 64)], Ids(await JsonOf("/v1/excluded"), "hash"));
+        Assert.True((await JsonOf("/v1/changes")).GetProperty("sequence").GetInt64() > sequence);
     }
 
     [Fact]
