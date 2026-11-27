@@ -53,6 +53,7 @@
 | [data-format.md](spec/data-format.md) | 保存データの形式の版（ファイルごと・保存先ごと）、起動したときの確かめ、形式を上げる前の控え、新しい版の確認 |
 | [local-api.md](spec/local-api.md) | 外から使う API：アプリと同じプロセスがローカルの HTTP で答える（設定でオン）、読むだけ、同期・守り・ブラウザから・共通の決まり |
 | [local-api-shapes.md](spec/local-api-shapes.md) | 外から使う API の URL の一覧（広めの案）・商品1件の形・検索の式（AND・OR・NOT）・SSE の出来事 |
+| [local-api-extensions.md](spec/local-api-extensions.md) | [採用]・まだ作っていない 外のソフトが商品・改変・ファイル・ショップ・全体に自分の情報を置く（拡張データ）：名前空間・欄の宣言と型（表を含む）・持ち主だけが読めるメモ欄・人は見るだけ・別のファイルに置く |
 | [local-api-stored.md](spec/local-api-stored.md) | 外から使う API で手元に控えた情報を読む道：unitypackage の中身と GUID の逆引き（持ち方とメモリの計測）ほか、控えごとの URL・形・出す範囲 |
 | [api-clients.md](spec/api-clients.md) | 外から使う API のソフトごとの許し：許しを求める流れ・窓・書き込みの種類・ハッシュの控え（`api-clients.json`）・設定の「つないでいるソフト」・古い `api.json` のトークンの扱い |
 | [plugins.md](spec/plugins.md) | [採用]・①②とも実装 許したソフトが右クリックなどに項目を宣言して足し、押されたら宣言した情報を詰めて知らせる・画面の操作の購読。届け方はソフトが取りに来る（長く待つ GET）。v1.3.0 に入れる見込み |
