@@ -252,5 +252,5 @@
       - 作っている：⑤ 保存した検索を API に出す（フォルダ・含める物・条件 `savedSearch` に入れる名前を引けるように）
    2. 開いた画面に付いていく（`screenChanged`・`GET /v1/plugin/current`・`watch.screen`）
    3. 右クリックの5か所（file・unityPackage・modification・avatar・shop）
-   4. 拡張データ（編集画面で人が直せる `editable` の欄を含む。ユーザ判断 2026-11-27「拡張性を考えてBで行きましょう」）：上限を測る（測る前に kumo-ime に聞く・VRChat 中は測らない）→ 宣言と値と include → 画面 → 検索の条件と目盛り → まとめて書く口
+   4. 拡張データ（編集画面で人が直せる `editable` の欄を含む。ユーザ判断 2026-11-27「拡張性を考えてBで行きましょう」。欄をまとめる `group` も「Aのgroup案を採用」）：上限を測る（測る前に kumo-ime に聞く・VRChat 中は測らない）→ 宣言と値と include → 画面 → 検索の条件と目盛り → まとめて書く口
    - 確かめる事：`manual/40-api.md` に担当が足した3か所の文言（public-docs で点検）。本番に、上の不具合で読めない記録が出ているか（ユーザが見る）
