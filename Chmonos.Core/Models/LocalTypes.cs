@@ -94,8 +94,15 @@ public sealed record VariationTarget
     /// <summary>
     /// どのバリエーションか。**null は「バリエーションを選ばない購入」**（ユーザ指摘 2026-11-07：種類の分からない購入でも、何のアバター向けに買ったかは言える）。
     /// 人が決めた行だけが null を持つ（検出はバリエーションの名前から引くので、いつも ID がある）。
+    /// <para>
+    /// null でも欄を書く（人が JSON を読んだ時に、選ばない購入の行だと分かるように）。必須にはしない：
+    /// 保存は null の欄を書かない設定なので、2026-11-07〜11-27 の開発版は選ばない購入の行を <c>variationId</c> 無しで書いていて、
+    /// 必須のままだとその商品の記録が丸ごと読めなかった。欄が無ければ null（選ばない購入）と読む。
+    /// </para>
     /// </summary>
-    public required long? VariationId { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(
+        Condition = System.Text.Json.Serialization.JsonIgnoreCondition.Never)]
+    public long? VariationId { get; init; }
 
     /// <summary>向き先のアバター（商品 ID）。</summary>
     public IReadOnlyList<string> Avatars { get; init; } = [];

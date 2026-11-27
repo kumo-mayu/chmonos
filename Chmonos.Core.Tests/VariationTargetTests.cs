@@ -340,4 +340,20 @@ public class VariationTargetTests
             Toggles = new Dictionary<string, bool> { [SearchModuleConditions.OwnedVariationsToggle] = true },
         })!.Matches(item, manualOnly));
     }
+
+    // 選ばない購入の行（VariationId が null）は、2026-11-27 まで欄を書かずに保存され、必須の欄が無いと読めなかった。
+    // 書いた物を読み直せること、前に欄無しで書かれた行も「選ばない購入」として読めることを確かめる
+    [Fact]
+    public void バリエーションを選ばない購入の行は_書いて読み直せ_欄の無い前の行も読める()
+    {
+        var written = System.Text.Json.JsonSerializer.Serialize(
+            new VariationTarget { VariationId = null, Avatars = ["7000001"] }, Chmonos.Core.Storage.JsonStore.Options);
+        Assert.Contains("\"variationId\": null", written);
+        Assert.Null(System.Text.Json.JsonSerializer.Deserialize<VariationTarget>(written, Chmonos.Core.Storage.JsonStore.Options)!.VariationId);
+
+        var older = System.Text.Json.JsonSerializer.Deserialize<VariationTarget>(
+            """{ "avatars": ["7000001"] }""", Chmonos.Core.Storage.JsonStore.Options)!;
+        Assert.Null(older.VariationId);
+        Assert.Equal(["7000001"], older.Avatars);
+    }
 }
