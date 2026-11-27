@@ -241,8 +241,9 @@
       - 済み：作る中で見つけた、選ばない購入の向き先で商品の記録が読めなくなる不具合（b8160f76。11-07 以降の開発版で書いた記録も読める）
       - 済み：変換のつなぎ先を対応アバターの答えに揃えた（12ece092。外した物は `include=conversionTargets`）・「変換扱いか」の実質の扱いを Core へ移して答えに `effectiveMode` を足した（a6d69272・`ConversionTreatments`。ユーザ判断「3は揃えた方が良い」「4はCoreへ移しましょう」）
       - 記録だけ：Core の `SearchModuleConditions.IsProfileItem`（検索の条件「プロファイル」・商品ページの欄を出すか）は一番上のフォルダだけを見る別の問いで、`ConversionTreatments` と揃えていない（担当の報告 2026-11-27）
-      - 作っている：② excluded・recent・folders
-      - ③ unresolved・取り込みの進み具合 ④ 変換の組 → 保存した検索を条件にする・1階層のフォルダ（`docs/spec/search-saved.md`「条件にする・フォルダ」。ユーザ判断「3と5も含めてその形で良いと思う」）→ ⑤ 保存した検索（その形を出す）
+      - 済み：② excluded・recent・folders（9da4e8fb・40b12db7・f8b67b52・74f223aa。OpenAPI で頼んだ時だけの欄が必須でない事の試験 59676d24、外した記録が読めない間に変化を流し続けた不具合の直し 6ea4299e）
+      - 判断待ち：excluded の `reason` は画面の固定の日本語の文（どこから外したか）をそのまま返している。英字の値にするか
+      - 作っている：③ unresolved・取り込みの進み具合 ④ 変換の組 → 保存した検索を条件にする・1階層のフォルダ（`docs/spec/search-saved.md`「条件にする・フォルダ」。ユーザ判断「3と5も含めてその形で良いと思う」）→ ⑤ 保存した検索（その形を出す）
    2. 開いた画面に付いていく（`screenChanged`・`GET /v1/plugin/current`・`watch.screen`）
    3. 右クリックの5か所（file・unityPackage・modification・avatar・shop）
    4. 拡張データ：上限を測る（測る前に kumo-ime に聞く・VRChat 中は測らない）→ 宣言と値と include → 画面 → 検索の条件と目盛り → まとめて書く口
