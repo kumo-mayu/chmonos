@@ -190,6 +190,31 @@ public sealed class ApiUnitySendsTests
     }
 
     [Fact]
+    public async Task 見直しは_取り消しで_Unityが開いたまま_照らし合わせられる時だけ数えに行く()
+    {
+        Func<int> grown = () => 102;
+        Func<int> mustNotCount = () => throw new InvalidOperationException("数えに行った");
+
+        Assert.Equal((UnityImportState.Imported, 102), await UnityImportQueue.RecheckAsync(UnityImportState.Cancelled, false, 0, grown, CancellationToken.None));
+        Assert.Equal((UnityImportState.Cancelled, 0), await UnityImportQueue.RecheckAsync(UnityImportState.Cancelled, false, 0, () => 0, CancellationToken.None));
+
+        // Unity が閉じた：途中で落ちた物を「取り込んだ」と言わない
+        Assert.Equal((UnityImportState.Cancelled, (int?)null), await UnityImportQueue.RecheckAsync(UnityImportState.Cancelled, true, 0, mustNotCount, CancellationToken.None));
+
+        // 取り消し以外・照らし合わせられない物は数えない
+        Assert.Equal((UnityImportState.Imported, (int?)null), await UnityImportQueue.RecheckAsync(UnityImportState.Imported, false, 0, mustNotCount, CancellationToken.None));
+        Assert.Equal((UnityImportState.Cancelled, (int?)null), await UnityImportQueue.RecheckAsync(UnityImportState.Cancelled, false, 0, null, CancellationToken.None));
+    }
+
+    [Fact]
+    public void 入っている数は_照らし合わせが無ければ0()
+    {
+        // 照らし合わせは1件も入っていない物を結果に入れない。0 で無い値にすると、取り込んで増えた物も「増えていない」と見て取り消しのままになる
+        Assert.Equal(0, UnityImportQueue.PresentOf(null));
+        Assert.Equal(40, UnityImportQueue.PresentOf(new Chmonos.Core.Services.UnityProjectMatch("9600001", 40, 102)));
+    }
+
+    [Fact]
     public void 送る部品の結果を_状態の値にする()
     {
         var package = new UnityPackageEntry(@"C:\作り物\a.zip", "A.unitypackage", 0);

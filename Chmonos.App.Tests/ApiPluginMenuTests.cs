@@ -34,7 +34,8 @@ public sealed class ApiPluginMenuTests
     }
 
     /// <summary>作り物の商品を並べ、項目を宣言済みのソフトを控えに書いて、API を始める。</summary>
-    private static async Task<(MainViewModel Main, HttpClient Client)> StartAsync(TestApp app, string name = "作り物_道具", IApiClientApprovals? approvals = null)
+    private static async Task<(MainViewModel Main, HttpClient Client)> StartAsync(
+        TestApp app, string name = "作り物_道具", IApiClientApprovals? approvals = null, IReadOnlyList<PluginMenuItemRecord>? extraMenu = null)
     {
         for (var index = 1; index <= 3; index++)
         {
@@ -59,6 +60,7 @@ public sealed class ApiPluginMenuTests
                         new PluginMenuItemRecord { Id = "send", Label = "送る_1", Where = ["item", "selection"], Needs = ["name"] },
                         new PluginMenuItemRecord { Id = "owned-only", Label = "持っている物だけ", Where = ["item"], When = new PluginMenuWhen { Owned = true } },
                         new PluginMenuItemRecord { Id = "avatar-info", Label = "アバターを調べる", Where = ["avatar"], Needs = ["name"] },
+                        .. extraMenu ?? [],
                     ],
                 },
             ],
@@ -418,6 +420,34 @@ public sealed class ApiPluginMenuTests
         Assert.Equal("item", item.GetProperty("where").GetString());
         Assert.Equal("作り物の商品1", item.GetProperty("items")[0].GetProperty("name").GetString());
         Assert.Equal(JsonValueKind.Null, item.GetProperty("avatar").ValueKind);
+    });
+
+    [Fact]
+    public Task アバターの行で_アバターと商品の両方に出す項目は1つだけ並べ_アバターとして送る() => TestApp.Run(async app =>
+    {
+        // 同じ項目が2つ並ぶと、どちらがどう送るか人に分からない。狭い場所（アバター）を先に渡すので、アバターの方だけを出す
+        var (main, client) = await StartAsync(app, extraMenu: [new PluginMenuItemRecord { Id = "both", Label = "両方に出す", Where = ["avatar", "item"], Needs = ["name"] }]);
+        try
+        {
+            await PollAsync(client);
+            var menu = new ContextMenu();
+            PluginMenuItems.AttachTo(menu, app.Services.PluginMenus, [Chmonos.Api.PluginMenuSpot.Avatar("9600701"), Chmonos.Api.PluginMenuSpot.Items(PluginMenus.WhereItem, ["9600701"])]);
+            var software = Assert.Single(((MenuItem)menu.Items[^1]!).Items.Cast<MenuItem>());
+            Assert.Equal(["アバターを調べる", "両方に出す", "送る__1", "持っている物だけ"], software.Items.Cast<MenuItem>().Select(item => (string)item.Header));
+
+            Child(software, 1).RaiseEvent(new System.Windows.RoutedEventArgs(MenuItem.ClickEvent));
+            await WaitForEventsAsync(client, 1);
+            var pressed = JsonDocument.Parse(await client.GetStringAsync("/v1/plugin/events?after=0&wait=0")).RootElement.GetProperty("events")[0].GetProperty("menu");
+            Assert.Equal("both", pressed.GetProperty("id").GetString());
+            Assert.Equal("avatar", pressed.GetProperty("where").GetString());
+            Assert.Equal("9600701", pressed.GetProperty("avatar").GetProperty("id").GetString());
+            Assert.Equal(JsonValueKind.Null, pressed.GetProperty("items").ValueKind);
+        }
+        finally
+        {
+            client.Dispose();
+            await app.Services.Api.StopAsync();
+        }
     });
 
     private static async Task WaitForEventsAsync(HttpClient client, int count)

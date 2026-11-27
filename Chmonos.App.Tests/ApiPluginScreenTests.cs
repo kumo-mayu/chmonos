@@ -160,6 +160,60 @@ public sealed class ApiPluginScreenTests
         Assert.Equal(JsonValueKind.Null, item.GetProperty("selection").ValueKind);
     });
 
+    private static async Task SubscribeAsync(HttpClient client, bool screen)
+    {
+        var body = screen ? """{"kinds":["screenChanged"]}""" : """{"kinds":[]}""";
+        var response = await client.PutAsync("/v1/plugin/subscriptions", new StringContent(body, Encoding.UTF8, "application/json"));
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    // 誰も購読していない間は、前に流した画面を忘れる。覚えたままだと、購読を止めている間に A→B→A と移った後、
+    // 購読し直して同じ A を開いても「前と同じ」と見て流さず、ソフトは今の画面を知らないままになる
+
+    [Fact]
+    public Task 購読が無い間に画面を移ったら_購読し直した後の同じ画面も流す() => Run(async (app, main, client, time) =>
+    {
+        var item = main.Search.ListItems[0].Item;
+        main.ShowItem(item);
+        Assert.Equal($"item:item/{item.Id}", await LastAsync(client));
+
+        await SubscribeAsync(client, screen: false);
+        main.ShowSearch();
+        main.ShowItem(item);
+        await SubscribeAsync(client, screen: true);
+        var count = (await ScreensAsync(client)).Length;
+
+        main.ShowItem(item);
+        var screens = await ScreensAsync(client);
+        Assert.Equal(count + 1, screens.Length);
+        Assert.Equal($"item:item/{item.Id}", Describe(screens[^1]));
+    });
+
+    [Fact]
+    public Task 購読が無い間に右の欄が替わったら_購読し直した後の同じ商品も流す() => Run(async (app, main, client, time) =>
+    {
+        var cards = main.Search.ListItems;
+        main.ShowFolders();
+        await app.SettleAsync();
+        var folder = Assert.IsType<FolderViewModel>(main.CurrentViewModel);
+        folder.RightItem.Open(cards[0].Item);
+        time.Advance(PluginScreenTracker.Delay);
+        Assert.Equal($"folder:item/{cards[0].Item.Id}:embedded", await LastAsync(client));
+
+        // 購読の無い間に閉じる（画面の中の変化として拾う道。画面の差し替えは通らない）
+        await SubscribeAsync(client, screen: false);
+        folder.RightItem.Close();
+        time.Advance(PluginScreenTracker.Delay);
+        await SubscribeAsync(client, screen: true);
+        var count = (await ScreensAsync(client)).Length;
+
+        folder.RightItem.Open(cards[0].Item);
+        time.Advance(PluginScreenTracker.Delay);
+        var screens = await ScreensAsync(client);
+        Assert.Equal(count + 1, screens.Length);
+        Assert.Equal($"folder:item/{cards[0].Item.Id}:embedded", Describe(screens[^1]));
+    });
+
     /// <summary>最後に流れた画面（まだ何も流れていなければ null）。</summary>
     private static async Task<string?> LastAsync(HttpClient client)
         => (await ScreensAsync(client)) is { Length: > 0 } screens ? Describe(screens[^1]) : null;
@@ -188,6 +242,14 @@ public sealed class ApiPluginScreenTests
 
         time.Advance(PluginScreenTracker.Delay);
         Assert.Equal("folder:item/9600801:embedded", await LastAsync(client));
+
+        // 行の選び（Selected）は変わらず、右の中身（Detail）だけが替わる道：右の商品ページが商品ごと消えたと知らせる。
+        // 行の選びの知らせでも流れてしまうので、Detail の名前を外したことは、この道でしか気付けない。
+        // 知らせの直後に（木の読み直しを待たずに）進めるのは、読み直しが同じ行を選び直して右を戻すため
+        Assert.IsType<ItemViewModel>(folders.Detail).Replaced!(null);
+        Assert.Null(folders.Detail);
+        time.Advance(PluginScreenTracker.Delay);
+        Assert.Equal("folder:-", await LastAsync(client));
     });
 
     [Fact]

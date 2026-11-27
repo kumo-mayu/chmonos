@@ -659,4 +659,40 @@ public sealed class PluginMenuTests : IAsyncLifetime
         var items = await MenuEventAsync(PluginMenuSpot.Items(PluginMenus.WhereItem, [WithPackage]), "av");
         Assert.Equal("作り物の上着", Assert.Single(items.EnumerateArray()).GetProperty("name").GetString());
     }
+
+    [Fact]
+    public async Task ファイルの場所でpathsを頼まなければ_ファイルの場所は渡さない()
+    {
+        // ファイルの場所はフォルダの名前に人の名前が入り得る（個人の情報）。頼んだソフトにだけ渡す
+        var put = PutMenuAsync(new { items = new[] { new { id = "file-state", label = "状態を見る", where = new[] { "file" }, needs = new[] { "state" } } } });
+        (await _approvals.NextAsync()).Answer(new ApiClientDecision(true, []));
+        Assert.Equal(HttpStatusCode.Accepted, (await put).StatusCode);
+        await WaitUntilAsync(() => _hub.MenusFor(PluginMenuSpot.File(WithPackage, Hash)).Count > 0);
+        await PollAsync();
+
+        var file = await MenuEventAsync(PluginMenuSpot.File(WithPackage, Hash), "file-state");
+        Assert.Equal(Hash, file.GetProperty("hash").GetString());
+        Assert.Equal("present", file.GetProperty("state").GetString());
+        Assert.Equal(JsonValueKind.Null, file.GetProperty("paths").ValueKind);
+        Assert.Equal(JsonValueKind.Null, file.GetProperty("itemId").ValueKind);
+    }
+
+    [Fact]
+    public async Task ファイル_unitypackage_アバターの場所の条件は_持ち主の商品に当てる()
+    {
+        // 当てる所が外れると、条件に合わない物でも押せてしまう。場所ごとに合わない・合うの両方を見る
+        var snapshot = await QuerySnapshot.LoadAsync(_store);
+        var file = PluginMenuSpot.File(WithPackage, Hash);
+        Assert.Equal(PluginMenuBlock.HasUnityPackage, PluginMenus.Check(new PluginMenuWhenRef(false, null, null, null), file, snapshot).Block);
+        Assert.True(PluginMenus.Check(new PluginMenuWhenRef(true, null, null, null), file, snapshot).IsOk);
+
+        var package = PluginMenuSpot.UnityPackage(WithPackage, Hash, "coat.unitypackage");
+        Assert.Equal(PluginMenuBlock.Owned, PluginMenus.Check(new PluginMenuWhenRef(null, false, null, null), package, snapshot).Block);
+        Assert.True(PluginMenus.Check(new PluginMenuWhenRef(null, true, null, null), package, snapshot).IsOk);
+
+        // アバターは、アバターの商品（ファイルを持たない作り物）に当てる
+        var avatar = PluginMenuSpot.Avatar(WithoutFiles);
+        Assert.Equal(PluginMenuBlock.NotOwned, PluginMenus.Check(new PluginMenuWhenRef(null, true, null, null), avatar, snapshot).Block);
+        Assert.True(PluginMenus.Check(new PluginMenuWhenRef(null, false, null, null), avatar, snapshot).IsOk);
+    }
 }
