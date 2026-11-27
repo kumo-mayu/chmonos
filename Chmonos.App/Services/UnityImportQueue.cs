@@ -815,4 +815,45 @@ public static class UnityImportQueue
     /// <summary>Unity が自分の作業（取り込み・コンパイル・ドメイン再読込）で塞がっているか。</summary>
     private static bool IsUnityBusy(int processId)
         => VisibleWindows(processId).Any(window => IsProgressTitle(TitleOf(window)));
+
+    /// <summary>
+    /// Unity が取り込みの後の作業を終え、外から打った検索を受け付けるまで待つ（決め方は <see cref="UnitySettleWatch"/>）。
+    /// 「Imported」と決めた時点では、スクリプト入りの物だとまだ主窓が返事をしておらず、その間に打った検索が捨てられた（実機 2026-11-27）。
+    /// 落ち着かないまま <paramref name="timeout"/> を過ぎた・エディタが閉じた時は false。
+    /// </summary>
+    internal static Task<bool> WaitUntilSettledAsync(int processId, TimeSpan timeout)
+        => Task.Run(async () =>
+        {
+            // 返事を待つ間はこのスレッドが止まるので、画面のスレッドでは回さない
+            var tail = new LogTail(EditorLogPath);
+            var watch = new UnitySettleWatch();
+            var clock = Stopwatch.StartNew();
+            while (clock.Elapsed < timeout)
+            {
+                var main = UnityEditors.MainWindowOf(processId);
+                if (main == IntPtr.Zero)
+                {
+                    return false;
+                }
+
+                var replied = SendMessageTimeout(
+                    main, WmNull, IntPtr.Zero, IntPtr.Zero, SmtoAbortIfHung, UnitySettleWatch.ReplyLimitMs, out _) != IntPtr.Zero;
+                var lines = tail.ReadNewLines().Count;
+                if (watch.Observe(clock.ElapsedMilliseconds, IsUnityBusy(processId), replied, lines))
+                {
+                    return true;
+                }
+
+                await Task.Delay(50);
+            }
+
+            return false;
+        });
+
+    private const uint WmNull = 0x0000;
+    private const uint SmtoAbortIfHung = 0x0002;
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SendMessageTimeout(
+        IntPtr window, uint message, IntPtr wParam, IntPtr lParam, uint flags, uint timeout, out IntPtr result);
 }

@@ -301,6 +301,13 @@ internal static class ItemUnityActions
             return "入ったフォルダがプロジェクトに見つからないため、選択していません。";
         }
 
+        // 「Imported」と決めた時点では、スクリプト入りの物だと Unity はまだ読み込み直しの後の作業中で、打った検索を黙って捨てた
+        // （実機 2026-11-27。窓が消えてから約2秒）。上限の2分は、大きなプロジェクトの読み込み直しが数十秒かかっても足りるように取った [推測]
+        if (!await UnityImportQueue.WaitUntilSettledAsync(editor.ProcessId, TimeSpan.FromMinutes(2)))
+        {
+            return "Unityの作業が終わらないため、入ったフォルダを選択していません。";
+        }
+
         var outcome = await UnityProjectTab.HighlightFolderAsync(editor.ProcessId, project, location.Root);
         if (outcome.Problem is { } trouble)
         {
