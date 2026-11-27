@@ -50,6 +50,8 @@ public class SavedSearchConditionTests
     /// <summary>
     /// 文字「夏」・カテゴリ（衣装か小物）・除くカテゴリ（小物）・効かせていないカテゴリ（髪型）を「S」に保存する。
     /// 呼び出すと 1000001 だけ（文字を外すと 1000001・1000003）
+    /// 効かせていない条件は画面が保存しない（SearchViewModel.History）ので、保存した検索には入らない。
+    /// 効かせていない条件を読まない事は、手で書いた保存した検索で SearchThreeLayerParityTests と Core の試験が見る
     /// </summary>
     private static async Task SaveMixedAsync(SearchViewModel search)
     {
@@ -71,7 +73,7 @@ public class SavedSearchConditionTests
     }
 
     [Fact]
-    public Task 条件だけの結果は_呼び出した結果と同じ_除くと効かせていない条件も同じに扱う() => TestApp.Run(async app =>
+    public Task 条件だけの結果は_呼び出した結果と同じ_除くも同じに扱う() => TestApp.Run(async app =>
     {
         var search = await StartAsync(app);
         await SaveMixedAsync(search);

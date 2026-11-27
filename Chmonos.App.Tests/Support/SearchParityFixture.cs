@@ -76,6 +76,10 @@ public static class SearchParityFixture
                 Price("1500", "2000"),
                 Price("400", "600") with { Exclude = true },
                 Avatar(["avatar:7100001"], viaBase: true),
+
+                // 効かせていない条件は読まない（読むと誰も当たらない）。画面は効いている条件しか保存しないので、
+                // この形は手で直した JSON か前の版からしか来ない（試験の点検 2026-11-28 の保存した検索の中2）
+                new SearchModuleState { Kind = "Category", Items = ["無いカテゴリ"], Enabled = false },
             ],
         }, ["9600001", "9600002"]),
 

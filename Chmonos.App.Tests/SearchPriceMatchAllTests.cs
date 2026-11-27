@@ -19,6 +19,7 @@ namespace Chmonos.App.Tests;
 /// | E | 800・2,000 | 当たる | — | — | 当たる |
 /// | F | 800・99,999（外れ値） | 当たる | — | 当たる | — |
 /// | G | 99,999（外れ値だけ） | — | — | — | — |
+/// | H | 500・1,000（下限と上限ちょうど） | 当たる | — | 当たる | — |
 /// </summary>
 public class SearchPriceMatchAllTests
 {
@@ -38,6 +39,7 @@ public class SearchPriceMatchAllTests
         ["9900505"] = [800, 2000],
         ["9900506"] = [800, 99999],
         ["9900507"] = [99999],
+        ["9900508"] = [500, 1000],
     };
 
     private static readonly ItemRecord[] Items = [.. Prices.Keys.Select(id => Make.Item(id, "作り物 " + id))];
@@ -71,9 +73,9 @@ public class SearchPriceMatchAllTests
     }
 
     [Theory]
-    [InlineData(false, false, "1,2,5,6")]
+    [InlineData(false, false, "1,2,5,6,8")]
     [InlineData(false, true, "3")]
-    [InlineData(true, false, "1,6")]
+    [InlineData(true, false, "1,6,8")]
     [InlineData(true, true, "2,3,5")]
     public void 全てか_どれかか_と除くの組み合わせで当たる商品(bool matchAll, bool exclude, string expected)
     {
@@ -98,7 +100,7 @@ public class SearchPriceMatchAllTests
         restored.Load(state);
 
         Assert.True(restored.MatchAll);
-        Assert.Equal(["1", "6"], Passing(restored));
+        Assert.Equal(["1", "6", "8"], Passing(restored));
         Assert.Contains("すべての価格が範囲内", restored.SummaryText);
     }
 

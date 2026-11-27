@@ -232,4 +232,93 @@ public sealed class SavedSearchApiListTests : IDisposable
         var recentCursor = ListPages.Take(new[] { 1, 2 }, value => [ListPages.Text(value)], (left, right) => string.CompareOrdinal(left[0], right[0]), "recent", 1, null, 1).NextCursor;
         Assert.Equal("invalidCursor", Assert.Throws<QueryException>(() => SavedSearchApiList.Page(snapshot, recentCursor, 10, Now)).Code);
     }
+
+    /// <summary>
+    /// 上の作り物に無かった種類（ユーザータグ・属性の幅・改変・日付の「どれか」・書けない値）も、式に戻して同じ商品に当たり、
+    /// null の欄を書かない（試験の点検 2026-11-28 の保存した検索の中4。期待は手で数えた ID）
+    /// </summary>
+    [Fact]
+    public async Task 上に無い種類も_戻した式で同じ商品に当たり_書けない値はunconvertedで言う()
+    {
+        var store = new DataStore(new AppPaths(Path.Combine(_root, "kinds")));
+        static DateTimeOffset Jst(int month, int day) => new(2025, month, day, 12, 0, 0, TimeSpan.FromHours(9));
+        ItemRecord[] items =
+        [
+            Item("9700101", "作り物A", booth => booth with { PublishedAt = Jst(3, 1) },
+                local => local with { UserTags = [new UserTagAssignment { Top = "季節", Subs = ["夏"] }], Attributes = new Dictionary<string, int> { ["かわいい"] = 80 } }),
+            Item("9700102", "作り物B", booth => booth with { PublishedAt = Jst(11, 20) },
+                local => local with { UserTags = [new UserTagAssignment { Top = "季節" }], Attributes = new Dictionary<string, int> { ["かわいい"] = 20 } }),
+            Item("9700103", "作り物C", booth => booth with { PublishedAt = Jst(6, 1) }),
+        ];
+        foreach (var item in items)
+        {
+            await store.Items.SaveAsync(item);
+        }
+
+        static SearchHistoryEntry Entry(string name, params SearchModuleState[] modules) => new() { Name = name, Modules = modules };
+        await store.SavedSearches.SaveAsync(new Chmonos.Core.Services.SavedSearchList
+        {
+            Entries =
+            [
+                Entry("小分類", Module("UserTag", state => state with { UserTags = [new UserTagCondition { Top = "季節", Subs = ["夏"] }] })),
+                Entry("小分類なし", Module("UserTag", state => state with { UserTags = [new UserTagCondition { Top = "季節", NoSub = true }] })),
+                Entry("属性の幅", Module("Attribute", state => state with { Ranges = [new AttributeRange("かわいい", 50, 100)] })),
+
+                // 日付の同じ種類は「どれか」：3月と11月のどちらか、から11月15日〜25日を除く
+                Entry(
+                    "日付のどれか",
+                    Module("PublishedAt", state => state with { Min = "2025-01-01", Max = "2025-03-31" }),
+                    Module("PublishedAt", state => state with { Min = "2025-11-01", Max = "2025-11-30" }),
+                    Module("PublishedAt", state => state with { Min = "2025-11-15", Max = "2025-11-25", Exclude = true })),
+
+                // 改変は記録の無い作り物なので、どの商品も使っていない（当たる物は無い）
+                Entry("改変", Module("Modification", state => state with { Modifications = [new ModificationCondition { Avatar = "7000001" }] })),
+                Entry("書けない値", Module("Avatar", state => state with { Items = ["知らない鍵"] })),
+            ],
+        });
+        var snapshot = await QuerySnapshot.LoadAsync(store);
+
+        var page = SavedSearchApiList.Page(snapshot, null, null, Now);
+        using var json = JsonDocument.Parse(JsonSerializer.Serialize(page, QueryJson.Context.SavedSearchPage));
+        var expected = new Dictionary<string, string[]>
+        {
+            ["小分類"] = ["9700101"],
+            ["小分類なし"] = ["9700102"],
+            ["属性の幅"] = ["9700101"],
+            ["日付のどれか"] = ["9700101"],
+            ["改変"] = [],
+        };
+
+        foreach (var item in json.RootElement.GetProperty("items").EnumerateArray())
+        {
+            var name = item.GetProperty("name").GetString()!;
+            var search = item.GetProperty("search");
+            Assert.DoesNotContain("null", search.GetRawText(), StringComparison.Ordinal);
+            if (!expected.TryGetValue(name, out var ids))
+            {
+                continue;
+            }
+
+            Assert.Equal(0, item.GetProperty("unconverted").GetArrayLength());
+            var request = JsonSerializer.Deserialize(search.GetRawText(), QueryJson.Context.SearchRequest)!;
+            var core = Ids(snapshot, new SearchExpression { Condition = new ConditionRequest { Kind = "savedSearch", Values = [name] } });
+            Assert.True(ids.SequenceEqual(core), $"Core {name}: [{string.Join(",", core)}]");
+            var api = Ids(snapshot, request.Where, request.TextOptions);
+            Assert.True(ids.SequenceEqual(api), $"API {name}: [{string.Join(",", api)}]");
+        }
+
+        // 種類ごとの形：日付は同じ種類の or と not、ユーザータグは小分類と「小分類なし」
+        var dates = page.Items.Single(item => item.Name == "日付のどれか").Search.Where!.And!;
+        Assert.Equal(2, dates[0].Or!.Count);
+        Assert.Equal("publishedAt", dates[1].Not!.Condition!.Kind);
+        Assert.Equal(["夏"], page.Items.Single(item => item.Name == "小分類").Search.Where!.Condition!.Tags![0].Subs);
+        Assert.True(page.Items.Single(item => item.Name == "小分類なし").Search.Where!.Condition!.Tags![0].NoSub);
+        var attribute = page.Items.Single(item => item.Name == "属性の幅").Search.Where!.Condition!;
+        Assert.Equal(new AttributeRangeRequest("かわいい", 50, 100), Assert.Single(attribute.Ranges!));
+        Assert.Equal("7000001", page.Items.Single(item => item.Name == "改変").Search.Where!.Condition!.Modifications![0].Avatar);
+
+        var unsupported = page.Items.Single(item => item.Name == "書けない値");
+        Assert.Equal([("avatar", "unsupportedValue")], unsupported.Unconverted.Select(part => (part.Kind, part.Reason)).ToArray());
+        Assert.Null(unsupported.Search.Where);
+    }
 }

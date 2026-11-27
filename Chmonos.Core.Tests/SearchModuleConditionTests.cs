@@ -117,6 +117,30 @@ public class SearchModuleConditionTests
         Assert.Empty(Hits(new() { Kind = "Price" }, [Item("3")]));
     }
 
+    /// <summary>
+    /// 払った額の合計は 32bit を超え得る（外部の点検 2026-10-06）。保存した状態や API から来る境も 64bit で読む
+    /// （画面の欄の道だけを見ていたので、Core の ParseAmount を 32bit にしても落ちなかった・試験の点検 2026-11-28 の M30）
+    /// </summary>
+    [Fact]
+    public void 範囲の境は_32bitを超える数も読む()
+    {
+        Assert.Equal(3_000_000_000L, SearchModuleConditions.ParseAmount("3,000,000,000"));
+        Assert.Equal(3_000_000_000L, SearchModuleConditions.ParseAmount("３０００００００００"));
+
+        ItemRecord Paid(string id, params int[] prices)
+            => Item(id, local: local => local with { Purchases = [.. prices.Select(price => new Purchase { Kind = PurchaseKind.ForSelf, Price = price })] });
+        var items = new[]
+        {
+            Paid("1", 2_000_000_000, 2_000_000_000),
+            Paid("2", 1_500_000_000, 1_500_000_000),
+            Paid("3", 500),
+        };
+
+        // 外れ値の境は3件では意味が無いので切る
+        Assert.Equal(["2", "3"], Hits(new() { Kind = "Price", Min = "0", Max = "3000000000", IgnoreOutliers = false }, items));
+        Assert.Equal(["1"], Hits(new() { Kind = "Price", Min = "3000000001", Max = string.Empty, IgnoreOutliers = false }, items));
+    }
+
     [Fact]
     public void 価格の外れ値は_商品の全体から求めた境で外す()
     {
