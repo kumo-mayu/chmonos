@@ -164,6 +164,40 @@ public sealed class ApiHostTests : IAsyncLifetime
         Assert.Contains("editorClosed", states);
     }
 
+    /// <summary>
+    /// 頼んだときだけ出す欄（<c>include=</c>）は答えの仕様書でも必須にしない（出さないときは項目ごと無いので、必須だと仕様書から作ったコードが読めない）。
+    /// ふつうの欄は必須のまま（一覧が空で通る試験にしないため）
+    /// </summary>
+    [Fact]
+    public async Task 仕様書は_頼んだときだけ出す欄を必須にせず_ふつうの欄は必須にする()
+    {
+        var document = await JsonOf(await _client.SendAsync(Request(HttpMethod.Get, "/v1/openapi.json", token: false)));
+        var schemas = document.GetProperty("components").GetProperty("schemas");
+
+        static IReadOnlyList<string> Required(JsonElement schema)
+            => schema.TryGetProperty("required", out var required) ? required.EnumerateArray().Select(name => name.GetString()!).ToList() : [];
+
+        var detail = Required(schemas.GetProperty("ItemDetail"));
+        foreach (var name in new[] { "images", "avatarLinks", "meta", "variationTargetSources", "conversionTargets", "contentUpdate" })
+        {
+            Assert.DoesNotContain(name, detail);
+        }
+
+        Assert.Contains("id", detail);
+        Assert.Contains("folders", detail);
+        Assert.Contains("conversion", detail);
+
+        var file = Required(schemas.GetProperty("FileRef"));
+        Assert.DoesNotContain("contents", file);
+        Assert.Contains("hash", file);
+
+        // 内部の一覧（2026-11-27）は続きの印も null で必ず返す
+        foreach (var page in new[] { "RecentPage", "FolderPage", "ExcludedPage" })
+        {
+            Assert.Equal(["items", "nextCursor", "total"], Required(schemas.GetProperty(page)).Order(StringComparer.Ordinal));
+        }
+    }
+
     [Fact]
     public async Task 答えにETagを付け_変わっていなければ304を返す()
     {
