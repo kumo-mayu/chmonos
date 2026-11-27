@@ -58,7 +58,7 @@ public sealed partial class SearchViewModel
         (SearchField.Shop, "ショップ名"),
         (SearchField.Memo, "メモ"),
         (SearchField.Subdomain, "サブドメイン"),
-        (SearchField.Main, "本文（説明とセクション）"),
+        (SearchField.Main, "説明とセクション"),
         (SearchField.Tag, "BOOTHタグ"),
         (SearchField.Variation, "バリエーション名"),
         (SearchField.Id, "商品ID"),

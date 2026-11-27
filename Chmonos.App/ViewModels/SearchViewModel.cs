@@ -395,7 +395,7 @@ public sealed partial class SearchViewModel : ViewModelBase, IItemCardHost, ISel
 
     /// <summary>件数。設定「非表示にしている件数を検索結果に出す」が入っていれば、隠している数も添える。</summary>
     public string ResultSummary => _hiddenCount > 0 && _services.Settings.ShowHiddenCountInSearch
-        ? $"{_matches.Count} 件（ほかに非表示 {_hiddenCount} 件）"
+        ? $"{_matches.Count} 件（+{_hiddenCount} 件非表示）"
         : $"{_matches.Count} 件";
 
     public bool IsEmpty => !IsLoading && _matches.Count == 0;

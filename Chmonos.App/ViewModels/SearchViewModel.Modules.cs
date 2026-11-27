@@ -824,7 +824,7 @@ public sealed partial class SearchViewModel
             InfoSelector = text => _shopSuggestInfo.GetValueOrDefault(text),
             OpenOf = ShopChipOpen,
             OpenText = "ショップを開く",
-            OpenDisabledTip = "商品に出てくるショップだけ開けます",
+            OpenDisabledTip = "商品にあるショップだけ開けます",
         },
 
         SearchModuleKind.WishList => new RangeModule(kind, SearchModuleConditions.RangeOf(kind)!.Values, string.Empty)

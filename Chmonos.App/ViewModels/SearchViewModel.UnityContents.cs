@@ -235,7 +235,7 @@ public sealed partial class SearchViewModel
             .ThenByDescending(project => project.LastWrite)
             .ThenBy(project => project.Name, StringComparer.CurrentCulture)
             .Select(project => (
-                project.IsOpen ? $"{project.Name}（開いています・{project.Path}）" : $"{project.Name}（{project.Path}）",
+                project.IsOpen ? $"開いている {project.Name}（{project.Path}）" : $"{project.Name}（{project.Path}）",
                 UnityProjectPath.Normalize(project.Path) ?? project.Path));
     }
 

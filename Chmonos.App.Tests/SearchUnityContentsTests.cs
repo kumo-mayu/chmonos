@@ -720,7 +720,7 @@ public class SearchUnityContentsTests
         var module = (ListModule)SearchModules.Add(search, SearchModuleKind.UnityProjectContents);
 
         await UiThread.Until(() => module.Suggestions.Count > 0, "待つ");
-        Assert.Equal([@"open（開いています・D:\p\open）", @"closed（D:\p\closed）"], module.Suggestions);
+        Assert.Equal([@"開いている open（D:\p\open）", @"closed（D:\p\closed）"], module.Suggestions);
     });
 
     [Fact]

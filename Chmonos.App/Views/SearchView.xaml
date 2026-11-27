@@ -2029,20 +2029,30 @@
                                     衣装 (夏 OR 冬) と書けば「衣装かつ、夏か冬」になります。<LineBreak />
                                     <LineBreak />
                                     前に付けると、その項目だけを探します。「対象」で外していても探します。<LineBreak />
-                                    name: 商品名　shop: ショップ名　memo: メモ　subdomain: サブドメイン　main: 本文<LineBreak />
-                                    tag: BOOTHタグ　variation: バリエーション名　id: 商品ID<LineBreak />
-                                    file: ファイル名　path: ファイルの場所　content: zipの中のファイル名<LineBreak />
-                                    usertag: ユーザータグ　avatar: 対応アバター　category: カテゴリ<LineBreak />
-                                    ユーザータグは名前がぴったり同じ物を探します。usertag:衣装/ワンピース や usertag:*ピース とも書けます。<LineBreak />
-                                    name:&quot;夏 セット&quot; や tag:(夏 OR 冬) のようにも書けます。&quot;…&quot; の中の name: はそのままの文字として探します。<LineBreak />
+                                    name: 商品名　shop: ショップ名　memo: メモ<LineBreak />
+                                    subdomain: サブドメイン　main: 説明とセクション<LineBreak />
+                                    tag: BOOTHタグ　id: 商品ID<LineBreak />
+                                    variation: バリエーション名<LineBreak />
+                                    file: ファイル名　path: ファイルの場所<LineBreak />
+                                    content: zipの中のファイル名<LineBreak />
+                                    usertag: ユーザータグ　avatar: 対応アバター<LineBreak />
+                                    category: カテゴリ<LineBreak />
+                                    usertag: は名前がぴったり同じものを探します。<LineBreak />
+                                    usertag:衣装/ワンピース や usertag:*ピース とも書けます。<LineBreak />
+                                    name:&quot;夏 セット&quot; や tag:(夏 OR 冬) とも書けます。<LineBreak />
+                                    &quot;…&quot; の中の name: は、そのままの文字として探します。<LineBreak />
                                     <LineBreak />
                                     商品の状態でも探せます。<LineBreak />
-                                    is:favorite お気に入り　is:hidden 非表示　is:owned 所持　is:local BOOTHに無い商品<LineBreak />
+                                    is:favorite お気に入り　is:hidden 非表示<LineBreak />
+                                    is:owned 所持　is:local BOOTHに無い商品<LineBreak />
                                     is:r18 R-18　is:delisted 販売終了・非公開<LineBreak />
-                                    has:update 更新通知あり　has:brokenzip 壊れたzip　has:missing 見つからないファイル<LineBreak />
+                                    has:update 更新通知あり　has:missing 見つからないファイル<LineBreak />
+                                    has:brokenzip 壊れたzip<LineBreak />
                                     <LineBreak />
-                                    price: BOOTH価格　paid: 払った額　wish: スキ数 は、数の範囲で探します。<LineBreak />
-                                    price:-400 は400以下、price:100-500 は100から500、price:500- は500以上です。<LineBreak />
+                                    price: BOOTH価格　paid: 払った額　wish: スキ数<LineBreak />
+                                    この3つは、数の範囲で探します。<LineBreak />
+                                    price:-400 は400以下、price:500- は500以上です。<LineBreak />
+                                    price:100-500 は100から500です。<LineBreak />
                                     price:&lt;=400 や price:&gt;=500 とも書けます。
                                 </TextBlock>
                             </TextBlock.ToolTip>

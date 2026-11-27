@@ -309,8 +309,8 @@ public abstract class SearchModule : ReorderableRow
     /// </summary>
     public string IdKey => _ordinal <= 1 ? Kind.ToString() : $"{Kind}-{_ordinal}";
 
-    /// <summary>読み上げの名前に入れる条件名。2つ目から「カテゴリ（2つ目）」。</summary>
-    public string SpokenLabel => _ordinal <= 1 ? Label : $"{Label}（{_ordinal}つ目）";
+    /// <summary>読み上げの名前に入れる条件名。2つ目から「2つ目のカテゴリ」。</summary>
+    public string SpokenLabel => _ordinal <= 1 ? Label : $"{_ordinal}つ目の{Label}";
 
     /// <summary>条件名を含まない読み上げの名前の後ろに付ける番号（1つ目は空）。</summary>
     public string NameSuffix => _ordinal <= 1 ? string.Empty : $"（{_ordinal}つ目）";

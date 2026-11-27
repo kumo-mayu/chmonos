@@ -108,7 +108,7 @@ BOOTHで開く・リンクをコピー・IDをコピー ／ 商品ページを�
   見た目・Tab・矢印・Enter・仮想化は ListBox のまま。**カードを段から探さない**（ID `ItemCard`・`ShopCard` と名前で探す）。
 - **カードとリストの行は「押す」で開く。**キーボードの Enter と同じ処理で、戻ったら開いた所に止まり直す（リストの行は「選ぶ」しか持たず、読み上げ・自動操作から商品ページへ移れなかった）。
 - **名前で見分けられない物には AutomationId を付ける**（画面には出ない。英字）。同じ条件が2つの見出しの下に出るメニュー（`SearchAddModule.<条件の種類>`）、
-  条件の中の欄（`SearchModule.<条件の種類>.<部品>`。同じ種類の2つ目から `<条件の種類>-2`、名前も「カテゴリ（2つ目）の〜」。見出しの「…」は `.Menu`、
+  条件の中の欄（`SearchModule.<条件の種類>.<部品>`。同じ種類の2つ目から `<条件の種類>-2`、名前も「2つ目のカテゴリの〜」。見出しの「…」は `.Menu`、
   その行は `.Menu.Exclude`・`.Menu.Collapse`・`.Menu.MoveUp`・`.Menu.MoveDown`・`.Menu.Remove`、札は `.Excluded`、編集状況の項目は `SearchModule.Unedited.Field.<項目>`、
   パネルの「…」は `SearchFilterMenu`・行 `SearchFilterMenu.GroupKinds`・`.Clear`・`.Collapse`）、行ごとに並ぶボタン（`ItemFileOpenMenu`・`ResolveCandidateUse`）、
   確かめで読みたい文（`ImportSummary.<数>`・`UnitySendText`）。頭は画面の名前（`Search`・`Item`・`Edit`・`Resolve`・`Import`・`Settings.`）で始める。一覧は XAML を `AutomationProperties.AutomationId="` で引く。
