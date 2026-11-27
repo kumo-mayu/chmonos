@@ -145,16 +145,23 @@ public sealed class BoothMachineGateTests : IDisposable
         Assert.True((actual - expected).Duration() < TimeSpan.FromMilliseconds(1), $"待った長さ：{actual}（期待：{expected}）");
     }
 
+    /// <summary>
+    /// 門を握る・問い合わせを待つ所の期限。門を返し忘れる形に壊すと、ここで止まって試験の実行ごと中止され、
+    /// どこで止まったかも読めなかった（2026-11-28 の点検の M12）。手で進める時計なので、ふつうは数ミリ秒で終わる。
+    /// 30秒は、ほかの期限の試験（30秒）に揃えた
+    /// </summary>
+    private static readonly TimeSpan Bound = TimeSpan.FromSeconds(30);
+
     /// <summary>門の中身を、別のアプリが書いたように置く。</summary>
     private void Put(BoothGateState state)
     {
-        using var turn = Gate().EnterAsync().GetAwaiter().GetResult();
+        using var turn = Gate().EnterAsync().WaitAsync(Bound).GetAwaiter().GetResult();
         turn!.Write(state);
     }
 
     private BoothGateState Peek()
     {
-        using var turn = Gate().EnterAsync().GetAwaiter().GetResult();
+        using var turn = Gate().EnterAsync().WaitAsync(Bound).GetAwaiter().GetResult();
         return turn!.State;
     }
 
@@ -456,8 +463,8 @@ public sealed class BoothMachineGateTests : IDisposable
         var waits = new List<TimeSpan>();
         var client = Client(Handler(), waits, gate: Gate(blocked));
 
-        Assert.True((await client.GetItemJsonAsync("1")).IsSuccess);
-        Assert.True((await client.GetItemJsonAsync("2")).IsSuccess);
+        Assert.True((await client.GetItemJsonAsync("1").WaitAsync(Bound)).IsSuccess);
+        Assert.True((await client.GetItemJsonAsync("2").WaitAsync(Bound)).IsSuccess);
 
         AssertWaited(TimeSpan.FromMilliseconds(1500), waits);
     }

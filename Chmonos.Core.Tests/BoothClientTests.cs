@@ -121,7 +121,7 @@ public class BoothClientTests
     {
         var handler = new QueuedHandler(Ok("""{"id":123}"""));
 
-        var result = await CreateClient(handler).GetItemJsonAsync("123");
+        var result = await Bounded(CreateClient(handler).GetItemJsonAsync("123"));
 
         Assert.True(result.IsSuccess);
         Assert.Equal("""{"id":123}""", result.Value);
@@ -134,7 +134,7 @@ public class BoothClientTests
     {
         var handler = new QueuedHandler(new HttpResponseMessage(HttpStatusCode.NotFound));
 
-        var result = await CreateClient(handler).GetItemJsonAsync("123");
+        var result = await Bounded(CreateClient(handler).GetItemJsonAsync("123"));
 
         Assert.Equal(BoothFetchStatus.NotFound, result.Status);
         Assert.Equal(1, handler.RequestCount);
@@ -149,7 +149,7 @@ public class BoothClientTests
             new HttpResponseMessage(HttpStatusCode.BadGateway),
             new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
 
-        var result = await CreateClient(handler).GetItemJsonAsync("123");
+        var result = await Bounded(CreateClient(handler).GetItemJsonAsync("123"));
 
         Assert.Equal(BoothFetchStatus.TemporaryFailure, result.Status);
         Assert.Equal(3, handler.RequestCount);
@@ -162,7 +162,7 @@ public class BoothClientTests
             new HttpResponseMessage(HttpStatusCode.ServiceUnavailable),
             Ok("ok"));
 
-        var result = await CreateClient(handler).GetItemJsonAsync("123");
+        var result = await Bounded(CreateClient(handler).GetItemJsonAsync("123"));
 
         Assert.True(result.IsSuccess);
         Assert.Equal("ok", result.Value);
@@ -175,7 +175,7 @@ public class BoothClientTests
     {
         var handler = new ThrowingHandler();
 
-        var result = await CreateClient(handler).GetItemJsonAsync("123");
+        var result = await Bounded(CreateClient(handler).GetItemJsonAsync("123"));
 
         Assert.Equal(BoothFetchStatus.TemporaryFailure, result.Status);
         Assert.Equal(3, handler.RequestCount);
@@ -188,7 +188,7 @@ public class BoothClientTests
         var waits = new List<TimeSpan>();
         var client = CreateThrottleClient(new QueuedHandler(TooManyRequests(), Ok("ok")), waits);
 
-        var result = await client.GetItemJsonAsync("123");
+        var result = await Bounded(client.GetItemJsonAsync("123"));
 
         Assert.True(result.IsSuccess);
         Assert.Equal(3000, client.CurrentIntervalMs);
@@ -206,7 +206,7 @@ public class BoothClientTests
             waits,
             settings);
 
-        var result = await client.GetItemJsonAsync("123");
+        var result = await Bounded(client.GetItemJsonAsync("123"));
 
         Assert.Equal(BoothFetchStatus.TemporaryFailure, result.Status);
         Assert.True(result.IsRateLimited);
@@ -223,7 +223,7 @@ public class BoothClientTests
             waits);
         var retries = RetryWaitsOf(client);
 
-        var result = await client.GetItemJsonAsync("123");
+        var result = await Bounded(client.GetItemJsonAsync("123"));
 
         Assert.True(result.IsSuccess);
 
@@ -241,7 +241,7 @@ public class BoothClientTests
             waits);
         var retries = RetryWaitsOf(client);
 
-        await client.GetItemJsonAsync("123");
+        await Bounded(client.GetItemJsonAsync("123"));
 
         Assert.Contains(TimeSpan.FromSeconds(2), retries);
         Assert.DoesNotContain(TimeSpan.FromSeconds(1), retries);
@@ -258,7 +258,7 @@ public class BoothClientTests
         var handler = new QueuedHandler(TooManyRequests(TimeSpan.FromMinutes(30)), Ok("ok"));
         var client = CreateThrottleClient(handler, waits);
 
-        var result = await client.GetItemJsonAsync("123");
+        var result = await Bounded(client.GetItemJsonAsync("123"));
 
         Assert.Equal(BoothFetchStatus.TemporaryFailure, result.Status);
         Assert.True(result.IsRateLimited);
@@ -279,7 +279,7 @@ public class BoothClientTests
         var client = CreateThrottleClient(new QueuedHandler(unavailable, Ok("ok")), waits);
         var retries = RetryWaitsOf(client);
 
-        var result = await client.GetItemJsonAsync("123");
+        var result = await Bounded(client.GetItemJsonAsync("123"));
 
         Assert.True(result.IsSuccess);
         Assert.Contains(retries, wait => wait > TimeSpan.FromSeconds(19) && wait <= TimeSpan.FromSeconds(20));
@@ -316,7 +316,7 @@ public class BoothClientTests
             () => settings,
             (_, _) => Task.CompletedTask);
 
-        await client.GetItemJsonAsync("123");
+        await Bounded(client.GetItemJsonAsync("123"));
         Assert.Equal(4000, client.CurrentIntervalMs);
 
         settings = settings with { FetchIntervalMs = 1500 };
@@ -336,8 +336,26 @@ public class BoothClientTests
             () => new AppSettings { FetchIntervalMs = 200 },
             (_, _) => Task.CompletedTask);
 
-        Assert.Equal(AppSettings.MinFetchIntervalMs, client.CurrentIntervalMs);
+        // 定数と比べると、定数ごと縮めても通る。決め事の値（1.5秒）を数字で書く
+        Assert.Equal(1500, client.CurrentIntervalMs);
         Assert.False(client.IsThrottled);
+    }
+
+    /// <summary>
+    /// 下限の値そのもの（1.5秒）を、実際に空ける長さで確かめる（2026-11-28 の点検：下限を 1400 にしても、
+    /// 429 の試験の 3000 でたまたま見つかるだけだった）。時計は待ちの分だけ進む物にして、待ちが間隔そのものになるようにする
+    /// </summary>
+    [Fact]
+    public async Task 設定が下限より短くても次の1本は1500ミリ秒を空ける()
+    {
+        var waits = new List<TimeSpan>();
+        var client = SteppedClient(new QueuedHandler(Ok("ok"), Ok("ok")), waits, intervalMs: 200);
+
+        await Bounded(client.GetItemJsonAsync("1"));
+        Assert.Empty(waits);
+        await Bounded(client.GetItemJsonAsync("2"));
+
+        Assert.Equal(TimeSpan.FromMilliseconds(1500), Sum(waits));
     }
 
     /// <summary>送った後に中断されると、中の通信は投げて抜ける。そのときも最後の問い合わせの時刻を残す。</summary>
@@ -376,6 +394,45 @@ public class BoothClientTests
         => waits.Aggregate(TimeSpan.Zero, (sum, wait) => sum + wait);
 
     /// <summary>
+    /// 待ちを差し替え、時計も待ちの分だけ進む物にしたクライアント。本物の時計のままだと、1本目から次の間隔を数えるまでに
+    /// GC などで過ぎた分だけ待ちが短くなり、待ちの長さを 1500 ちょうどと比べられない（前は 1400 と比べていて、少しの縮みを見逃した）。
+    /// BoothClientRedirectAndBodyTests の StepClock と同じ形（2026-10-06）
+    /// </summary>
+    private static BoothClient SteppedClient(HttpMessageHandler handler, List<TimeSpan> waits, int intervalMs = 1500)
+    {
+        var clock = new StepClock();
+        return new(new HttpClient(handler),
+            SettingsSource.Fixed(new AppSettings { FetchIntervalMs = intervalMs }),
+            (duration, _) =>
+            {
+                waits.Add(duration);
+                clock.Advance(duration);
+                return Task.CompletedTask;
+            },
+            machineGate: null,
+            clock);
+    }
+
+    /// <summary>頼まれた待ちの分だけ進む時計。ほかの所では止まっている。</summary>
+    private sealed class StepClock : TimeProvider
+    {
+        private long _ticks;
+
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+
+        public override long GetTimestamp() => Interlocked.Read(ref _ticks);
+
+        public void Advance(TimeSpan duration) => Interlocked.Add(ref _ticks, duration.Ticks);
+    }
+
+    /// <summary>
+    /// 試験の実行ごと止めない。門を返し忘れる形に壊すと、2本目が門の前で待ち続け、試験の実行そのものが中止されて
+    /// どこで止まったかも読めなかった（2026-11-28 の点検の M27）。期限で落として、どの試験かを出す。
+    /// 15秒は、待ちを差し替えた1本が通常は数ミリ秒で終わる事に対して、並列で重いときも誤って落ちない長さ
+    /// </summary>
+    private static Task<T> Bounded<T>(Task<T> task) => task.WaitAsync(TimeSpan.FromSeconds(15));
+
+    /// <summary>
     /// **送った後に中断されても、次の1本は 1.5 秒を空ける**（絶対に破らない決め事1）。
     /// 前は中断で抜けると最後の問い合わせの時刻が古いまま残り、次が間を空けずに出得た。
     /// </summary>
@@ -384,22 +441,15 @@ public class BoothClientTests
     {
         var waits = new List<TimeSpan>();
         using var source = new CancellationTokenSource();
-        var client = new BoothClient(
-            new HttpClient(new CancelingHandler(source)),
-            new AppSettings { FetchIntervalMs = 1500 },
-            (duration, _) =>
-            {
-                waits.Add(duration);
-                return Task.CompletedTask;
-            });
+        var client = SteppedClient(new CancelingHandler(source), waits);
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => client.GetItemJsonAsync("1", source.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Bounded(client.GetItemJsonAsync("1", source.Token)));
         Assert.Empty(waits);
 
-        var result = await client.GetItemJsonAsync("2");
+        var result = await Bounded(client.GetItemJsonAsync("2"));
 
         Assert.True(result.IsSuccess);
-        Assert.True(Sum(waits) > TimeSpan.FromMilliseconds(1400), $"待った長さ：{Sum(waits)}");
+        Assert.Equal(TimeSpan.FromMilliseconds(1500), Sum(waits));
     }
 
     /// <summary>想定外の例外で抜けても同じ。どの道で抜けても、送ったなら時刻を残す。</summary>
@@ -407,21 +457,14 @@ public class BoothClientTests
     public async Task 送った後に想定外の例外で抜けても次の1本は間隔を空ける()
     {
         var waits = new List<TimeSpan>();
-        var client = new BoothClient(
-            new HttpClient(new FailsOnceUnexpectedlyHandler()),
-            new AppSettings { FetchIntervalMs = 1500 },
-            (duration, _) =>
-            {
-                waits.Add(duration);
-                return Task.CompletedTask;
-            });
+        var client = SteppedClient(new FailsOnceUnexpectedlyHandler(), waits);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => client.GetItemJsonAsync("1"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Bounded(client.GetItemJsonAsync("1")));
 
-        var result = await client.GetItemJsonAsync("2");
+        var result = await Bounded(client.GetItemJsonAsync("2"));
 
         Assert.True(result.IsSuccess);
-        Assert.True(Sum(waits) > TimeSpan.FromMilliseconds(1400), $"待った長さ：{Sum(waits)}");
+        Assert.Equal(TimeSpan.FromMilliseconds(1500), Sum(waits));
     }
 
     /// <summary>
@@ -437,11 +480,11 @@ public class BoothClientTests
             new QueuedHandler(TooManyRequests(TimeSpan.FromMinutes(30)), Ok("ok")),
             waits);
 
-        var first = await client.GetItemJsonAsync("1");
+        var first = await Bounded(client.GetItemJsonAsync("1"));
         Assert.True(first.IsRateLimited);
         Assert.Empty(waits);
 
-        var second = await client.GetItemJsonAsync("2");
+        var second = await Bounded(client.GetItemJsonAsync("2"));
 
         Assert.True(second.IsSuccess);
         Assert.True(Sum(waits) > TimeSpan.FromSeconds(59), $"待った長さ：{Sum(waits)}");
@@ -463,9 +506,9 @@ public class BoothClientTests
                 return Task.CompletedTask;
             });
 
-        await client.GetItemJsonAsync("1");
+        await Bounded(client.GetItemJsonAsync("1"));
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => client.GetItemJsonAsync("2", source.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Bounded(client.GetItemJsonAsync("2", source.Token)));
         Assert.Equal(1, handler.RequestCount);
     }
 
@@ -478,7 +521,7 @@ public class BoothClientTests
             new QueuedHandler(new HttpResponseMessage(HttpStatusCode.InternalServerError), Ok("ok")),
             waits);
 
-        await client.GetItemJsonAsync("123");
+        await Bounded(client.GetItemJsonAsync("123"));
 
         Assert.False(client.IsThrottled);
     }
