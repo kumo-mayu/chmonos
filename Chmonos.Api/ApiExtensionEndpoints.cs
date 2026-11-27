@@ -72,6 +72,8 @@ internal static partial class ApiEndpoints
             .Answers<ExtensionSchemaRef>("情報の欄の宣言を丸ごと置き換える（持ち主のソフトだけ。外した欄の値は残して隠す・型を変えると 409 fieldTypeChanged。書き込み extensions）")
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status409Conflict);
+
+        MapExtensionValues(app);
     }
 
     /// <summary>URL の名前空間を決まりの形にする（大文字は小文字にする）。合わなければ 400。</summary>

@@ -44,6 +44,7 @@
 | `GET /v1/conversion-pairs` | 人が足した変換の組（元→先・ツール・メモ） | 作った（2026-11-27。形は [local-api-internal.md](local-api-internal.md)「内部の一覧」） |
 | `GET /v1/saved-searches` | 保存した検索（名前・フォルダ・含める物・要約と、そのまま `POST /v1/search` に渡せる検索の式） | 作った（2026-11-27。形は [local-api-internal.md](local-api-internal.md)「内部の一覧」） |
 | `GET /v1/extensions`・`GET /v1/extensions/{ns}` | ソフトが宣言した情報の欄（名前空間・表示名・ソフトの名前・持ち主か・欄。持ち主は `?include=hidden` で外した欄も） | 作った（2026-11-27。[local-api-extensions.md](local-api-extensions.md)） |
+| `/v1/{items・modifications・files・shops}/{鍵}/extensions/{ns}`・`/v1/extensions/{ns}/data`（と後ろに `/memo`） | ソフトの情報の値とメモ欄（GET・PUT・PATCH・DELETE。ETag と 412） | 作った（2026-11-27。[local-api-extensions-api.md](local-api-extensions-api.md)） |
 | `PUT /v1/extensions/{ns}/schema` | 情報の欄の宣言を丸ごと置き換える（持ち主だけ・書き込み `extensions`。型を変えると 409 `fieldTypeChanged`） | 作った（2026-11-27。同上） |
 | `GET /v1/images/{itemId}/{name}`・`/v1/modifications/{id}/images/{name}` | 画像の本体（ブラウザの画面のため） | 作った |
 

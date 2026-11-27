@@ -166,6 +166,9 @@ public sealed class QuerySnapshot
             .SelectMany(item => item.Local.LocalFiles.Select(file => (Item: item, File: file)))
             .ToLookup(pair => pair.File.Hash, StringComparer.OrdinalIgnoreCase));
 
+    /// <summary>記録したハッシュか（外のソフトの情報の付け先「ファイル」は、手元の記録が知っているハッシュだけ。外した行・古い版も含む）。</summary>
+    public bool KnowsFileHash(string hash) => FilesByHash.Contains(hash);
+
     /// <summary>表示用の説明の HTML（アプリの読み口。無ければ null）。写しには持たず、頼まれたときだけ読む。</summary>
     internal Task<string?> LoadDescriptionHtmlAsync(string itemId, CancellationToken cancellationToken)
         => _store.Items.LoadDescriptionHtmlAsync(itemId, cancellationToken);

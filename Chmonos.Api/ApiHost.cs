@@ -504,15 +504,16 @@ internal static class ApiHost
     /// 答えの JSON（型ごとの書き方は source generator の物。実行時に型を調べない）。中身から ETag を付け、
     /// If-None-Match が同じなら 304 を返す（外の道具が変わったかを安く確かめられるように。docs/spec/local-api.md「共通の決まり」・点検30）。
     /// </summary>
-    public static IResult Json<T>(T value, JsonTypeInfo<T> type) => new TaggedJson<T>(value, type);
+    /// <param name="tag">中身から作らずに使う印（外のソフトの情報の値：答えに隠した欄を入れたかで変わらない印にし、If-Match と同じ物にする）。</param>
+    public static IResult Json<T>(T value, JsonTypeInfo<T> type, string? tag = null) => new TaggedJson<T>(value, type, tag);
 
     /// <summary>中身の SHA-256 の頭16バイトを ETag にする（同じ答えなら同じ印。include や検索の条件が違えば中身が違うので印も違う）。</summary>
-    private sealed class TaggedJson<T>(T value, JsonTypeInfo<T> type) : IResult
+    private sealed class TaggedJson<T>(T value, JsonTypeInfo<T> type, string? fixedTag) : IResult
     {
         public async Task ExecuteAsync(HttpContext context)
         {
             var bytes = JsonSerializer.SerializeToUtf8Bytes(value, type);
-            var tag = $"\"{Convert.ToHexString(SHA256.HashData(bytes), 0, 16).ToLowerInvariant()}\"";
+            var tag = fixedTag ?? $"\"{Convert.ToHexString(SHA256.HashData(bytes), 0, 16).ToLowerInvariant()}\"";
             context.Response.Headers.ETag = tag;
 
             // 手元の写しを使う前に、毎回確かめてもらう（写しは保存先の変化で変わる）

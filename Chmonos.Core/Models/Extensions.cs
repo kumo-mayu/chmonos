@@ -192,7 +192,10 @@ public static class ExtensionNamespace
             && value[0] is >= 'a' and <= 'z'
             && value.All(c => c is (>= 'a' and <= 'z') or (>= '0' and <= '9') or '-')
             && !IsReserved(value)
-            && !DeviceNames.Contains(value);
+            && !IsDeviceName(value);
+
+    /// <summary>Windows がファイル・フォルダの名前に使えない名前か（小文字で見る。付け先の鍵の確かめにも使う）。</summary>
+    public static bool IsDeviceName(string value) => DeviceNames.Contains(value);
 
     /// <summary>Chmonos が自分で使うために取っておく名前か。</summary>
     public static bool IsReserved(string value)

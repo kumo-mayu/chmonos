@@ -54,7 +54,8 @@
 | [local-api.md](spec/local-api.md) | 外から使う API：アプリと同じプロセスがローカルの HTTP で答える（設定でオン）、読むだけ、同期・守り・ブラウザから・共通の決まり |
 | [local-api-shapes.md](spec/local-api-shapes.md) | 外から使う API の URL の一覧（広めの案）・商品1件の形・検索の式（AND・OR・NOT）・SSE の出来事 |
 | [local-api-internal.md](spec/local-api-internal.md) | 外から使う API で今まで出していなかった内部の情報：出す・出さない・後回しの仕分け（2026-11-27）と作る順、内部の一覧（recent・folders・excluded・unresolved）と取り込みの進み具合の形 |
-| [local-api-extensions.md](spec/local-api-extensions.md) | [採用]・まだ作っていない 外のソフトが商品・改変・ファイル・ショップ・全体に自分の情報を置く（拡張データ）：名前空間・欄の宣言と型（表を含む）・持ち主だけが読めるメモ欄・人は見るだけ・別のファイルに置く |
+| [local-api-extensions.md](spec/local-api-extensions.md) | [採用]・宣言と値の読み書きを作った 外のソフトが商品・改変・ファイル・ショップ・全体に自分の情報を置く（拡張データ）：名前空間・欄の宣言と型（表を含む）・持ち主だけが読めるメモ欄・人は見るだけ・別のファイルに置く |
+| [local-api-extensions-api.md](spec/local-api-extensions-api.md) | [採用]・一部実装 拡張データの URL と答えの形・値の確かめ・ETag と 412・付け先の変化に付いていく処理 |
 | [local-api-extensions-search.md](spec/local-api-extensions-search.md) | [採用]・まだ作っていない 拡張データの検索とメモリ：`search: true` の欄だけメモリに持つ・欄ごとの検索の条件（型から今の部品を当てはめる）・仕様として出来ない事 |
 | [local-api-stored.md](spec/local-api-stored.md) | 外から使う API で手元に控えた情報を読む道：unitypackage の中身と GUID の逆引き（持ち方とメモリの計測）ほか、控えごとの URL・形・出す範囲 |
 | [api-clients.md](spec/api-clients.md) | 外から使う API のソフトごとの許し：許しを求める流れ・窓・書き込みの種類・ハッシュの控え（`api-clients.json`）・設定の「つないでいるソフト」・古い `api.json` のトークンの扱い |

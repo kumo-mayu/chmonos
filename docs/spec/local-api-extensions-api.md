@@ -1,0 +1,48 @@
+# 外のソフトの情報（拡張データ）の URL・付け先の変化 [採用]
+
+> **要点**：[local-api-extensions.md](local-api-extensions.md) の続き（1ファイル200行の決まりで分けた。2026-11-27）。URL と答えの形・値の確かめ・ETag・付け先の変化に付いていく処理。
+> [実装] 2026-11-27：宣言の3つと、値・メモ欄の読み書き（5つの付け先）・ETag と 412・413・変化の知らせ。
+> まだ：`DELETE …/fields/{key}`・batch・`GET …/{ns}/items`・`include=extensions`・検索・画面・付け先の変化に付いていく処理。
+
+## URL と答えの形 [決定]
+
+ユーザ判断 2026-11-27「OKだと思います」。[実装] は宣言の3つ（`GET /v1/extensions`・`GET /v1/extensions/{ns}`・`PUT …/schema`）だけ。宣言の欄の型の名前は `text`・`number`・`bool`・`date`・`url`・`choice`（`options` に `value`・`label`）・`textList`・`avatarList`・`table`（`columns`）。誤りは 400 `invalidSchema`・`invalidField`・`duplicateField`・`invalidScale`・`invalidGroup`・`invalidNamespace`。
+
+| URL | 中身 | 誰が |
+|---|---|---|
+| `GET /v1/extensions`・`GET /v1/extensions/{ns}` | 宣言の一覧（名前空間・表示名・欄・ソフトの名前）・1つ | 許したソフトはどれも |
+| `PUT /v1/extensions/{ns}/schema` | 宣言を丸ごと置き換える | 持ち主だけ |
+| `DELETE /v1/extensions/{ns}/fields/{key}` | 欄を値ごと消す（裏で進め 202） | 持ち主だけ |
+| `/v1/items/{id}/extensions/{ns}`・`/v1/modifications/{id}/…`・`/v1/files/{hash}/…`・`/v1/shops/{key}/…`・`/v1/extensions/{ns}/data`（全体） | 値。GET 読む・PUT 丸ごと・PATCH 名指しした欄だけ（null で消す。属性の書き込みと同じ形）・DELETE そのソフトの値を全部 | 読むのはどれも・書くのは持ち主だけ |
+| `…/extensions/{ns}/memo` | メモ欄（中身は自由な JSON） | 持ち主だけ（読むのも） |
+| `GET /v1/extensions/{ns}/items?cursor=` | そのソフトが値を書いた商品の一覧（ソフトが同期し直す時） | どれも |
+
+- 付け先は Chmonos が知っている物だけ（商品・改変・ショップは今ある物、ファイルは記録したハッシュ）。知らない物は 404（どこにも付かない値を溜めない）。
+- 商品の答えに `?include=extensions`：`extensions: { "名前空間": { 欄: 値 } }`（メモ欄と隠した欄は入れない）。一覧・検索・batch でも頼める。
+- 検索の条件の種類 `extension`（`{ "ns", "key", "op", "value" }`）。op は型ごとに今の条件に合わせる（数・日付は範囲、文字は含む、一覧はどれかを含む）。
+- 値の JSON：文字・URL は文字列、数、真偽、日付は `"YYYY-MM-DD"`、文字の一覧は配列、`avatarList` はアバターの ID（文字列）の配列（名前は付けず `/v1/avatars` で引く）、表は行の配列（1行は「列 → 値」）。
+- 書けたら 200 と今の値と `ETag`。`If-Match` を付ければ古い値への上書きを 412 で断る（省いても書ける。2つのソフトが同じ物を書かないので）。
+- 誤り：400 `unknownField`（宣言に無い）・400 `invalidValue`（型が違う）・403 `notOwner`・403 `scopeNotGranted`・404（付け先が無い）・409 `fieldTypeChanged`・413 `extensionTooLarge`・412。
+- [実装] 値の読み書き（2026-11-27。試験 ApiExtensionValueTests）：
+  - 体は `{ "values": { 欄: 値 } }`（属性の書き込みと同じ包み）、答えは `{ namespace, target, key, values }`（`target` は `items`・`modifications`・`files`・`shops`・`global`）。値がまだ無ければ空の `values` を返す。メモ欄は `{ "memo": 自由な JSON }`。
+  - **PUT は今の宣言の欄を丸ごと置き換え、宣言から外した欄の値は残す**（「宣言を変えた時」の「値は残して隠す」。全部消すのは DELETE だけ）。隠した欄へ書くと 400 `unknownField`。DELETE は隠した欄の値も消し、メモ欄は残す。欄が1つも無くなったらファイルを消す。
+  - 表の行は丸ごと置き換えるので、表から外した列の値は、その表を書き直すと消える（列だけを残す合わせ方は推測になるので作らない）。
+  - 型：数は有限の数（`min`・`max` は目安なので範囲の外も受ける）・日付は `YYYY-MM-DD`・URL は `http`・`https` の絶対の URL・選択肢は今の宣言の値・`avatarList` は商品 ID の形（在るかは見ない。持っていないアバターも指せる）。文字の制御文字は書く時に断らず、spec のとおり表示する前に除く（画面の段）。
+  - ETag は保存した値の全部（隠した欄も）から作り、GET・PUT・PATCH で同じ。`?include=hidden` の答えは中身が違うので印の後ろに `h` を付けて分け、`If-Match` はどちらの印でも同じ値に当てる。比べは錠の中。メモ欄の印は値と別。412 の code は `preconditionFailed`。
+  - 413 `extensionTooLarge`：値は隠した欄も含めた書いた後の大きさ（16KB）・表の行（1,000）・メモ欄（64KB）。体はメモ欄の上限の4倍（256KB）を超えたら読み切らずに断る。
+  - 付け先は写しで引き、その物自身の鍵で場所を組む（商品・改変は ID の形、ファイルは SHA-256 の16進を大文字、ショップは一覧の鍵を小文字にして英小文字・数字・ハイフン）。知らない物は 404（`itemNotFound`・`modificationNotFound`・`fileNotFound`・`shopNotFound`）。`con`・`nul` などの名前のショップには置けない（404）。
+  - 商品・改変は、書く時に錠の中で記録のファイルがまだ在るかも見る（無ければ 404 `targetNotFound`）。写しに残っていても、外した後の値を残さない。
+  - 変化の知らせ：kind `extensions`、parts は `[ns, 付け先の種類, 鍵]`（全体は `[ns, "global"]`。宣言の `[ns, "schema"]` にそろえた）。商品は itemIds にも載せる。メモ欄は持ち主しか読めないので流さない。
+
+## 付け先の変化・守り・ほかの口 [決定]
+
+ユーザ判断 2026-11-27「その案でOKです」。
+
+- **ID の付け替え・統合**：名前空間ごとに、移す先に値があれば移す先を残し、無ければ移す元の値を移す（属性の「移す先に1つでも付いていれば移す先の組」と同じ）。**商品を外したら**その商品の値も消す。
+- **まとめて書く**：`POST /v1/extensions/{ns}/batch`（1回の件数に上限 [案]）。1件ずつの PUT を何万回も受けると、ファイルの書き込み・見張りの読み直し・変化の知らせが同じ回数起きる。
+- **起動とメモリ**：検索と include のため写し（`QuerySnapshot`）に全部の値を持つので、件数とソフトの数に比例して増える。上限と一緒に測る。
+- **URL の型**：`http`・`https` だけ受ける。画面ではドメインを見せる（開く前に確かめるかは画面を詰める時）。文字の値は、表示する前に制御文字・向きを変える文字を除く。
+- **保存した検索の条件**：欄が無くなった条件は当たらないとし、画面で「この条件の欄はありません」と出す。条件の種類は文字列で持つ（`SearchModuleState.Kind`）ので形式の版は上げない見込みだが、古い版が知らない種類をどう扱うかは作る時に確かめる [要確認]。
+- **古いトークン**（`api.json` の1本）：名前空間が無いので、読むのは許し、書くのは許さない。
+- **名前空間の取り合い**：exe の場所が変わった求め直し・ほかのソフトの名乗りは、窓で知らせて人が決める（上の「名前空間」のまま）。
+- **プラグインの知らせ・MCP（AI）から**：後回し。足すのは互換の変更。

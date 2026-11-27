@@ -131,6 +131,21 @@ public sealed record ExtensionSchemaRef(
 /// <summary>宣言の一覧（<c>GET /v1/extensions</c>。名前空間の順）。</summary>
 public sealed record ExtensionSchemaList(IReadOnlyList<ExtensionSchemaRef> Extensions);
 
+/// <summary>情報の値を書く要求（PUT は今の宣言の欄を丸ごと・PATCH は名指しした欄だけで null は消す。属性の書き込みと同じ <c>values</c> の包み）。</summary>
+public sealed record ExtensionValuesRequest(IReadOnlyDictionary<string, System.Text.Json.JsonElement>? Values);
+
+/// <summary>
+/// 付け先1つ・名前空間1つの値。<see cref="Target"/> は付け先の種類（items・modifications・files・shops・global）、<see cref="Key"/> はその鍵。
+/// 宣言から外した欄は、持ち主が <c>?include=hidden</c> で頼んだ時だけ入る。ETag は保存した値の全部から作る（include で変わらない）
+/// </summary>
+public sealed record ExtensionValuesRef(string Namespace, string Target, string Key, IReadOnlyDictionary<string, System.Text.Json.JsonElement> Values);
+
+/// <summary>メモ欄を書く要求（中身は自由な JSON。null で消す）。</summary>
+public sealed record ExtensionMemoRequest(System.Text.Json.JsonElement? Memo);
+
+/// <summary>メモ欄（持ち主のソフトだけが読める）。無ければ <see cref="Memo"/> は null。</summary>
+public sealed record ExtensionMemoRef(string Namespace, string Target, string Key, System.Text.Json.JsonElement? Memo);
+
 /// <summary>今のトークンが誰で、何を許されているか（<c>GET /v1/clients/me</c>）。<see cref="Kind"/> は legacy（api.json のトークン）・client。</summary>
 public sealed record ClientSelfAnswer(string Kind, string? ClientId, string? Name, IReadOnlyList<string> Scopes, string? Namespace = null);
 

@@ -207,6 +207,21 @@ public abstract record UiCommand
     public record ChangeExtensionSchema(string Namespace, Func<Models.ExtensionSchemaFile?, Models.ExtensionSchemaFile?> Change) : UiCommand;
 
     /// <summary>
+    /// 外のソフトの情報の値を変える（extensions/&lt;名前空間&gt;/&lt;付け先&gt;/&lt;鍵&gt;.json）。変え方には錠の中で今の宣言と値を渡す
+    /// （宣言の置き換えと重ねない。値の確かめは今の宣言に当てる）。断るときは関数が null を返し、理由は呼び手が関数の外へ控える
+    /// </summary>
+    public record ChangeExtensionValues(
+        string Namespace,
+        Storage.ExtensionTarget Target,
+        Func<Models.ExtensionSchemaFile?, Models.ExtensionValueFile?, Models.ExtensionValueFile?> Change) : UiCommand;
+
+    /// <summary>外のソフトのメモ欄を変える（値の横の &lt;鍵&gt;.memo.json）。メモが null ならファイルを消す。</summary>
+    public record ChangeExtensionMemo(
+        string Namespace,
+        Storage.ExtensionTarget Target,
+        Func<Models.ExtensionMemoFile?, Models.ExtensionMemoFile?> Change) : UiCommand;
+
+    /// <summary>
     /// 動画のタイトルを控える（video-titles.json）。<paramref name="Title"/> が null なら控えを消す（非公開・削除で取れなくなった）。
     /// 書くついでに30日を過ぎた控えも落とす（YouTube の開発者ポリシー・<see cref="Services.VideoTitleBook"/>）。
     /// </summary>
@@ -858,6 +873,12 @@ public abstract record CommandResult
 
     /// <summary>外のソフトの情報の宣言を変えた結果（書いた宣言。書かなかったら null）。</summary>
     public record ExtensionSchemaChanged(Models.ExtensionSchemaFile? Schema) : CommandResult;
+
+    /// <summary>外のソフトの情報の値を変えた結果（書いた後の値。断ったら null・消したら欄が空）。</summary>
+    public record ExtensionValuesChanged(Models.ExtensionValueFile? Values) : CommandResult;
+
+    /// <summary>メモ欄を変えた結果（書いた後のメモ。断ったら null）。</summary>
+    public record ExtensionMemoChanged(Models.ExtensionMemoFile? Memo) : CommandResult;
 
     /// <summary>属性の改名・削除の結果。書き換えたitem数を持つ。</summary>
     public record AttributesRewritten(Services.AttributeEditResult Result) : CommandResult;

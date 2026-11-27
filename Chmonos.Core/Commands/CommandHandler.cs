@@ -472,6 +472,16 @@ public sealed class CommandHandler
                     await (Extensions ?? throw new InvalidOperationException("ソフトの情報の保存先が渡されていません。"))
                         .ChangeSchemaAsync(schema.Namespace, schema.Change, cancellationToken));
 
+            case UiCommand.ChangeExtensionValues values:
+                return new CommandResult.ExtensionValuesChanged(
+                    await (Extensions ?? throw new InvalidOperationException("ソフトの情報の保存先が渡されていません。"))
+                        .ChangeValuesAsync(values.Namespace, values.Target, values.Change, cancellationToken));
+
+            case UiCommand.ChangeExtensionMemo memo:
+                return new CommandResult.ExtensionMemoChanged(
+                    await (Extensions ?? throw new InvalidOperationException("ソフトの情報の保存先が渡されていません。"))
+                        .ChangeMemoAsync(memo.Namespace, memo.Target, memo.Change, cancellationToken));
+
             case UiCommand.RememberVideoTitle remember:
                 await (_videoTitles ?? throw new InvalidOperationException("動画のタイトルの控えの保存先が渡されていません。"))
                     .UpdateAsync(
