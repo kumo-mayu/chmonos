@@ -316,6 +316,12 @@
                                                     Background="{DynamicResource Warn}" BorderBrush="{DynamicResource Surface}"
                                                     BorderThickness="2" HorizontalAlignment="Left" VerticalAlignment="Top"
                                                     Margin="1,1,0,0" Visibility="Collapsed" />
+                                            <!-- 未所持（ファイルもフォルダも無い）。空いている右上に、検索のカードの「未所持」の帯と同じ色で置く（ユーザ指示 2026-11-27） -->
+                                            <Border x:Name="UnownedMark" CornerRadius="4" Background="{DynamicResource BadFill}" Padding="3,0,3,1"
+                                                    HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,2,0" Visibility="Collapsed"
+                                                    IsHitTestVisible="False">
+                                                <TextBlock Text="未所持" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource OnAccent}" />
+                                            </Border>
                                         </Grid>
                                         <ControlTemplate.Triggers>
                                             <DataTrigger Binding="{Binding IsDraft}" Value="True">
@@ -326,6 +332,9 @@
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsSaved}" Value="True">
                                                 <Setter TargetName="SavedMark" Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsUnowned}" Value="True">
+                                                <Setter TargetName="UnownedMark" Property="Visibility" Value="Visible" />
                                             </DataTrigger>
                                             <Trigger Property="IsMouseOver" Value="True">
                                                 <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource Border}" />

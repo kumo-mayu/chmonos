@@ -40,6 +40,12 @@ public sealed class EditQueueTile : ViewModelBase, IHasItemCard
     /// <summary>通り過ぎたのに保存していない（飛ばした）。薄く出して、保存した物と見分ける。書きかけは薄くしない。</summary>
     public bool IsSkipped => IsPast && !IsSaved && !IsDraft;
 
+    /// <summary>
+    /// ファイルもフォルダも無い商品（情報だけ）。「所持している商品だけ」を切った時に順番へ入るので、絵の右上に印を出して見分ける（ユーザ指示 2026-11-27）。
+    /// 入の時も、書きかけ・開いている商品は外さずに残るので、同じ印を出す
+    /// </summary>
+    public bool IsUnowned { get; init; }
+
     public Func<Action, BitmapSource?>? ImageFactory { get; init; }
 
     public BitmapSource? Image => ImageFactory?.Invoke(() => OnPropertyChanged(nameof(Image)));
@@ -63,8 +69,8 @@ public sealed class EditQueueTile : ViewModelBase, IHasItemCard
         OnPropertyChanged(nameof(Preview));
     }
 
-    public string StateText => IsCurrent
+    public string StateText => (IsUnowned ? "未所持・" : string.Empty) + (IsCurrent
         ? "いま開いている商品"
         : (IsSaved ? "保存済み" : IsDraft ? "編集途中（保存していない入力があります）" : IsPast ? "保存せずに飛ばした" : "これから")
-            + "（押すとこの商品へ移ります）";
+            + "（押すとこの商品へ移ります）");
 }

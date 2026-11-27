@@ -303,6 +303,7 @@ public sealed partial class EditViewModel
                 IsPast = index < _index,
                 IsSaved = _saved.Contains(itemId),
                 IsDraft = _main.Drafts.Contains(itemId),
+                IsUnowned = TileRecord(itemId) is { IsOwned: false },
                 ImageFactory = onLoaded => TileImage(itemId, onLoaded, preview: false),
                 PreviewFactory = onLoaded => TileImage(itemId, onLoaded, preview: true),
                 CardFactory = () => _main.Search.CardFor(itemId),

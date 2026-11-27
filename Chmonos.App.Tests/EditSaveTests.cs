@@ -310,6 +310,12 @@ public class EditSaveTests
         Assert.Equal(current, edit.CurrentItemId);
         Assert.Equal(3, main.NeedsEditCount);
 
+        // 帯の絵は、情報だけの商品にだけ未所持の印を出す（ユーザ指示 2026-11-27）
+        Assert.Equal(
+            [("1000001", false), ("1000002", true), ("1000003", true)],
+            edit.QueueTiles.Select(tile => (tile.ItemId, tile.IsUnowned)).OrderBy(pair => pair.ItemId).ToList());
+        Assert.StartsWith("未所持・", edit.QueueTiles.Single(tile => tile.ItemId == "1000002").StateText);
+
         // 情報だけの商品の1件に書きかけを作る（未保存の入力）
         edit.SkipCommand.Execute(null);
         await app.SettleAsync();
