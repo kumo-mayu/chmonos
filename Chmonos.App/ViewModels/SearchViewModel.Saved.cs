@@ -261,18 +261,32 @@ public sealed partial class SearchViewModel
     {
         var filter = _savedFilter.Trim();
         SavedRows.Clear();
-        for (var index = 0; index < _saved.Count; index++)
+
+        // フォルダごとにまとめて出す（フォルダの外の物を先に）。上へ・下へはフォルダの中で動かすので、端もフォルダの中で決める
+        var grouped = SavedSearches.Grouped(_saved);
+        string? previousFolder = null;
+        var first = true;
+        for (var index = 0; index < grouped.Count; index++)
         {
-            var entry = _saved[index];
+            var entry = grouped[index];
+            var folder = SavedSearches.FolderOf(entry);
             var summary = SavedSummary(entry);
+
+            // 探す語がフォルダの名前に当たれば、中身は全部出す（フォルダで探して、その中から選べるように）
             if (filter.Length > 0
                 && !Contains(entry.Name, filter)
-                && !Contains(summary, filter))
+                && !Contains(summary, filter)
+                && !Contains(folder, filter))
             {
                 continue;
             }
 
-            SavedRows.Add(new SavedSearchRow(this, entry, summary, canMoveUp: index > 0, canMoveDown: index < _saved.Count - 1));
+            var canMoveUp = index > 0 && SavedSearches.SameFolder(SavedSearches.FolderOf(grouped[index - 1]), folder);
+            var canMoveDown = index < grouped.Count - 1 && SavedSearches.SameFolder(SavedSearches.FolderOf(grouped[index + 1]), folder);
+            var header = folder is not null && (first || !SavedSearches.SameFolder(previousFolder, folder)) ? folder : null;
+            SavedRows.Add(new SavedSearchRow(this, entry, summary, canMoveUp, canMoveDown, header, SavedFolderTargets(folder)));
+            previousFolder = folder;
+            first = false;
         }
 
         OnPropertyChanged(nameof(ShowsSavedFilterEmpty));
@@ -312,6 +326,80 @@ public sealed partial class SearchViewModel
 
     /// <summary>行の「…」と右クリックの操作の入口（窓を出す物は画面から呼ぶ）。</summary>
     internal void RenameSavedFromMenu(string name) => AskRenameSaved(name);
+
+    internal void MoveSavedToNewFolderFromMenu(string name) => AskMoveSavedToNewFolder(name);
+
+    internal void RenameSavedFolderFromMenu(string folder) => AskRenameSavedFolder(folder);
+
+    /// <summary>
+    /// 行の「フォルダへ移す」に並べる行き先：今あるフォルダ（自分の入っている物は除く）・新しいフォルダ・フォルダの外（フォルダに入っている時だけ）
+    /// </summary>
+    internal IReadOnlyList<SavedFolderTarget> SavedFolderTargets(string? current)
+    {
+        var targets = SavedSearches.Folders(_saved)
+            .Where(folder => !SavedSearches.SameFolder(folder, current))
+            .Select(folder => new SavedFolderTarget(folder, folder, IsNew: false))
+            .ToList();
+        targets.Add(new SavedFolderTarget("新しいフォルダ…", null, IsNew: true));
+        if (current is not null)
+        {
+            targets.Add(new SavedFolderTarget("フォルダの外", null, IsNew: false));
+        }
+
+        return targets;
+    }
+
+    /// <summary>フォルダへ移す（<paramref name="folder"/> が null ならフォルダの外へ）。行は移した先へ動くので、その行に止まり直す</summary>
+    public Task MoveSavedToFolderAsync(string name, string? folder)
+        => ChangeSavedAsync(list => SavedSearches.MoveToFolder(list, name, folder), focus: name);
+
+    /// <summary>新しいフォルダの名前を聞いて、そこへ移す。名前は新しく名付ける物なので、今あるフォルダと同じなら「既にあります」で止める</summary>
+    private void AskMoveSavedToNewFolder(string name)
+    {
+        var model = new SavedSearchNameDialogViewModel(
+            SavedSearchNameDialogViewModel.Purpose.NewFolder, string.Empty, SavedSearches.Folders(_saved));
+        if (new Views.SavedSearchNameDialog(model).ShowDialog() == true)
+        {
+            MoveSavedToFolderAsync(name, model.Name).Forget();
+        }
+    }
+
+    private void AskRenameSavedFolder(string folder)
+    {
+        var model = new SavedSearchNameDialogViewModel(
+            SavedSearchNameDialogViewModel.Purpose.RenameFolder, folder,
+            SavedSearches.Folders(_saved).Where(other => !SavedSearches.SameName(other, folder)).ToList());
+        if (new Views.SavedSearchNameDialog(model).ShowDialog() == true)
+        {
+            RenameSavedFolderAsync(folder, model.Name).Forget();
+        }
+    }
+
+    /// <summary>フォルダの名前を変える（中身をまとめて移す）。止まり直すのは、そのフォルダの先頭の行</summary>
+    public Task RenameSavedFolderAsync(string folder, string newFolder)
+        => ChangeSavedAsync(
+            list => SavedSearches.RenameFolder(list, folder, newFolder),
+            focus: FirstSavedIn(folder) ?? string.Empty);
+
+    /// <summary>
+    /// フォルダを消す。中身はフォルダの外へ出す（保存した検索は消さない）。どの行も残り、フォルダへ入れ直せば戻るので、確かめの窓は出さない
+    /// </summary>
+    public Task RemoveSavedFolderAsync(string folder)
+        => ChangeSavedAsync(
+            list => SavedSearches.RemoveFolder(list, folder),
+            focus: FirstSavedIn(folder) ?? string.Empty);
+
+    private string? FirstSavedIn(string folder)
+        => _saved.FirstOrDefault(entry => SavedSearches.SameFolder(SavedSearches.FolderOf(entry), folder))?.Name;
+}
+
+/// <summary>
+/// 行の「フォルダへ移す」の行き先1つ。<see cref="IsNew"/> なら名前を聞いてから移す。<see cref="Folder"/> が null で新しくなければフォルダの外
+/// </summary>
+public sealed record SavedFolderTarget(string Header, string? Folder, bool IsNew)
+{
+    /// <summary>押したときの操作（行ごとに作る。どの行を移すかは行が知っている）。</summary>
+    public RelayCommand? Command { get; init; }
 }
 
 /// <summary>保存した検索の一覧の1行。</summary>
@@ -319,11 +407,34 @@ public sealed class SavedSearchRow : ViewModelBase
 {
     private bool _isCurrent;
 
-    internal SavedSearchRow(SearchViewModel owner, SearchHistoryEntry entry, string summary, bool canMoveUp, bool canMoveDown)
+    internal SavedSearchRow(
+        SearchViewModel owner, SearchHistoryEntry entry, string summary, bool canMoveUp, bool canMoveDown,
+        string? folderHeader = null, IReadOnlyList<SavedFolderTarget>? folderTargets = null)
     {
         Entry = entry;
         Summary = summary;
+        FolderHeader = folderHeader;
         var name = entry.Name ?? string.Empty;
+        FolderTargets = (folderTargets ?? []).Select(target => target with
+        {
+            Command = new RelayCommand(() =>
+            {
+                if (target.IsNew)
+                {
+                    owner.MoveSavedToNewFolderFromMenu(name);
+                }
+                else
+                {
+                    owner.MoveSavedToFolderAsync(name, target.Folder).Forget();
+                }
+            }),
+        }).ToList();
+        if (folderHeader is not null)
+        {
+            RenameFolderCommand = new RelayCommand(() => owner.RenameSavedFolderFromMenu(folderHeader));
+            RemoveFolderCommand = new RelayCommand(() => owner.RemoveSavedFolderAsync(folderHeader).Forget());
+        }
+
         ApplyCommand = new RelayCommand(() => owner.ApplySaved(entry));
         OverwriteCommand = new RelayCommand(() => owner.OverwriteSavedAsync(name).Forget(), () => !_isCurrent);
         RenameCommand = new RelayCommand(() => owner.RenameSavedFromMenu(name));
@@ -333,6 +444,20 @@ public sealed class SavedSearchRow : ViewModelBase
     }
 
     public SearchHistoryEntry Entry { get; }
+
+    /// <summary>この行の上に出すフォルダの見出し（フォルダの先頭の行だけ。フォルダの外と、2行目からは null）。</summary>
+    public string? FolderHeader { get; }
+
+    public bool HasFolderHeader => FolderHeader is not null;
+
+    /// <summary>「フォルダへ移す」の行き先。</summary>
+    public IReadOnlyList<SavedFolderTarget> FolderTargets { get; }
+
+    /// <summary>見出しの「…」：フォルダの名前を変更（見出しのある行だけ）。</summary>
+    public RelayCommand? RenameFolderCommand { get; }
+
+    /// <summary>見出しの「…」：フォルダを削除（中身はフォルダの外へ。見出しのある行だけ）。</summary>
+    public RelayCommand? RemoveFolderCommand { get; }
 
     /// <summary>名前の無い行（手で書いた JSON）は要約を名前の代わりに出す。</summary>
     public string Name => Entry.IsNamed ? Entry.Name! : Summary;

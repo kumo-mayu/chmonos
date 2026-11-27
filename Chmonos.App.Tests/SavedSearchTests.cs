@@ -405,4 +405,93 @@ public class SavedSearchTests
 
         Assert.Contains(module.Chips, chip => chip.Text == "新しいカテゴリ");
     });
+
+    // ---- フォルダ（1階層・ユーザ判断 2026-11-27） ----
+
+    private static async Task<SearchViewModel> WithFoldersAsync(TestApp app)
+    {
+        var search = await StartAsync(app);
+        foreach (var name in new[] { "A", "B", "C", "D" })
+        {
+            search.QueryText = name;
+            await search.SaveCurrentSearchAsync(name);
+        }
+
+        await search.MoveSavedToFolderAsync("A", "衣装");
+        await search.MoveSavedToFolderAsync("C", "衣装");
+        await search.MoveSavedToFolderAsync("B", "髪");
+        return search;
+    }
+
+    [Fact]
+    public Task フォルダへ移すと_書かれ_一覧はフォルダの外を先にフォルダの先頭に見出しを出す() => TestApp.Run(async app =>
+    {
+        var search = await WithFoldersAsync(app);
+
+        Assert.Equal(["D", "A", "C", "B"], Names(search));
+        Assert.Equal([null, "衣装", null, "髪"], search.SavedRows.Select(row => row.FolderHeader));
+        Assert.Equal(["衣装", "髪"], app.Store.SavedSearches.Load().Entries.Select(entry => entry.Folder).OfType<string>().Distinct());
+
+        // 上へ・下へはフォルダの中の端で止まる
+        Assert.False(Row(search, "A").MoveUpCommand.CanExecute(null));
+        Assert.True(Row(search, "A").MoveDownCommand.CanExecute(null));
+        Assert.False(Row(search, "C").MoveDownCommand.CanExecute(null));
+        Assert.False(Row(search, "D").MoveDownCommand.CanExecute(null));
+    });
+
+    [Fact]
+    public Task フォルダへ移すの行き先は_今あるほかのフォルダと新しいフォルダと_入っている時だけフォルダの外() => TestApp.Run(async app =>
+    {
+        var search = await WithFoldersAsync(app);
+
+        Assert.Equal(["髪", "新しいフォルダ…", "フォルダの外"], Row(search, "A").FolderTargets.Select(target => target.Header));
+        Assert.Equal(["衣装", "髪", "新しいフォルダ…"], Row(search, "D").FolderTargets.Select(target => target.Header));
+
+        Row(search, "D").FolderTargets[1].Command!.Execute(null);
+        await app.SettleAsync();
+        Assert.Equal("髪", app.Store.SavedSearches.Load().Entries.Single(entry => entry.Name == "D").Folder);
+    });
+
+    [Fact]
+    public Task フォルダの名前の変更と削除は_中身をまとめて動かし_保存した検索は消さない() => TestApp.Run(async app =>
+    {
+        var search = await WithFoldersAsync(app);
+
+        await search.RenameSavedFolderAsync("衣装", "服");
+        Assert.Equal([null, "服", null, "髪"], search.SavedRows.Select(row => row.FolderHeader));
+
+        await search.RemoveSavedFolderAsync("服");
+        Assert.Equal(["D", "A", "C", "B"], Names(search));
+        Assert.Equal(4, app.Store.SavedSearches.Load().Entries.Count);
+        Assert.Equal([null, null, null, "髪"], search.SavedRows.Select(row => row.FolderHeader));
+        Assert.Empty(app.Notices);
+    });
+
+    [Fact]
+    public Task 探す欄はフォルダの名前にも当たり_中身を全部出す() => TestApp.Run(async app =>
+    {
+        var search = await WithFoldersAsync(app);
+        search.QueryText = "E";
+        await search.SaveCurrentSearchAsync("E");
+        search.QueryText = "F";
+        await search.SaveCurrentSearchAsync("F");
+
+        search.SavedFilter = "衣";
+
+        Assert.Equal(["A", "C"], Names(search));
+        Assert.Equal("衣装", search.SavedRows[0].FolderHeader);
+    });
+
+    [Fact]
+    public void フォルダの名前の小窓は_今あるフォルダと同じなら既にあります()
+    {
+        var model = new SavedSearchNameDialogViewModel(SavedSearchNameDialogViewModel.Purpose.NewFolder, string.Empty, ["衣装"]);
+        model.Name = " 衣装 ";
+
+        Assert.Equal("新しいフォルダ", model.Title);
+        Assert.Equal("移動", model.CommitText);
+        Assert.True(model.IsTaken);
+        Assert.False(model.CanCommit);
+        Assert.Equal("フォルダの名前を変更", new SavedSearchNameDialogViewModel(SavedSearchNameDialogViewModel.Purpose.RenameFolder, "衣装", []).Title);
+    }
 }

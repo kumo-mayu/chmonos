@@ -42,7 +42,8 @@ public static class SavedSearches
         var at = list.FindIndex(other => SameName(other.Name, named.Name));
         if (at >= 0)
         {
-            list[at] = named;
+            // 置き換える行のフォルダは残す（同じ名前の行を別の所から足しただけで、人が入れたフォルダから出さない）
+            list[at] = named with { Folder = list[at].Folder };
         }
         else
         {
@@ -54,7 +55,7 @@ public static class SavedSearches
 
     /// <summary>名前と場所はそのまま、中身を今の検索に替える。名前が無ければ（別の所で消された）何もしない</summary>
     public static IReadOnlyList<SearchHistoryEntry> Overwrite(IEnumerable<SearchHistoryEntry> entries, string name, SearchHistoryEntry entry)
-        => entries.Select(other => SameName(other.Name, name) ? entry with { Name = other.Name } : other).ToList();
+        => entries.Select(other => SameName(other.Name, name) ? entry with { Name = other.Name, Folder = other.Folder } : other).ToList();
 
     /// <summary>
     /// 名前を変える。新しい名前がほかの行と重なるなら何もしない（大文字小文字だけを直すのは、同じ行なので通す）
@@ -74,13 +75,28 @@ public static class SavedSearches
     public static IReadOnlyList<SearchHistoryEntry> Remove(IEnumerable<SearchHistoryEntry> entries, string name)
         => entries.Where(other => !SameName(other.Name, name)).ToList();
 
-    /// <summary>1つ上（<paramref name="delta"/> = -1）か下（+1）へ動かす。端では動かさない</summary>
+    /// <summary>
+    /// 1つ上（<paramref name="delta"/> = -1）か下（+1）へ動かす。**同じフォルダの中の隣**と入れ替え、フォルダの中の端では動かさない
+    /// （一覧はフォルダごとにまとめて出すので、並びの上の隣が別のフォルダの行だと、入れ替えても見た目が動かない）
+    /// </summary>
     public static IReadOnlyList<SearchHistoryEntry> Move(IEnumerable<SearchHistoryEntry> entries, string name, int delta)
     {
         var list = entries.ToList();
         var at = list.FindIndex(other => SameName(other.Name, name));
-        var to = at + delta;
-        if (at < 0 || to < 0 || to >= list.Count)
+        if (at < 0 || delta == 0)
+        {
+            return list;
+        }
+
+        var folder = FolderOf(list[at]);
+        var step = Math.Sign(delta);
+        var to = at + step;
+        while (to >= 0 && to < list.Count && !SameFolder(FolderOf(list[to]), folder))
+        {
+            to += step;
+        }
+
+        if (to < 0 || to >= list.Count)
         {
             return list;
         }
@@ -88,6 +104,97 @@ public static class SavedSearches
         (list[at], list[to]) = (list[to], list[at]);
         return list;
     }
+
+    // ---- フォルダ（1階層・ユーザ判断 2026-11-27） ----
+    // フォルダの一覧は持たず、1件ごとの欄（SearchHistoryEntry.Folder）だけで表す。中身の無いフォルダは残らない。
+    // 一覧はフォルダの外の物を先に、フォルダは並びに初めて出てきた順で出す（並びは人が決めた順のまま、まとめて見せる）
+
+    /// <summary>行のフォルダの名前。前後の空白を落とし、空ならフォルダの外（null）。手で直した JSON の空白だけの名前も外として読む</summary>
+    public static string? FolderOf(SearchHistoryEntry entry)
+        => string.IsNullOrWhiteSpace(entry.Folder) ? null : entry.Folder.Trim();
+
+    /// <summary>同じフォルダか（どちらもフォルダの外なら同じ）。名前の比べ方は保存した検索の名前と同じ</summary>
+    public static bool SameFolder(string? left, string? right)
+        => (left is null && right is null) || (left is not null && right is not null && SameName(left, right));
+
+    /// <summary>フォルダの名前（並びに初めて出てきた順。綴りは最初の行の物）。</summary>
+    public static IReadOnlyList<string> Folders(IEnumerable<SearchHistoryEntry> entries)
+    {
+        var folders = new List<string>();
+        foreach (var entry in entries)
+        {
+            if (FolderOf(entry) is { } folder && !folders.Any(other => SameName(other, folder)))
+            {
+                folders.Add(folder);
+            }
+        }
+
+        return folders;
+    }
+
+    /// <summary>一覧に出す順：フォルダの外の物を先に、続けてフォルダごと（<see cref="Folders"/> の順）。同じフォルダの中は並びのまま</summary>
+    public static IReadOnlyList<SearchHistoryEntry> Grouped(IEnumerable<SearchHistoryEntry> entries)
+    {
+        var list = entries.ToList();
+        var result = list.Where(entry => FolderOf(entry) is null).ToList();
+        foreach (var folder in Folders(list))
+        {
+            result.AddRange(list.Where(entry => SameFolder(FolderOf(entry), folder)));
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// フォルダへ移す（<paramref name="folder"/> が空ならフォルダの外へ）。移した行は、移した先の最後の行のすぐ後ろに置く
+    /// （置き場所を変えないと、移した行が並びの前の方にあるとき、フォルダの出る順まで変わってしまう）。移した先に行が無ければ末尾。
+    /// 今あるフォルダの綴りに寄せる（大文字小文字だけ違うフォルダを2つ作らない）。名前が無ければ（別の所で消された）何もしない
+    /// </summary>
+    public static IReadOnlyList<SearchHistoryEntry> MoveToFolder(IEnumerable<SearchHistoryEntry> entries, string name, string? folder)
+    {
+        var list = entries.ToList();
+        var at = list.FindIndex(other => SameName(other.Name, name));
+        if (at < 0)
+        {
+            return list;
+        }
+
+        var target = string.IsNullOrWhiteSpace(folder) ? null : folder.Trim();
+        target = target is null ? null : Folders(list).FirstOrDefault(other => SameName(other, target)) ?? target;
+        if (SameFolder(FolderOf(list[at]), target))
+        {
+            return list;
+        }
+
+        var moved = list[at] with { Folder = target };
+        list.RemoveAt(at);
+        var last = list.FindLastIndex(other => SameFolder(FolderOf(other), target));
+        list.Insert(last < 0 ? list.Count : last + 1, moved);
+        return list;
+    }
+
+    /// <summary>
+    /// フォルダの名前を変える（中身をまとめて移す）。新しい名前がほかのフォルダと同じなら、そのフォルダへまとめる
+    /// （画面は「既にあります」で止めるが、2つの所から同時に変えられたときに同じ名前のフォルダを2つにしない）。空の名前なら何もしない
+    /// </summary>
+    public static IReadOnlyList<SearchHistoryEntry> RenameFolder(IEnumerable<SearchHistoryEntry> entries, string folder, string newFolder)
+    {
+        var list = entries.ToList();
+        var trimmed = newFolder.Trim();
+        if (trimmed.Length == 0)
+        {
+            return list;
+        }
+
+        var target = Folders(list).FirstOrDefault(other => SameName(other, trimmed) && !SameName(other, folder)) ?? trimmed;
+        return list.Select(entry => SameFolder(FolderOf(entry), folder.Trim()) || SameFolder(FolderOf(entry), target)
+            ? entry with { Folder = target }
+            : entry).ToList();
+    }
+
+    /// <summary>フォルダを消す。中身はフォルダの外へ出す（保存した検索は消さない）</summary>
+    public static IReadOnlyList<SearchHistoryEntry> RemoveFolder(IEnumerable<SearchHistoryEntry> entries, string folder)
+        => entries.Select(entry => SameFolder(FolderOf(entry), folder.Trim()) ? entry with { Folder = null } : entry).ToList();
 
     // ---- 名前の変更・統合に付いていく（ユーザ判断 2026-10-04） ----
     // 保存した検索の条件はタグ・属性・共通素体を名前の文字で指す。名前を変えても条件が古い名前のままだと、呼び出したとき0件になる。

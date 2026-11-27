@@ -24,18 +24,38 @@ public sealed class SavedSearchNameDialogViewModel : ViewModelBase
     {
         Save,
         Rename,
+
+        /// <summary>新しいフォルダを名付けて、そこへ移す（2026-11-27）。今あるフォルダの名前は「既にあります」（今あるフォルダはメニューから選ぶ）</summary>
+        NewFolder,
+
+        /// <summary>フォルダの名前を変更（中身をまとめて移す）。</summary>
+        RenameFolder,
     }
 
     public Purpose For { get; }
 
-    public string Title => For == Purpose.Save ? "今の検索を保存" : "名前を変更";
+    public string Title => For switch
+    {
+        Purpose.Save => "今の検索を保存",
+        Purpose.NewFolder => "新しいフォルダ",
+        Purpose.RenameFolder => "フォルダの名前を変更",
+        _ => "名前を変更",
+    };
 
-    public string CommitText => For == Purpose.Save ? "保存" : "変更";
+    public string CommitText => For switch
+    {
+        Purpose.Save => "保存",
+        Purpose.NewFolder => "移動",
+        _ => "変更",
+    };
 
-    /// <summary>何が起きるか（保存）・取り返しがつくか（名前の変更・D4）。</summary>
-    public string Note => For == Purpose.Save
-        ? "条件、検索文字列、表示順などが保存されます。"
-        : "名前は同じ手順で戻せます。";
+    /// <summary>何が起きるか（保存・新しいフォルダ）・取り返しがつくか（名前の変更・D4）。</summary>
+    public string Note => For switch
+    {
+        Purpose.Save => "条件、検索文字列、表示順などが保存されます。",
+        Purpose.NewFolder => "フォルダを作って、この保存した検索を移します。",
+        _ => "名前は同じ手順で戻せます。",
+    };
 
     public string Name
     {

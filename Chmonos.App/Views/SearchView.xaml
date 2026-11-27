@@ -526,6 +526,41 @@
                                                                                   controls:FrameList.IsEnabled="True">
                                                         <ItemsControl.ItemTemplate>
                                                             <DataTemplate DataType="{x:Type vm:SavedSearchRow}">
+                                                                <StackPanel>
+                                                                <!--
+                                                                    フォルダの見出し（ユーザ判断 2026-11-27）。フォルダの先頭の行の上にだけ出す。行と別の項目にしないのは、
+                                                                    ↑↓・Home・End と止まり直しが行（FocusFrame）だけを数える作りのまま使えるように。
+                                                                    「…」は Tab で止まる（フォルダの操作は行のメニューに無いので、キーボードで届くように）
+                                                                -->
+                                                                <DockPanel Height="24" Margin="0,2,0,0" Background="{DynamicResource Surface}"
+                                                                           Visibility="{Binding HasFolderHeader, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                                    <DockPanel.ContextMenu>
+                                                                        <ContextMenu AutomationProperties.AutomationId="SavedSearch.FolderMenuList"
+                                                                                     AutomationProperties.Name="{Binding FolderHeader, StringFormat=フォルダ「{0}」の操作}">
+                                                                            <MenuItem Header="フォルダの名前を変更…" AutomationProperties.Name="フォルダの名前を変更" Command="{Binding RenameFolderCommand}"
+                                                                                      AutomationProperties.AutomationId="SavedSearch.FolderMenu.Rename" />
+                                                                            <Separator />
+                                                                            <MenuItem Header="フォルダを削除" AutomationProperties.Name="フォルダを削除" Command="{Binding RemoveFolderCommand}"
+                                                                                      Style="{StaticResource DangerMenuItem}"
+                                                                                      ToolTip="中の保存した検索は、フォルダの外へ移ります"
+                                                                                      AutomationProperties.AutomationId="SavedSearch.FolderMenu.Remove" />
+                                                                        </ContextMenu>
+                                                                    </DockPanel.ContextMenu>
+                                                                    <Button DockPanel.Dock="Right" Click="OnModuleMenuClick" VerticalAlignment="Center"
+                                                                            ToolTip="このフォルダの操作"
+                                                                            AutomationProperties.AutomationId="SavedSearch.FolderMenu"
+                                                                            AutomationProperties.Name="{Binding FolderHeader, StringFormat=フォルダ「{0}」の操作}">
+                                                                        <Button.Style>
+                                                                            <Style TargetType="Button" BasedOn="{StaticResource ModuleMenuButton}">
+                                                                                <Setter Property="Opacity" Value="1" />
+                                                                                <Setter Property="IsHitTestVisible" Value="True" />
+                                                                            </Style>
+                                                                        </Button.Style>
+                                                                    </Button>
+                                                                    <TextBlock Text="{Binding FolderHeader}" Style="{StaticResource Caption}" FontWeight="SemiBold" Margin="8,0,4,0"
+                                                                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                                                               AutomationProperties.AutomationId="SavedSearch.Folder" />
+                                                                </DockPanel>
                                                                 <controls:FocusFrame Command="{Binding ApplyCommand}" Height="30" BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1"
                                                                                      FocusVisualStyle="{StaticResource ModuleFrameFocusVisual}" ToolTip="{Binding Summary}"
                                                                                      AutomationProperties.AutomationId="SavedSearch.Row"
@@ -549,6 +584,17 @@
                                                                                       controls:MenuTips.Disabled="今の検索と同じです" />
                                                                             <MenuItem Header="名前を変更…" AutomationProperties.Name="名前を変更" Command="{Binding RenameCommand}"
                                                                                       AutomationProperties.AutomationId="SavedSearch.Menu.Rename" />
+                                                                            <MenuItem Header="フォルダへ移す" AutomationProperties.Name="フォルダへ移す"
+                                                                                      AutomationProperties.AutomationId="SavedSearch.Menu.Folder"
+                                                                                      ItemsSource="{Binding FolderTargets}">
+                                                                                <MenuItem.ItemContainerStyle>
+                                                                                    <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+                                                                                        <Setter Property="Header" Value="{Binding Header}" />
+                                                                                        <Setter Property="Command" Value="{Binding Command}" />
+                                                                                        <Setter Property="AutomationProperties.Name" Value="{Binding Header}" />
+                                                                                    </Style>
+                                                                                </MenuItem.ItemContainerStyle>
+                                                                            </MenuItem>
                                                                             <Separator />
                                                                             <MenuItem Header="上へ移動" AutomationProperties.Name="上へ移動" Command="{Binding MoveUpCommand}"
                                                                                       AutomationProperties.AutomationId="SavedSearch.Menu.MoveUp" />
@@ -602,6 +648,7 @@
                                                                         </Button>
                                                                     </DockPanel>
                                                                 </controls:FocusFrame>
+                                                                </StackPanel>
                                                             </DataTemplate>
                                                         </ItemsControl.ItemTemplate>
                                                     </controls:ContentItemsControl>

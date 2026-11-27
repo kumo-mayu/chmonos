@@ -86,6 +86,13 @@ public sealed record SearchHistoryEntry
     /// </summary>
     public string? Name { get; init; }
 
+    /// <summary>
+    /// 入れてあるフォルダの名前（**保存した検索だけ**が持つ。無ければフォルダの外・ユーザ判断 2026-11-27）。
+    /// フォルダは1階層で、フォルダの一覧は持たない（中身の無いフォルダは残らない）。入れ子の形に変えると前の版が読めないため、1件ごとの欄にした
+    /// （前の版は知らない欄を落として読む）。指紋と要約には入れない——どこに置いたかは検索の中身ではない
+    /// </summary>
+    public string? Folder { get; init; }
+
     [JsonIgnore]
     public bool IsNamed => !string.IsNullOrWhiteSpace(Name);
 
