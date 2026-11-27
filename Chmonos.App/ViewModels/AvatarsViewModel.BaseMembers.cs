@@ -13,7 +13,8 @@ public sealed partial class AvatarsViewModel
 
     /// <summary>
     /// 素体の詳細の「アバターを足す欄」の候補。登録簿のアバターのうち、この素体に入っていない物。
-    /// 行は「名前（商品ID）」にする（検索の対応アバターの候補と同じ形。名前が重なってもIDで選び分けられ、IDでも引ける）。
+    /// 行の字は検索の対応アバターの候補と同じ決め方（既定は名前だけ・設定で「名前（商品ID）」・名前が重なる物だけIDを添える。<see cref="AvatarSuggestionText.Labels"/>）。
+    /// IDは字に無くても手掛かりで引ける。
     /// アバターでないと分かっている物は出さない（足しても素体の一員に数えない・<see cref="AvatarCompatibilityIndex"/>）
     /// </summary>
     public IReadOnlyList<string> MemberCandidates
@@ -25,19 +26,43 @@ public sealed partial class AvatarsViewModel
                 return [];
             }
 
+            var labels = MemberLabels();
             var members = selected.Summary.MemberIds.ToHashSet(StringComparer.Ordinal);
             return _all
                 .Where(row => row.Summary.IsAvatar && !members.Contains(row.ItemId))
                 .OrderByDescending(row => row.IsOwned)
                 .ThenBy(row => row.Name, StringComparer.CurrentCulture)
-                .Select(row => AvatarSuggestionText.Format(row.Name, row.ItemId))
+                .Select(row => labels.TextOf(row.ItemId) ?? row.Name)
                 .ToList();
         }
     }
 
-    /// <summary>候補の群（所持アバター／未所持アバター）と、名前以外で当たる語（呼び方・正式名）。ほかのアバターの候補と同じ作り（メモ48・メモ58）</summary>
+    private AvatarLabels? _memberLabels;
+
+    /// <summary>
+    /// 候補の字の表。重なりは素体に入っている物も含めたアバター全体で見る（素体を選び替えても同じアバターの字が変わらないように）。
+    /// 候補を作るたびに作り直し、選ばれた字はこの表から引く
+    /// </summary>
+    private AvatarLabels MemberLabels() => _memberLabels = AvatarSuggestionText.Labels(
+        _all.Where(row => row.Summary.IsAvatar).Select(row => (row.ItemId, row.Name)), _services.Settings.ShowAvatarItemIds);
+
+    /// <summary>
+    /// 候補の字からアバターの商品IDを引く。前に作った表に無ければ作り直して引く（候補を出した後に一覧を読み直した時）。
+    /// 表に無い「名前（ID）」の字は形から読む（<see cref="AvatarLabels.IdOf"/>）
+    /// </summary>
+    private string? MemberIdOf(string text)
+    {
+        if (_memberLabels?.IdOf(text) is { } id && RowOf(id) is not null)
+        {
+            return id;
+        }
+
+        return MemberLabels().IdOf(text);
+    }
+
+    /// <summary>候補の群（所持アバター／未所持アバター）と、名前以外で当たる語（呼び方・正式名・商品ID）。ほかのアバターの候補と同じ作り（メモ48・メモ58）</summary>
     public Func<string, Controls.SuggestInfo?> MemberInfoSelector => text =>
-        AvatarSuggestionText.IdOf(text) is { } id && RowOf(id) is { } row
+        MemberIdOf(text) is { } id && RowOf(id) is { } row
             ? AvatarSuggestionText.InfoOf(row.Summary.Entry, row.Name, row.IsOwned ? AvatarSuggestionText.OwnedGroup : AvatarSuggestionText.OtherGroup)
             : null;
 
@@ -51,7 +76,7 @@ public sealed partial class AvatarsViewModel
     public Func<string, Action, System.Windows.Media.ImageSource?> MemberHoverIconSelector => (text, onLoaded) =>
         MemberIconPath(text) is { } path ? _main.Thumbnails.PeekForCard(path, onLoaded) : null;
 
-    private string? MemberIconPath(string text) => AvatarSuggestionText.IdOf(text) is { } id
+    private string? MemberIconPath(string text) => MemberIdOf(text) is { } id
         ? AvatarImageSync.IconPath(_services.Paths, id, _main.Search.FindItem(id), _services.Settings.ShowRemovedBoothImages)
         : null;
 
@@ -88,7 +113,7 @@ public sealed partial class AvatarsViewModel
         }
 
         var baseName = selected.Name;
-        if (AvatarSuggestionText.IdOf(text) is not { } id || RowOf(id) is not { } row)
+        if (MemberIdOf(text) is not { } id || RowOf(id) is not { } row)
         {
             selected.MemberNote.Warn("候補の中から選んでください。");
             return;

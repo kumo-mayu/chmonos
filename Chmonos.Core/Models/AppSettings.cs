@@ -45,6 +45,13 @@ public sealed record AppSettings
     public bool GroupAvatarsByBase { get; init; } = true;
 
     /// <summary>
+    /// アバターの候補と札の字に商品IDを添えるか（「名前（商品ID）」。ユーザ判断 2026-11-27・既定は切）。
+    /// アバターの商品IDは基本的に重要では無いので、既定は名前だけ。切でも候補の欄にIDを打てば当たる。
+    /// 欠けたJSON（前の版の設定）は切で読む
+    /// </summary>
+    public bool ShowAvatarItemIds { get; init; }
+
+    /// <summary>
     /// 商品ページの対応アバターに、変換経由で使えるアバターも並べるか（<c>docs/spec/conversion.md</c>「設定」・既定は入・ユーザ判断 2026-11-06）。
     /// 素体経由と同じ作りで、保存はせず表示のたびに計算する（<see cref="Services.ConversionIndex"/>）
     /// </summary>

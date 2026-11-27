@@ -52,7 +52,8 @@ public sealed class AvatarsBaseMembersTests
 
     private static AvatarRowViewModel Row(AvatarsViewModel avatars, string id) => avatars.Rows.Single(row => row.ItemId == id);
 
-    private static string Candidate(AvatarsViewModel avatars, string id) => AvatarSuggestionText.Format(Row(avatars, id).Name, id);
+    // 既定では候補の字は名前だけ（設定「アバターの商品IDを表示する」は切。作り物の名前は重ならない）
+    private static string Candidate(AvatarsViewModel avatars, string id) => Row(avatars, id).Name;
 
     private static AvatarRegistryEntry Entry(TestApp app, string id) => app.Store.Avatars.Load().Entries.Single(entry => entry.ItemId == id);
 
@@ -68,8 +69,9 @@ public sealed class AvatarsBaseMembersTests
 
         Assert.Contains(Candidate(avatars, Inferred), candidates);
         Assert.Contains(Candidate(avatars, Loose), candidates);
-        Assert.DoesNotContain(candidates, text => text.EndsWith($"（{Manual}）", StringComparison.Ordinal));
-        Assert.DoesNotContain(candidates, text => text.EndsWith($"（{Excluded}）", StringComparison.Ordinal));
+        Assert.DoesNotContain(Candidate(avatars, Manual), candidates);
+        Assert.DoesNotContain(candidates, text => text.Contains("作り物の小物", StringComparison.Ordinal));
+        Assert.Equal(2, candidates.Count);
         Assert.Equal(AvatarSuggestionText.OtherGroup, avatars.MemberInfoSelector(Candidate(avatars, Loose))?.Group);
     });
 

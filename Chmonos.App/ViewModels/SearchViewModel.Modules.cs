@@ -566,6 +566,7 @@ public sealed partial class SearchViewModel
     {
         _avatarSuggestInfo.Clear();
         _baseNamesBySuggestion.Clear();
+        _avatarIdsBySuggestion.Clear();
         var registry = _services.Store.Avatars.Load();
         var names = AvatarNames.Map(registry.Entries);
         var owned = OwnedItemIds();
@@ -576,12 +577,16 @@ public sealed partial class SearchViewModel
             .OrderBy(pair => pair.Name, StringComparer.CurrentCulture)
             .ToList();
 
+        // 字は設定しだいで名前だけ（既定）か「名前（ID）」。重なりは所持・未所持を合わせた全体で見る（欄の候補は1本の表）
+        var labels = AvatarSuggestionText.Labels(avatars.Select(pair => (pair.Entry.ItemId, pair.Name)), _services.Settings.ShowAvatarItemIds);
+
         bool IsOwned(AvatarRegistryEntry entry) => entry.IsOwnedManually || owned.Contains(entry.ItemId);
 
-        // 群と呼び方は候補の文字から引く（欄の候補は文字の並びで渡るため）。呼び方でも当たる照らし方は AvatarSearch に1つ
+        // 群と呼び方は候補の文字から引く（欄の候補は文字の並びで渡るため）。呼び方・商品IDでも当たる照らし方は InfoOf の手掛かり
         (string Text, string Key) AvatarRow(AvatarRegistryEntry entry, string name, int group)
         {
-            var text = AvatarSuggestionText.Format(name, entry.ItemId);
+            var text = labels.TextOf(entry.ItemId) ?? name;
+            _avatarIdsBySuggestion[text] = entry.ItemId;
             _avatarSuggestInfo[text] = AvatarSuggestionText.InfoOf(entry, name, group);
             return (text, AvatarKey + entry.ItemId);
         }
@@ -661,6 +666,12 @@ public sealed partial class SearchViewModel
 
     /// <summary>候補に出した共通素体の行から素体の名前を引く表（絵を引くため。末尾の「（共通素体）」を切って読まない）。</summary>
     private readonly Dictionary<string, string> _baseNamesBySuggestion = new(StringComparer.CurrentCultureIgnoreCase);
+
+    /// <summary>
+    /// 候補・札に出したアバターの字から商品IDを引く表（絵を引くため）。字にIDが無いこと（既定）があるので、字から読み戻さずにここで引く。
+    /// 表に無い字（古い「名前（ID）」の札）は形から読む（<see cref="AvatarSuggestionText.IdOf"/>）
+    /// </summary>
+    private readonly Dictionary<string, string> _avatarIdsBySuggestion = new(StringComparer.CurrentCultureIgnoreCase);
 
     /// <summary>
     /// 条件「改変」に改変の一覧を入れる（2段の形・ユーザ判断 2026-10-06）。アバターの名前は登録簿の名前、呼び方・正式名でも当たる
@@ -1122,7 +1133,7 @@ public sealed partial class SearchViewModel
     }
 
     /// <summary>
-    /// 「対応アバター」の候補の頭に出す絵（U18）。候補の行（名前（ID））からIDを取り出し、
+    /// 「対応アバター」の候補の頭に出す絵（U18）。候補の行の字から表でIDを引き、
     /// 持っていれば商品の1枚目、持っていなければ控えの1枚。候補は見えた行だけで読む。
     /// 共通素体の行は素体の絵（<see cref="AvatarBaseIcons"/>。登録簿にグループの無い素体名は頭の字）
     /// </summary>
@@ -1138,7 +1149,7 @@ public sealed partial class SearchViewModel
     private System.Windows.Media.Imaging.BitmapSource? AvatarSuggestionIcon(string entry, Func<string, System.Windows.Media.Imaging.BitmapSource?> load)
         => _baseNamesBySuggestion.TryGetValue(entry, out var baseName)
             ? AvatarBaseIcons.Load(_services, baseName, FindItem, load)
-            : AvatarSuggestionText.IdOf(entry) is { } id
+            : (_avatarIdsBySuggestion.GetValueOrDefault(entry) ?? AvatarSuggestionText.IdOf(entry)) is { } id
         && Core.Services.AvatarImageSync.IconPath(_services.Paths, id, FindItem(id), _services.Settings.ShowRemovedBoothImages) is { } path
             ? load(path)
             : null;
