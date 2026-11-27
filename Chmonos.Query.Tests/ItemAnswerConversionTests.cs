@@ -7,7 +7,7 @@ namespace Chmonos.Query.Tests;
 
 /// <summary>
 /// 商品の答えに 2026-11-27 に足した欄（バリエーションの向き先・変換扱い・中身の更新の控え・更新を知らせるか。
-/// <c>docs/spec/local-api-shapes.md</c>「出す物を決めた」）。形そのものは見本（<c>Golden/item-*.json</c>）で見るので、ここは決まりの分かれ目を見る。
+/// <c>docs/spec/local-api-internal.md</c>「出す物を決めた」）。形そのものは見本（<c>Golden/item-*.json</c>）で見るので、ここは決まりの分かれ目を見る。
 /// 名前・ID は作り物。
 /// </summary>
 public sealed class ItemAnswerConversionTests : IDisposable

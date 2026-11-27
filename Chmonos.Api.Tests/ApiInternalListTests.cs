@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Builder;
 namespace Chmonos.Api.Tests;
 
 /// <summary>
-/// 内部の情報を読む道（2026-11-27 に出すと決めた物：docs/spec/local-api-shapes.md「出す物を決めた」）を HTTP で叩く。
+/// 内部の情報を読む道（2026-11-27 に出すと決めた物：docs/spec/local-api-internal.md「出す物を決めた」）を HTTP で叩く。
 /// 保存先は作り物で、名前・ID・場所は作り物。読む道はどれも、書き込みの種類を1つも持たないソフトのトークンで読める
 /// </summary>
 public sealed class ApiInternalListTests : IAsyncLifetime

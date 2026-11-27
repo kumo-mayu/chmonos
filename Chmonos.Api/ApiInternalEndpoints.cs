@@ -3,7 +3,7 @@ using Chmonos.Query;
 namespace Chmonos.Api;
 
 /// <summary>
-/// 今まで API が出していなかった内部の情報を読む道（2026-11-27 に出すと決めた物。docs/spec/local-api-shapes.md「出す物を決めた」）。
+/// 今まで API が出していなかった内部の情報を読む道（2026-11-27 に出すと決めた物。docs/spec/local-api-internal.md「出す物を決めた」）。
 /// どれも読むだけで、読む許しはどのトークンにもある。答えは写しから組み、写しは1回の問い合わせで1回だけ取る。
 /// </summary>
 internal static partial class ApiEndpoints
