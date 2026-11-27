@@ -88,4 +88,4 @@
 
 ## まだ決めていない事
 
-- 改変・アバター・ファイルの場所（`where`）と `needs` の `modification`
+- 改変・アバター・ファイルの場所（`where`）と `needs` の `modification`：2026-11-27 に5か所を足すと決めた（[plugins.md](plugins.md)「開いた画面に付いていく」）。まだ作っていない
