@@ -249,8 +249,9 @@
       - 記録だけ：`docs/spec/item-page.md` が202行で、1ファイル200行の決まりを超えている（前から）
       - 済み：保存した検索の1階層のフォルダ（515234bb。古い版 v1.2.0 は `folder` を無視して読み、書き戻すと落とす・知らない条件の種類は飛ばして読み、文字列のまま残す〔担当がコードで確かめた〕）
       - 済み：保存した検索を条件にする（344486c6。「検索文字列も使う」付き）・保存と上書きの窓で含める物を選ぶ（64968627。`keepSort`・`keepView`）
-      - 作っている：⑤ 保存した検索を API に出す（フォルダ・含める物・条件 `savedSearch` に入れる名前を引けるように）
-   2. 開いた画面に付いていく（`screenChanged`・`GET /v1/plugin/current`・`watch.screen`）
+      - 済み：⑤ 保存した検索を API に出す（53dcb23d。`GET /v1/saved-searches`。`search` はそのまま `POST /v1/search` に渡せ、変換できない条件は `unconverted` に書く）
+      - 判断待ち：`search` の中の null の欄（条件1つに約40）を省くか
+   2. 作っている：開いた画面に付いていく（`screenChanged`・`GET /v1/plugin/current`・`watch.screen`）
    3. 右クリックの5か所（file・unityPackage・modification・avatar・shop）
    4. 拡張データ（編集画面で人が直せる `editable` の欄を含む。ユーザ判断 2026-11-27「拡張性を考えてBで行きましょう」。欄をまとめる `group` も「Aのgroup案を採用」）：上限を測る（測る前に kumo-ime に聞く・VRChat 中は測らない）→ 宣言と値と include → 画面 → 検索の条件と目盛り → まとめて書く口
    - 確かめる事：`manual/40-api.md` に担当が足した3か所の文言（public-docs で点検）。本番に、上の不具合で読めない記録が出ているか（ユーザが見る）
