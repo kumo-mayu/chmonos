@@ -91,7 +91,7 @@
 | `chmonos_status` | つないでいる保存先・ほかの札・名乗る名前（API に問い合わせない。許しを求めない） |
 | `search_items` | 探す（`POST /v1/search`。`query` は検索欄と同じ文字列、`where` は式、`sort`・`has_unity_package`・`limit` 1〜30 既定20。上限は要約が 8,000字に収まる件数。ユーザ判断 2026-11-13・`cursor`） |
 | `get_search_conditions` | 条件の種類（`/v1/search/conditions`）と式の書き方の短い説明 |
-| `get_item` | 商品1件（`include`：avatarLinks・allFiles・contents・meta・variationTargets・contentUpdate） |
+| `get_item` | 商品1件（`include`：avatarLinks・allFiles・contents・meta・variationTargets・contentUpdate・conversionTargets） |
 | `get_item_description` | 説明文を見出しごとの素の文で（`offset`・`max_chars` 500〜6000 既定3000。HTML は返さない） |
 | `list_avatars`・`get_avatar` | 登録簿（`query`・`owned_only`） |
 | `list_avatar_bases` | 共通素体 |

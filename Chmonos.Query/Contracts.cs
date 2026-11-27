@@ -248,6 +248,13 @@ public sealed record ItemDetail
     public VariationTargetSourcesRef? VariationTargetSources { get; init; }
 
     /// <summary>
+    /// 変換扱いのつなぎ先の帳簿：人が外した物（<c>rejected</c>）も含めた全部の行を、保存の順のまま状態つきで。<c>include=conversionTargets</c> のときだけ
+    /// （対応アバターの <c>avatarLinks</c> と同じ分け方）。
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<ConversionTargetRef>? ConversionTargets { get; init; }
+
+    /// <summary>
     /// BOOTH で見つけた中身の更新の控え。<c>include=contentUpdate</c> のときだけ。
     /// 見つけていない商品でも頼まれれば欄は返し、中の <c>foundAt</c> を null にする（<c>meta</c> の <c>fetchedAt</c> と同じ形。
     /// 欄そのものを null にすると、頼まなかった時の「欄が無い」と書き分ける作りが直列化に要るため）。
@@ -278,7 +285,10 @@ public sealed record VariationTargetSourcesRef(IReadOnlyList<VariationTargetRef>
 /// <summary>変換扱い。</summary>
 /// <param name="Mode">人が決めた扱い：<c>auto</c>（自動の判定に任せる）・<c>profile</c>（扱う）・<c>notProfile</c>（扱わない）。</param>
 /// <param name="HasProfileFiles">自動の判定：手元のファイルの中にプロファイルのファイルがあるか（画面の「今の扱い：プロファイル（自動の判定）」と同じ答え）。</param>
-/// <param name="Targets">つなぎ先（外した物・確認待ちも状態つきで）。</param>
+/// <param name="Targets">
+/// つなぎ先の結果（人が決めた物と、自動で推して確認待ちの物。状態つき）。人が外した物は入れない——対応アバターの <c>compatibleAvatars</c> と同じく、
+/// 既定は結果だけで、確認していない推定は入れる。外した物も含む帳簿は <c>include=conversionTargets</c>。
+/// </param>
 public sealed record ConversionRef(string Mode, bool HasProfileFiles, IReadOnlyList<ConversionTargetRef> Targets);
 
 /// <summary>プロファイルのつなぎ先1つ。アバターか共通素体のどちらか。</summary>

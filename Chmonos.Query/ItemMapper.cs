@@ -104,6 +104,7 @@ public static class ItemMapper
                     local.VariationTargets.Select(target => VariationTarget(target, withRejections: true)).ToList(),
                     local.DetectedVariationTargets.Select(target => VariationTarget(target, withRejections: true)).ToList())
                 : null,
+            ConversionTargets = includes.HasFlag(ItemIncludes.ConversionTargets) ? ConversionTargets(item, includeRejected: true) : null,
             ContentUpdate = includes.HasFlag(ItemIncludes.ContentUpdate)
                 ? new ContentUpdateRef(local.ContentUpdate?.FoundAt, local.HasFilesNewerThanUpdate)
                 : null,
@@ -136,16 +137,23 @@ public static class ItemMapper
                 _ => "auto",
             },
             ConversionScan.MayHoldProfiles(item) && snapshot.ConversionScan.ProfilesOf(item).Count > 0,
-            (setting?.Targets ?? [])
-                .Select(target => new ConversionTargetRef(
-                    target.AvatarItemId,
-                    target.BaseName,
-                    target.Slug,
-                    target.Forward,
-                    target.Reverse,
-                    StateOf(target.Confirmed, target.Rejected)))
-                .ToList());
+            ConversionTargets(item, includeRejected: false));
     }
+
+    /// <summary>
+    /// つなぎ先。既定は外した物を除いた結果、頼まれたら外した物も含む帳簿（対応アバターの <c>compatibleAvatars</c> と <c>avatarLinks</c> と同じ分け方）。
+    /// </summary>
+    private static List<ConversionTargetRef> ConversionTargets(ItemRecord item, bool includeRejected)
+        => (item.Local.Conversion?.Targets ?? [])
+            .Where(target => includeRejected || !target.Rejected)
+            .Select(target => new ConversionTargetRef(
+                target.AvatarItemId,
+                target.BaseName,
+                target.Slug,
+                target.Forward,
+                target.Reverse,
+                StateOf(target.Confirmed, target.Rejected)))
+            .ToList();
 
     /// <summary>
     /// 対応アバターの紐付けの帳簿（頼まれたときだけ）。消した紐付け・説明文のリンクも状態つきでそのまま返す（中の区別を潰さない）。

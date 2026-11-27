@@ -51,7 +51,7 @@
 | 物 | 決め | 出し方・理由 |
 |---|---|---|
 | 商品のバリエーションの向き先（`variationTargets`・`detectedVariationTargets`） | 出す | ［実装 2026-11-27］既定の `variationTargets` は合わせた結果（人が決めた物が勝つ。`AvatarCompatibilityIndex.EffectiveVariationTargets`・設定「名前から見つけた向き先も使う」に従う）。出どころ別は `include=variationTargets` で `variationTargetSources` |
-| 商品の変換扱い（`conversion`） | 出す | ［実装 2026-11-27］既定の `conversion`：人が決めた扱い `mode`（`auto`・`profile`・`notProfile`）・自動の判定 `hasProfileFiles`（画面と同じ `ConversionScan.ProfilesOf`）・つなぎ先 `targets`（状態 `confirmed`・`candidate`・`rejected`）。扱いと判定を合わせた「実質」は組まない |
+| 商品の変換扱い（`conversion`） | 出す | ［実装 2026-11-27］既定の `conversion`：人が決めた扱い `mode`（`auto`・`profile`・`notProfile`）・自動の判定 `hasProfileFiles`（画面と同じ `ConversionScan.ProfilesOf`）・つなぎ先 `targets`（状態 `confirmed`・`candidate`。人が外した物は入れず、確認待ちは入れる。対応アバターの `compatibleAvatars` と同じ・ユーザ判断 2026-11-27「揃えた方が良い」）。外した物も含む帳簿は `include=conversionTargets`。扱いと判定を合わせた「実質」は組まない |
 | 商品の中身の更新の控え（`contentUpdate`） | 出す | ［実装 2026-11-27］`include=contentUpdate` で `contentUpdate`：`foundAt`（見つけていなければ null）・`hasNewerFiles`（`LocalBlock.HasFilesNewerThanUpdate`） |
 | 商品の更新を知らせるか（`notifyOnUpdate`） | 出す | ［実装 2026-11-27］既定の `notifyOnUpdate` |
 | 商品の再取得の予定（次に取る時・続けて見つからなかった回数） | 出さない | 取り込みの内部の段取りで決まりが変わり得る。最後に取った日時は `include=meta` で出ている |
@@ -84,6 +84,7 @@
   | `meta` | `meta`：BOOTH の情報を最後に取った日時 |
   | `variationTargets` | `variationTargetSources`：バリエーションの向き先を、人が決めた行（`decided`。外した物 `rejectedAvatars`・`rejectedBases` つき）と検出した行（`detected`。設定に関わらず全部）に分けて保存のまま |
   | `contentUpdate` | `contentUpdate`：BOOTH で見つけた中身の更新の日時 `foundAt` と、その後に新しいファイルを取り込んだか `hasNewerFiles`。見つけていなければ `foundAt` が null（欄は返す。`meta` の `fetchedAt` と同じ形） |
+  | `conversionTargets` | `conversionTargets`：変換扱いのつなぎ先の全部の行を保存の順で、状態（`confirmed`・`candidate`・`rejected`）つき。既定の `conversion.targets` は外した物を除く（`avatarLinks` と `compatibleAvatars` と同じ分け方） |
 
   商品以外：改変（`/v1/modifications`・`/v1/items/{id}/modifications`）の `include=detached` で外した商品を `detached` 付きで返し、
   共通素体の `include=rejected` で人が「素体ではない」とした物を `isRejected` 付きで返す。アバターの「手で持っているにしたか」・バリエーションの BOOTH の中の状態・購入の「BOOTH にまだあるか」は返さない。

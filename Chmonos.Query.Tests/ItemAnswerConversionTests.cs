@@ -59,8 +59,7 @@ public sealed class ItemAnswerConversionTests : IDisposable
         // 何も持たない商品（変換扱い・中身の更新の控え・向き先のどれも無い）
         await store.Items.SaveAsync(new ItemRecord { Id = "9900002", Booth = new BoothBlock { Name = "作り物の衣装" } });
 
-        // 向き先：11 は検出だけ、12 は人が全部外しただけの行（検出の行を消す）、13 は人だけ。
-        // 「バリエーションを選ばない購入」の行（null）は保存すると読めなくなる（2026-11-27 に見つけた。直すかは別に決める）ので、Core の試験で見る
+        // 向き先：11 は検出だけ、12 は人が全部外しただけの行（検出の行を消す）、13 は人だけ、選ばない購入の行（null）も人だけ
         await store.Items.SaveAsync(new ItemRecord
         {
             Id = "9900003",
@@ -70,6 +69,7 @@ public sealed class ItemAnswerConversionTests : IDisposable
                 VariationTargets =
                 [
                     new VariationTarget { VariationId = 12, RejectedAvatars = ["7000009"] },
+                    new VariationTarget { VariationId = null, Avatars = ["7000006"] },
                     new VariationTarget { VariationId = 13, Avatars = ["7000008"] },
                 ],
                 DetectedVariationTargets =
@@ -100,19 +100,57 @@ public sealed class ItemAnswerConversionTests : IDisposable
         Assert.False(plain.HasProfileFiles);
     }
 
+    /// <summary>対応アバター（compatibleAvatars と avatarLinks）と同じ分け方：既定は外した物を除き確認待ちは入れる、帳簿は頼んだときだけ全部</summary>
     [Fact]
-    public async Task 合わせた向き先は_人が外しただけの行で検出の行を消す()
+    public async Task つなぎ先は_既定で外した物を除き_帳簿は頼んだときだけ外した物も返す()
+    {
+        var store = await StoreAsync();
+        await store.Items.SaveAsync(new ItemRecord
+        {
+            Id = "9900004",
+            Booth = new BoothBlock { Name = "作り物のプロファイル2" },
+            Local = new LocalBlock
+            {
+                Conversion = new ConversionSetting
+                {
+                    Targets =
+                    [
+                        new ConversionTarget { AvatarItemId = "7000001", Forward = true, Rejected = true, Confirmed = true },
+                        new ConversionTarget { AvatarItemId = "7000002", Forward = true, Confirmed = true },
+                        new ConversionTarget { BaseName = "作り物の素体", Reverse = true },
+                    ],
+                },
+            },
+        });
+        var snapshot = await QuerySnapshot.LoadAsync(store);
+        var item = snapshot.ItemsById["9900004"];
+
+        var plain = ItemMapper.Detail(item, snapshot);
+        Assert.Equal(["confirmed", "candidate"], plain.Conversion.Targets.Select(target => target.State));
+        Assert.Null(plain.ConversionTargets);
+        Assert.False(Json(plain).TryGetProperty("conversionTargets", out _));
+
+        var asked = ItemMapper.Detail(item, snapshot, Includes.ParseItem("conversionTargets"));
+        Assert.Equal(["rejected", "confirmed", "candidate"], asked.ConversionTargets!.Select(target => target.State));
+        Assert.Equal(2, asked.Conversion.Targets.Count);
+
+        // 頼んで中身が無ければ空の配列
+        Assert.Empty(ItemMapper.Detail(snapshot.ItemsById["9900002"], snapshot, Includes.ParseItem("conversionTargets")).ConversionTargets!);
+    }
+
+    [Fact]
+    public async Task 合わせた向き先は_人が外しただけの行で検出の行を消し_選ばない購入の行を最後に置く()
     {
         var snapshot = await QuerySnapshot.LoadAsync(await StoreAsync());
         var detail = ItemMapper.Detail(snapshot.ItemsById["9900003"], snapshot);
 
-        Assert.Equal([((long?)11, "7000007"), (13, "7000008")], detail.VariationTargets.Select(target => (target.VariationId, target.Avatars.Single())));
+        Assert.Equal([((long?)11, "7000007"), (13, "7000008"), (null, "7000006")], detail.VariationTargets.Select(target => (target.VariationId, target.Avatars.Single())));
         Assert.All(detail.VariationTargets, target => Assert.Null(target.RejectedAvatars));
         Assert.Null(detail.VariationTargetSources);
 
         // 出どころ別は保存のまま（外しただけの行も、外した物つきで）
         var sources = ItemMapper.Detail(snapshot.ItemsById["9900003"], snapshot, Includes.ParseItem("variationTargets")).VariationTargetSources!;
-        Assert.Equal([(long?)12, 13], sources.Decided.Select(target => target.VariationId));
+        Assert.Equal([(long?)12, null, 13], sources.Decided.Select(target => target.VariationId));
         Assert.Equal(["7000009"], sources.Decided[0].RejectedAvatars!);
         Assert.Equal([(long?)11, 12], sources.Detected.Select(target => target.VariationId));
         Assert.Empty(sources.Detected[0].RejectedAvatars!);
@@ -126,7 +164,7 @@ public sealed class ItemAnswerConversionTests : IDisposable
         var snapshot = await QuerySnapshot.LoadAsync(store);
 
         var detail = ItemMapper.Detail(snapshot.ItemsById["9900003"], snapshot, Includes.ParseItem("variationTargets"));
-        Assert.Equal([(long?)13], detail.VariationTargets.Select(target => target.VariationId));
+        Assert.Equal([(long?)13, null], detail.VariationTargets.Select(target => target.VariationId));
 
         // 出どころ別は設定に関わらず検出の行も返す
         Assert.Equal(2, detail.VariationTargetSources!.Detected.Count);

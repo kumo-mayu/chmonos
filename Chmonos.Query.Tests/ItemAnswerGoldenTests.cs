@@ -204,8 +204,8 @@ public sealed class ItemAnswerGoldenTests : IDisposable
             AssertGolden($"item-{id}.json", json);
         }
 
-        // 頼まれたときだけ返す物を全部頼んだ答え（帳簿・外したファイル・zip の中・画像の全部・記録の古さ・出どころ別の向き先・中身の更新の控え）
-        var full = Includes.ParseItem("avatarLinks,allFiles,contents,images,meta,variationTargets,contentUpdate");
+        // 頼まれたときだけ返す物を全部頼んだ答え（帳簿・外したファイル・zip の中・画像の全部・記録の古さ・出どころ別の向き先・中身の更新の控え・つなぎ先の帳簿）
+        var full = Includes.ParseItem("avatarLinks,allFiles,contents,images,meta,variationTargets,contentUpdate,conversionTargets");
         AssertGolden("item-9800001-include.json", QueryJson.Serialize(ItemMapper.Detail(snapshot.ItemsById["9800001"], snapshot, full), indented: true));
     }
 

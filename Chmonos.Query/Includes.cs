@@ -29,6 +29,9 @@ public enum ItemIncludes
 
     /// <summary>BOOTH で見つけた中身の更新の控え（見つけた日時と、その後に新しいファイルを取り込んだか）。</summary>
     ContentUpdate = 64,
+
+    /// <summary>変換扱いのつなぎ先の帳簿（人が外した物も状態つきで。既定の <c>conversion.targets</c> は外した物を除く）。</summary>
+    ConversionTargets = 128,
 }
 
 /// <summary><c>include</c> の名前を読む。名前は外との約束。知らない名前は黙って飛ばさず誤りで返す（綴りの間違いに気付けるように）。</summary>
@@ -43,6 +46,7 @@ public static class Includes
         ["meta"] = ItemIncludes.Meta,
         ["variationTargets"] = ItemIncludes.VariationTargets,
         ["contentUpdate"] = ItemIncludes.ContentUpdate,
+        ["conversionTargets"] = ItemIncludes.ConversionTargets,
     };
 
     public static ItemIncludes ParseItem(string? text)

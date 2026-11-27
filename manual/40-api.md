@@ -187,6 +187,7 @@ if ($result.state -eq "approved") {
 | `meta` | BOOTH の情報を最後に取った日時 |
 | `variationTargets` | （次のバージョンから）バリエーションごとの対応アバターを、自分で決めた物と名前から見つけた物に分けて（`variationTargetSources`） |
 | `contentUpdate` | （次のバージョンから）BOOTH で中身の更新を見つけた日時と、その後に新しいファイルを取り込んだか |
+| `conversionTargets` | （次のバージョンから）変換ツールのプロファイルのつなぎ先を、外した物も含めて全部 |
 
 例：`/v1/items/1234567?include=avatarLinks,images`
 

@@ -96,14 +96,6 @@
         "forward": false,
         "reverse": true,
         "state": "candidate"
-      },
-      {
-        "avatarId": "7000002",
-        "baseName": null,
-        "slug": null,
-        "forward": true,
-        "reverse": false,
-        "state": "rejected"
       }
     ]
   },
@@ -315,6 +307,32 @@
       }
     ]
   },
+  "conversionTargets": [
+    {
+      "avatarId": "7000001",
+      "baseName": null,
+      "slug": "sample",
+      "forward": true,
+      "reverse": false,
+      "state": "confirmed"
+    },
+    {
+      "avatarId": null,
+      "baseName": "作り物の素体",
+      "slug": "sample2",
+      "forward": false,
+      "reverse": true,
+      "state": "candidate"
+    },
+    {
+      "avatarId": "7000002",
+      "baseName": null,
+      "slug": null,
+      "forward": true,
+      "reverse": false,
+      "state": "rejected"
+    }
+  ],
   "contentUpdate": {
     "foundAt": "2026-09-10T12:00:00+09:00",
     "hasNewerFiles": true

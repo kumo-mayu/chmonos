@@ -96,14 +96,6 @@
         "forward": false,
         "reverse": true,
         "state": "candidate"
-      },
-      {
-        "avatarId": "7000002",
-        "baseName": null,
-        "slug": null,
-        "forward": true,
-        "reverse": false,
-        "state": "rejected"
       }
     ]
   },

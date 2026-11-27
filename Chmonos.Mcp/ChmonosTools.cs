@@ -48,8 +48,8 @@ internal static class ChmonosTools
             """
             { "type": "object", "required": ["id"], "properties": {
                 "id": { "type": "string", "description": "商品の ID" },
-                "include": { "type": "array", "items": { "type": "string", "enum": ["avatarLinks", "allFiles", "contents", "meta", "variationTargets", "contentUpdate"] },
-                    "description": "足す情報。avatarLinks：対応アバターの紐付けの出どころと状態、allFiles：外したファイル・古い版も、contents：zip の中の一覧、meta：BOOTH の情報を取った日時、variationTargets：バリエーションの向き先を人が決めた物と検出した物に分けて、contentUpdate：BOOTH で見つけた中身の更新の日時とその後に新しいファイルを取り込んだか" }
+                "include": { "type": "array", "items": { "type": "string", "enum": ["avatarLinks", "allFiles", "contents", "meta", "variationTargets", "contentUpdate", "conversionTargets"] },
+                    "description": "足す情報。avatarLinks：対応アバターの紐付けの出どころと状態、allFiles：外したファイル・古い版も、contents：zip の中の一覧、meta：BOOTH の情報を取った日時、variationTargets：バリエーションの向き先を人が決めた物と検出した物に分けて、contentUpdate：BOOTH で見つけた中身の更新の日時とその後に新しいファイルを取り込んだか、conversionTargets：変換扱いのつなぎ先を人が外した物も状態つきで" }
             } }
             """, null, ItemAsync),
 
