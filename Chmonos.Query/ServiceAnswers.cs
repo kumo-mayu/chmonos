@@ -26,7 +26,8 @@ public sealed record HealthAnswer(string Status, DateTimeOffset LoadedAt, int It
 /// <param name="Epoch">この API の起動ごとに変わる名前。通番は起動ごとに数え直すので、外の道具は名前が変わったら全部を取り直す。</param>
 /// <param name="Sequence">今の通番（変化を1つ記録するたびに進む）。</param>
 /// <param name="Busy">アプリがまとめて書いている途中なら、その種類（<c>import</c> など）。その間は古い答えを返し続ける。</param>
-public sealed record VersionAnswer(string Api, string App, int StoreFormat, int StoreFormatSupported, string Notice, string Epoch, long Sequence, string? Busy);
+/// <param name="Progress">取り込み（<c>busy</c> が <c>import</c>）の済んだ数と全体。走査の途中・取る物が無い・ほかの種類のときは null（<see cref="ImportProgress"/>）。</param>
+public sealed record VersionAnswer(string Api, string App, int StoreFormat, int StoreFormatSupported, string Notice, string Epoch, long Sequence, string? Busy, ImportProgressRef? Progress);
 
 /// <summary>変化1つ（<c>/v1/changes</c> と SSE の出来事）。</summary>
 /// <param name="Kind"><c>changed</c>（写しを読み直した）・<c>reloaded</c>（全部を読み直した。外の道具も全部を取り直す）・<c>busy</c>（まとめて書く操作の始まりと終わり）・<c>formatTooNew</c>・<c>stopping</c>。</param>

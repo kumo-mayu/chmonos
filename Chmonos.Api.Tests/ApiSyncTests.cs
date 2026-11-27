@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using Chmonos.Core.Models;
+using Chmonos.Core.Scanning;
 using Chmonos.Core.Storage;
 using Microsoft.AspNetCore.Builder;
 
@@ -93,6 +94,39 @@ public sealed class ApiSyncTests : IAsyncLifetime
         await _sync.ApplyPendingAsync();
 
         Assert.Equal(0, (await GetAsync("/v1/version")).GetProperty("sequence").GetInt64());
+    }
+
+    [Fact]
+    public async Task 取り込みの間は済んだ数と全体を返し_前の回の記録と走査の途中と分からない時は返さない()
+    {
+        // 時刻は全部決め打ち（今の時計に左右されない）。知らせを受けた時刻と記録の日時の前後だけを比べる
+        var since = new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.FromHours(9));
+        async Task<JsonElement> ProgressAsync() => (await GetAsync("/v1/version")).GetProperty("progress");
+
+        // 前に中断した回の記録が残っている：始めた時より前に書かれた物は今の数ではない
+        await _store.ImportState.SaveAsync(new ImportState { Done = 3, Total = 10, StoppedAt = since.AddHours(-1) });
+        _sync.SetBusy("import", since);
+        Assert.Equal(JsonValueKind.Null, (await ProgressAsync()).ValueKind);
+
+        // 走査の途中は 0 / 0 で、取る物が無いのと見分けられないので返さない
+        await _store.ImportState.SaveAsync(new ImportState { StoppedAt = since.AddMinutes(1), Scanning = true });
+        Assert.Equal(JsonValueKind.Null, (await ProgressAsync()).ValueKind);
+
+        await _store.ImportState.SaveAsync(new ImportState { Done = 2, Total = 5, StoppedAt = since.AddMinutes(2) });
+        var progress = await ProgressAsync();
+        Assert.Equal(2, progress.GetProperty("done").GetInt32());
+        Assert.Equal(5, progress.GetProperty("total").GetInt32());
+
+        // 読めない記録で /v1/version を落とさない
+        await File.WriteAllTextAsync(_store.Paths.ImportStateFile, "{ 壊れた");
+        Assert.Equal(JsonValueKind.Null, (await ProgressAsync()).ValueKind);
+
+        // 取り込みでない種類・終わった後は返さない
+        await _store.ImportState.SaveAsync(new ImportState { Done = 2, Total = 5, StoppedAt = since.AddMinutes(3) });
+        _sync.SetBusy("restore", since);
+        Assert.Equal(JsonValueKind.Null, (await ProgressAsync()).ValueKind);
+        _sync.SetBusy(null, since);
+        Assert.Equal(JsonValueKind.Null, (await ProgressAsync()).ValueKind);
     }
 
     [Fact]

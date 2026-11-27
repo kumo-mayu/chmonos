@@ -269,6 +269,7 @@ if (@($missing).Count -gt 0) {
 
 - `GET /v1/changes?since=<通番>&epoch=<名前>`：前に見た時点より後に変わったことを返します。通番と名前は `/v1/version` の `sequence`・`epoch` にあります。答えの `reload` が `true` のときは、変わったことを全部は追えていないので、全部を取り直してください。
 - `GET /v1/events`：変わったことを Server-Sent Events で流します。つなぎ直すときは、最後に受けた `id` を `Last-Event-ID` で送ると、続きから流れます。
+- （次のバージョンから）取り込みの間は、`/v1/version` の `busy` が `import` になり、`progress` に商品の情報を取れた数（`done`）と取ろうとしている数（`total`）が入ります。フォルダを調べている間と、取る物が無いときは `null` です。
 
 ### 画面の操作を知る（次のバージョンから）
 

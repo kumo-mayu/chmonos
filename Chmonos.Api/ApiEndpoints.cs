@@ -27,9 +27,10 @@ internal static partial class ApiEndpoints
             .Answers<IReadOnlyList<string>>("読めなかった商品の ID（手で壊した JSON など）");
 
         app.MapGet("/v1/version", (ApiState state, ChangeFeed feed, StoreSync sync) => ApiHost.Json(
-            new VersionAnswer(ApiHost.ApiVersion, ApiHost.AppVersion, state.StoreFormat, StoreFormat.Current, ServiceText.Notice, feed.Epoch, feed.Sequence, sync.Busy),
+            new VersionAnswer(ApiHost.ApiVersion, ApiHost.AppVersion, state.StoreFormat, StoreFormat.Current, ServiceText.Notice, feed.Epoch, feed.Sequence, sync.Busy,
+                sync.BusySince is ("import", var since) ? ImportProgress.Read(state.Snapshot, since) : null),
             json.VersionAnswer))
-            .Answers<VersionAnswer>("API のバージョン・保存の形・通番・まとめて書いている途中か・注意（トークンなし）");
+            .Answers<VersionAnswer>("API のバージョン・保存の形・通番・まとめて書いている途中か（取り込みなら済んだ数と全体）・注意（トークンなし）");
 
         // 変化（docs/spec/local-api.md「同期」）。外の道具は前に見た通番を送り、それより後の変化を受け取る
         app.MapGet("/v1/changes", (ChangeFeed feed, long? since, string? epoch) =>

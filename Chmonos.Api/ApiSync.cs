@@ -164,6 +164,19 @@ internal sealed class StoreSync : IDisposable
 
     public string? Busy => _busy?.Kind;
 
+    /// <summary>まとめて書いている種類と、知らせを受けた時刻（取り込みの進み具合が、前の回の記録を拾わないために比べる）。</summary>
+    public (string Kind, DateTimeOffset Since)? BusySince
+    {
+        get
+        {
+            // 種類と時刻の組は1語で読めないので、書く側と同じ錠で読む（ちぎれた組を読まない）
+            lock (_gate)
+            {
+                return _busy;
+            }
+        }
+    }
+
     public void Start()
     {
         if (_watcher is not null)

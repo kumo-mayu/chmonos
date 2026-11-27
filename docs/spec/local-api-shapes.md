@@ -59,13 +59,13 @@
 | `/v1/saved-searches` | 出す | 人が作った検索をソフトが使い回す。保存の形から API の条件へ戻す変換を作る |
 | `/v1/search-history`・`/v1/stats`・`/v1/volumes`・`/v1/search/explain` | 後回し | 履歴は使い道が薄い。統計は画面の計算を Core へ移す要がある。ドライブは生の組より、読み替えを済ませて今の場所を返す方が役に立つ（[local-api.md](local-api.md)「未決」）。記法を外から使う場面がまだ無い |
 | 人が足した変換の組（`conversion-pairs.json`） | 出す | 外の変換ツールに大事な情報。変換扱いと一緒に |
-| 取り込みの進み具合（`import-state.json`） | 一部を出す | 今の `busy` に「済んだ数／全体」だけを足す。続きに要る中身は出さない |
+| 取り込みの進み具合（`import-state.json`） | 一部を出す | ［実装 2026-11-27］今の `busy` に「済んだ数／全体」だけを足す。続きに要る中身は出さない。形は下の「内部の一覧」の後の段落 |
 | 設定（`settings.json`） | 出さない | 要る物を1つずつ足す（`/v1/display-settings` の形） |
 | 画面の状態・編集の位置・登録の待ち列・途中の操作 | 出さない | 画面と段取りの内部で、形が変わる |
 | バナー・動画の題・新しい版の確認 | 出さない | 機械の控え。動画の題は YouTube の情報の配り直しになる |
 | 控え（`format-backups`・`items/.prev`）・よけた記録・ログ・検索用の控え | 出さない | 中身の守り（ログ）と内部の物 |
 
-作る順（軽い物から）：① 済み：商品の欄（2026-11-27） ② 済み：excluded・recent・folders（2026-11-27） ③ unresolved（済み 2026-11-27）・取り込みの進み具合 ④ 変換の組 ⑤ 保存した検索。どれも項目を足すだけで `/v1/` のまま。
+作る順（軽い物から）：① 済み：商品の欄（2026-11-27） ② 済み：excluded・recent・folders（2026-11-27） ③ 済み：unresolved・取り込みの進み具合（2026-11-27） ④ 変換の組 ⑤ 保存した検索。どれも項目を足すだけで `/v1/` のまま。
 
 ## 商品の答え（`ItemDetail`・`ItemSummary`）
 
@@ -196,3 +196,5 @@
 | `GET /v1/folders` | `{ itemId, itemName, path, state, missingSince, fileCount, totalBytes, unityPackages, registeredAt }` | 場所の順（大文字小文字を区別しない→区別する）・商品 ID・商品の中の位置。「登録したフォルダ」は商品として登録したフォルダ（`LocalFolders`。最初の案 2026-10-12 の言葉。設定の取り込み元の履歴・監視するフォルダは設定なので出さない）。形は商品の詳細の `folders` と同じ `ItemMapper.Folder`、`state`（`present`・`missing`）は `files/lookup` と同じ `ItemMapper.FolderState`（取り込みが見た `missingSince` だけ・ディスクは見ない） |
 | `GET /v1/excluded` | `{ hash, paths, excludedAt, reason }` | 画面（設定の「除外したファイル」・Core の `LoadExcluded`）と同じ、外した日時の新しい順・同じ日時は記録の後ろが先。印は記録の位置を持つので、間に戻すと飛ぶ・重なることがある（保管した通知と同じ）。`paths` は全部（画面は1つ目だけ）、`reason` は画面の文のまま。記録は見張りの部分 `excluded`（`/v1/changes` にも出る）で、壊れて読めなければ前の記録で答える |
 | `GET /v1/unresolved` | `{ hash, paths, sizeBytes, modifiedAt, firstSeenAt, archiveBroken, zoneHostUrl, zoneReferrerUrl, candidateItemIds, samePathItemIds, notOnBooth: { itemId, checkedAt } \| null }` | 最初の場所の順（大文字小文字を区別しない→区別する）・ハッシュ・記録の位置。**zip の中の一覧（`contents`）は出さない**（記録の大半で、8万件で 35MB になった）。`candidateItemIds`・`samePathItemIds` は推定で、決めるのは画面。自動検索の控えは `hash` で `/v1/unresolved/candidates` を引く。記録は大きくなり得るので写しに持たず、初めて頼まれたときに読み、大きさと日時が同じ間は使い回す。変わると見張りの部分 `unresolved` で知らせる。壊れて読めなければ前に読めた物で答え、一度も読めていなければ 503 `unresolvedUnreadable` |
+
+取り込みの進み具合（③）：`/v1/version` に `progress: { done, total } | null` を足した。`busy` が `import` の間だけ、取り込みが①の1件ごとに書く `import-state.json` の `done`・`total`（商品の情報を取れた数／取ろうとしている数。画面の「n / m 件」と同じ）をそのまま返す（`ImportProgress`）。走査の途中（0 / 0 で「取る物が無い」と見分けられない）・取る物が無い・始めた時より前に書かれた記録（前に中断した回の数）・読めない記録は null。SSE の `busy` には載せない（始まりと終わりだけ）。
