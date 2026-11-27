@@ -427,6 +427,94 @@ public class JsonStoreTests : IDisposable
         Assert.True(File.Exists(temporary));
     }
 
+    /// <summary>
+    /// **計算で出せる欄（読むだけの欄）は、どの型でも JSON に書かない。**
+    /// 名指しした3つの欄だけを見ていたので、商品の表示名などの <c>[JsonIgnore]</c> を外しても通っていた（2026-11-28 の点検 M09）。
+    /// 属性を集める形だと、外した欄は集める対象からも消えるので、保存の設定が実際に書く欄のうち、読み戻せない（set も init も無い）物を探す。
+    /// 型は保存の形の置き場（<c>Models</c>）の全部と、そこから辿れる型
+    /// </summary>
+    [Fact]
+    public void NoComputedPropertyIsWrittenInAnyModel()
+    {
+        var seen = new HashSet<Type>();
+        var pending = new Queue<Type>(typeof(ItemRecord).Assembly.GetTypes().Where(type =>
+            type.Namespace == typeof(ItemRecord).Namespace && type.IsPublic && !type.IsAbstract && !type.IsGenericTypeDefinition
+            && (type.IsClass || type.IsValueType) && !type.IsEnum && !typeof(Delegate).IsAssignableFrom(type)
+            && !typeof(System.Text.Json.Serialization.JsonConverter).IsAssignableFrom(type)));
+        var written = new List<string>();
+        while (pending.TryDequeue(out var type))
+        {
+            if (!seen.Add(type) || type.Assembly != typeof(ItemRecord).Assembly)
+            {
+                continue;
+            }
+
+            var info = JsonStore.Options.GetTypeInfo(type);
+            if (info.Kind != System.Text.Json.Serialization.Metadata.JsonTypeInfoKind.Object)
+            {
+                continue;
+            }
+
+            foreach (var property in info.Properties)
+            {
+                if (property.Get is not null && property.Set is null && property.AssociatedParameter is null)
+                {
+                    written.Add($"{type.Name}.{property.Name}");
+                }
+
+                var element = property.PropertyType.IsArray ? property.PropertyType.GetElementType()! : property.PropertyType;
+                foreach (var reachable in element.IsGenericType ? element.GetGenericArguments().Append(element) : [element])
+                {
+                    pending.Enqueue(Nullable.GetUnderlyingType(reachable) ?? reachable);
+                }
+            }
+        }
+
+        Assert.Contains(typeof(ItemRecord), seen);
+        Assert.Empty(written);
+    }
+
+    /// <summary>
+    /// **値が null の欄は書かない**（保存の設定の <c>WhenWritingNull</c>。欄ごとの指定に頼らない所で見る）。
+    /// 外しても落ちるのは別の話題の1件だけだった（2026-11-28 の点検 M08）
+    /// </summary>
+    [Fact]
+    public void DoesNotWriteNullFields()
+    {
+        JsonStore.Write(FilePath, CreateItem());
+
+        var text = File.ReadAllText(FilePath);
+
+        // CreateItem は店・分類・表示名などを入れていない。null の欄を書けば「"shop": null」の形が出る
+        Assert.Null(CreateItem().Booth.Shop);
+        Assert.DoesNotContain(": null", text);
+        Assert.DoesNotContain("\"shop\"", text);
+    }
+
+    /// <summary>
+    /// 本体の置き換えは、名前が途切れない改名で行う（<see cref="AtomicReplace"/>）。この道が黙って使えなくなっても、
+    /// 置き換えの最中の読みの試験は開き直し（OpenSettled）に隠れて通っていた（2026-11-28 の点検 M06）。
+    /// 改名そのものを直に呼び、読み手が削除の共有つきで本体を開いたままでも、使えて（真）中身が替わり、
+    /// 読み手は開いた時点の中身を読み切れる事を見る。試験の一時フォルダは NTFS の上にある前提（FAT などでは偽が正しい）
+    /// </summary>
+    [Fact]
+    public void ReplacesByRenameWithoutGapsEvenWhileSomeoneReads()
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(FilePath, "古い");
+        var temporary = FilePath + ".z.tmp";
+        File.WriteAllText(temporary, "新しい");
+
+        using (var reader = new StreamReader(JsonStore.OpenShared(FilePath)))
+        {
+            Assert.True(AtomicReplace.TryReplace(temporary, FilePath));
+            Assert.Equal("古い", reader.ReadToEnd());
+        }
+
+        Assert.Equal("新しい", File.ReadAllText(FilePath));
+        Assert.False(File.Exists(temporary));
+    }
+
     /// <summary>書き出す途中で投げる作り物（中身を作るのは書き先を開いた後なので、本体へ直に書く作りなら本体が空になる）。</summary>
     private sealed class FailsWhileWriting
     {
