@@ -249,12 +249,15 @@ public class StoreFormatTests : IDisposable
     [Fact]
     public void 中身を変える段はファイルの版より後の段を古い順に全部当てる()
     {
-        var steps = Enumerable.Range(StoreFormat.OldestReadable + 1, StoreFormat.Current - StoreFormat.OldestReadable)
-            .ToDictionary(version => version, version => (Func<System.Text.Json.Nodes.JsonNode, Type, System.Text.Json.Nodes.JsonNode>?)((node, _) =>
+        var steps = new Dictionary<int, Func<System.Text.Json.Nodes.JsonNode, Type, System.Text.Json.Nodes.JsonNode>?>();
+        foreach (var version in Enumerable.Range(StoreFormat.OldestReadable + 1, StoreFormat.Current - StoreFormat.OldestReadable))
+        {
+            steps[version] = (node, _) =>
             {
                 node["steps"]!.AsArray().Add(version);
                 return node;
-            }));
+            };
+        }
         int[] Applied(int from)
         {
             var node = System.Text.Json.Nodes.JsonNode.Parse("""{ "steps": [] }""")!;
