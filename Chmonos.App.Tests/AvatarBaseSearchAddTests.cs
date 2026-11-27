@@ -142,14 +142,14 @@ public class AvatarBaseSearchAddTests
         await UiThread.Until(() => !avatars.IsLoading && avatars.Rows.Count > 0, "アバターの読み込みが済む");
         avatars.ShowBaseModeCommand.Execute(null);
 
-        Assert.Equal([$"アオイ（ID {Aoi}）", $"アオイ（ID {otherAoi}）", "モモ"], avatars.BaseSearchCandidates);
+        Assert.Equal([$"アオイ（{Aoi}）", $"アオイ（{otherAoi}）", "モモ"], avatars.BaseSearchCandidates);
 
-        avatars.BaseSearchCommitCommand.Execute($"アオイ（ID {otherAoi}）");
+        avatars.BaseSearchCommitCommand.Execute($"アオイ（{otherAoi}）");
         Assert.Equal(["別の素体"], avatars.ShownBases.Select(row => row.Name));
         Assert.Equal("アバター「アオイ」", avatars.ShownBases[0].MatchNote);
 
         // 欄が遅れて同じ字を書き戻しても、ID の絞りのまま
-        avatars.BaseQuery = $"アオイ（ID {otherAoi}）";
+        avatars.BaseQuery = $"アオイ（{otherAoi}）";
         Assert.Equal(["別の素体"], avatars.ShownBases.Select(row => row.Name));
 
         // 打ち直すと名前で当てる絞りに戻る（どちらのアオイの素体も出る）
@@ -169,7 +169,7 @@ public class AvatarBaseSearchAddTests
             ("ミナ", "作り物の工房", "5"),
         ]);
 
-        Assert.Equal(["レイ（ID 1）", "レイ", "レイ（作り物の工房）（ID 3）", "レイ（作り物の工房）（ID 4）", "ミナ"], texts);
+        Assert.Equal(["レイ（1）", "レイ", "レイ（作り物の工房）（3）", "レイ（作り物の工房）（4）", "ミナ"], texts);
     }
 
     /// <summary>

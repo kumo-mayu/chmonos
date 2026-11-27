@@ -1230,7 +1230,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
 
     /// <summary>
     /// 候補の字。名前が1つだけならそのまま。同じ名前が2体以上なら、ショップ名を添え（名前に既に付いていなければ。登録簿の名前は、
-    /// ショップ名が分かる物には既に付けてある：<c>AvatarNames.Map</c>）、それでも重なる物（ショップ名が分からない・同じショップ）は ID を添える。
+    /// ショップ名が分かる物には既に付けてある：<c>AvatarNames.Map</c>）、それでも重なる物（ショップ名が分からない・同じショップ）は ID を添える（形は検索の候補と同じ「名前（ID）」。ユーザ判断 2026-11-27）。
     /// 群（所持・未所持）は見出しで、絵は頭で見分けられるが、欄は候補を字で引くので字も分ける
     /// </summary>
     internal static IReadOnlyList<string> BaseCandidateTexts(IReadOnlyList<(string Name, string? Shop, string ItemId)> avatars)
@@ -1243,7 +1243,7 @@ public sealed partial class AvatarsViewModel : ViewModelBase, IPendingWrites, IL
                 : avatar.Name)
             .ToList();
         var shopCounts = withShop.GroupBy(text => text, comparer).ToDictionary(group => group.Key, group => group.Count(), comparer);
-        return [.. withShop.Select((text, index) => shopCounts[text] > 1 ? $"{avatars[index].Name}（ID {avatars[index].ItemId}）" : text)];
+        return [.. withShop.Select((text, index) => shopCounts[text] > 1 ? AvatarSuggestionText.Format(avatars[index].Name, avatars[index].ItemId) : text)];
     }
 
     /// <summary>候補の群（所持アバター／未所持アバター）と、名前以外で当たる語。素体の側からアバターを足す欄の候補と同じ作り</summary>
