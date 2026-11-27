@@ -16,6 +16,7 @@ public abstract class LocalApiFixture : IAsyncLifetime
 {
     protected const string TokenA = "robustness-token-a-0123456789";
     protected const string TokenB = "robustness-token-b-0123456789";
+    protected const string LegacyToken = "robustness-legacy-0123456789";
     protected const string AllowedOrigin = "https://tool.example";
     protected readonly string Root = Path.Combine(Path.GetTempPath(), "chmonos-api-tests", Guid.NewGuid().ToString("N"));
     protected DateTimeOffset Now = new(2026, 11, 13, 0, 0, 0, TimeSpan.Zero);
@@ -26,6 +27,12 @@ public abstract class LocalApiFixture : IAsyncLifetime
     protected HttpClient Client = null!;
     protected readonly FakeApprovals Approvals = new();
     private WebApplication? _app;
+
+    /// <summary>道の一覧（EndpointDataSource）を引くための入口</summary>
+    protected IServiceProvider Services => _app!.Services;
+
+    /// <summary>待っているポート（Host の確かめの試験で、違うポートを組むのに使う）</summary>
+    protected int Port => new Uri(_app!.Urls.Single()).Port;
 
     protected ApiClientRecord Record(string id, string token) => new()
     {
@@ -42,7 +49,7 @@ public abstract class LocalApiFixture : IAsyncLifetime
         await Store.Items.SaveAsync(new ItemRecord { Id = "9600901", Booth = new BoothBlock { Name = "作り物の試験商品" } });
         Hub = new PluginEventHub(() => Now);
         (_app, State, _) = await ApiHost.BuildAsync(new ApiHostOptions(
-            Root, 0, "robustness-legacy-0123456789", [AllowedOrigin],
+            Root, 0, LegacyToken, [AllowedOrigin],
             Clock: () => Now, Watch: false, Store: Store,
             Writes: new ApiWriteHooks((_, _) => Task.FromResult<Chmonos.Core.Commands.CommandResult>(new Chmonos.Core.Commands.CommandResult.Done()), Approvals: Approvals),
             Owners: new FakeOwners(), Plugins: Hub));
