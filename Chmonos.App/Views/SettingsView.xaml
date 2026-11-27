@@ -175,6 +175,11 @@
                                       IsChecked="{Binding GroupAvatarsByBase, Mode=TwoWay}"
                                       AutomationProperties.AutomationId="Settings.GroupAvatarsByBase"
                                       ToolTip="商品ページの札と、検索の対応アバターの候補を、共通素体ごとに並べます。" />
+                            <!-- アバターの商品IDは基本的に重要では無いので、既定は出さない（ユーザ判断 2026-11-27）。切でもIDで引けることを吹き出しで言う -->
+                            <CheckBox controls:SettingDefault.Key="ShowAvatarItemIds" Content="アバターの商品IDを表示する" Style="{StaticResource SettingCheck}"
+                                      IsChecked="{Binding ShowAvatarItemIds, Mode=TwoWay}"
+                                      AutomationProperties.AutomationId="Settings.ShowAvatarItemIds"
+                                      ToolTip="オフでも、候補の欄に商品IDを入れると見つかります。" />
                             <!-- 変換経由（docs/spec/conversion.md「設定」・ユーザ判断 2026-11-06：表示は既定で入、確認していない変換は既定で切）。素体経由と同じ作り -->
                             <CheckBox controls:SettingDefault.Key="ShowAvatarsViaConversion" Content="変換経由の対応アバターも表示する" Style="{StaticResource SettingCheck}"
                                       IsChecked="{Binding ShowAvatarsViaConversion, Mode=TwoWay}"

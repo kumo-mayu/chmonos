@@ -57,6 +57,8 @@ public sealed partial class SettingsViewModel
             s => s with { ShowAvatarsViaBase = Defaults.ShowAvatarsViaBase }, (vm, v) => vm.ShowAvatarsViaBase = v),
         [nameof(GroupAvatarsByBase)] = Flag(vm => vm.GroupAvatarsByBase, Defaults.GroupAvatarsByBase,
             s => s with { GroupAvatarsByBase = Defaults.GroupAvatarsByBase }, (vm, v) => vm.GroupAvatarsByBase = v),
+        [nameof(ShowAvatarItemIds)] = Flag(vm => vm.ShowAvatarItemIds, Defaults.ShowAvatarItemIds,
+            s => s with { ShowAvatarItemIds = Defaults.ShowAvatarItemIds }, (vm, v) => vm.ShowAvatarItemIds = v),
         [nameof(ShowAvatarsViaConversion)] = Flag(vm => vm.ShowAvatarsViaConversion, Defaults.ShowAvatarsViaConversion,
             s => s with { ShowAvatarsViaConversion = Defaults.ShowAvatarsViaConversion }, (vm, v) => vm.ShowAvatarsViaConversion = v),
         [nameof(IncludeUnconfirmedConversion)] = Flag(vm => vm.IncludeUnconfirmedConversion, Defaults.IncludeUnconfirmedConversion,

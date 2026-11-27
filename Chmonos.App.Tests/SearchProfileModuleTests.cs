@@ -42,7 +42,8 @@ public class SearchProfileModuleTests
     private static IReadOnlyList<string> Shown(MainViewModel main)
         => main.Search.ListItems.Select(card => card.Item.Id).Order().ToList();
 
-    private static string Text(string id, string name) => AvatarSuggestionText.Format(name, id);
+    // 既定では候補の字は名前だけ（設定「アバターの商品IDを表示する」は切）
+    private static string Text(string id, string name) => name;
 
     [Fact]
     public Task 足しただけで_プロファイルの商品すべてに絞る() => TestApp.Run(async app =>
@@ -87,7 +88,7 @@ public class SearchProfileModuleTests
         // キキの順方向は無い
         module.Destination.AddCommand.Execute(Text(Kiki, "キキ"));
         await app.SettleAsync();
-        Assert.Equal("「キキ（9800403）」に着せるプロファイルがありません。", module.StatusText);
+        Assert.Equal("「キキ」に着せるプロファイルがありません。", module.StatusText);
 
         // 単体で変換できるものだけ：1つの商品で、アオイの衣装の変換とキキ・モモへの着せ替えの両方をまかなえる物は無い
         Assert.False(module.RequireBoth);

@@ -48,7 +48,7 @@ public sealed partial class SearchViewModel
         RecordBeforeShowOnly();
         ClearFilters(apply: false);
         var module = EnsureModule<ListModule>(SearchModuleKind.Avatar);
-        module.AddKey(AvatarKey + avatarItemId, notify: false, text: AvatarSuggestionText.Format(displayName, avatarItemId));
+        module.AddKey(AvatarKey + avatarItemId, notify: false, text: AvatarChipText(displayName, avatarItemId));
         module.SetFlagQuietly(includeViaBase);
         FinishShowOnly();
     }
@@ -77,7 +77,7 @@ public sealed partial class SearchViewModel
         RecordBeforeShowOnly();
         ClearFilters(apply: false);
         var module = EnsureModule<ProfileModule>(SearchModuleKind.Profile);
-        var text = AvatarSuggestionText.Format(displayName, avatarItemId);
+        var text = AvatarChipText(displayName, avatarItemId);
         module.AddQuietly(toSource: true, AvatarKey + avatarItemId, text);
         module.AddQuietly(toSource: false, AvatarKey + avatarItemId, text);
         FinishShowOnly();
@@ -163,6 +163,23 @@ public sealed partial class SearchViewModel
     /// 条件は呼んだ時点で写す（最初の待ちより前に <see cref="CurrentSearch"/> を作る）ので、書き込みを待たずに入れ替えてよい
     /// </summary>
     private void RecordBeforeShowOnly() => RecordHistoryAsync().Forget();
+
+    /// <summary>
+    /// 候補をまだ読んでいない時に入れる札の字。候補を読んであれば欄が候補の字を使うので、これは読む前だけ見える
+    /// （候補を読んだ時に札の字も候補の字に揃う。名前が重なってIDを添える時もそこで直る）。絵を引けるよう表にも入れる
+    /// </summary>
+    private string AvatarChipText(string displayName, string avatarItemId)
+    {
+        var text = AvatarSuggestionText.Label(displayName, avatarItemId, _services.Settings.ShowAvatarItemIds);
+        _shownOnlyAvatarIds[text] = avatarItemId;
+        return text;
+    }
+
+    /// <summary>
+    /// アバターの管理から入れた札の字 → 商品ID。候補を作り直すたびに消える表（<c>_avatarIdsBySuggestion</c>）とは分ける：
+    /// 候補に出ないアバター（アバターと判定されていない登録簿の行など）の札は、字にIDが無いと絵を引けなくなるため
+    /// </summary>
+    private readonly Dictionary<string, string> _shownOnlyAvatarIds = new(StringComparer.CurrentCultureIgnoreCase);
 
     private void FinishShowOnly()
     {

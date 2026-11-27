@@ -120,13 +120,13 @@ public class AvatarSuggestGroupsTests
 
         var groupOf = module.Suggestions.ToDictionary(text => text, text => module.InfoSelector!(text)!.Group);
 
-        Assert.Equal(AvatarSuggestionText.OwnedGroup, groupOf["作り物の持っているアバター（9900001）"]);
+        Assert.Equal(AvatarSuggestionText.OwnedGroup, groupOf["作り物の持っているアバター"]);
         Assert.Equal(AvatarSuggestionText.BaseGroup, groupOf["作り物の素体（共通素体）"]);
-        Assert.Equal(AvatarSuggestionText.OtherGroup, groupOf["作り物の持っていないアバター（9900002）"]);
+        Assert.Equal(AvatarSuggestionText.OtherGroup, groupOf["作り物の持っていないアバター"]);
         Assert.Equal(["所持アバター", "共通素体", "未所持アバター"], module.GroupHeadings);
 
         var rows = SuggestBox.Arrange(module.Suggestions.ToList(), "mzh", 0, module.InfoSelector);
-        Assert.Equal(["作り物の持っているアバター（9900001）"], rows.Select(row => row.Entry));
+        Assert.Equal(["作り物の持っているアバター"], rows.Select(row => row.Entry));
         Assert.Equal("呼び方「Mzh」", rows[0].Hit!.Label);
     });
 

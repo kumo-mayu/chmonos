@@ -727,6 +727,15 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
         set { if (SetField(ref _groupAvatarsByBase, value)) { Save(_main.ReloadLibraryAsync); } }
     }
 
+    private bool _showAvatarItemIds;
+
+    /// <summary>アバターの候補と札に商品IDを添えるか（既定はオフ・ユーザ判断 2026-11-27）。検索の候補と札の字が変わるので、候補を作り直す</summary>
+    public bool ShowAvatarItemIds
+    {
+        get => _showAvatarItemIds;
+        set { if (SetField(ref _showAvatarItemIds, value)) { Save(_main.ReloadLibraryAsync); } }
+    }
+
     private bool _showHiddenCountInSearch;
     public bool ShowHiddenCountInSearch
     {
@@ -1783,6 +1792,7 @@ public sealed partial class SettingsViewModel : ViewModelBase, ILeavingScreen
             ShowRemovedBoothImages = ShowRemovedBoothImages,
             ShowAvatarsViaBase = ShowAvatarsViaBase,
             GroupAvatarsByBase = GroupAvatarsByBase,
+            ShowAvatarItemIds = ShowAvatarItemIds,
             ShowAvatarsViaConversion = ShowAvatarsViaConversion,
             IncludeUnconfirmedConversion = IncludeUnconfirmedConversion,
             ExposeScreenToAutomation = ExposeScreenToAutomation,
