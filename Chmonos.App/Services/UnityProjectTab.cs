@@ -58,6 +58,22 @@ public static class UnityProjectTab
     /// <summary>前に入っていた文字を消すために送る BackSpace の数。画像のパスまで入れるので長めに取る（Windows のふつうのパスの上限は260字）</summary>
     private const int ClearCount = 320;
 
+    /// <summary>
+    /// フォーカスが来るのを見る間隔。Unity の画面の1コマ（約16ms）より少し長くし、見るだけの問い合わせで Unity を忙しくしない
+    /// </summary>
+    private const int PollMs = 25;
+
+    /// <summary>
+    /// フォーカスが来るのを待つ上限。前は決まった 200ms・300ms で、確かめ用のプロジェクトでは足りていたが、
+    /// 重いプロジェクトや遅い PC では足りずに「フォーカスを移せませんでした」になり得る。来れば待たずに進むので、上限は長めに取る
+    /// </summary>
+    private const int FocusTimeoutMs = 1500;
+
+    /// <summary>
+    /// メニューで Project タブを出してもらうのを待つ上限。新しく窓を作るので、フォーカスより遅い（前は決まった 700ms）
+    /// </summary>
+    private const int ProjectWindowTimeoutMs = 3000;
+
     private const uint WmCommand = 0x0111;
     private const uint WmKeyDown = 0x0100;
     private const uint WmKeyUp = 0x0101;
@@ -293,9 +309,8 @@ public static class UnityProjectTab
                 }
 
                 PostMessage(main, WmCommand, (IntPtr)projectCommand, IntPtr.Zero);
-                await Task.Delay(700);
-                var shown = FocusOf(main);
-                if (!UnityFocusWatch.IsProjectBrowser(shown))
+                var shown = IntPtr.Zero;
+                if (!await WaitUntilAsync(() => UnityFocusWatch.IsProjectBrowser(shown = FocusOf(main)), ProjectWindowTimeoutMs))
                 {
                     return new("Unityのプロジェクトタブを表示できませんでした。UnityでProjectタブを開いてから、もう一度押してください。", string.Empty);
                 }
@@ -350,17 +365,22 @@ public static class UnityProjectTab
         PostMessage(tab, WmMButtonDown, MkMButton, point);
         PostMessage(tab, WmMButtonUp, IntPtr.Zero, point);
 
-        // 前は 400ms・600ms。半分にしても、確かめ用のプロジェクトで続けて8回とも欄にフォーカスが来た（2026-11-26）
-        await Task.Delay(200);
-
-        PostMessage(main, WmCommand, (IntPtr)findCommand, IntPtr.Zero);
-        await Task.Delay(300);
-
-        var box = FocusOf(main);
-        if (box != tab)
+        // 決まった時間ではなく、タブにフォーカスが来たのを見てから進む（前は 200ms と 300ms の決め打ち）
+        if (!await WaitUntilAsync(() => FocusOf(main) == tab, FocusTimeoutMs))
         {
             return false;
         }
+
+        PostMessage(main, WmCommand, (IntPtr)findCommand, IntPtr.Zero);
+
+        // Find は同じタブの中の検索欄へフォーカスを移すだけで、外から見える窓は変わらない。
+        // 打つ文字は Find と同じ Unity の画面のスレッドに積むので、Find の後に届く
+        if (!await WaitUntilAsync(() => FocusOf(main) == tab, FocusTimeoutMs))
+        {
+            return false;
+        }
+
+        var box = tab;
 
         // 前の語が残っていると混ざるので、末尾へ行ってから消す
         ClearBox(box);
@@ -393,13 +413,29 @@ public static class UnityProjectTab
             // その階層の物が見られない（ユーザ指摘 2026-11-17）。選んだ後に欄を空にすると、Unity は選んだ物の入った
             // フォルダを開き、選んだまま見せる（1列・2列の表示とも、実機で確かめた 2026-11-26）
             PostMessage(main, WmCommand, (IntPtr)findCommand, IntPtr.Zero);
-            await Task.Delay(200);
 
             // 欄にフォーカスが来ていなければ送らない。ほかの所（Inspector の入力欄など）へ BackSpace が届くと、利用者の値を消す
-            if (FocusOf(main) == tab)
+            if (await WaitUntilAsync(() => FocusOf(main) == tab, FocusTimeoutMs))
             {
                 ClearBox(tab);
             }
+        }
+
+        return true;
+    }
+
+    /// <summary>条件が立つまで <see cref="PollMs"/> ごとに見る。立てば true、上限まで立たなければ false</summary>
+    internal static async Task<bool> WaitUntilAsync(Func<bool> condition, int timeoutMs)
+    {
+        var watch = Stopwatch.StartNew();
+        while (!condition())
+        {
+            if (watch.ElapsedMilliseconds >= timeoutMs)
+            {
+                return false;
+            }
+
+            await Task.Delay(PollMs);
         }
 
         return true;
