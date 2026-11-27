@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using System.Globalization;
 using Chmonos.Core.Models;
 using Chmonos.Core.Services;
@@ -9,131 +10,169 @@ namespace Chmonos.Query.Search;
 /// 種類ごとに使う欄だけを書く。**保存の形（<see cref="SearchModuleState"/>）をそのまま外へ出さない**：中を直しても外の約束が壊れないよう、
 /// ここで受けて保存の形へ変換し、判定は画面と同じ <see cref="SearchModuleConditions"/> で作る。
 /// 「除く」は式の <c>not</c> で書く（値の分からない商品も外す決まりは、画面の「除く」と同じに効く）。
+/// 書くときは値のある欄だけ（<c>/v1/saved-searches</c> の <c>search</c> で書く。答えの「null も省かない」決まりの例外・ユーザ判断 2026-11-27）。
 /// </summary>
 public sealed class ConditionRequest
 {
     /// <summary>種類（<see cref="ConditionKinds"/> の名前）。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Kind { get; init; }
 
     /// <summary>積む値（カテゴリ・BOOTHタグ・ショップの鍵・フォルダ・Unity プロジェクト）。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<string>? Values { get; init; }
 
     /// <summary>対応アバター：アバターの商品 ID。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<string>? Avatars { get; init; }
 
     /// <summary>対応アバター：共通素体の名前。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<string>? Bases { get; init; }
 
     /// <summary>積んだ値どうしのつなぎ方。<c>any</c>（既定）か <c>all</c>。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Match { get; init; }
 
     /// <summary>選ぶ条件の選択肢（<c>/v1/search/conditions</c> に一覧がある）。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Choice { get; init; }
 
     /// <summary>選ぶ条件の補助の切り替え（名前は <c>/v1/search/conditions</c>）。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyDictionary<string, bool>? Options { get; init; }
 
     /// <summary>対応アバター：素体経由も当てるか（既定 true。画面の「素体経由を含める」）。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? ViaBase { get; init; }
 
     /// <summary>対応アバター：持っているバリエーションの分だけで照らすか（既定 false。画面の「持っているバリエーションの分だけ」）。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? OwnedVariationsOnly { get; init; }
 
     /// <summary>対応アバター：変換経由も当てるか（既定 false。画面の「変換経由を含める」）。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? ViaConversion { get; init; }
 
     /// <summary>プロファイル：自動で推して確認していないつなぎ先も当てるか（既定 true。画面の「確認待ちも含める」）。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? IncludeUnconfirmed { get; init; }
 
     /// <summary>プロファイル：変換元のアバターの商品 ID（逆方向で当てる）。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<string>? SourceAvatars { get; init; }
 
     /// <summary>プロファイル：変換元の共通素体の名前。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<string>? SourceBases { get; init; }
 
     /// <summary>プロファイル：変換先のアバターの商品 ID（順方向で当てる）。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<string>? DestinationAvatars { get; init; }
 
     /// <summary>プロファイル：変換先の共通素体の名前。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<string>? DestinationBases { get; init; }
 
     /// <summary>プロファイル：片方だけ送ったとき、空の側の候補（反対の向きの物）も当てるか（既定 false。画面の「組み合わせられるプロファイルも含める」）。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? ShowCounterpart { get; init; }
 
     /// <summary>プロファイル：両方送ったとき、1つの商品で変換元から変換先への変換が済むものだけにするか（既定 false。画面の「両方を持つ商品のみ」）。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? RequireBoth { get; init; }
 
     /// <summary>対応アバター：対応している商品を出すか（既定 true）。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Matched { get; init; }
 
     /// <summary>対応アバター：対応の指定が無い商品を出すか（既定 false）。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Unspecified { get; init; }
 
     /// <summary>ショップ：お気に入りのショップの商品も当てるか。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? IncludeFavoriteShops { get; init; }
 
     /// <summary>範囲の下限（含む）。送らなければ制限しない。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? Min { get; init; }
 
     /// <summary>範囲の上限（含む）。送らなければ制限しない。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? Max { get; init; }
 
     /// <summary>価格の元：<c>paid</c>（払った額・既定）か <c>booth</c>（BOOTH の価格）。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Source { get; init; }
 
     /// <summary>価格：種類ごとの価格が全部範囲に入る商品だけ（既定 false：どれか1つが入れば当たる）。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? AllVariations { get; init; }
 
     /// <summary>価格：数の分からない商品も当てる（既定 false）。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? IncludeUnknown { get; init; }
 
     /// <summary>BOOTH の価格：桁違いに高い価格（外れ値）を照らす数から外す（既定 true）。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? IgnoreOutliers { get; init; }
 
     /// <summary>日付の始まり（含む）。送らなければ制限しない。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public DateOnly? From { get; init; }
 
     /// <summary>日付の終わり（含む）。送らなければ制限しない。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public DateOnly? To { get; init; }
 
     /// <summary>入手日：<c>first</c>（最初の購入だけ・既定）か <c>all</c>（購入ごとの日付のどれか）。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Scope { get; init; }
 
     /// <summary>属性：属性ごとの値の幅。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<AttributeRangeRequest>? Ranges { get; init; }
 
     /// <summary>ユーザータグ：大分類ごとの条件。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<UserTagRequest>? Tags { get; init; }
 
     /// <summary>改変：アバターごとの条件。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<ModificationRequest>? Modifications { get; init; }
 
     /// <summary>編集状況の見る項目・更新通知ありの見る種類。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<string>? Fields { get; init; }
 
     /// <summary>最近：<c>used</c>（Unity送信・既定）・<c>viewed</c>（商品閲覧）・<c>added</c>（取り込み）。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Recent { get; init; }
 
     /// <summary>最近：何日前から（0 は今日）。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? FromDays { get; init; }
 
     /// <summary>最近：何日前まで。送らなければそれより前もすべて。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? ToDays { get; init; }
 
     /// <summary>保存した検索：元の検索文字列も照らすか（既定 true。画面の「検索文字列も使う」）。名前は <see cref="Values"/> の1つ目（名前の一覧は <c>GET /v1/saved-searches</c>）</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? UseText { get; init; }
 }
 
 /// <summary>属性の範囲。省いた側は端まで（min は 0・max は 100。属性の値は 0〜100）。</summary>
 /// <remarks>前は省けない数の欄で、省くと 0 と読んで 0〜0 を探し、黙って0件になった（2026-10-14・使い手の試作で見つかった）。値段の範囲と同じく片側を省ける</remarks>
-public sealed record AttributeRangeRequest(string Name, int? Min = null, int? Max = null);
+public sealed record AttributeRangeRequest(string Name, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? Min = null, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? Max = null);
 
 /// <param name="Subs">小分類（どれか・すべてかは <paramref name="Match"/>）。</param>
 /// <param name="NoSub">小分類を付けていない物も当てる。</param>
-public sealed record UserTagRequest(string Top, IReadOnlyList<string>? Subs = null, string? Match = null, bool NoSub = false);
+public sealed record UserTagRequest(string Top, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<string>? Subs = null, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Match = null, bool NoSub = false);
 
 /// <param name="Modifications">改変の ID。空ならそのアバターの改変のどれかに使った商品。</param>
-public sealed record ModificationRequest(string Avatar, IReadOnlyList<string>? Modifications = null, string? Match = null);
+public sealed record ModificationRequest(string Avatar, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<string>? Modifications = null, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Match = null);
 
 /// <summary>API の条件の種類の名前と、画面の条件の種類の対応（名前は外との約束）。</summary>
 public static class ConditionKinds

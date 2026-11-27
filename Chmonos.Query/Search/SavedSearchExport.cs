@@ -1,12 +1,14 @@
+using System.Text.Json.Serialization;
 using Chmonos.Core.Models;
 using Chmonos.Core.Services;
 
 namespace Chmonos.Query.Search;
 
-/// <summary>保存した検索の中身を、<c>POST /v1/search</c> にそのまま渡せる形にした物（<c>where</c>・<c>textOptions</c>）。</summary>
+/// <summary>保存した検索の中身を、<c>POST /v1/search</c> にそのまま渡せる形にした物（<c>where</c>・<c>textOptions</c>）。
+/// 中の型（式・条件・照らし方）は値のある欄だけを書く（ユーザ判断 2026-11-27・B：条件1つに null の欄が約40並び、読みにくい。本文としては省いても同じ意味）。</summary>
 /// <param name="Where">検索文字列と条件を AND でつないだ式。何も絞っていなければ null。</param>
 /// <param name="TextOptions">検索文字列の照らし方（対象・区別）。文字が無ければ null。</param>
-public sealed record SavedSearchQuery(SearchExpression? Where, TextOptionsRequest? TextOptions);
+public sealed record SavedSearchQuery([property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SearchExpression? Where, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] TextOptionsRequest? TextOptions);
 
 /// <summary>式に入れられなかった物1つ。</summary>
 /// <param name="Kind">保存の形の種類の名前（API に無い種類はそのまま。別表記は <c>searchAlternates</c>）。</param>

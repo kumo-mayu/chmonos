@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Chmonos.Core.Models;
 using Chmonos.Core.Services;
 
@@ -10,20 +11,25 @@ namespace Chmonos.Query.Search;
 /// </summary>
 public sealed class SearchExpression
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<SearchExpression>? And { get; init; }
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<SearchExpression>? Or { get; init; }
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public SearchExpression? Not { get; init; }
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Text { get; init; }
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ConditionRequest? Condition { get; init; }
 }
 
 /// <summary>検索欄の記法の照らし方（画面の「対象」と大文字・小文字などの区別）。送らなければ画面の既定と同じ。</summary>
 /// <param name="Targets">探す対象（<c>name</c>・<c>shop</c>・<c>memo</c> など。検索欄の前置きと同じ名前）。</param>
-public sealed record TextOptionsRequest(IReadOnlyList<string>? Targets = null, bool CaseSensitive = false, bool WidthSensitive = false, bool KanaSensitive = false);
+public sealed record TextOptionsRequest([property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<string>? Targets = null, bool CaseSensitive = false, bool WidthSensitive = false, bool KanaSensitive = false);
 
 /// <summary>組み立てた式。葉の判定は作ったときに準備まで済ませる。</summary>
 internal abstract class CompiledExpression

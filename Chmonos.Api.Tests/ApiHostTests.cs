@@ -185,6 +185,18 @@ public sealed class ApiHostTests : IAsyncLifetime
 
         Assert.Contains("id", detail);
         Assert.Contains("folders", detail);
+
+        // 保存した検索の search の中は値のある欄だけを書くので、省く欄は必須にしない。外側の欄は null でも書くので必須のまま
+        Assert.Empty(Required(schemas.GetProperty("SavedSearchQuery")));
+        Assert.DoesNotContain("values", Required(schemas.GetProperty("ConditionRequest")));
+        Assert.DoesNotContain("condition", Required(schemas.GetProperty("SearchExpression")));
+        Assert.DoesNotContain("targets", Required(schemas.GetProperty("TextOptionsRequest")));
+        var saved = Required(schemas.GetProperty("SavedSearchRef"));
+        foreach (var name in new[] { "name", "folder", "sort", "view", "search", "unconverted" })
+        {
+            Assert.Contains(name, saved);
+        }
+
         Assert.Contains("conversion", detail);
 
         var file = Required(schemas.GetProperty("FileRef"));

@@ -144,6 +144,20 @@ public sealed class SavedSearchApiListTests : IDisposable
             Assert.Equal(expected, Ids(snapshot, request.Where, request.TextOptions));
         }
 
+        // search の中は値のある欄だけ（null を書かない）。外側の欄は答えの決まりどおり null も書く
+        static IEnumerable<JsonElement> Walk(JsonElement element)
+            => element.ValueKind switch
+            {
+                JsonValueKind.Object => element.EnumerateObject().SelectMany(property => Walk(property.Value).Prepend(property.Value)),
+                JsonValueKind.Array => element.EnumerateArray().SelectMany(Walk),
+                _ => [],
+            };
+        var items = json.RootElement.GetProperty("items").EnumerateArray().ToList();
+        Assert.All(items, item => Assert.DoesNotContain(Walk(item.GetProperty("search")), value => value.ValueKind == JsonValueKind.Null));
+        Assert.Equal(JsonValueKind.Null, items[1].GetProperty("folder").ValueKind);
+        Assert.Equal(JsonValueKind.Null, items[2].GetProperty("sort").ValueKind);
+        Assert.False(items[2].GetProperty("search").TryGetProperty("textOptions", out _));
+
         // 確かめた物が空振りでない（当たる物も外れる物もある）
         Assert.Equal(["9700001"], Ids(snapshot, new SearchExpression { Condition = new ConditionRequest { Kind = "savedSearch", Values = ["文字と対象"] } }));
         Assert.Equal(["9700004", "9700005"], Ids(snapshot, new SearchExpression { Condition = new ConditionRequest { Kind = "savedSearch", Values = ["範囲"] } }));
