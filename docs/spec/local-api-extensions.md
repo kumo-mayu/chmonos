@@ -112,9 +112,28 @@
 - 引越し・書き出しと「すべてを戻す」・形式の控えに入れる（使う人のデータ。許しの `api-clients.json` とは違う）。
 - 保存先の直下のファイルではなくフォルダなので、書き出し（`BackupArchive`）・引越しが拾うかは作る時に確かめる [要確認]。
 
+## URL と答えの形 [決定]
+
+ユーザ判断 2026-11-27「OKだと思います」。まだ作っていない。
+
+| URL | 中身 | 誰が |
+|---|---|---|
+| `GET /v1/extensions`・`GET /v1/extensions/{ns}` | 宣言の一覧（名前空間・表示名・欄・ソフトの名前）・1つ | 許したソフトはどれも |
+| `PUT /v1/extensions/{ns}/schema` | 宣言を丸ごと置き換える | 持ち主だけ |
+| `DELETE /v1/extensions/{ns}/fields/{key}` | 欄を値ごと消す（裏で進め 202） | 持ち主だけ |
+| `/v1/items/{id}/extensions/{ns}`・`/v1/modifications/{id}/…`・`/v1/files/{hash}/…`・`/v1/shops/{key}/…`・`/v1/extensions/{ns}/data`（全体） | 値。GET 読む・PUT 丸ごと・PATCH 名指しした欄だけ（null で消す。属性の書き込みと同じ形）・DELETE そのソフトの値を全部 | 読むのはどれも・書くのは持ち主だけ |
+| `…/extensions/{ns}/memo` | メモ欄（中身は自由な JSON） | 持ち主だけ（読むのも） |
+| `GET /v1/extensions/{ns}/items?cursor=` | そのソフトが値を書いた商品の一覧（ソフトが同期し直す時） | どれも |
+
+- 付け先は Chmonos が知っている物だけ（商品・改変・ショップは今ある物、ファイルは記録したハッシュ）。知らない物は 404（どこにも付かない値を溜めない）。
+- 商品の答えに `?include=extensions`：`extensions: { "名前空間": { 欄: 値 } }`（メモ欄と隠した欄は入れない）。一覧・検索・batch でも頼める。
+- 検索の条件の種類 `extension`（`{ "ns", "key", "op", "value" }`）。op は型ごとに今の条件に合わせる（数・日付は範囲、文字は含む、一覧はどれかを含む）。
+- 値の JSON：文字・URL は文字列、数、真偽、日付は `"YYYY-MM-DD"`、文字の一覧は配列、`avatarList` はアバターの ID（文字列）の配列（名前は付けず `/v1/avatars` で引く）、表は行の配列（1行は「列 → 値」）。
+- 書けたら 200 と今の値と `ETag`。`If-Match` を付ければ古い値への上書きを 412 で断る（省いても書ける。2つのソフトが同じ物を書かないので）。
+- 誤り：400 `unknownField`（宣言に無い）・400 `invalidValue`（型が違う）・403 `notOwner`・403 `scopeNotGranted`・404（付け先が無い）・409 `fieldTypeChanged`・413 `extensionTooLarge`・412。
+
 ## まだ決めていない事 [案]
 
-- URL と答えの形（例：`PUT /v1/extensions/{名前空間}/schema`・`PUT /v1/items/{id}/extensions/{名前空間}`・商品の答えの `?include=extensions`）
 - 大きさ・欄の数・表の行の数の上限（メモリに乗る量を測ってから）
 - 画面の欄の置き場所と語、検索の条件の形
 - 名前空間の文字数と、予約する名前（`chmonos` など）
