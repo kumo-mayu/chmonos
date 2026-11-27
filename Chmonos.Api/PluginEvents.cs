@@ -15,6 +15,9 @@ internal enum PluginSubscribeResult
     NotGranted,
 }
 
+/// <summary>画面のスレッドで読んだ今の画面（<see cref="PluginEventHub.ScreenReader"/>）。選択を持たない画面・読まなかった時は <see cref="SelectedItemIds"/> が null。</summary>
+public sealed record PluginScreenNow(PluginScreen Screen, IReadOnlyList<string>? SelectedItemIds);
+
 /// <summary>右クリックなどに出すソフト1つ（「プラグイン ▸ {名前} ▸ …」の {名前} の段）。</summary>
 public sealed record PluginMenuSoftware(string ClientId, string Name, PluginMenuReason Reason, IReadOnlyList<PluginMenuEntry> Items);
 
@@ -53,9 +56,16 @@ public sealed class PluginEventHub(Func<DateTimeOffset>? clock = null)
     public const string ItemOpened = "itemOpened";
     public const string SelectionChanged = "selectionChanged";
     public const string ImportFinished = "importFinished";
+    public const string ScreenChanged = "screenChanged";
 
-    /// <summary>購読できる種類（並べる順）。許しの名前は <c>watch.</c> を前に付けた物（<see cref="ApiScopes.Watches"/>）。</summary>
-    public static IReadOnlyList<string> Kinds { get; } = [ItemOpened, SelectionChanged, ImportFinished];
+    /// <summary>購読できる種類（並べる順）。許しの名前は <see cref="ApiScopes.WatchOf"/>（<see cref="ApiScopes.Watches"/>）。</summary>
+    public static IReadOnlyList<string> Kinds { get; } = [ItemOpened, SelectionChanged, ImportFinished, ScreenChanged];
+
+    /// <summary>
+    /// 今の画面を読む（<c>GET /v1/plugin/current</c>）。App が差し込み、画面のスレッドで読んで返す。引数は選択も読むか。
+    /// 画面がまだ無い（起動の途中・閉じた後）なら null
+    /// </summary>
+    public Func<bool, Task<PluginScreenNow?>>? ScreenReader { get; set; }
 
     private readonly Func<DateTimeOffset> _clock = clock ?? (() => DateTimeOffset.Now);
     private readonly object _lock = new();
@@ -116,9 +126,39 @@ public sealed class PluginEventHub(Func<DateTimeOffset>? clock = null)
             return;
         }
 
-        var truncated = itemIds.Count > MaxSelectionIds;
-        var selection = new PluginSelection(screen, truncated ? itemIds.Take(MaxSelectionIds).ToList() : itemIds.ToList(), itemIds.Count, truncated);
+        var selection = SelectionOf(screen, itemIds);
         Publish(SelectionChanged, (seq, at) => new PluginEvent(seq, Epoch, SelectionChanged, at, null, selection, null));
+    }
+
+    private static PluginSelection SelectionOf(string screen, IReadOnlyList<string> itemIds)
+    {
+        var truncated = itemIds.Count > MaxSelectionIds;
+        return new PluginSelection(screen, truncated ? itemIds.Take(MaxSelectionIds).ToList() : itemIds.ToList(), itemIds.Count, truncated);
+    }
+
+    /// <summary>開いている画面が変わった（同じ画面を流し直さない・右の欄の変化をまとめるのは画面の側）。</summary>
+    public void PublishScreen(PluginScreen screen)
+        => Publish(ScreenChanged, (seq, at) => new PluginEvent(seq, Epoch, ScreenChanged, at, null, null, null, ScreenChanged: screen));
+
+    /// <summary>
+    /// 今の画面（<c>GET /v1/plugin/current</c>）。通番は画面を読む前に取る：読んだ後に取ると、その間に積んだ画面の変化を
+    /// ソフトが after で飛ばしてしまう（先に取れば、重なっても同じ画面を2回受けるだけ）
+    /// </summary>
+    internal async Task<PluginCurrentAnswer?> CurrentAsync(string clientId, bool withSelection)
+    {
+        long last;
+        lock (_lock)
+        {
+            last = _subscribers.TryGetValue(clientId, out var subscriber) ? subscriber.LastSeq : 0;
+        }
+
+        if (ScreenReader is not { } read || await read(withSelection) is not { } now)
+        {
+            return null;
+        }
+
+        var selection = withSelection && now.SelectedItemIds is { } ids ? SelectionOf(now.Screen.Screen, ids) : null;
+        return new PluginCurrentAnswer(Epoch, last, now.Screen, selection);
     }
 
     /// <summary>取り込みが終わった。</summary>

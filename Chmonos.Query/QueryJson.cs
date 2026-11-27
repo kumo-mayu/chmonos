@@ -75,6 +75,7 @@ namespace Chmonos.Query;
 [JsonSerializable(typeof(PluginEventsAnswer))]
 [JsonSerializable(typeof(PluginSubscriptionsBody))]
 [JsonSerializable(typeof(PluginSubscriptionsAnswer))]
+[JsonSerializable(typeof(PluginCurrentAnswer))]
 [JsonSerializable(typeof(PluginMenuAnswer))]
 [JsonSerializable(typeof(IReadOnlyList<PluginMenuItemRef>))]
 [JsonSerializable(typeof(PluginResultBody))]

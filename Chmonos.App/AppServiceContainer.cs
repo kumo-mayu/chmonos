@@ -357,6 +357,12 @@ public sealed class AppServiceContainer : IDisposable
     private Services.PluginSelectionBatcher? _pluginSelection;
 
     /// <summary>
+    /// 開いている画面の知らせで、右の欄の変化をまとめる時間を測る時計（<see cref="Services.PluginScreenTracker"/>）。
+    /// 試験は主画面を作る前に作り物へ差し替え、時計を待たずに 300ms の前後を確かめる
+    /// </summary>
+    internal TimeProvider PluginScreenTime { get; set; } = TimeProvider.System;
+
+    /// <summary>
     /// プラグインが足した項目と、押した後の下の帯（plan 44 の②）。ソフトの結果と項目の変化は裏のスレッドから来るので、
     /// 画面のスレッドへ渡す（画面の無い試験では、その場で動かす）
     /// </summary>

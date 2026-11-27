@@ -285,6 +285,7 @@ if (@($missing).Count -gt 0) {
    | `watch.itemOpened` | 商品ページを開いた | `itemOpened.itemId` |
    | `watch.selectionChanged` | 検索・フォルダ・ショップで選んだ商品が変わった | `selectionChanged` の `screen`（`search`・`folder`・`shop`）・`itemIds`（1000件まで）・`count`（選んだ数）・`truncated`（1000件で切ったか） |
    | `watch.importFinished` | 取り込みが終わった | `importFinished` の `outcome`（`imported`・`failed`・`cancelled`）と件数 |
+   | `watch.screen` | 開いている画面か、そこで開いている物が変わった（`kinds` に書く名前は `screenChanged`） | `screenChanged` の `screen`・`target`・`embedded`（下の「開いている画面に付いていく」） |
 
 2. `PUT /v1/plugin/subscriptions` に `{"kinds": ["itemOpened", "selectionChanged"]}` を送ります（`watch.` を付けない名前）。許されていない種類があると `403`（`scopeNotGranted`）です。空の配列で止めます。
 3. `GET /v1/plugin/events?after=<通番>&wait=30&epoch=<名前>` を繰り返します。届いていればすぐ、無ければ `wait` 秒（30まで）待ってから答えます。答えの `last` を次の `after` に、`epoch` を次の `epoch` にします。
@@ -304,6 +305,18 @@ while ($true) {
 
 - 選んだ商品は、選び終えてから少し後（0.3秒ほど）にまとめて届きます。
 - 設定の「API」の「つないでいるソフト」で「知らせる操作」のチェックを外すと、その場で届かなくなります。
+
+#### 開いている画面に付いていく（次のバージョンから）
+
+Chmonos で開いている商品に合わせて表示を変えるツールのための知らせです。`watch.screen` を許されたツールが使えます。
+
+- `screenChanged` は、画面を移った時と、そこで開いている物が変わった時に届きます。例：`{"screen": "folder", "target": {"type": "item", "id": "1234567"}, "embedded": true}`
+  - `screen` は画面の名前です：`search`（検索）・`item`（商品ページ）・`edit`（編集）・`import`（取り込み）・`resolve`（未確定）・`inbox`（通知）・`shops`（ショップの一覧）・`shop`（ショップのページ）・`folder`（フォルダ）・`stats`（統計）・`avatar`（アバター）・`modification`（改変）・`settings`（設定）・`tagManage`（タグの管理）・`attributeManage`（属性の管理）・`other`（そのほか）。
+  - `target` は開いている物です。`type` は `item`（商品）・`shop`（ショップ。`id` は `/v1/shops/{key}` の key）・`modification`（改変）・`avatar`（アバター）で、無ければ `null` です。
+  - `embedded` が `true` のときは、フォルダ・アバター・改変などの画面の右側に出ている物です。続けて選んでいる間は届かず、選び終えてから0.3秒ほど後に、最後の物だけが届きます。
+  - 同じ画面で同じ物を開き直しただけでは届きません。
+- `GET /v1/plugin/current` で、今の画面を同じ形で読めます。ツールを起動した時と、`reset` が `true` の時に読んでください。答えの `last` を次の `after` にすると、読んだ後の変化を取りこぼしません。
+  - `selection` には、検索・フォルダ・ショップで選んでいる商品が入ります（`watch.selectionChanged` も許されたツールだけ。ほかは `null`）。
 
 ### メニューに項目を足す（次のバージョンから）
 

@@ -193,13 +193,19 @@ public static class ApiScopes
     /// <summary>見張り：取り込みが終わった。</summary>
     public const string WatchImportFinished = WatchPrefix + "importFinished";
 
+    /// <summary>
+    /// 見張り：開いている画面と、そこで開いている物（screenChanged・GET /v1/plugin/current。docs/spec/plugins.md「開いた画面に付いていく」）。
+    /// 名前は種類（screenChanged）ではなく <c>watch.screen</c>（ユーザ判断 2026-11-27。今の画面を読む口も同じ許しで使う）
+    /// </summary>
+    public const string WatchScreen = WatchPrefix + "screen";
+
     public const string WatchPrefix = "watch.";
 
     /// <summary>書き込みの種類（画面に並べる順。軽い物から）。</summary>
     public static IReadOnlyList<string> Writes { get; } = [Marks, Recent, Notifications, Tags, Avatars, Modifications, Unity, Open];
 
     /// <summary>見張りの種類（画面に並べる順）。</summary>
-    public static IReadOnlyList<string> Watches { get; } = [WatchItemOpened, WatchSelectionChanged, WatchImportFinished];
+    public static IReadOnlyList<string> Watches { get; } = [WatchItemOpened, WatchSelectionChanged, WatchImportFinished, WatchScreen];
 
     /// <summary>
     /// 控えに書ける種類の全部（書き込み → 見張りの順）。権限を書き換えるときもこの順で並べ直す
@@ -213,8 +219,11 @@ public static class ApiScopes
 
     public static bool IsWatch(string scope) => Watches.Contains(scope, StringComparer.Ordinal);
 
-    /// <summary>出来事の種類（<c>itemOpened</c> など）を見るのに要る許しの名前。</summary>
-    public static string WatchOf(string kind) => WatchPrefix + kind;
+    /// <summary>
+    /// 出来事の種類（<c>itemOpened</c> など）を見るのに要る許しの名前。ふつうは <c>watch.</c> と種類だが、<c>screenChanged</c> だけは
+    /// <see cref="WatchScreen"/>（今の画面を読む口と1つの許しにしたため）。購読と、許しを外した時に列から除く所の両方がここを通る
+    /// </summary>
+    public static string WatchOf(string kind) => kind == "screenChanged" ? WatchScreen : WatchPrefix + kind;
 
     /// <summary>画面に出す名前（窓と設定の一覧）。</summary>
     public static string Label(string scope) => scope switch
@@ -230,6 +239,7 @@ public static class ApiScopes
         WatchItemOpened => "商品ページを開いたこと",
         WatchSelectionChanged => "選んだ商品",
         WatchImportFinished => "取り込みが終わったこと",
+        WatchScreen => "開いている画面",
         _ => scope,
     };
 }

@@ -222,7 +222,7 @@ public sealed class PluginEventTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Forbidden, notGranted.StatusCode);
         Assert.Equal("scopeNotGranted", await CodeOf(notGranted));
 
-        var unknown = await SubscribeAsync(WatcherToken, "screenChanged");
+        var unknown = await SubscribeAsync(WatcherToken, "unitySent");
         Assert.Equal(HttpStatusCode.BadRequest, unknown.StatusCode);
         Assert.Equal("unknownKind", await CodeOf(unknown));
 
@@ -321,6 +321,100 @@ public sealed class PluginEventTests : IAsyncLifetime
 
         // 止まった間は出来事を作らせない
         Assert.False(_hub.Watches(PluginEventHub.ItemOpened));
+    }
+
+    private Task<HttpResponseMessage> CurrentAsync(string token = WatcherToken)
+        => _client.SendAsync(With(HttpMethod.Get, "/v1/plugin/current", token));
+
+    [Fact]
+    public async Task 画面の変化は_watch_screenの許しで購読し_同じ形で流れる()
+    {
+        Assert.Equal(HttpStatusCode.OK, (await SubscribeAsync(WatcherToken, "screenChanged")).StatusCode);
+        _hub.PublishScreen(new PluginScreen("folder", new PluginTarget("item", "9600401"), true));
+
+        var item = Assert.Single((await EventsAsync()).GetProperty("events").EnumerateArray());
+        Assert.Equal("screenChanged", item.GetProperty("kind").GetString());
+        var screen = item.GetProperty("screenChanged");
+        Assert.Equal("folder", screen.GetProperty("screen").GetString());
+        Assert.Equal("item", screen.GetProperty("target").GetProperty("type").GetString());
+        Assert.Equal("9600401", screen.GetProperty("target").GetProperty("id").GetString());
+        Assert.True(screen.GetProperty("embedded").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, item.GetProperty("itemOpened").ValueKind);
+
+        // 開いている物が無い画面は target が null（項目を省かない）
+        _hub.PublishScreen(new PluginScreen("search", null, false));
+        var cleared = (await EventsAsync(after: 1)).GetProperty("events")[0].GetProperty("screenChanged");
+        Assert.Equal(JsonValueKind.Null, cleared.GetProperty("target").ValueKind);
+    }
+
+    [Fact]
+    public async Task watch_screenを許していなければ_購読も今の画面も断る()
+    {
+        WriteClients([ApiScopes.WatchItemOpened, ApiScopes.WatchSelectionChanged]);
+        _state.Clients.Reload();
+        _hub.ScreenReader = _ => Task.FromResult<PluginScreenNow?>(new PluginScreenNow(new PluginScreen("search", null, false), ["9600402"]));
+
+        var subscribe = await SubscribeAsync(WatcherToken, "screenChanged");
+        Assert.Equal(HttpStatusCode.Forbidden, subscribe.StatusCode);
+        Assert.Equal("scopeNotGranted", await CodeOf(subscribe));
+
+        var current = await CurrentAsync();
+        Assert.Equal(HttpStatusCode.Forbidden, current.StatusCode);
+        Assert.Equal("scopeNotGranted", await CodeOf(current));
+        Assert.Equal(HttpStatusCode.Forbidden, (await CurrentAsync(LegacyToken)).StatusCode);
+    }
+
+    [Fact]
+    public async Task 許しを外すと_まだ取りに来ていない画面の変化も渡さない()
+    {
+        await SubscribeAsync(WatcherToken, "screenChanged", "itemOpened");
+        _hub.PublishScreen(new PluginScreen("item", new PluginTarget("item", "9600403"), false));
+
+        WriteClients([ApiScopes.WatchItemOpened]);
+        _state.Clients.Reload();
+        Assert.False(_hub.Watches(PluginEventHub.ScreenChanged));
+        Assert.Empty(SeqsOf(await EventsAsync()));
+    }
+
+    [Fact]
+    public async Task 今の画面は通番と返し_選択は選択の見張りも許したときだけ載せる()
+    {
+        await SubscribeAsync(WatcherToken, "screenChanged");
+        _hub.PublishScreen(new PluginScreen("search", null, false));
+        var ids = Enumerable.Range(0, PluginEventHub.MaxSelectionIds + 5).Select(index => $"96005{index:0000}").ToList();
+        var asked = new List<bool>();
+        _hub.ScreenReader = withSelection =>
+        {
+            asked.Add(withSelection);
+            return Task.FromResult<PluginScreenNow?>(new PluginScreenNow(new PluginScreen("search", null, false), ids));
+        };
+
+        var response = await CurrentAsync();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
+        var answer = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal(_hub.Epoch, answer.GetProperty("epoch").GetString());
+        Assert.Equal(1, answer.GetProperty("last").GetInt64());
+        Assert.Equal("search", answer.GetProperty("screen").GetProperty("screen").GetString());
+        var selection = answer.GetProperty("selection");
+        Assert.Equal(PluginEventHub.MaxSelectionIds + 5, selection.GetProperty("count").GetInt32());
+        Assert.Equal(PluginEventHub.MaxSelectionIds, selection.GetProperty("itemIds").GetArrayLength());
+        Assert.True(selection.GetProperty("truncated").GetBoolean());
+
+        // 画面だけ許したソフトには、選んだ商品を見せない（読みにも行かない）
+        WriteClients([ApiScopes.WatchScreen]);
+        _state.Clients.Reload();
+        var screenOnly = JsonDocument.Parse(await (await CurrentAsync()).Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal(JsonValueKind.Null, screenOnly.GetProperty("selection").ValueKind);
+        Assert.Equal([true, false], asked);
+    }
+
+    [Fact]
+    public async Task 画面がまだ無ければ_今の画面は503()
+    {
+        var response = await CurrentAsync();
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        Assert.Equal("screenUnavailable", await CodeOf(response));
     }
 
     private static async Task WaitForAsync(Func<bool> condition)

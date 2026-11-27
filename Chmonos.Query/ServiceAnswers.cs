@@ -126,10 +126,26 @@ public sealed record ClientSelfAnswer(string Kind, string? ClientId, string? Nam
 /// </summary>
 public sealed record PluginEvent(
     long Seq, string Epoch, string Kind, DateTimeOffset At, PluginItemOpened? ItemOpened, PluginSelection? SelectionChanged, PluginImport? ImportFinished,
-    PluginMenuPressed? Menu = null);
+    PluginMenuPressed? Menu = null, PluginScreen? ScreenChanged = null);
 
 /// <summary>商品ページを開いた。</summary>
 public sealed record PluginItemOpened(string ItemId);
+
+/// <summary>
+/// 開いている画面（<c>screenChanged</c> と <c>GET /v1/plugin/current</c>。docs/spec/plugins.md「開いた画面に付いていく」）。
+/// <see cref="Screen"/> は画面の英字の名前（search・item・folder など）、<see cref="Target"/> はそこで開いている物（無ければ null）、
+/// <see cref="Embedded"/> は開いている物が一覧の画面の右の欄に出ているか（行を選ぶたびに替わる物）
+/// </summary>
+public sealed record PluginScreen(string Screen, PluginTarget? Target, bool Embedded);
+
+/// <summary>開いている物。<see cref="Type"/>：item・modification・avatar・shop。<see cref="Id"/> は読み取りの API と同じ鍵（ショップは <c>/v1/shops/{key}</c> の key）。</summary>
+public sealed record PluginTarget(string Type, string Id);
+
+/// <summary>
+/// 今の画面（<c>GET /v1/plugin/current</c>）。<see cref="Last"/> はこのソフトの今の最後の通番（これを after にして流れを追えば取りこぼさない）。
+/// <see cref="Selection"/> は複数選択を持つ画面で、選択の見張り（watch.selectionChanged）も許したソフトにだけ入る。ほかは null
+/// </summary>
+public sealed record PluginCurrentAnswer(string Epoch, long Last, PluginScreen Screen, PluginSelection? Selection);
 
 /// <summary>
 /// 複数選択が変わった（まとめてから流す）。<see cref="Screen"/>：search・folder・shop。<see cref="ItemIds"/> は先頭から上限まで、

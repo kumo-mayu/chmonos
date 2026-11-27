@@ -14,6 +14,8 @@ internal static class PluginEndpoints
 
     public const string SubscriptionsPath = "/v1/plugin/subscriptions";
 
+    public const string CurrentPath = "/v1/plugin/current";
+
     public static void Map(WebApplication app)
     {
         var json = QueryJson.Context;
@@ -90,6 +92,31 @@ internal static class PluginEndpoints
             .WithSummary("見る画面の操作を選ぶ（ソフトのトークンで。丸ごと置き換え、空の配列で止める。許しの窓で許した種類だけ）");
 
         ApiOpenApi.NoteRequestType(typeof(PluginSubscriptionsBody));
+
+        app.MapGet(CurrentPath, async (PluginEventHub hub, HttpContext context) =>
+        {
+            var client = RequireClient(context);
+
+            // 今の画面も、流れの screenChanged と同じ許しで見せる（人が窓で選んだ物だけを外へ出す）
+            if (!client.Scopes.Contains(ApiScopes.WatchScreen, StringComparer.Ordinal))
+            {
+                throw new QueryException(403, "scopeNotGranted",
+                    $"このソフトには「{ApiScopes.Label(ApiScopes.WatchScreen)}」を見ることが許されていません（{ApiScopes.WatchScreen}）。もう一度許可を求めるか、Chmonos の設定の「API」の「つないでいるソフト」で許してください。");
+            }
+
+            // 選択は選択の見張りを許したソフトにだけ載せる（画面の許しだけで、選んだ商品まで見せない）
+            var withSelection = client.Scopes.Contains(ApiScopes.WatchSelectionChanged, StringComparer.Ordinal);
+            var answer = await hub.CurrentAsync(client.Id, withSelection)
+                ?? throw new QueryException(503, "screenUnavailable", "Chmonos の画面がまだ開いていません。画面が開いてから、もう一度読んでください。");
+
+            // 中身は使う人の操作なので、間に入る物に残させない（出来事の流れと同じ）
+            NoStore(context);
+            return Results.Json(answer, json.PluginCurrentAnswer);
+        })
+            .Produces<PluginCurrentAnswer>(StatusCodes.Status200OK, "application/json")
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
+            .WithSummary("今開いている画面と、そこで開いている物・選んだ商品（ソフトのトークンで。watch.screen を許したソフトだけ。選択は watch.selectionChanged も許したときだけ）");
 
         app.MapGet(MenuPath, (ApiState state, ApiClientRequests requests, HttpContext context) =>
         {

@@ -3,7 +3,7 @@
 > **要点**：許したソフト（[api-clients.md](api-clients.md)）が、Chmonos の右クリックなどに項目を宣言して足し、人が押したら、そのソフトが宣言した情報を詰めて知らせる。
 > 画面の操作（商品を開いた・選択が変わった など）も、そのソフトが選んだ種類だけ知らせる。知らせは**ソフトが取りに来る**（長く待つ問い合わせ）。Chmonos から外へつながない。
 > 段階：[採用]（2026-11-12。ユーザ判断「Aで良いでしょう。APIが変わるのでv1.3.0に入れたいかも」）。決めた事は [決定]（2026-11-12 にユーザが4点を決めた）。細かい数は作る担当が決めて報告で見せる（ユーザ判断「それで良いです」）。
-> **①出来事の流れと購読は [実装]**（2026-11-12。下の「作った形（①）」）。**②項目の宣言と結果を返す口も [実装]**（2026-11-12。形と決めた数は [plugins-menu.md](plugins-menu.md)）。
+> **①出来事の流れと購読は [実装]**（2026-11-12。下の「作った形（①）」）。**②項目の宣言と結果を返す口も [実装]**（2026-11-12。形と決めた数は [plugins-menu.md](plugins-menu.md)）。 **画面の知らせ（`screenChanged`・`GET /v1/plugin/current`）も [実装]**（2026-11-27。下の「開いた画面に付いていく」）。
 
 ## なぜ
 
@@ -80,10 +80,11 @@
 | `itemOpened` | 主の窓で商品ページを開いた（戻る・進む・API の `…/show` も。開き直し〔取り直し・API が書いた後〕は出さない） | `itemId` |
 | `selectionChanged` | 検索・フォルダの右側・ショップの複数選択が変わった（300ms まとめる。同じ選択は流し直さない。全部外すと `count: 0`） | `screen`（search・folder・shop）・`itemIds`（表示の並びの順に1000まで）・`count`・`truncated` |
 | `importFinished` | 取り込みが終わった（「取り込み中」を解いた後） | `outcome`（imported・failed・cancelled）・`itemsAdded`・`itemsAlreadyKnown`・`unresolvedFiles`（imported のときだけ。ほかは null） |
+| `screenChanged` | 開いている画面か、そこで開いている物が替わった（下の「開いた画面に付いていく」） | `screen`・`target`・`embedded` |
 
-- 後から足す候補：`screenChanged`・`unitySent`・`modificationChanged`・`searchChanged`・フォルダの画面の右に組み込んだ商品ページ（行を選ぶたびに開くので、今は `itemOpened` に入れない）。
+- 後から足す候補：`unitySent`・`modificationChanged`・`searchChanged`。フォルダの画面の右に組み込んだ商品ページは `itemOpened` に入れず、`screenChanged` で流す。
 - **何を見られるかは許しの窓で人が選ぶ** [決定]（ユーザ判断 2026-11-12「選ばせましょう」）。見張りは書き込みでないが、使う人の操作を外へ出すため。許していない種類を購読しようとしたら 403 で断り、許しを求め直してもらう。
-  許しの名前は `watch.` と種類（`watch.itemOpened` など。[api-clients.md](api-clients.md)「見張りの種類」）。
+  許しの名前は `watch.` と種類（`watch.itemOpened` など。`screenChanged` だけは `watch.screen`。[api-clients.md](api-clients.md)「見張りの種類」）。
 
 ## 作った形（①）[実装]
 
@@ -120,9 +121,10 @@
 - 項目の数・ラベルの長さ・`children` の深さに上限（16個・下の段も合わせて32個・40字・2段。[plugins-menu.md](plugins-menu.md)）。
 - 止めたソフト・取り消したソフトの項目は出さない。 止めたソフトは、拒否が続いて止めたソフト（許しの窓と同じ記録）。
 
-## 開いた画面に付いていく（2026-11-27）[採用]
+## 開いた画面に付いていく（2026-11-27）[採用]（画面の知らせと今の画面は [実装]・右クリックの5か所は [採用]）
 
-ユーザの言葉（2026-11-27）：「同時に右クリックへの拡張箇所の追加、操作のtraceに近い機能を考えたい。」「開いた商品画面に追従する拡張ソフトなどを想定したものです。」→「その形でいきましょう。」まだ作っていない。
+ユーザの言葉（2026-11-27）：「同時に右クリックへの拡張箇所の追加、操作のtraceに近い機能を考えたい。」「開いた商品画面に追従する拡張ソフトなどを想定したものです。」→「その形でいきましょう。」
+`screenChanged`・`GET /v1/plugin/current`・`watch.screen` は 2026-11-27 に作った（下の「作った形（画面）」）。右クリックの5か所はまだ作っていない。
 
 - 今の `itemOpened` だけでは、付いていくソフトに穴がある：閉じた事が分からない・後から起動したソフトが今を知れない・フォルダの画面の右の商品ページが入らない・商品以外の画面が無い。
 - **`screenChanged` を足す**：`{ "screen", "target": { "type", "id" } | null, "embedded" }`。`screen` は item・edit・modification・avatar・shop・search・folder・stats・settings など。
@@ -135,6 +137,32 @@
   `when` は場所ごとに今の検索の条件から使える物を選ぶ。`unresolved`・画像・タグ・通知は後回し。
 - **記録だけ：操作の流れ**（画面からの命令 `UiCommand` 183種類を、外向けの名前の表〔例 `item.tags.changed`〕で写して流す案）。付いていく使い方には要らない。
   「タグを付けたら別のツールが動く」のような使い道が出たら足す。その時は、全部の命令が表にあるか流さないと決めてあるかを試験で確かめる。検索の言葉は `watch.search` で分けて許す。
+
+### 作った形（画面）[実装]
+
+```json
+{ "seq": 7, "kind": "screenChanged", "screenChanged": { "screen": "folder", "target": { "type": "item", "id": "…" }, "embedded": true }, … }
+```
+
+| `screen` | 画面 | `target` |
+|---|---|---|
+| `search`・`import`・`resolve`・`inbox`・`shops`・`stats`・`settings` | 検索・取り込み・未確定・通知・ショップの一覧・統計・設定 | null |
+| `item` | 商品ページ | `item` |
+| `edit` | 編集（今の商品） | `item` |
+| `shop` | ショップのページ | `shop`（`/v1/shops/{key}` の key） |
+| `folder` | フォルダの画面 | 右の商品ページ・右に重ねた商品ページの `item`（ほかは null） |
+| `avatar` | アバターの管理 | 右に重ねた商品ページの `item`、無ければ選んだアバターの `avatar`（登録の商品 ID） |
+| `modification` | 改変の画面 | 右に重ねた商品ページの `item`、無ければ右の改変 `modification`・使った物 `item`・アバター `avatar`（プロジェクトは null） |
+| `tagManage`・`attributeManage` | タグ・属性の管理 | 右に重ねた商品ページの `item` |
+| `other` | 上に無い画面（足し忘れ。試験で主画面から開ける画面が名前を持つことを確かめる） | null |
+
+- `embedded: true` は、開いている物が一覧の画面の右の欄に出ている時（フォルダ・アバター・改変・タグと属性の管理）。作る担当の判断：右の欄は行を選ぶたびに替わるのはどれも同じなので、フォルダに限らずそろえた。
+- 流し方：画面を移った時はすぐ。同じ画面の中で右の中身・編集の今の商品・アバターの選びが替わった時は、最後の変化から 300ms 待って、その時の画面を読み直して流す（待つ間に画面を移ったら捨てる）。同じ画面・同じ物は流し直さない（取り直し・API が書いた後の開き直しで輪にならない）。誰も購読していない間は前に流した物を忘れる。
+- `GET /v1/plugin/current`：`{ "epoch", "last", "screen": {上と同じ形}, "selection": {選択の出来事と同じ形} | null }`。`last` は画面を読む前に取ったこのソフトの通番（これを `after` にすれば取りこぼさない）。`watch.screen` が無ければ 403 `scopeNotGranted`。
+  `selection` は検索・フォルダの右側・ショップで、`watch.selectionChanged` も許したソフトにだけ入る（作る担当の判断：画面の許しだけで選んだ商品まで見せない）。画面がまだ無ければ 503 `screenUnavailable`。答えは `no-store`、ログに書かない。
+- 許しの名前だけ種類と違う（`screenChanged` → `watch.screen`。`ApiScopes.WatchOf`）。
+- コード：拾う所は `Chmonos.App/Services/PluginScreenTracker.cs` の1か所（`MainViewModel.CurrentViewModel` が画面の差し替えを伝え、画面の中の変化は係が今の画面の `PropertyChanged`・`RightItem.Changed` を聞く）。まとめの時間は `TimeProvider` で測り、試験は作り物の時計で進める。
+  試験 `ApiPluginScreenTests`（App）・`PluginEventTests`（Api）。
 
 ## まだ決めていない事
 

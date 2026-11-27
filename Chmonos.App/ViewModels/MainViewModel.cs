@@ -12,6 +12,7 @@ public sealed partial class MainViewModel : ViewModelBase
 {
     private readonly AppServiceContainer _services;
     private object? _currentViewModel;
+    private readonly Services.PluginScreenTracker _pluginScreen;
     private int _unresolvedCount;
     private int _needsEditCount;
     private int _unreadCount;
@@ -46,6 +47,10 @@ public sealed partial class MainViewModel : ViewModelBase
         // 商品ページから戻った時に、絞り込み条件やスクロール位置を保つため。
         // 通信の様子はアプリに1つ。常設の行も取り込み画面も、ここを見る
         BoothActivity = new BoothActivityViewModel(services.Client, System.Windows.Threading.Dispatcher.CurrentDispatcher);
+
+        // 開いている画面をソフトへ知らせる係（screenChanged）。画面の差し替えは CurrentViewModel が伝え、画面の中の変化は係が聞く
+        _pluginScreen = new Services.PluginScreenTracker(
+            services.PluginEvents, System.Windows.Threading.Dispatcher.CurrentDispatcher, services.PluginScreenTime);
 
         // Unity へ送っている間は、**どの画面でも**下の帯に進み具合と「中止」を出す（ユーザ判断 2026-09-20）。
         // 前は始めた画面にしか「中止」が無く、別の画面へ移ると止める手立てが無くなっていた
@@ -758,6 +763,9 @@ public sealed partial class MainViewModel : ViewModelBase
                 Services.MemoryTrim.Request();
 
                 (value as SearchViewModel)?.NoteShown();
+
+                // 購読しているソフトへ「開いている画面」（ここが画面を移る唯一の所なので、画面ごとに書かない）
+                _pluginScreen.NoteScreen(value);
 
                 OnPropertyChanged(nameof(IsSearchActive));
                 OnPropertyChanged(nameof(IsImportActive));
