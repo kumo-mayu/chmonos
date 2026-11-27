@@ -111,17 +111,28 @@ public sealed class NewLocalFieldsAdversarialTests : IDisposable
         Assert.Equal(targetUpdate.FoundAt, local.ContentUpdate!.FoundAt);
     }
 
+    /// <summary>
+    /// 本当に重ねる：取り込みが商品の錠を持って止まっている間に、古い写しからの保存3本と今の値に当てる変更1本を始め、
+    /// 4本とも錠の前まで来てから放す。前は同じスレッドから並べるだけで実際には順に走り、SaveLocalAsync の錠を外しても通っていた
+    /// （2026-11-28 の点検 M12）。SaveLocalAsync に錠が無いと、3本が先に書いた後で、止まる前に読んだ写しで取り込みが書き戻し、3本の入力が消える
+    /// </summary>
     [Fact]
     public async Task 新欄とメモを同時に更新しても_古い写しの保存で互いの入力を消さない()
     {
         await Save(ItemId, Local());
         var old = await Reload(ItemId);
-        await Task.WhenAll(
-            _store.Items.SaveLocalAsync(ItemId, old with { Memo = "新しいメモ" }, [LocalField.Memo]),
-            _store.Items.SaveLocalAsync(ItemId, old with { Conversion = old.Conversion! with { Mode = ConversionMode.Profile } }, [LocalField.Conversion]),
-            _store.Items.SaveLocalAsync(ItemId, old with { ContentUpdate = old.ContentUpdate! with { CheckedAt = DateTimeOffset.UnixEpoch.AddDays(1) } }, [LocalField.ContentUpdate]),
-            _store.Items.ChangeLocalAsync(ItemId, current => current with { VariationTargets = [.. current.VariationTargets, new VariationTarget { VariationId = 3, All = true }] }, [LocalField.VariationTargets]));
+        await ItemLockRace.WhileAnotherWriterChangesAsync(
+            _store,
+            ItemId,
+            current => ItemLockRace.AddFile(current),
+            () => Task.WhenAll(
+                _store.Items.SaveLocalAsync(ItemId, old with { Memo = "新しいメモ" }, [LocalField.Memo]),
+                _store.Items.SaveLocalAsync(ItemId, old with { Conversion = old.Conversion! with { Mode = ConversionMode.Profile } }, [LocalField.Conversion]),
+                _store.Items.SaveLocalAsync(ItemId, old with { ContentUpdate = old.ContentUpdate! with { CheckedAt = DateTimeOffset.UnixEpoch.AddDays(1) } }, [LocalField.ContentUpdate]),
+                _store.Items.ChangeLocalAsync(ItemId, current => current with { VariationTargets = [.. current.VariationTargets, new VariationTarget { VariationId = 3, All = true }] }, [LocalField.VariationTargets])),
+            actors: 4);
         var local = await Reload(ItemId);
+        Assert.Equal("BBBB", Assert.Single(local.LocalFiles).Hash);
         Assert.Equal("新しいメモ", local.Memo);
         Assert.Equal(ConversionMode.Profile, local.Conversion!.Mode);
         Assert.NotNull(local.ContentUpdate!.CheckedAt);

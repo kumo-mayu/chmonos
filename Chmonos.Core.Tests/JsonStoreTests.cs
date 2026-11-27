@@ -426,4 +426,41 @@ public class JsonStoreTests : IDisposable
         Assert.Equal("古い", File.ReadAllText(FilePath));
         Assert.True(File.Exists(temporary));
     }
+
+    /// <summary>書き出す途中で投げる作り物（中身を作るのは書き先を開いた後なので、本体へ直に書く作りなら本体が空になる）。</summary>
+    private sealed class FailsWhileWriting
+    {
+        public string Name => "途中まで";
+
+        public string Broken => throw new InvalidOperationException("書き出しの途中で失敗");
+    }
+
+    /// <summary>
+    /// **書く途中で失敗しても、元の本体はそのまま残り、一時ファイルも残らない**（同期の口）。
+    /// 一時ファイルへ書いてから据える作りが守る物で、本体を直に書くと開いた時点で切り詰められて空になる（2026-11-28 の点検 M01）。
+    /// </summary>
+    [Fact]
+    public void KeepsTheOriginalWhenWritingFailsHalfway()
+    {
+        JsonStore.Write(FilePath, CreateItem());
+        var before = File.ReadAllBytes(FilePath);
+
+        Assert.Throws<InvalidOperationException>(() => JsonStore.Write(FilePath, new FailsWhileWriting()));
+
+        Assert.Equal(before, File.ReadAllBytes(FilePath));
+        Assert.Empty(Directory.EnumerateFiles(_directory, "*.tmp"));
+    }
+
+    /// <inheritdoc cref="KeepsTheOriginalWhenWritingFailsHalfway"/>
+    [Fact]
+    public async Task KeepsTheOriginalWhenWritingFailsHalfwayAsync()
+    {
+        await JsonStore.WriteAsync(FilePath, CreateItem());
+        var before = File.ReadAllBytes(FilePath);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => JsonStore.WriteAsync(FilePath, new FailsWhileWriting()));
+
+        Assert.Equal(before, File.ReadAllBytes(FilePath));
+        Assert.Empty(Directory.EnumerateFiles(_directory, "*.tmp"));
+    }
 }

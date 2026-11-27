@@ -16,7 +16,8 @@ internal static class ItemLockRace
         DataStore store,
         string itemId,
         Func<LocalBlock, LocalBlock> otherChange,
-        Func<Task> act)
+        Func<Task> act,
+        int actors = 1)
     {
         using var entered = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
@@ -25,23 +26,33 @@ internal static class ItemLockRace
             local =>
             {
                 entered.Set();
-                release.Wait();
+
+                // 打ち切りは試験が止まったままにならないためだけ（放すのは下で錠を待つ人を数えてから）
+                if (!release.Wait(TimeSpan.FromSeconds(30)))
+                {
+                    throw new TimeoutException("別の書き手を放す合図が来なかった");
+                }
+
                 return otherChange(local);
             },
             LocalOwners.Import));
-        entered.Wait();
+        if (!entered.Wait(TimeSpan.FromSeconds(30)))
+        {
+            throw new TimeoutException("別の書き手が錠の中へ入らなかった");
+        }
 
         var acting = Task.Run(act);
 
-        // 待つ長さは安全の打ち切りだけで、結果は時計に左右されない（錠を待つ人の数で進める）
+        // 待つ長さは安全の打ち切りだけで、結果は時計に左右されない（錠を待つ人の数で進める）。
+        // 錠を持つ別の書き手1人と、試す操作 actors 本が全部錠の前まで来たら放す。錠が無い操作は待たずに終わるので抜ける
         var waited = Stopwatch.StartNew();
-        while (store.Items.LockUsers(itemId) < 2 && !acting.IsCompleted && waited.Elapsed < TimeSpan.FromSeconds(10))
+        while (store.Items.LockUsers(itemId) < 1 + actors && !acting.IsCompleted && waited.Elapsed < TimeSpan.FromSeconds(10))
         {
             await Task.Delay(5);
         }
 
         release.Set();
-        await Task.WhenAll(other, acting);
+        await Task.WhenAll(other, acting).WaitAsync(TimeSpan.FromSeconds(30));
     }
 
     /// <summary>別の書き手が足すファイル（取り込みが同じ商品へ足した物の代わり）。</summary>
