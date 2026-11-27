@@ -162,6 +162,8 @@ public sealed partial class SearchViewModel
     /// 同じ条件は積まない・何も絞っていなければ積まない決まりは <see cref="RecordHistoryAsync"/> のまま。
     /// 条件は呼んだ時点で写す（最初の待ちより前に <see cref="CurrentSearch"/> を作る）ので、書き込みを待たずに入れ替えてよい
     /// </summary>
+    private void RecordBeforeShowOnly() => RecordHistoryAsync().Forget();
+
     /// <summary>
     /// 候補をまだ読んでいない時に入れる札の字。候補を読んであれば欄が候補の字を使うので、これは読む前だけ見える
     /// （候補を読んだ時に札の字も候補の字に揃う。名前が重なってIDを添える時もそこで直る）。絵を引けるよう表にも入れる
@@ -169,11 +171,15 @@ public sealed partial class SearchViewModel
     private string AvatarChipText(string displayName, string avatarItemId)
     {
         var text = AvatarSuggestionText.Label(displayName, avatarItemId, _services.Settings.ShowAvatarItemIds);
-        _avatarIdsBySuggestion.TryAdd(text, avatarItemId);
+        _shownOnlyAvatarIds[text] = avatarItemId;
         return text;
     }
 
-    private void RecordBeforeShowOnly() => RecordHistoryAsync().Forget();
+    /// <summary>
+    /// アバターの管理から入れた札の字 → 商品ID。候補を作り直すたびに消える表（<c>_avatarIdsBySuggestion</c>）とは分ける：
+    /// 候補に出ないアバター（アバターと判定されていない登録簿の行など）の札は、字にIDが無いと絵を引けなくなるため
+    /// </summary>
+    private readonly Dictionary<string, string> _shownOnlyAvatarIds = new(StringComparer.CurrentCultureIgnoreCase);
 
     private void FinishShowOnly()
     {

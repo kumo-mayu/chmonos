@@ -1149,7 +1149,7 @@ public sealed partial class SearchViewModel
     private System.Windows.Media.Imaging.BitmapSource? AvatarSuggestionIcon(string entry, Func<string, System.Windows.Media.Imaging.BitmapSource?> load)
         => _baseNamesBySuggestion.TryGetValue(entry, out var baseName)
             ? AvatarBaseIcons.Load(_services, baseName, FindItem, load)
-            : (_avatarIdsBySuggestion.GetValueOrDefault(entry) ?? AvatarSuggestionText.IdOf(entry)) is { } id
+            : (_avatarIdsBySuggestion.GetValueOrDefault(entry) ?? _shownOnlyAvatarIds.GetValueOrDefault(entry) ?? AvatarSuggestionText.IdOf(entry)) is { } id
         && Core.Services.AvatarImageSync.IconPath(_services.Paths, id, FindItem(id), _services.Settings.ShowRemovedBoothImages) is { } path
             ? load(path)
             : null;
