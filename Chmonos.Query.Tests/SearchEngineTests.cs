@@ -86,6 +86,23 @@ public sealed class SearchEngineTests : IDisposable
         Assert.False(JsonSerializer.Deserialize("""{"includeHidden":false}""", QueryJson.Context.SearchRequest)!.IncludeHidden);
     }
 
+    /// <summary>
+    /// textOptions の中で省いた区別は、画面の既定と同じに読む（かなは区別する・大文字小文字と全角半角は区別しない）。
+    /// 前は targets だけ書くと、かなを区別しなくなっていた（2026-11-28）
+    /// </summary>
+    [Fact]
+    public void 省いた区別は_画面の既定と同じに読む()
+    {
+        var screen = Core.Services.SearchOptions.Default;
+        var options = JsonSerializer.Deserialize("""{"where":{"text":"x"},"textOptions":{"targets":["name"]}}""", QueryJson.Context.SearchRequest)!.TextOptions!;
+        Assert.Equal(screen.KanaSensitive, options.KanaSensitive);
+        Assert.Equal(screen.CaseSensitive, options.CaseSensitive);
+        Assert.Equal(screen.WidthSensitive, options.WidthSensitive);
+        Assert.True(options.KanaSensitive);
+
+        Assert.False(JsonSerializer.Deserialize("""{"textOptions":{"kanaSensitive":false}}""", QueryJson.Context.SearchRequest)!.TextOptions!.KanaSensitive);
+    }
+
     /// <summary>属性の範囲は、省いた側を端まで（0・100）で探す（2026-10-14・前は省くと 0 と読み、黙って0件だった）。</summary>
     [Fact]
     public async Task 属性の範囲は_省いた側を端までとして探す()

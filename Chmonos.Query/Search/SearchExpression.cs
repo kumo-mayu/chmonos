@@ -29,7 +29,11 @@ public sealed class SearchExpression
 
 /// <summary>検索欄の記法の照らし方（画面の「対象」と大文字・小文字などの区別）。送らなければ画面の既定と同じ。</summary>
 /// <param name="Targets">探す対象（<c>name</c>・<c>shop</c>・<c>memo</c> など。検索欄の前置きと同じ名前）。</param>
-public sealed record TextOptionsRequest([property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<string>? Targets = null, bool CaseSensitive = false, bool WidthSensitive = false, bool KanaSensitive = false);
+/// <param name="KanaSensitive">
+/// 既定は区別する（画面の <see cref="Core.Services.SearchOptions"/> と同じ）。前は false で、textOptions を丸ごと省けば区別するのに、
+/// targets だけ書くと黙って区別しなくなっていた（2026-11-28 の試験の点検で見つけ、ユーザ判断「おすすめで良い」で画面に揃えた）。
+/// </param>
+public sealed record TextOptionsRequest([property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<string>? Targets = null, bool CaseSensitive = false, bool WidthSensitive = false, bool KanaSensitive = true);
 
 /// <summary>組み立てた式。葉の判定は作ったときに準備まで済ませる。</summary>
 internal abstract class CompiledExpression
