@@ -491,9 +491,9 @@ public static class UnityImportQueue
 
             // 送る前に入っていたファイルの数。取り込み画面が閉じた後にログにも窓にも動きが無い時、ディスクで増えたかを見て
             // 「取り消した」と取り違えないため（<see cref="Reconsider"/>）。照らし合わせは1件も無い物を結果に入れないので、無ければ0
-            var presentBefore = before?.Present ?? 0;
+            var presentBefore = PresentOf(before);
             Func<int>? presentNow = project is not null && assets.Count > 0
-                ? () => MatchOf(project, package, assets)?.Present ?? 0
+                ? () => PresentOf(MatchOf(project, package, assets))
                 : null;
 
             // メニューの番号は毎回探し直す。スクリプトを含むパッケージを取り込むと Unity がメニューを作り直し、
@@ -551,14 +551,11 @@ public static class UnityImportQueue
 
             var (state, closed) = await WatchUntilDoneAsync(
                 processId, baseline, importWindow, tail, expected, alreadyThere, index, packages.Count, package, progress, cancellationToken);
-            if (state == UnityImportState.Cancelled && !closed && presentNow is not null)
+            var (rechecked, presentAfter) = await RecheckAsync(state, closed, presentBefore, presentNow, cancellationToken);
+            if (rechecked != state)
             {
-                var presentAfter = await Task.Run(presentNow, cancellationToken);
-                state = Reconsider(state, presentBefore, presentAfter);
-                if (state != UnityImportState.Cancelled)
-                {
-                    UiTrace.Write("Unity", $"{index + 1}/{packages.Count} 「{package.Name}」ログにも窓にも動きが無かったが、入っているファイルが {presentBefore}→{presentAfter} に増えた");
-                }
+                state = rechecked;
+                UiTrace.Write("Unity", $"{index + 1}/{packages.Count} 「{package.Name}」ログにも窓にも動きが無かったが、入っているファイルが {presentBefore}→{presentAfter} に増えた");
             }
 
             UiTrace.Write("Unity", $"{index + 1}/{packages.Count} 「{package.Name}」→ {state}{(closed ? "（Unity が閉じた）" : string.Empty)}");
@@ -845,6 +842,27 @@ public static class UnityImportQueue
     /// </summary>
     internal static UnityImportState Reconsider(UnityImportState state, int presentBefore, int presentAfter)
         => state == UnityImportState.Cancelled && presentAfter > presentBefore ? UnityImportState.Imported : state;
+
+    /// <summary>
+    /// 見張りの結果を、ディスクで見直すか決めて見直す（<see cref="Reconsider"/>）。数えるのは「取り消した」と決めた物だけで、
+    /// Unity が閉じた時は数えない（閉じた途中の物を「取り込んだ」と言わない）。照らし合わせられない物（<paramref name="presentNow"/> が null）も数えない。
+    /// 送る1件ごとにプロジェクトを照らすので、ほかの結果では数えに行かない
+    /// </summary>
+    /// <returns>見直した結果と、数えたときは今の数（数えなければ null）。</returns>
+    internal static async Task<(UnityImportState State, int? PresentAfter)> RecheckAsync(
+        UnityImportState state, bool closed, int presentBefore, Func<int>? presentNow, CancellationToken cancellationToken)
+    {
+        if (state != UnityImportState.Cancelled || closed || presentNow is null)
+        {
+            return (state, null);
+        }
+
+        var presentAfter = await Task.Run(presentNow, cancellationToken);
+        return (Reconsider(state, presentBefore, presentAfter), presentAfter);
+    }
+
+    /// <summary>入っているファイルの数。照らし合わせは1件も無い物を結果に入れない（null）ので、そのときは 0。</summary>
+    internal static int PresentOf(UnityProjectMatch? match) => match?.Present ?? 0;
 
     /// <summary>Unity が自分の作業（取り込み・コンパイル・ドメイン再読込）で塞がっているか。</summary>
     private static bool IsUnityBusy(int processId)
