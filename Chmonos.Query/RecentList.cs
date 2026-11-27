@@ -3,11 +3,11 @@ using Chmonos.Core.Services;
 namespace Chmonos.Query;
 
 /// <summary>「最近」の足跡1商品ぶん（<c>/v1/recent</c>）。付いていない種類は null。</summary>
-/// <param name="Name">商品の表示名。写しにもう無い商品（消した直後で、起動時の整理の前）は null（行は消さずに返す）。</param>
+/// <param name="ItemName">商品の表示名（<c>/v1/folders</c>・<c>/v1/files/lookup</c> と同じ欄の名前）。写しにもう無い商品（消した直後で、起動時の整理の前）は null（行は消さずに返す）。</param>
 /// <param name="AddedAt">取り込んだ日時。</param>
 /// <param name="UsedAt">使った日時（今は Unity へ送ったときだけ）。</param>
 /// <param name="ViewedAt">商品ページを開いた日時。</param>
-public sealed record RecentRef(string ItemId, string? Name, DateTimeOffset? AddedAt, DateTimeOffset? UsedAt, DateTimeOffset? ViewedAt);
+public sealed record RecentRef(string ItemId, string? ItemName, DateTimeOffset? AddedAt, DateTimeOffset? UsedAt, DateTimeOffset? ViewedAt);
 
 /// <param name="Items">商品 ID の順。</param>
 /// <param name="Total">全部の行の数。</param>

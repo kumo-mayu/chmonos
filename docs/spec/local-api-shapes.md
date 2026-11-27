@@ -192,5 +192,5 @@
 
 | URL | 1件の形 | 並び・決まり |
 |---|---|---|
-| `GET /v1/recent` | `{ itemId, name, addedAt, usedAt, viewedAt }` | 商品 ID の順（3種類の日時のどれで並べても1つに決まらない。種類で絞って新しい順は検索の条件 `recent`）。値は条件「最近」と同じ `RecentActivity.Times`（同じ商品の行が2つなら種類ごとに新しい方）。写しに無い商品の行（消した直後・起動時の整理の前）も返し、`name` を null |
+| `GET /v1/recent` | `{ itemId, itemName, addedAt, usedAt, viewedAt }` | 商品 ID の順（3種類の日時のどれで並べても1つに決まらない。種類で絞って新しい順は検索の条件 `recent`）。値は条件「最近」と同じ `RecentActivity.Times`（同じ商品の行が2つなら種類ごとに新しい方）。写しに無い商品の行（消した直後・起動時の整理の前）も返し、`itemName` を null |
 | `GET /v1/folders` | `{ itemId, itemName, path, state, missingSince, fileCount, totalBytes, unityPackages, registeredAt }` | 場所の順（大文字小文字を区別しない→区別する）・商品 ID・商品の中の位置。「登録したフォルダ」は商品として登録したフォルダ（`LocalFolders`。最初の案 2026-10-12 の言葉。設定の取り込み元の履歴・監視するフォルダは設定なので出さない）。形は商品の詳細の `folders` と同じ `ItemMapper.Folder`、`state`（`present`・`missing`）は `files/lookup` と同じ `ItemMapper.FolderState`（取り込みが見た `missingSince` だけ・ディスクは見ない） |

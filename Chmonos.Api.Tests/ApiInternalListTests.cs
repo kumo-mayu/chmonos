@@ -132,7 +132,7 @@ public sealed class ApiInternalListTests : IAsyncLifetime
         Assert.Equal(["9700001", "9700002"], Ids(first));
 
         var jacket = first.GetProperty("items")[0];
-        Assert.Equal("作り物の上着", jacket.GetProperty("name").GetString());
+        Assert.Equal("作り物の上着", jacket.GetProperty("itemName").GetString());
         Assert.Equal(Day1, jacket.GetProperty("addedAt").GetDateTimeOffset());
         Assert.Equal(Day2, jacket.GetProperty("usedAt").GetDateTimeOffset());
 
@@ -147,7 +147,7 @@ public sealed class ApiInternalListTests : IAsyncLifetime
         Assert.Equal(["9799999"], Ids(second));
 
         // 写しに無い商品の行も消さずに返し、名前を null にする
-        Assert.Equal(JsonValueKind.Null, second.GetProperty("items")[0].GetProperty("name").ValueKind);
+        Assert.Equal(JsonValueKind.Null, second.GetProperty("items")[0].GetProperty("itemName").ValueKind);
         Assert.Equal(JsonValueKind.Null, second.GetProperty("nextCursor").ValueKind);
 
         await AssertProblem("/v1/recent?cursor=abc", "invalidCursor");
