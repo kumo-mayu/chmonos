@@ -289,7 +289,11 @@ public sealed record VariationTargetSourcesRef(IReadOnlyList<VariationTargetRef>
 /// つなぎ先の結果（人が決めた物と、自動で推して確認待ちの物。状態つき）。人が外した物は入れない——対応アバターの <c>compatibleAvatars</c> と同じく、
 /// 既定は結果だけで、確認していない推定は入れる。外した物も含む帳簿は <c>include=conversionTargets</c>。
 /// </param>
-public sealed record ConversionRef(string Mode, bool HasProfileFiles, IReadOnlyList<ConversionTargetRef> Targets);
+/// <param name="EffectiveMode">
+/// 実質の扱い：<c>profile</c>（プロファイルとして扱う）・<c>notProfile</c>（扱わない）。人が決めた扱いが自動の判定に勝つ。
+/// 画面の「今の扱い」と同じ Core の関数（<c>ConversionTreatments.Of</c>）で組む。どちらで決まったかは <c>mode</c> が <c>auto</c> かで分かる。
+/// </param>
+public sealed record ConversionRef(string Mode, bool HasProfileFiles, string EffectiveMode, IReadOnlyList<ConversionTargetRef> Targets);
 
 /// <summary>プロファイルのつなぎ先1つ。アバターか共通素体のどちらか。</summary>
 /// <param name="AvatarId">つなぎ先のアバター（商品 ID）。素体なら null。</param>

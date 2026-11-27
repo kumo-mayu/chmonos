@@ -93,11 +93,13 @@ public sealed class ItemAnswerConversionTests : IDisposable
         var profile = ItemMapper.Detail(snapshot.ItemsById["9900001"], snapshot).Conversion;
         Assert.Equal("auto", profile.Mode);
         Assert.True(profile.HasProfileFiles);
+        Assert.Equal("profile", profile.EffectiveMode);
         Assert.Empty(profile.Targets);
 
         var plain = ItemMapper.Detail(snapshot.ItemsById["9900002"], snapshot).Conversion;
         Assert.Equal("auto", plain.Mode);
         Assert.False(plain.HasProfileFiles);
+        Assert.Equal("notProfile", plain.EffectiveMode);
     }
 
     /// <summary>対応アバター（compatibleAvatars と avatarLinks）と同じ分け方：既定は外した物を除き確認待ちは入れる、帳簿は頼んだときだけ全部</summary>

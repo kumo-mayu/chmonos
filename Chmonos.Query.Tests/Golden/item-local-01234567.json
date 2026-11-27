@@ -36,6 +36,7 @@
   "conversion": {
     "mode": "auto",
     "hasProfileFiles": false,
+    "effectiveMode": "notProfile",
     "targets": []
   },
   "acquiredAt": null,

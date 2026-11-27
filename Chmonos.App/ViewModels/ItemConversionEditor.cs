@@ -364,13 +364,13 @@ public sealed class ItemConversionEditor : ViewModelBase
                 RestoreCommand = new RelayCommand(() => ChangeAsync(ConversionEdits.Restore(target)).Forget(), () => !_isLocked()),
             })
             .ToList();
-        StateText = (setting?.Mode ?? ConversionMode.Auto) switch
+        // 実質の扱いは Core で組む（外から使う API の conversion.effectiveMode と同じ答えにするため）
+        StateText = ConversionTreatments.Of(setting, profiles.Count > 0) switch
         {
-            ConversionMode.Profile => "今の扱い：プロファイルとして扱う（手動で指定）",
-            ConversionMode.NotProfile => "今の扱い：プロファイルとして扱わない（手動で指定）",
-            _ => profiles.Count > 0
-                ? "今の扱い：プロファイル（自動の判定）"
-                : "今の扱い：プロファイルではない（自動の判定）",
+            ConversionTreatment.ManualProfile => "今の扱い：プロファイルとして扱う（手動で指定）",
+            ConversionTreatment.ManualNotProfile => "今の扱い：プロファイルとして扱わない（手動で指定）",
+            ConversionTreatment.AutoProfile => "今の扱い：プロファイル（自動の判定）",
+            _ => "今の扱い：プロファイルではない（自動の判定）",
         };
 
         _basesBySuggestion = registry.BaseGroups

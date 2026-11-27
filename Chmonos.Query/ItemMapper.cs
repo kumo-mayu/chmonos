@@ -122,13 +122,13 @@ public static class ItemMapper
             withRejections ? target.RejectedBases ?? [] : null);
 
     /// <summary>
-    /// 変換扱い。人が決めた扱い（<c>mode</c>）と自動の判定（中にプロファイルのファイルがあるか）は分けて返し、合わせた「実質の扱い」は組まない
-    /// （組み合わせ方は画面の側にしか無いので、ここで書くとずれる）。自動の判定は画面と同じ <see cref="ConversionScan.ProfilesOf"/> で、
-    /// 入る先の一番上で先にふるう（画面の <c>AvatarsViewModel.ProfilesOf</c> と同じ。ふるいに落ちた商品は中身の控えを読まない）。
+    /// 変換扱い。人が決めた扱い（<c>mode</c>）・自動の判定（中にプロファイルのファイルがあるか）・合わせた実質の扱いを、
+    /// どれも画面と同じ Core の関数（<see cref="ConversionTreatments"/>）から取る（ここで組み直すと画面とずれる）。
     /// </summary>
     private static ConversionRef Conversion(ItemRecord item, QuerySnapshot snapshot)
     {
         var setting = item.Local.Conversion;
+        var hasProfileFiles = ConversionTreatments.HasProfileFiles(item, snapshot.ConversionScan);
         return new ConversionRef(
             (setting?.Mode ?? ConversionMode.Auto) switch
             {
@@ -136,7 +136,8 @@ public static class ItemMapper
                 ConversionMode.NotProfile => "notProfile",
                 _ => "auto",
             },
-            ConversionScan.MayHoldProfiles(item) && snapshot.ConversionScan.ProfilesOf(item).Count > 0,
+            hasProfileFiles,
+            ConversionTreatments.Of(setting, hasProfileFiles).IsProfile() ? "profile" : "notProfile",
             ConversionTargets(item, includeRejected: false));
     }
 

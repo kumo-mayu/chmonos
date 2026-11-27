@@ -80,6 +80,7 @@
   "conversion": {
     "mode": "profile",
     "hasProfileFiles": false,
+    "effectiveMode": "profile",
     "targets": [
       {
         "avatarId": "7000001",
