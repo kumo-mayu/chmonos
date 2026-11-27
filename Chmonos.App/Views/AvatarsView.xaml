@@ -1228,7 +1228,13 @@
                                     **欄はほかの画面と同じ候補付きの欄**（ユーザ判断 2026-09-20・I6）。
                                     ここだけ編集できるプルダウンで、同じ「名前を選ぶ」操作の作法が3つに割れていた
                                 -->
-                                <TextBlock Text="共通素体" Style="{StaticResource SectionLabel}" Margin="0,20,0,6" />
+                                <!--
+                                    節の区切りが余白だけで、大きさもそろっておらず、どこからが次の節か見分けにくかった（ユーザ指摘 2026-11-20）。
+                                    節の頭に線を引き、見出しの上の余白を 14 にそろえる。節ごとにカードを分ける案は縦が伸び、幅 900 の変換で
+                                    決めるボタンが下へ落ちたので、カードは1枚のまま（ユーザ判断 2026-11-27・案A。変換・共通素体の見方も同じ線）
+                                -->
+                                <Border Height="1" Background="{DynamicResource Border}" Margin="0,18,0,0" />
+                                <TextBlock Text="共通素体" Style="{StaticResource SectionLabel}" Margin="0,14,0,6" />
                                 <!-- 欄は 240 まで（広い窓の見た目は変えない）。狭い窓では「外す」の分を残して縮む -->
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -1263,7 +1269,8 @@
                                     人が足す変換の組のうち、このアバターが元か先にある物（読むだけ・ユーザ判断 2026-11-20）。
                                     編集は「変換」の一覧の上の「追加した組」で行う（元と先の両方に共通素体も選べる）。向きが分かるよう「元 → 先」で書く
                                 -->
-                                <StackPanel DataContext="{Binding ConversionPairSummary}" Margin="0,20,0,0">
+                                <Border Height="1" Background="{DynamicResource Border}" Margin="0,18,0,0" />
+                                <StackPanel DataContext="{Binding ConversionPairSummary}" Margin="0,14,0,0">
                                     <DockPanel Margin="0,0,0,6">
                                         <Button DockPanel.Dock="Right" Content="変換で編集" Style="{StaticResource SmallButton}" Command="{Binding EditCommand}"
                                                 AutomationProperties.AutomationId="AvatarConversionPairsEdit"
@@ -1397,7 +1404,8 @@
                                     **同じ名前を許してあるので、日付を一緒に出す。**
                                     「普段着」が2つ並んだときの見分けが付かないと困る
                                 -->
-                                <TextBlock Text="このアバターの改変" Style="{StaticResource SectionLabel}" Margin="0,20,0,8" />
+                                <Border Height="1" Background="{DynamicResource Border}" Margin="0,18,0,0" />
+                                <TextBlock Text="このアバターの改変" Style="{StaticResource SectionLabel}" Margin="0,14,0,8" />
 
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -1535,7 +1543,8 @@
                                 </controls:ContentItemsControl>
 
                                 <!-- 検出では拾えない事情を残す場所。打ち終えて少し待つと残る（ユーザ指示 2026-09-17：保存ボタンを押さなくてよい） -->
-                                <TextBlock Text="メモ" Style="{StaticResource SectionLabel}" Margin="0,20,0,8" />
+                                <Border Height="1" Background="{DynamicResource Border}" Margin="0,18,0,0" />
+                                <TextBlock Text="メモ" Style="{StaticResource SectionLabel}" Margin="0,14,0,8" />
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" MaxWidth="420" />
@@ -1559,7 +1568,8 @@
                                     3つのうち1つを選ぶ形なので、並べ替えや表示の切り替えと同じ繋がったボタンにし、今の扱いを塗って見せる。
                                     点いているかは読むだけ（OneWay）で、押したときだけコマンドで変える（カード／リストの切り替えと同じ作り）
                                 -->
-                                <TextBlock Text="アバターかどうか" Style="{StaticResource SectionLabel}" Margin="0,20,0,6" />
+                                <Border Height="1" Background="{DynamicResource Border}" Margin="0,18,0,0" />
+                                <TextBlock Text="アバターかどうか" Style="{StaticResource SectionLabel}" Margin="0,14,0,6" />
                                 <TextBlock Text="{Binding JudgementText}" Style="{StaticResource Caption}" Margin="0,0,0,8" />
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -1625,7 +1635,8 @@
                                         並びはドラッグで変える（ユーザ指示 2026-11-04）。商品ページの対応アバターの札と、検索の対応アバターの候補がこの順を使う。
                                         つまみと落とし先の線はタグ・属性の管理と同じ（RowReorder）。並べたときだけ「既定の順に戻す」を出す
                                     -->
-                                    <DockPanel Margin="0,8,0,0" LastChildFill="False">
+                                    <Border Height="1" Background="{DynamicResource Border}" Margin="0,18,0,0" />
+                                    <DockPanel Margin="0,10,0,0" LastChildFill="False">
                                         <TextBlock DockPanel.Dock="Left" Style="{StaticResource Caption}" VerticalAlignment="Center" TextWrapping="Wrap"
                                                    Text="ドラッグで並べ替えると、商品ページと検索の候補の並びも変わります。" />
                                         <Button DockPanel.Dock="Right" Content="既定の順に戻す" Style="{StaticResource SmallButton}"
@@ -1723,8 +1734,10 @@
                                         </WrapPanel>
                                     </StackPanel>
                                 </Grid>
-                                <views:ItemConversionPanel DataContext="{Binding ConversionEditor}" />
-                                <WrapPanel Margin="0,16,0,0">
+                                <Border Height="1" Background="{DynamicResource Border}" Margin="0,18,0,0" />
+                                <Border Margin="0,14,0,0"><views:ItemConversionPanel DataContext="{Binding ConversionEditor}" /></Border>
+                                <Border Height="1" Background="{DynamicResource Border}" Margin="0,18,0,0" />
+                                <WrapPanel Margin="0,14,0,0">
                                     <!-- 確認待ちが無いと押せない（ユーザ判断 2026-11-09）。押せない理由を吹き出しで言う -->
                                     <Button Content="確認済みにして次へ" Margin="0,0,8,6"
                                             Command="{Binding DecideSuggestedCommand}"

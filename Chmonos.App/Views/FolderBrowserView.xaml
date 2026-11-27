@@ -102,24 +102,26 @@
                 </Border>
             </StackPanel>
 
-            <WrapPanel Margin="0,12,0,0">
-                <Button Content="このフォルダの商品を検索で開く" Style="{StaticResource PrimaryButton}" Margin="0,0,8,8"
-                        Command="{Binding Owner.SearchHereCommand}" CommandParameter="{Binding}"
-                        ToolTip="このフォルダの下にファイルがある商品で絞って、検索を開きます。" />
-                <!-- エクスプローラを開くのは、どの画面でも小さいボタン（V1） -->
-                <Button Content="エクスプローラで開く" Style="{StaticResource SmallButton}" Margin="0,0,8,8"
-                        IsEnabled="{Binding IsOffline, Converter={x:Static vm:InverseBoolConverter.Instance}}"
-                        Command="{Binding Owner.RevealCommand}" CommandParameter="{Binding}" />
-                <!-- 「取り込み元に足す」は何が起きるか分かりにくかった（ユーザ指示 2026-09-14）。押すと取り込みが始まる -->
-                <Button Content="このフォルダの商品を取り込む" Margin="0,0,8,8"
-                        IsEnabled="{Binding IsOffline, Converter={x:Static vm:InverseBoolConverter.Instance}}"
-                        Command="{Binding Owner.ImportHereCommand}" CommandParameter="{Binding}"
-                        ToolTip="このフォルダを取り込みます。進み具合は下の帯に表示されます。" />
-
-                <!-- 監視は状態を出し、足す・外すの両方をできるようにする（ユーザ指示 2026-09-14。前は足すだけで外せなかった） -->
-                <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6" Padding="10,0,4,0" Margin="0,0,8,8"
-                        Background="{DynamicResource Surface}">
-                    <StackPanel Orientation="Horizontal">
+            <!--
+                大きさの違うボタンと枠付きの監視が1つの流れに混ざり、どれが主か分かりにくかった（ユーザ指摘 2026-11-20）。
+                主な2つ（商品で検索を開く・商品を取り込む）を1段目に、補助（エクスプローラ・監視）を小さい2段目へ下げる。
+                見出しを付けて3行にする案もあったが、画面を広く使いたいのでこちら（ユーザ判断 2026-11-27・案A）。監視の枠は外し、「監視：状態 ボタン」を文の並びにする
+            -->
+            <StackPanel Margin="0,12,0,0">
+                <WrapPanel>
+                    <Button Content="このフォルダの商品を検索で開く" Style="{StaticResource PrimaryButton}" Margin="0,0,8,8"
+                            Command="{Binding Owner.SearchHereCommand}" CommandParameter="{Binding}"
+                            ToolTip="このフォルダの下にファイルがある商品で絞って、検索を開きます。" />
+                    <Button Content="このフォルダの商品を取り込む" Margin="0,0,8,8"
+                            IsEnabled="{Binding IsOffline, Converter={x:Static vm:InverseBoolConverter.Instance}}"
+                            Command="{Binding Owner.ImportHereCommand}" CommandParameter="{Binding}"
+                            ToolTip="このフォルダを取り込みます。進み具合は下の帯に表示されます。" />
+                </WrapPanel>
+                <WrapPanel Margin="0,0,0,4">
+                    <Button Content="エクスプローラで開く" Style="{StaticResource SmallButton}" Margin="0,0,18,4"
+                            IsEnabled="{Binding IsOffline, Converter={x:Static vm:InverseBoolConverter.Instance}}"
+                            Command="{Binding Owner.RevealCommand}" CommandParameter="{Binding}" />
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                         <TextBlock Text="監視：" Style="{StaticResource Caption}" VerticalAlignment="Center" />
                         <TextBlock Text="{Binding WatchStateText}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0">
                             <TextBlock.Style>
@@ -133,12 +135,12 @@
                                 </Style>
                             </TextBlock.Style>
                         </TextBlock>
-                        <Button Content="{Binding WatchButtonText}" Style="{StaticResource SmallButton}" Margin="0,3"
+                        <Button Content="{Binding WatchButtonText}" Style="{StaticResource SmallButton}"
                                 Command="{Binding Owner.ToggleWatchCommand}" CommandParameter="{Binding}"
                                 ToolTip="監視すると起動時に新しいファイルを探します。外しても取り込んだものは残ります。" />
                     </StackPanel>
-                </Border>
-            </WrapPanel>
+                </WrapPanel>
+            </StackPanel>
             <!-- 監視をやめたときの知らせ。1行ぶんの高さを前もって取り、出入りで下の未確定の枠が動かないようにする -->
             <TextBlock DataContext="{Binding WatchNote}" Text="{Binding Text}" Style="{StaticResource AreaNoticeText}" Margin="2,-4,0,0"
                        AutomationProperties.AutomationId="FolderWatchNote" />
