@@ -394,6 +394,7 @@ public sealed partial class SearchViewModel
         "アバターがまだ見つかっていません。アバターの管理から検出できます。", (_, _, _, _) => false)
     {
         IconSelector = AvatarIconSelector,
+        ChipIconSelector = AvatarChipIconSelector,
         HoverIconSelector = AvatarHoverIconSelector,
         InfoSelector = text => _avatarSuggestInfo.GetValueOrDefault(text),
         GroupHeadings = AvatarSuggestionText.Headings,
@@ -940,6 +941,7 @@ public sealed partial class SearchViewModel
             isUnspecified: SearchModuleConditions.ListOf(kind)!.IsUnspecified)
         {
             IconSelector = AvatarIconSelector,
+            ChipIconSelector = AvatarChipIconSelector,
             HoverIconSelector = AvatarHoverIconSelector,
             InfoSelector = text => _avatarSuggestInfo.GetValueOrDefault(text),
             GroupHeadings = AvatarSuggestionText.Headings,
@@ -1135,6 +1137,20 @@ public sealed partial class SearchViewModel
     /// </summary>
     public Func<string, Action, System.Windows.Media.ImageSource?> AvatarHoverIconSelector => (entry, onLoaded) =>
         AvatarSuggestionIcon(entry, path => _thumbnails.PeekForCard(path, onLoaded));
+
+    /// <summary>
+    /// 積んだ札の頭の絵（ユーザ判断 2026-11-27「アバターのチップにはアイコンを表示する」）。札の鍵（`avatar:` + 商品ID・`base:` + 素体名）から引く。
+    /// 札の字は設定で商品IDを出さない形（名前だけ）になるので、字から商品IDを読み戻すと引けない事がある。
+    /// 場所の決め方は候補の頭の絵と同じ（持っていれば商品の1枚目・素体は素体の絵）
+    /// </summary>
+    public Func<string, System.Windows.Media.ImageSource?> AvatarChipIconSelector => key =>
+        key.StartsWith(AvatarKey, StringComparison.Ordinal)
+            ? Core.Services.AvatarImageSync.IconPath(_services.Paths, key[AvatarKey.Length..], FindItem(key[AvatarKey.Length..]), _services.Settings.ShowRemovedBoothImages) is { } path
+                ? _thumbnails.LoadForTile(path)
+                : null
+            : key.StartsWith(BaseKey, StringComparison.Ordinal)
+                ? AvatarBaseIcons.Load(_services, key[BaseKey.Length..], FindItem, _thumbnails.LoadForTile)
+                : null;
 
     private System.Windows.Media.Imaging.BitmapSource? AvatarSuggestionIcon(string entry, Func<string, System.Windows.Media.Imaging.BitmapSource?> load)
         => _baseNamesBySuggestion.TryGetValue(entry, out var baseName)

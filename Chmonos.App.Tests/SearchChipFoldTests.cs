@@ -310,6 +310,33 @@ public class SearchChipFoldTests
     }
 
     [Fact]
+    public void 鍵から絵を引く札は_字が変わっても鍵で引き_引き直さない()
+    {
+        // 札の字は設定で商品IDを出さない形（名前だけ）になるので、対応アバターの札の絵は鍵（avatar: + 商品ID）から引く
+        var reads = new List<string>();
+        var module = new ListModule(SearchModuleKind.Avatar, allowsAnd: true, "", "", (_, _, _, _) => true)
+        {
+            IconSelector = _ => throw new InvalidOperationException("字からは引かない"),
+            ChipIconSelector = key =>
+            {
+                reads.Add(key);
+                return null;
+            },
+        };
+
+        module.AddKey("avatar:1", notify: false);
+        var chip = module.Chips[0];
+        Assert.True(chip.ShowsIcon);
+        Assert.Empty(reads);
+
+        _ = chip.Icon;
+        module.SetSuggestions([("作り物のアバター", "avatar:1")]);
+        _ = chip.Icon;
+
+        Assert.Equal(["avatar:1"], reads);
+    }
+
+    [Fact]
     public void 絵を引かない並びの札は_頭に絵を出さない()
     {
         var module = new ListModule(SearchModuleKind.Shop, allowsAnd: false, "", "", (_, _, _, _) => true);

@@ -34,9 +34,9 @@ public sealed class ListChip : ViewModelBase
                 OnPropertyChanged(nameof(DisplayText));
                 OnPropertyChanged(nameof(Initial));
 
-                // 絵は字から引く（対応アバター：候補の字から商品ID・素体を引く）。状態を戻す時は候補より先に札ができ、
+                // 字から絵を引く札は、字が変わったら引き直す。状態を戻す時は候補より先に札ができ、
                 // 字は後で候補の字に揃うので、前の字で引いた絵（多くは無し）を覚えたままだと頭文字のまま残る
-                if (IconSource is not null && _iconRead)
+                if (IconFromText && _iconRead)
                 {
                     _iconRead = false;
                     _icon = null;
@@ -45,6 +45,9 @@ public sealed class ListChip : ViewModelBase
             }
         }
     }
+
+    /// <summary>絵を札の字から引くか（鍵から引く札は字が変わっても絵は同じなので、引き直さない）。</summary>
+    internal bool IconFromText { get; set; }
 
     public int Count
     {
@@ -563,6 +566,9 @@ public sealed class ListModule : SearchModule
     /// <summary>候補の頭に出す絵（対応アバター）。</summary>
     public Func<string, ImageSource?>? IconSelector { get; set; }
 
+    /// <summary>積んだ札の頭と吹き出しの絵を、札の鍵から引く口（対応アバター・プロファイルの欄。無ければ <see cref="IconSelector"/> で字から引く）。</summary>
+    public Func<string, ImageSource?>? ChipIconSelector { get; set; }
+
     /// <summary>
     /// 候補の頭の絵に乗せた時の大きな絵（ユーザ判断 2026-11-20「候補の欄の絵：アバターの管理の外の欄にも」。<see cref="Controls.SuggestBox.HoverIconSelector"/>）。
     /// 絵を出す欄（対応アバター・プロファイル）だけが持つ
@@ -722,11 +728,18 @@ public sealed class ListModule : SearchModule
             ? new ListChip(key, chipText(key)) { FullText = key }
             : new ListChip(key, _textOfKey.TryGetValue(key, out var known) ? known : text ?? key);
         chip.TrimsMiddle = TrimsMiddle && ChipTextOf is null;
-        if (IconSelector is { } icon)
+        if (ChipIconSelector is { } keyIcon)
         {
             // 候補の頭に出す絵と同じ物を、チップの頭と吹き出しにも添える（対応アバター・プロファイルの欄。メモ82・ユーザ判断 2026-11-27）。
-            // 候補の文字から引くので、読む時点の文字で引く。共通素体の札は候補と同じく素体の絵になる
+            // 鍵から引く：札の字は設定で商品IDを出さない形になり、字から商品IDを読み戻せない事がある。共通素体の札は素体の絵になる
+            chip.IconSource = () => keyIcon(key);
+            chip.ShowsIcon = true;
+        }
+        else if (IconSelector is { } icon)
+        {
+            // 鍵から引く口が無い時は候補の文字から引く（読む時点の文字で引く）
             chip.IconSource = () => icon(chip.Text);
+            chip.IconFromText = true;
             chip.ShowsIcon = true;
         }
 
