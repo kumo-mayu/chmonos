@@ -285,6 +285,116 @@ public class StoreFormatTests : IDisposable
         Assert.True(File.Exists(Path.Combine(target, folder, "a.json")));
     }
 
+    /// <summary>控えに入れるフォルダ（JSON を写す）。<c>extensions</c> だけは入れ子の下まで写す</summary>
+    private static readonly string[] BackedUpFolders = ["items", "modifications", "unitypackages", "zipimages", AppPaths.UnityScansDirName, "extensions"];
+
+    /// <summary>
+    /// 控えに入れないフォルダ（docs/spec/data-format.md「控え」）。画像は形式を持たず、logs は作り直せ、.prev・_broken はアプリの仕組みの一部、
+    /// 保管庫は書き直さないので戻す物が無い、format-backups は控えそのもの
+    /// </summary>
+    private static readonly string[] LeftOutFolders = ["images", "logs", "items/.prev", "items/_broken", AppPaths.NotificationArchiveDirName, StoreFormat.BackupsDirName];
+
+    /// <summary>
+    /// 保存先の直下の JSON（AppPaths にある物を全部）と、入れる・入れないフォルダの全部に JSON を置き、写った物を一覧で照らす
+    /// （2026-11-28 の点検：直下は settings.json しか見ておらず、直下を settings.json だけにしても落ちなかった）。
+    /// api.json（外から使う API のトークン）は控えに写るのが良いかを決めていない（点検の低9・要確認）ので、ここでは置かない
+    /// </summary>
+    [Fact]
+    public void 控えに入る物と入らない物を一覧で照らす()
+    {
+        var paths = new AppPaths(_root);
+        var rootJsons = typeof(AppPaths).GetProperties()
+            .Where(property => property.PropertyType == typeof(string) && property.Name.EndsWith("File", StringComparison.Ordinal) && property.Name != nameof(AppPaths.ApiFile))
+            .Select(property => (string)property.GetValue(paths)!)
+            .Where(path => path.EndsWith(".json", StringComparison.OrdinalIgnoreCase) && Path.GetDirectoryName(path) == _root)
+            .Append(PathOf(StoreFormat.MarkerFileName))
+            .Select(path => Path.GetFileName(path))
+            .ToList();
+        Assert.Contains("settings.json", rootJsons);
+        Assert.Contains("notifications.json", rootJsons);
+        foreach (var name in rootJsons)
+        {
+            File.WriteAllText(PathOf(name), "{}");
+        }
+
+        foreach (var folder in BackedUpFolders.Concat(LeftOutFolders))
+        {
+            Directory.CreateDirectory(PathOf(folder));
+            File.WriteAllText(PathOf($"{folder}/a.json"), "{}");
+        }
+
+        Directory.CreateDirectory(PathOf("extensions/ns/items"));
+        File.WriteAllText(PathOf("extensions/ns/items/1000001.json"), "{}");
+        File.WriteAllText(PathOf("items/1000001.h2.html"), "<html></html>");
+        File.WriteAllText(PathOf("search-bridge.cache"), "x");
+
+        var target = StoreFormat.Backup(_root, 1, new DateTimeOffset(2026, 11, 28, 12, 0, 0, TimeSpan.Zero));
+
+        var expected = rootJsons
+            .Concat(BackedUpFolders.Select(folder => $"{folder}/a.json"))
+            .Append("extensions/ns/items/1000001.json")
+            .Order(StringComparer.Ordinal);
+        var copied = Directory.EnumerateFiles(target, "*", SearchOption.AllDirectories)
+            .Select(file => Path.GetRelativePath(target, file).Replace('\\', '/'))
+            .Order(StringComparer.Ordinal);
+        Assert.Equal(expected, copied);
+    }
+
+    /// <summary>
+    /// AppPaths に新しいフォルダを足したら、控えに入れるか入れないかを上の一覧のどちらかに書く（入れ忘れに気付くため）。
+    /// 一覧のフォルダの下にある物（images/_avatars など）は、そのフォルダの扱いに従う
+    /// </summary>
+    [Fact]
+    public void AppPathsのフォルダは控えの入れる入れないのどちらかに載っている()
+    {
+        var paths = new AppPaths(_root);
+        var folders = typeof(AppPaths).GetProperties()
+            .Where(property => property.PropertyType == typeof(string) && (property.Name.EndsWith("Dir", StringComparison.Ordinal) || property.Name.EndsWith("Root", StringComparison.Ordinal)) && property.Name != nameof(AppPaths.Root))
+            .Select(property => Path.GetRelativePath(_root, (string)property.GetValue(paths)!).Replace('\\', '/'))
+            .Append(AppPaths.UnityScansDirName)
+            .Append(Path.GetRelativePath(_root, Path.GetDirectoryName(paths.LogFile)!).Replace('\\', '/'))
+            .ToList();
+        Assert.Contains("items", folders);
+
+        var listed = BackedUpFolders.Concat(LeftOutFolders).ToList();
+        Assert.All(folders, folder => Assert.True(
+            listed.Any(known => folder == known || folder.StartsWith(known + "/", StringComparison.Ordinal)),
+            $"{folder} が控えの一覧のどちらにも無い"));
+    }
+
+    /// <summary>
+    /// 控えの範囲を spec（docs/spec/data-format.md「控え」）にも書いてある事を照らす（2026-11-28：unityscans が spec の写す一覧にも入れない一覧にも無かった）。
+    /// 文を解析して一覧を作るのではなく、名前が節に出るかだけを見る（文の書き換えで落ちないように）
+    /// </summary>
+    [Fact]
+    public void 控えの範囲はspecの控えの節に書いてある()
+    {
+        var section = SpecSection("data-format.md", "## 控え");
+
+        Assert.All(BackedUpFolders, folder => Assert.Contains($"`{folder}/`", section, StringComparison.Ordinal));
+        Assert.All(["`logs`", "`items/.prev`", "`items/_broken`", $"`{AppPaths.NotificationArchiveDirName}/`", "画像"],
+            name => Assert.Contains(name, section, StringComparison.Ordinal));
+    }
+
+    private static string SpecSection(string file, string heading)
+    {
+        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
+        {
+            var path = Path.Combine(dir.FullName, "docs", "spec", file);
+            if (File.Exists(path))
+            {
+                // git の設定で CRLF に変えて取り出されても見出しを探せるように揃える
+                var text = File.ReadAllText(path).Replace("\r\n", "\n", StringComparison.Ordinal);
+                var start = text.IndexOf("\n" + heading + "\n", StringComparison.Ordinal);
+                Assert.True(start >= 0, $"{file} に「{heading}」の節が無い");
+                var end = text.IndexOf("\n## ", start + heading.Length + 2, StringComparison.Ordinal);
+                return end < 0 ? text[start..] : text[start..end];
+            }
+        }
+
+        throw new FileNotFoundException($"docs/spec/{file} が見つからない");
+    }
+
     [Fact]
     public void 控えの数と大きさを数えて消せる()
     {

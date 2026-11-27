@@ -166,7 +166,7 @@ public partial class App : Application
 
             // 控えと印の書き込みは、多重起動の錠を取った後（＝ほかの起動が書いていない）、主の画面が裏の作業を始める前。
             // 錠より先に書くと、開いている古い版の横で印だけ上がり、古い版が前の形式で書き続けてしまう
-            if (!SettleStoreFormat())
+            if (!SettleStoreFormat(_services.Paths.Root))
             {
                 _services.Dispose();
                 _services = null;
@@ -493,7 +493,7 @@ public partial class App : Application
     /// 新しいバージョンの Chmonos が使った保存先は開かない——起動時の裏の作業が知らない欄を消しながら書いてしまうため、ファイルごとに止めるのでは間に合わない。
     /// 印が在るのに読めないときも開かない（点検26：読めない印を今の版とみなすと、新しいバージョンの保存先を止められない）
     /// </summary>
-    private static bool CheckStoreFormat(string root)
+    internal static bool CheckStoreFormat(string root)
     {
         int version;
         try
@@ -562,11 +562,11 @@ public partial class App : Application
     /// <summary>
     /// 多重起動の錠を取った後に、版を**読み直して**から控えと印を書く（点検26：錠を取るまでの間に、別のバージョンが形式を上げて終わることがある）。
     /// 印の無い保存先（v1.0.0 が使った・初めて開く）は版 1 として扱い、今の版より古ければ控えを取ってから上げる。
-    /// 控えか印が書けなければ開かない（控えが無いまま形式を上げると、古いバージョンへ戻せなくなる）
+    /// 控えか印が書けなければ開かない（控えが無いまま形式を上げると、古いバージョンへ戻せなくなる）。
+    /// 保存先を引数で受けるのは、起動の一式を組まずに試験から「控え→印」の順と断る場合を確かめるため（2026-11-28 の点検で、通る試験が無かった）
     /// </summary>
-    private bool SettleStoreFormat()
+    internal static bool SettleStoreFormat(string root)
     {
-        var root = _services!.Paths.Root;
         if (!CheckStoreFormat(root))
         {
             return false;
