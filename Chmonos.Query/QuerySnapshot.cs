@@ -90,6 +90,12 @@ public sealed class QuerySnapshot
 
     public required IReadOnlyDictionary<string, string> VideoTitles { get; init; }
 
+    /// <summary>
+    /// 管理から外したファイル（<c>excluded.json</c> の記録のまま・記録の順）。見張りの部分に入れて写しに持つ：
+    /// 人が外す・戻すたびに知らせが出て、ページを送る間も1つの写しの並びで答えられる。
+    /// </summary>
+    public required IReadOnlyList<ExcludedEntry> Excluded { get; init; }
+
     /// <summary>商品ごとの動画のリンク（説明文を落とす前に拾った物）。</summary>
     public required IReadOnlyDictionary<string, IReadOnlyList<VideoLink>> Videos { get; init; }
 
@@ -259,6 +265,30 @@ public sealed class QuerySnapshot
                 incomplete.Add(StorePart.Modifications);
             }
         }
+        // 外したファイルの記録が読めない（手で壊した・書いている途中で開けない）ときは、前の写しの記録を残し、読み終えていない部分として知らせる。
+        // 投げると、この1つのファイルのために全部の URL が古いまま（初めの読み込みなら答えられない）になる
+        IReadOnlyList<ExcludedEntry> excluded;
+        if (Need(StorePart.Excluded))
+        {
+            try
+            {
+                excluded = store.Excluded.Load();
+            }
+            catch (Exception exception) when (exception is System.Text.Json.JsonException or IOException or UnauthorizedAccessException)
+            {
+                excluded = previous?.Excluded ?? [];
+                incomplete.Add(StorePart.Excluded);
+            }
+        }
+        else
+        {
+            excluded = previous!.Excluded;
+            if (previous.IncompleteParts.Contains(StorePart.Excluded))
+            {
+                incomplete.Add(StorePart.Excluded);
+            }
+        }
+
         var ownedItemIds = items.Where(item => item.IsOwned).Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
 
         return new QuerySnapshot(store, sharesItemCache)
@@ -294,6 +324,7 @@ public sealed class QuerySnapshot
                 : previous!.VideoTitles,
             Videos = slots.Values.GroupBy(slot => slot.Item.Id, StringComparer.Ordinal).ToDictionary(group => group.Key, group => group.First().Videos, StringComparer.Ordinal),
             ImageFiles = images,
+            Excluded = excluded,
         };
     }
 

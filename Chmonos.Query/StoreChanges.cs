@@ -20,6 +20,9 @@ public enum StorePart
     Settings,
     VideoTitles,
 
+    /// <summary>管理から外したファイル（excluded.json）。<c>/v1/excluded</c> が読む。</summary>
+    Excluded,
+
     /// <summary>保存先の形の印（format.json）。写しではなく、答えるかどうかに効く。</summary>
     Format,
 
@@ -135,6 +138,7 @@ public static class StoreChanges
             "recent.json" => StorePart.Recent,
             "settings.json" => StorePart.Settings,
             "video-titles.json" => StorePart.VideoTitles,
+            "excluded.json" => StorePart.Excluded,
             "format.json" => StorePart.Format,
             "api-settings.json" => StorePart.ApiSettings,
             // 許したソフトの一覧も、写しではなく守りに効く。設定と同じく取り込み中でもすぐ読み直す（取り消しをすぐ効かせる）
@@ -176,6 +180,7 @@ public static class StoreChanges
             StorePart.Recent => paths.RecentFile,
             StorePart.Settings => paths.SettingsFile,
             StorePart.VideoTitles => paths.VideoTitlesFile,
+            StorePart.Excluded => paths.ExcludedFile,
             StorePart.Format => Path.Combine(paths.Root, StoreFormat.MarkerFileName),
             StorePart.ApiSettings => paths.ApiSettingsFile,
             _ => null,

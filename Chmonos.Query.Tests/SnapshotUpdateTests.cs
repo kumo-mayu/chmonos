@@ -158,6 +158,8 @@ public sealed class SnapshotUpdateTests : IDisposable
     [InlineData(@"api-settings.json", StorePart.ApiSettings, null)]
     [InlineData(@"api-clients.json", StorePart.ApiSettings, null)]
     [InlineData(@"format.json", StorePart.Format, null)]
+    [InlineData(@"recent.json", StorePart.Recent, null)]
+    [InlineData(@"excluded.json", StorePart.Excluded, null)]
     [InlineData(@"items\9500001.json.tmp", null, null)]
     [InlineData(@"items\.prev\9500001.json", null, null)]
     [InlineData(@"logs\app.log", null, null)]

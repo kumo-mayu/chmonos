@@ -19,5 +19,9 @@ internal static partial class ApiEndpoints
         app.MapGet("/v1/folders", (ApiState state, string? cursor, int? limit) =>
             ApiHost.Json(FolderList.Page(state.Snapshot, cursor, limit), json.FolderPage))
             .Answers<FolderPage>("商品として登録したフォルダ（全部の商品から。場所の順・state は取り込みが見た present／missing・cursor で続き）");
+
+        app.MapGet("/v1/excluded", (ApiState state, string? cursor, int? limit) =>
+            ApiHost.Json(ExcludedList.Page(state.Snapshot, cursor, limit), json.ExcludedPage))
+            .Answers<ExcludedPage>("管理から外したファイル（ハッシュ・場所の全部・日時・理由。外した日時の新しい順・cursor で続き。戻すのは画面で）");
     }
 }

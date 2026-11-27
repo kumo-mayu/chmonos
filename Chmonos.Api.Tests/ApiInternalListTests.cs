@@ -72,6 +72,14 @@ public sealed class ApiInternalListTests : IAsyncLifetime
             ],
         });
 
+        // 外したファイル：同じ日時が2件（記録の後ろが先）・場所が2つ・理由の無い物
+        await _store.Excluded.SaveAsync(
+        [
+            new ExcludedEntry { Hash = new string('1', 64), Paths = [@"D:\inbox\a.zip", @"E:\copy\a.zip"], ExcludedAt = Day1, Reason = "作り物の理由" },
+            new ExcludedEntry { Hash = new string('2', 64), Paths = [@"D:\inbox\b.zip"], ExcludedAt = Day2 },
+            new ExcludedEntry { Hash = new string('3', 64), Paths = [@"D:\inbox\c.zip"], ExcludedAt = Day2 },
+        ]);
+
         await _store.ApiClients.SaveAsync(new ApiClientList
         {
             Clients = [new ApiClientRecord { Id = "reader", Name = "読むだけの道具", Scopes = [], TokenHash = ApiClientBook.HashOf(ReaderToken) }],
@@ -205,5 +213,48 @@ public sealed class ApiInternalListTests : IAsyncLifetime
         var recentCursor = (await JsonOf("/v1/recent?limit=1")).GetProperty("nextCursor").GetString()!;
         await AssertProblem($"/v1/folders?cursor={Uri.EscapeDataString(recentCursor)}", "invalidCursor");
         await AssertProblem("/v1/folders?limit=0", "invalidLimit");
+    }
+
+    [Fact]
+    public async Task 外したファイルは_画面と同じ新しい順に場所の全部と理由を返し_外したら読み直す()
+    {
+        var first = await JsonOf("/v1/excluded?limit=2");
+        Assert.Equal(3, first.GetProperty("total").GetInt32());
+
+        // 外した日時の新しい順・同じ日時は記録の後ろ（後から外した物）が先（設定の「除外したファイル」と同じ）
+        Assert.Equal([new string('3', 64), new string('2', 64)], Ids(first, "hash"));
+        Assert.Equal(JsonValueKind.Null, first.GetProperty("items")[1].GetProperty("reason").ValueKind);
+
+        var cursor = Uri.EscapeDataString(first.GetProperty("nextCursor").GetString()!);
+        var second = await JsonOf($"/v1/excluded?limit=2&cursor={cursor}");
+        var oldest = second.GetProperty("items").EnumerateArray().Single();
+
+        // 場所は潰さず全部（画面は1つ目だけを見せる）
+        Assert.Equal([@"D:\inbox\a.zip", @"E:\copy\a.zip"], oldest.GetProperty("paths").EnumerateArray().Select(path => path.GetString()));
+        Assert.Equal("作り物の理由", oldest.GetProperty("reason").GetString());
+        Assert.Equal(Day1, oldest.GetProperty("excludedAt").GetDateTimeOffset());
+        Assert.Equal(JsonValueKind.Null, second.GetProperty("nextCursor").ValueKind);
+
+        // 画面が外した（見張りの知らせと同じ道：excluded.json の場所から部分を見分けて読み直す）
+        await _store.Excluded.SaveAsync([new ExcludedEntry { Hash = new string('4', 64), Paths = [@"D:\inbox\d.zip"], ExcludedAt = Day3 }]);
+        _sync.Note(_store.Paths.ExcludedFile);
+        await _sync.ApplyPendingAsync();
+        Assert.Equal([new string('4', 64)], Ids(await JsonOf("/v1/excluded"), "hash"));
+
+        await AssertProblem("/v1/excluded?cursor=abc", "invalidCursor");
+    }
+
+    /// <summary>
+    /// 外したファイルの記録が壊れても、ほかの答えは止めず、前の写しの記録で答え続ける（読み終えていない部分として次の見比べで読み直す）
+    /// </summary>
+    [Fact]
+    public async Task 外したファイルの記録が壊れても_前の記録で答え_ほかの道も止めない()
+    {
+        await File.WriteAllTextAsync(_store.Paths.ExcludedFile, "{ 壊れた");
+        _sync.Note(_store.Paths.ExcludedFile);
+        await _sync.ApplyPendingAsync();
+
+        Assert.Equal(3, (await JsonOf("/v1/excluded")).GetProperty("total").GetInt32());
+        Assert.Equal(3, (await JsonOf("/v1/recent")).GetProperty("total").GetInt32());
     }
 }
