@@ -419,7 +419,8 @@ public static class PluginMenus
             case WhereModification:
                 return snapshot.Modifications.Records.Any(record => record.Id == spot.Key) ? PluginMenuReason.Ok : new(PluginMenuBlock.NotLoaded);
             case WhereShop:
-                return Catalogs.Shops(snapshot).Any(shop => string.Equals(shop.Key, spot.Key, StringComparison.OrdinalIgnoreCase))
+                // ショップの一覧の鍵は商品のサブドメイン（Catalogs.Shops と同じ）。開くたびに全件を集計しないよう、在るかだけを見る
+                return snapshot.Items.Any(item => string.Equals(item.ShopSubdomain, spot.Key, StringComparison.OrdinalIgnoreCase))
                     ? PluginMenuReason.Ok
                     : new(PluginMenuBlock.NotLoaded);
             case WhereAvatar:
