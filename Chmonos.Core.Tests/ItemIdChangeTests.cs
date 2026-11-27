@@ -945,4 +945,54 @@ public class ItemIdChangeTests : IDisposable
         Assert.Equal("画面で直した名前", record!.Name);
         Assert.Equal(RealId, Assert.Single(record.Members).ItemId);
     }
+
+    // ---- 外のソフトの情報（docs/spec/local-api-extensions-api.md「付け先の変化」） ----
+
+    private async Task PutExtensionAsync(string itemId, int value, string? memo = null)
+    {
+        var target = ExtensionTarget.Item(itemId)!;
+        await _store.Extensions.ChangeValuesAsync("outfit-checker", target, (_, _) => new ExtensionValueFile
+        {
+            Values = { ["polyCount"] = System.Text.Json.JsonSerializer.SerializeToElement(value) },
+        });
+        if (memo is not null)
+        {
+            await _store.Extensions.ChangeMemoAsync("outfit-checker", target, _ => new ExtensionMemoFile { Memo = System.Text.Json.JsonSerializer.SerializeToElement(memo) });
+        }
+    }
+
+    private int? ExtensionValue(string itemId)
+        => _store.Extensions.LoadValues("outfit-checker", ExtensionTarget.Item(itemId)!)?.Values["polyCount"].GetInt32();
+
+    /// <summary>移す先に値が無ければ、元の値とメモを移す。移さないと、元を消す所が値ごと消し、ソフトの情報が黙って失われる。</summary>
+    [Fact]
+    public async Task 外のソフトの情報は移す先へ移す()
+    {
+        await SaveLocalItemAsync(new LocalBlock { LocalFiles = [File("aaa")] });
+        await PutExtensionAsync(LocalId, 7, memo: "同期の印");
+
+        Assert.Equal(ItemIdChangeOutcome.Moved, await _service.ChangeItemIdAsync(LocalId, RealId));
+
+        Assert.Equal(7, ExtensionValue(RealId));
+        Assert.Equal("同期の印", _store.Extensions.LoadMemo("outfit-checker", ExtensionTarget.Item(RealId)!)!.Memo!.Value.GetString());
+        Assert.Null(_store.Extensions.LoadValues("outfit-checker", ExtensionTarget.Item(LocalId)!));
+        Assert.Null(_store.Extensions.LoadMemo("outfit-checker", ExtensionTarget.Item(LocalId)!));
+    }
+
+    /// <summary>統合（移す先が既にある）で両方に値があれば、移す先の組を残し、元の値は残さない（属性の「移す先の組」と同じ）。</summary>
+    [Fact]
+    public async Task 統合で移す先にも値があれば移す先を残す()
+    {
+        await SaveLocalItemAsync(new LocalBlock { LocalFiles = [File("aaa")] });
+        await _store.Items.SaveAsync(new ItemRecord { Id = RealId, Booth = new BoothBlock { Name = "作り物" } });
+        await PutExtensionAsync(LocalId, 1, memo: "元の印");
+        await PutExtensionAsync(RealId, 2);
+
+        Assert.Equal(ItemIdChangeOutcome.Moved, await _service.ChangeItemIdAsync(LocalId, RealId));
+
+        Assert.Equal(2, ExtensionValue(RealId));
+        Assert.Null(_store.Extensions.LoadMemo("outfit-checker", ExtensionTarget.Item(RealId)!));
+        Assert.Null(_store.Extensions.LoadValues("outfit-checker", ExtensionTarget.Item(LocalId)!));
+        Assert.Null(_store.Extensions.LoadMemo("outfit-checker", ExtensionTarget.Item(LocalId)!));
+    }
 }

@@ -288,6 +288,13 @@ public sealed class DataStore
         // 商品ページを開くたび・検索の条件を組むたびに読む。中身は init だけの型なので共有する
         ConversionPairs = new JsonFileStore<ConversionPairFile>(paths.ConversionPairsFile, shareLoaded: true);
         Extensions = new ExtensionRepository(paths);
+
+        // 外した商品・改変に付いた外のソフトの情報を残さない（spec「付け先の変化」。残すと、同じ ID で登録し直した物に古い値が付く）。
+        // 口を後から差すのは、置き場どうしを作る順に縛らないため（コンストラクタを変えると experiments/ の組み立ても変わる）
+        Items.Removed = (id, token) => ExtensionTarget.Item(id) is { } item ? Extensions.DeleteTargetAsync(item, token) : Task.CompletedTask;
+        Modifications.Removed = (id, token) => ExtensionTarget.Modification(id) is { } modification
+            ? Extensions.DeleteTargetAsync(modification, token)
+            : Task.CompletedTask;
         ApiSettings = new JsonFileStore<ApiSettings>(paths.ApiSettingsFile);
         ApiClients = new JsonFileStore<ApiClientList>(paths.ApiClientsFile);
         VideoTitles = new JsonFileStore<List<VideoTitleRecord>>(paths.VideoTitlesFile);

@@ -161,11 +161,17 @@ internal sealed class ItemIdChanger(DataStore store, IBoothClient client, ItemSe
                 // 手元にも BOOTH にも無ければ新しく作る。在るかは移す先の錠の中で見る——取れなかった間に、
                 // 取り込みが同じIDの商品を作っていることがある（L13 と同じ形）。在ればそちらへ重ねる。
                 // 取って作った物が取った後で消されていれば、作り直さずに断る（元は消さずに残す）
-                return prepared is null
+                var merged = prepared is null
                     ? await store.Items.CreateOrChangeLocalAsync(
                         toId, NewItem, Merge, Enum.GetValues<LocalField>(), cancellationToken, beforeWrite: beforeWrite)
                     : await store.Items.ChangeLocalAsync(
                         toId, Merge, Enum.GetValues<LocalField>(), cancellationToken, beforeWrite);
+                if (merged)
+                {
+                    await MoveExtensionsAsync(fromId, toId, cancellationToken);
+                }
+
+                return merged;
             },
             cancellationToken);
 
@@ -292,7 +298,15 @@ internal sealed class ItemIdChanger(DataStore store, IBoothClient client, ItemSe
                         Enum.GetValues<LocalField>(),
                         cancellationToken,
                         RecordBeforeMerge(source.Local, record, () => refused = ItemIdChangeOutcome.NotRecorded));
-                    return applied || merged;
+
+                    // 合わせ済みで通る枝でも移す（止まったのが合わせた後・値を移す前のこともある。移すのは何回当てても同じ）
+                    if (applied || merged)
+                    {
+                        await MoveExtensionsAsync(fromId, toId, cancellationToken);
+                        return true;
+                    }
+
+                    return false;
                 },
                 cancellationToken);
 
@@ -309,6 +323,19 @@ internal sealed class ItemIdChanger(DataStore store, IBoothClient client, ItemSe
         await MoveModificationsAsync(fromId, toId, cancellationToken, recordedReferences);
         await MoveReferencesAsync(fromId, toId, cancellationToken, recordedReferences);
         return ItemIdChangeOutcome.Moved;
+    }
+
+    /// <summary>
+    /// 外のソフトの情報を移す先へ移す（spec「付け先の変化」：名前空間ごとに、移す先に値があれば移す先を残し、無ければ移す）。
+    /// **元の錠の中・移す先へ書けた直後に呼ぶ。**元を消した後（<see cref="MoveModificationsAsync"/> の並び）では遅い：
+    /// 元を消す所（ItemRepository の片付けの口）が、移す前の元の値を消してしまう
+    /// </summary>
+    private async Task MoveExtensionsAsync(string fromId, string toId, CancellationToken cancellationToken)
+    {
+        if (ExtensionTarget.Item(fromId) is { } from && ExtensionTarget.Item(toId) is { } to)
+        {
+            await store.Extensions.MoveTargetAsync(from, to, cancellationToken);
+        }
     }
 
     /// <summary>

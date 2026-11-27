@@ -788,6 +788,7 @@ public sealed class ItemRepository
             }
 
             await DeleteLockedAsync(itemId, cancellationToken);
+            await AfterRemovedAsync(itemId, cancellationToken);
             return true;
         }
         finally
@@ -824,6 +825,32 @@ public sealed class ItemRepository
 
     private readonly SemaphoreSlim _moveAwayGate = new(1, 1);
 
+    /// <summary>
+    /// 商品を外した後に、商品の JSON の外に置いた物（外のソフトの情報）を片付ける口（<see cref="DataStore"/> が差す）。
+    /// 呼ぶのは商品の錠の中・保存先の門（<see cref="StoreWriteGate"/>）の外：門の中から別の錠を待つと、その錠を持って門を待つ書き込みと待ち合う
+    /// </summary>
+    public Func<string, CancellationToken, Task>? Removed { get; set; }
+
+    /// <summary>
+    /// 片付けが失敗しても商品を外したことは取り消さない（記録はもう消えている）。残った値はどこにも付かないので、ほかのソフトにも出ない
+    /// </summary>
+    private async Task AfterRemovedAsync(string itemId, CancellationToken cancellationToken)
+    {
+        if (Removed is not { } removed)
+        {
+            return;
+        }
+
+        try
+        {
+            await removed(itemId, cancellationToken);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            Diagnostics.AppLog.Error($"外した商品のソフトの情報を消す（{itemId}）", exception);
+        }
+    }
+
     private async Task<bool?> MoveAwayCoreAsync(
         string itemId,
         Func<ItemRecord, Task<bool>> moveTo,
@@ -844,6 +871,7 @@ public sealed class ItemRepository
             }
 
             await DeleteLockedAsync(itemId, cancellationToken);
+            await AfterRemovedAsync(itemId, cancellationToken);
             return true;
         }
         finally

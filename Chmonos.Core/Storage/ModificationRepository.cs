@@ -354,8 +354,24 @@ public sealed class ModificationRepository
         await gate.WaitAsync(cancellationToken);
         try
         {
-            using var writing = await StoreWriteGate.EnterAsync(cancellationToken);
-            DeleteLocked(id, file, images);
+            using (await StoreWriteGate.EnterAsync(cancellationToken))
+            {
+                DeleteLocked(id, file, images);
+            }
+
+            // 外のソフトの情報は錠の中・門の外で消す（門の中から別の錠を待つと、その錠を持って門を待つ書き込みと待ち合う）。
+            // 錠の中なので、消してから片付けるまでの間に同じ ID で作り直された改変の値を消すことは無い
+            if (Removed is { } removed)
+            {
+                try
+                {
+                    await removed(id, cancellationToken);
+                }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+                {
+                    Diagnostics.AppLog.Error($"消した改変のソフトの情報を消す（{id}）", exception);
+                }
+            }
         }
         finally
         {
@@ -364,6 +380,9 @@ public sealed class ModificationRepository
 
         Written?.Invoke();
     }
+
+    /// <summary>改変を消した後に、改変の JSON の外に置いた物（外のソフトの情報）を片付ける口（<see cref="DataStore"/> が差す）。</summary>
+    public Func<string, CancellationToken, Task>? Removed { get; set; }
 
     private void DeleteLocked(string id, string file, string images)
     {
