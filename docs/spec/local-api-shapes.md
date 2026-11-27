@@ -32,7 +32,7 @@
 | `GET /v1/items/{id}/unitypackage-assets`・`POST /v1/unitypackages/lookup` | 包みの中身（GUID → パス）・GUID から包みと商品を逆に引く。形は [local-api-stored.md](local-api-stored.md) | 作った（2026-11-11） |
 | `POST /v1/zip-images/lookup` | 画像の CRC と大きさから、それが入っている zip と商品を引く。形は [local-api-stored.md](local-api-stored.md) | 作った（2026-11-11） |
 | `GET /v1/unity-scans` | Unity プロジェクトを調べた結果の控え（入っている商品と割合・手で置いた画像）。形は [local-api-stored.md](local-api-stored.md) | 作った（2026-11-11） |
-| `GET /v1/folders`・`/v1/unresolved`・`/v1/excluded`・`/v1/volumes` | 登録したフォルダ・商品が決まっていないファイル・外したファイル・ドライブ | folders・excluded は作った（2026-11-27。形は下の「内部の一覧」）。unresolved は出す（まだ作っていない）。volumes は後回し |
+| `GET /v1/folders`・`/v1/unresolved`・`/v1/excluded`・`/v1/volumes` | 登録したフォルダ・商品が決まっていないファイル・外したファイル・ドライブ | folders・excluded・unresolved は作った（2026-11-27。形は下の「内部の一覧」）。volumes は後回し |
 | `GET /v1/unresolved/candidates?hash=` | 未確定の自動検索の控え（対象ごとの候補）。形は [local-api-stored.md](local-api-stored.md) | 作った（2026-11-11） |
 | `GET /v1/user-tags`・`/v1/attributes`・`/v1/categories`・`/v1/booth-tags` | 分類と件数（マスタに無いのに付いている物も返す） | 作った |
 | `GET /v1/shops`・`/v1/shops/{key}` | ショップ（星・メモ・件数） | 作った |
@@ -55,7 +55,7 @@
 | 商品の中身の更新の控え（`contentUpdate`） | 出す | ［実装 2026-11-27］`include=contentUpdate` で `contentUpdate`：`foundAt`（見つけていなければ null）・`hasNewerFiles`（`LocalBlock.HasFilesNewerThanUpdate`） |
 | 商品の更新を知らせるか（`notifyOnUpdate`） | 出す | ［実装 2026-11-27］既定の `notifyOnUpdate` |
 | 商品の再取得の予定（次に取る時・続けて見つからなかった回数） | 出さない | 取り込みの内部の段取りで決まりが変わり得る。最後に取った日時は `include=meta` で出ている |
-| `/v1/folders`・`/v1/unresolved`・`/v1/excluded`・`/v1/recent` | 出す | ［実装 2026-11-27：folders・excluded・recent。形は下の「内部の一覧」］未確定・外した物は読むだけ（解決は画面に残す）。最近は書く口があるのに読めなかった |
+| `/v1/folders`・`/v1/unresolved`・`/v1/excluded`・`/v1/recent` | 出す | ［実装 2026-11-27：folders・excluded・recent・unresolved。形は下の「内部の一覧」］未確定・外した物は読むだけ（解決は画面に残す）。最近は書く口があるのに読めなかった |
 | `/v1/saved-searches` | 出す | 人が作った検索をソフトが使い回す。保存の形から API の条件へ戻す変換を作る |
 | `/v1/search-history`・`/v1/stats`・`/v1/volumes`・`/v1/search/explain` | 後回し | 履歴は使い道が薄い。統計は画面の計算を Core へ移す要がある。ドライブは生の組より、読み替えを済ませて今の場所を返す方が役に立つ（[local-api.md](local-api.md)「未決」）。記法を外から使う場面がまだ無い |
 | 人が足した変換の組（`conversion-pairs.json`） | 出す | 外の変換ツールに大事な情報。変換扱いと一緒に |
@@ -65,7 +65,7 @@
 | バナー・動画の題・新しい版の確認 | 出さない | 機械の控え。動画の題は YouTube の情報の配り直しになる |
 | 控え（`format-backups`・`items/.prev`）・よけた記録・ログ・検索用の控え | 出さない | 中身の守り（ログ）と内部の物 |
 
-作る順（軽い物から）：① 済み：商品の欄（2026-11-27） ② 済み：excluded・recent・folders（2026-11-27） ③ unresolved・取り込みの進み具合 ④ 変換の組 ⑤ 保存した検索。どれも項目を足すだけで `/v1/` のまま。
+作る順（軽い物から）：① 済み：商品の欄（2026-11-27） ② 済み：excluded・recent・folders（2026-11-27） ③ unresolved（済み 2026-11-27）・取り込みの進み具合 ④ 変換の組 ⑤ 保存した検索。どれも項目を足すだけで `/v1/` のまま。
 
 ## 商品の答え（`ItemDetail`・`ItemSummary`）
 
@@ -188,10 +188,11 @@
 
 ## 内部の一覧（2026-11-27）
 
-上の「出す物を決めた」の ②。どれも読むだけで、どのトークンでも読める。写しから組み（要求のたびにファイルを読まない）、`cursor`・`limit`（1〜200・既定100）で分けて `{ items, total, nextCursor }` で返す。続きの印は最後の1件の並べる鍵で、別の URL の印は `invalidCursor`。
+上の「出す物を決めた」の ②・③。どれも読むだけで、どのトークンでも読める。写しから組み（要求のたびにファイルを読まない。unresolved だけは別で、表の通り）、`cursor`・`limit`（1〜200・既定100）で分けて `{ items, total, nextCursor }` で返す。続きの印は最後の1件の並べる鍵で、別の URL の印は `invalidCursor`。
 
 | URL | 1件の形 | 並び・決まり |
 |---|---|---|
 | `GET /v1/recent` | `{ itemId, itemName, addedAt, usedAt, viewedAt }` | 商品 ID の順（3種類の日時のどれで並べても1つに決まらない。種類で絞って新しい順は検索の条件 `recent`）。値は条件「最近」と同じ `RecentActivity.Times`（同じ商品の行が2つなら種類ごとに新しい方）。写しに無い商品の行（消した直後・起動時の整理の前）も返し、`itemName` を null |
 | `GET /v1/folders` | `{ itemId, itemName, path, state, missingSince, fileCount, totalBytes, unityPackages, registeredAt }` | 場所の順（大文字小文字を区別しない→区別する）・商品 ID・商品の中の位置。「登録したフォルダ」は商品として登録したフォルダ（`LocalFolders`。最初の案 2026-10-12 の言葉。設定の取り込み元の履歴・監視するフォルダは設定なので出さない）。形は商品の詳細の `folders` と同じ `ItemMapper.Folder`、`state`（`present`・`missing`）は `files/lookup` と同じ `ItemMapper.FolderState`（取り込みが見た `missingSince` だけ・ディスクは見ない） |
 | `GET /v1/excluded` | `{ hash, paths, excludedAt, reason }` | 画面（設定の「除外したファイル」・Core の `LoadExcluded`）と同じ、外した日時の新しい順・同じ日時は記録の後ろが先。印は記録の位置を持つので、間に戻すと飛ぶ・重なることがある（保管した通知と同じ）。`paths` は全部（画面は1つ目だけ）、`reason` は画面の文のまま。記録は見張りの部分 `excluded`（`/v1/changes` にも出る）で、壊れて読めなければ前の記録で答える |
+| `GET /v1/unresolved` | `{ hash, paths, sizeBytes, modifiedAt, firstSeenAt, archiveBroken, zoneHostUrl, zoneReferrerUrl, candidateItemIds, samePathItemIds, notOnBooth: { itemId, checkedAt } \| null }` | 最初の場所の順（大文字小文字を区別しない→区別する）・ハッシュ・記録の位置。**zip の中の一覧（`contents`）は出さない**（記録の大半で、8万件で 35MB になった）。`candidateItemIds`・`samePathItemIds` は推定で、決めるのは画面。自動検索の控えは `hash` で `/v1/unresolved/candidates` を引く。記録は大きくなり得るので写しに持たず、初めて頼まれたときに読み、大きさと日時が同じ間は使い回す。変わると見張りの部分 `unresolved` で知らせる。壊れて読めなければ前に読めた物で答え、一度も読めていなければ 503 `unresolvedUnreadable` |

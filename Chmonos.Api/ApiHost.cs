@@ -66,6 +66,11 @@ internal sealed class ApiState(AppPaths paths, Func<DateTimeOffset> clock, DataS
 
     private ArchivedNotifications? _archivedNotifications;
 
+    /// <summary>商品が決まっていないファイルを読む口（記録の大きさと日時が同じ間は読んだ物を使い回す）。</summary>
+    public UnresolvedList UnresolvedList => LazyInitializer.EnsureInitialized(ref _unresolvedList, () => new UnresolvedList());
+
+    private UnresolvedList? _unresolvedList;
+
     public DateTimeOffset LoadedAt { get; private set; }
 
     /// <summary>保存先の形の版（読めた印。印が無ければ 1）。</summary>

@@ -80,6 +80,22 @@ public sealed class ApiInternalListTests : IAsyncLifetime
             new ExcludedEntry { Hash = new string('3', 64), Paths = [@"D:\inbox\c.zip"], ExcludedAt = Day2 },
         ]);
 
+        // 商品が決まっていないファイル：場所の順を試す2件（後ろの場所を先に書く）・BOOTH に無かった記録と壊れた zip・場所の無い物
+        await _store.Unresolved.SaveAsync(
+        [
+            new UnresolvedFile
+            {
+                Hash = new string('6', 64), Paths = [@"D:\inbox\z.zip"], SizeBytes = 20, ModifiedAtUtc = Day1, FirstSeenAt = Day2,
+                Contents = ["z/readme.txt"], CandidateItemIds = ["9700001", "9700002"], ZoneHostUrl = "https://example.invalid/z.zip",
+            },
+            new UnresolvedFile
+            {
+                Hash = new string('5', 64), Paths = [@"D:\inbox\a.zip", @"E:\copy\a.zip"], SizeBytes = 10, ModifiedAtUtc = Day1, FirstSeenAt = Day1,
+                ArchiveBroken = true, SamePathItemIds = ["9700001"], NotOnBooth = new BoothNotFoundNote { ItemId = "9799998", CheckedAt = Day3 },
+            },
+            new UnresolvedFile { Hash = new string('7', 64), Paths = [], SizeBytes = 1, ModifiedAtUtc = Day1, FirstSeenAt = Day1 },
+        ]);
+
         await _store.ApiClients.SaveAsync(new ApiClientList
         {
             Clients = [new ApiClientRecord { Id = "reader", Name = "読むだけの道具", Scopes = [], TokenHash = ApiClientBook.HashOf(ReaderToken) }],
@@ -268,5 +284,55 @@ public sealed class ApiInternalListTests : IAsyncLifetime
         }
 
         Assert.Equal(sequence, (await JsonOf("/v1/changes")).GetProperty("sequence").GetInt64());
+    }
+
+    [Fact]
+    public async Task 商品が決まっていないファイルは_場所の順に推定の候補と記録を状態を潰さずに返す()
+    {
+        var first = await JsonOf("/v1/unresolved?limit=2");
+        Assert.Equal(3, first.GetProperty("total").GetInt32());
+
+        // 最初の場所の順（場所の無い物は先頭）
+        Assert.Equal([new string('7', 64), new string('5', 64)], Ids(first, "hash"));
+        var broken = first.GetProperty("items")[1];
+        Assert.Equal([@"D:\inbox\a.zip", @"E:\copy\a.zip"], broken.GetProperty("paths").EnumerateArray().Select(path => path.GetString()));
+        Assert.True(broken.GetProperty("archiveBroken").GetBoolean());
+        Assert.Equal(["9700001"], broken.GetProperty("samePathItemIds").EnumerateArray().Select(id => id.GetString()));
+        Assert.Equal("9799998", broken.GetProperty("notOnBooth").GetProperty("itemId").GetString());
+        Assert.Equal(Day3, broken.GetProperty("notOnBooth").GetProperty("checkedAt").GetDateTimeOffset());
+        Assert.Equal(JsonValueKind.Null, broken.GetProperty("zoneHostUrl").ValueKind);
+
+        // zip の中の一覧は既定の答えに入れない（記録の大半で、長くなる）
+        Assert.False(broken.TryGetProperty("contents", out _));
+
+        var cursor = Uri.EscapeDataString(first.GetProperty("nextCursor").GetString()!);
+        var second = await JsonOf($"/v1/unresolved?limit=2&cursor={cursor}");
+        var last = second.GetProperty("items").EnumerateArray().Single();
+        Assert.Equal(["9700001", "9700002"], last.GetProperty("candidateItemIds").EnumerateArray().Select(id => id.GetString()));
+        Assert.Equal("https://example.invalid/z.zip", last.GetProperty("zoneHostUrl").GetString());
+        Assert.Equal(JsonValueKind.Null, last.GetProperty("notOnBooth").ValueKind);
+        Assert.Equal(JsonValueKind.Null, second.GetProperty("nextCursor").ValueKind);
+
+        await AssertProblem("/v1/unresolved?cursor=abc", "invalidCursor");
+    }
+
+    [Fact]
+    public async Task 商品が決まっていないファイルは_記録が変わったら読み直して知らせ_壊れたら前の記録で答える()
+    {
+        Assert.Equal(3, (await JsonOf("/v1/unresolved")).GetProperty("total").GetInt32());
+        var sequence = (await JsonOf("/v1/changes")).GetProperty("sequence").GetInt64();
+
+        // 画面が確定した（見張りの知らせと同じ道で、変わった部分 unresolved を知らせる）
+        await _store.Unresolved.SaveAsync([new UnresolvedFile { Hash = new string('8', 64), Paths = [@"D:\inbox\new.zip"], SizeBytes = 1, ModifiedAtUtc = Day1, FirstSeenAt = Day3 }]);
+        _sync.Note(_store.Paths.UnresolvedFile);
+        await _sync.ApplyPendingAsync();
+
+        var changes = await JsonOf($"/v1/changes?since={sequence}");
+        Assert.Contains(changes.GetProperty("changes").EnumerateArray(), change => change.GetProperty("parts").EnumerateArray().Any(part => part.GetString() == "unresolved"));
+        Assert.Equal([new string('8', 64)], Ids(await JsonOf("/v1/unresolved"), "hash"));
+
+        // 壊れた記録は前に読めた物で答える（ほかの道も止めない）
+        await File.WriteAllTextAsync(_store.Paths.UnresolvedFile, "{ 壊れた");
+        Assert.Equal([new string('8', 64)], Ids(await JsonOf("/v1/unresolved"), "hash"));
     }
 }

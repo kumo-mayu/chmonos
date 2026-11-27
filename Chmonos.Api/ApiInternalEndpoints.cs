@@ -23,5 +23,9 @@ internal static partial class ApiEndpoints
         app.MapGet("/v1/excluded", (ApiState state, string? cursor, int? limit) =>
             ApiHost.Json(ExcludedList.Page(state.Snapshot, cursor, limit), json.ExcludedPage))
             .Answers<ExcludedPage>("管理から外したファイル（ハッシュ・場所の全部・日時・理由。外した日時の新しい順・cursor で続き。戻すのは画面で）");
+
+        app.MapGet("/v1/unresolved", (ApiState state, string? cursor, int? limit) =>
+            ApiHost.Json(state.UnresolvedList.Page(state.Snapshot, cursor, limit), json.UnresolvedPage))
+            .Answers<UnresolvedPage>("商品が決まっていないファイル（場所・大きさ・推定の候補 ID・BOOTH に無かった記録。場所の順・cursor で続き。自動検索の控えは /v1/unresolved/candidates?hash=。決めるのは画面で）");
     }
 }

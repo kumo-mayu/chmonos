@@ -105,4 +105,4 @@ GUID → 控えの番号だけを持つ表（`PackageGuidIndex`。GUID は 128 �
 - **候補は推定**。API から確定はしない（未確定の解決は画面に残す：[local-api.md](local-api.md)「出す範囲」）。`isStrong` は Core の `ResolutionCandidate.IsStrong`（点数から出す値も返す）。`reasons` は画面に出す文のまま。
 - `target` は未確定のファイルの場所で、ハッシュから場所を引く道の「商品が決まっていないファイル」と同じ範囲。
 - 並びは対象の場所の順、候補は控えの順（画面と同じ）。控えが読めなければ空で返す。
-- 未確定のファイルの一覧そのもの（`/v1/unresolved`）は今回も出さない（場所・中身の一覧・ダウンロード元の記録を持つ大きな記録で、何を出すかを別に決める要がある。plan 32 の範囲外）。
+- 未確定のファイルの一覧そのもの（`/v1/unresolved`）は 2026-11-27 に作った（zip の中の一覧を落とした形。[local-api-shapes.md](local-api-shapes.md)「内部の一覧」）。
