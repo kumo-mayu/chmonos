@@ -244,7 +244,10 @@
       - 済み：② excluded・recent・folders（9da4e8fb・40b12db7・f8b67b52・74f223aa。OpenAPI で頼んだ時だけの欄が必須でない事の試験 59676d24、外した記録が読めない間に変化を流し続けた不具合の直し 6ea4299e）
       - 済み：excluded の出どころを英字の値に（09830c95。欄の名前は `source`。ユーザ判断「Aで直してください」）
       - 済み：③ unresolved（448a9c18。zip の中の一覧は出さない）・取り込みの進み具合（1462c483。`/v1/version` の `progress`）
-      - 作っている：④ 変換の組 → 保存した検索を条件にする・1階層のフォルダ（`docs/spec/search-saved.md`「条件にする・フォルダ」。ユーザ判断「3と5も含めてその形で良いと思う」）→ ⑤ 保存した検索（その形を出す）
+      - 済み：④ 変換の組（a6e80e8b。`GET /v1/conversion-pairs`。内部の一覧の決め事は `docs/spec/local-api-internal.md` へ分けた dba82d71）
+      - 後で決める：内部の一覧5本（recent・folders・excluded・unresolved・conversion-pairs）を MCP に出すか。出すなら、変換の組は端が隠したアバターの組を組ごと落とす処理が要る（今の `Visibility.Scrub` は入れ子の端を見ない）
+      - 記録だけ：`docs/spec/item-page.md` が202行で、1ファイル200行の決まりを超えている（前から）
+      - 作っている：保存した検索を条件にする・1階層のフォルダ（`docs/spec/search-saved.md`「条件にする・フォルダ」。ユーザ判断「3と5も含めてその形で良いと思う」）→ ⑤ 保存した検索（その形を出す）
    2. 開いた画面に付いていく（`screenChanged`・`GET /v1/plugin/current`・`watch.screen`）
    3. 右クリックの5か所（file・unityPackage・modification・avatar・shop）
    4. 拡張データ：上限を測る（測る前に kumo-ime に聞く・VRChat 中は測らない）→ 宣言と値と include → 画面 → 検索の条件と目盛り → まとめて書く口
