@@ -251,7 +251,7 @@
       - 済み：保存した検索を条件にする（344486c6。「検索文字列も使う」付き）・保存と上書きの窓で含める物を選ぶ（64968627。`keepSort`・`keepView`）
       - 済み：⑤ 保存した検索を API に出す（53dcb23d。`GET /v1/saved-searches`。`search` はそのまま `POST /v1/search` に渡せ、変換できない条件は `unconverted` に書く）
       - 済み：`search` の中の null の欄を省く（971df5f3。ユーザ判断「BでOKです」。省くのは書き出しだけで、検索の本文として読む形は変わらない）
-   2. 作った：開いた画面に付いていく（bced5674）。仮に置いた4つは今の形に決めた（ユーザ判断「1-4はおすすめで行きましょう」）。試験の足りない道と文言の点検を担当に頼んだ（`screenChanged`・`GET /v1/plugin/current`・`watch.screen`）
-   3. 右クリックの5か所（file・unityPackage・modification・avatar・shop）
+   2. 済み：開いた画面に付いていく（bced5674・879bdc24。仮に置いた4つは今の形に決めた〔ユーザ判断「1-4はおすすめで行きましょう」〕。名前で結ぶ道ごとの試験と、画面の名前の付け忘れの守りあり）
+   3. 作っている：右クリックの5か所（file・unityPackage・modification・avatar・shop）
    4. 拡張データ（編集画面で人が直せる `editable` の欄を含む。ユーザ判断 2026-11-27「拡張性を考えてBで行きましょう」。欄をまとめる `group` も「Aのgroup案を採用」）：上限を測る（測る前に kumo-ime に聞く・VRChat 中は測らない）→ 宣言と値と include → 画面 → 検索の条件と目盛り → まとめて書く口
    - 確かめる事：`manual/40-api.md` に担当が足した3か所の文言（public-docs で点検）。本番に、上の不具合で読めない記録が出ているか（ユーザが見る）
