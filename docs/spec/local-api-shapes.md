@@ -39,7 +39,7 @@
 | `GET /v1/modifications`・`/{id}`・`/v1/unity-projects` | 改変・Unity プロジェクト | 作った |
 | `GET /v1/notifications` | 通知（既読・片付けた印つき） | 作った（変化の中身はまだ） |
 | `GET /v1/notifications/archive`・`/archive/{month}` | 保管した通知（月ごと・新しい順・商品名で絞る・続きの印）。形は [local-api-stored.md](local-api-stored.md) | 作った（2026-11-11） |
-| `GET /v1/recent`・`/v1/stats` | 最近の足跡・統計 | recent は出す（2026-11-27。まだ作っていない）・stats は後回し |
+| `GET /v1/recent`・`/v1/stats` | 最近の足跡・統計 | recent は作った（2026-11-27。形は下の「内部の一覧」）・stats は後回し |
 | `GET /v1/images/{itemId}/{name}`・`/v1/modifications/{id}/images/{name}` | 画像の本体（ブラウザの画面のため） | 作った |
 
 アバター・素体・ショップから商品を引く専用の URL は作らない（検索の式で書く。ユーザ判断 2026-10-12）。
@@ -185,3 +185,11 @@
 - **中身を見る条件「Unityプロジェクト」は API に無い**（API は保存先の外を調べない）。`unityProject` は改変に紐付けた物で絞る方。画面が前に調べた結果の控えは `GET /v1/unity-scans` で読める（2026-11-11。調べ直さない。[local-api-stored.md](local-api-stored.md)）。
 - **条件 `unityProject`**：場所は `UnityProjectPath.Normalize`（前後の空白・区切りを `\` に・`..` を畳む・末尾の区切りを落とす）で揃えて照らす。大文字小文字は区別しない（今までどおり）。改変の画面の比べ（`ModificationService.SamePath`）も同じ揃え方（2026-11-10）。
   改変に結ぶ `PUT /v1/modifications/{id}/unity-project` も同じ関数で揃えてから書く。画面の条件も同じ索引（`ModificationUsage`）を引くので、画面と API は同じ答え。保存した値は書き換えない。
+
+## 内部の一覧（2026-11-27）
+
+上の「出す物を決めた」の ②。どれも読むだけで、どのトークンでも読める。写しから組み（要求のたびにファイルを読まない）、`cursor`・`limit`（1〜200・既定100）で分けて `{ items, total, nextCursor }` で返す。続きの印は最後の1件の並べる鍵で、別の URL の印は `invalidCursor`。
+
+| URL | 1件の形 | 並び・決まり |
+|---|---|---|
+| `GET /v1/recent` | `{ itemId, name, addedAt, usedAt, viewedAt }` | 商品 ID の順（3種類の日時のどれで並べても1つに決まらない。種類で絞って新しい順は検索の条件 `recent`）。値は条件「最近」と同じ `RecentActivity.Times`（同じ商品の行が2つなら種類ごとに新しい方）。写しに無い商品の行（消した直後・起動時の整理の前）も返し、`name` を null |
