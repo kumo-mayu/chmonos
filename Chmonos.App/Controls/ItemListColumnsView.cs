@@ -46,6 +46,42 @@ public static class ItemListColumnsView
         host.Attach((ItemListColumns?)e.NewValue);
     }
 
+    /// <summary>
+    /// 見える範囲の外にこの幅まで掛かる列も作る。境目でわずかに左右へ流すたびに作る・捨てるを繰り返さないように
+    /// （狭い列1〜2本ぶん。広げ過ぎると、全部の列を出したときに作る列が増えて軽くならない）
+    /// </summary>
+    internal const double RealizeMargin = 100;
+
+    /// <summary>
+    /// 左から並んだ列の幅のうち、横の位置 <paramref name="offset"/> から幅 <paramref name="viewport"/> の範囲（左右に <paramref name="margin"/> を足す）に
+    /// 少しでも掛かる列。掛かる列だけ中身を作る（<see cref="Host"/>）
+    /// </summary>
+    internal static bool[] VisibleColumns(IReadOnlyList<double> widths, double offset, double viewport, double margin)
+    {
+        var left = offset - margin;
+        var right = offset + viewport + margin;
+        var shown = new bool[widths.Count];
+        var x = 0d;
+        for (var i = 0; i < widths.Count; i++)
+        {
+            var end = x + Math.Max(0, widths[i]);
+            shown[i] = end > left && x < right;
+            x = end;
+        }
+
+        return shown;
+    }
+
+    /// <summary>見えない列のセル。結び付けを持たない空の枠（型が無いと、セルは行の ViewModel の名前を字で出してしまう）。</summary>
+    private static readonly DataTemplate s_emptyCell = CreateEmptyCell();
+
+    private static DataTemplate CreateEmptyCell()
+    {
+        var template = new DataTemplate { VisualTree = new FrameworkElementFactory(typeof(Border)) };
+        template.Seal();
+        return template;
+    }
+
     /// <summary>メニューの名前（読み上げ・自動操作）。</summary>
     public const string MenuAutomationId = "ItemListColumnsMenu";
 
@@ -77,13 +113,84 @@ public static class ItemListColumnsView
         /// <summary>「この列を非表示」。押せるかは開くたびに今の並びで決める（最後の1列は外せない）。</summary>
         private MenuItem? _hide;
 
+        /// <summary>列ごとの本当の中身の型。横にはみ出した列は <see cref="s_emptyCell"/> に替え、見える範囲に入ったらこれに戻す。</summary>
+        private readonly Dictionary<GridViewColumn, DataTemplate> _cells = [];
+
+        /// <summary>一覧自身の ScrollViewer（最初の ScrollChanged で知る）。知るまでは見える幅が分からない。</summary>
+        private ScrollViewer? _scroll;
+
         public Host(ListView list)
         {
             _list = list;
             _view = new GridView { AllowsColumnReorder = true, ColumnHeaderContextMenu = BuildMenu() };
             _view.Columns.CollectionChanged += OnColumnsCollectionChanged;
             list.View = _view;
+            list.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(OnScrollChanged));
         }
+
+        private void OnScrollChanged(object sender, ScrollChangedEventArgs e)
+        {
+            // 中の部品（見出しの段の ScrollViewer など）の知らせも上がって来る。一覧自身の物だけを見る
+            if (e.OriginalSource is not ScrollViewer viewer || !ReferenceEquals(viewer.TemplatedParent, _list))
+            {
+                return;
+            }
+
+            _scroll = viewer;
+            if (e.HorizontalChange != 0 || e.ViewportWidthChange != 0 || e.ExtentWidthChange != 0)
+            {
+                UpdateRealized();
+            }
+        }
+
+        private void OnColumnPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(GridViewColumn.ActualWidth))
+            {
+                UpdateRealized();
+            }
+        }
+
+        /// <summary>
+        /// 見える範囲（＋<see cref="RealizeMargin"/>）に掛かる列だけ本当の中身を作り、外の列は空の型にする（ユーザ判断 2026-11-27「B」）。
+        /// 全部の列（38列）を出すと、縦に流して行が入るたびに見えない列の分まで結び付けと配置が走り、
+        /// 40歩で固まりの合計が約5.7秒（既定の列は約2.4秒）になっていた。
+        /// 列そのものは残すので、幅・並べ替え・見出しのメニューは変わらない。
+        /// GridView は列の型が替わると、今ある行のセルにもその場で当て直す（試験で確かめた）
+        /// </summary>
+        private void UpdateRealized()
+        {
+            var columns = _view.Columns;
+            if (columns.Count == 0)
+            {
+                return;
+            }
+
+            // 見える幅が分かるまでは画面の幅を上限にする（一覧が画面より広くなることは無い）。
+            // 全部を作る側に倒すと、開いた最初の配置で全部の列を作ってから空に替えることになり、開く時が重い
+            var (offset, viewport) = _scroll is { ViewportWidth: > 0 } scroll
+                ? (scroll.HorizontalOffset, scroll.ViewportWidth)
+                : (0d, SystemParameters.VirtualScreenWidth);
+            var shown = VisibleColumns(columns.Select(WidthOf).ToList(), offset, viewport, RealizeMargin);
+            for (var i = 0; i < columns.Count; i++)
+            {
+                var column = columns[i];
+                if (!_cells.TryGetValue(column, out var real))
+                {
+                    continue;
+                }
+
+                // 選ぶ列はいつも作る：中のチェックは Tab で止まる所で、作らないと横に流した後の Tab が飛ばす。細く軽い
+                var template = shown[i] || _keys[column] == ItemListColumnCatalog.Select ? real : s_emptyCell;
+                if (!ReferenceEquals(column.CellTemplate, template))
+                {
+                    column.CellTemplate = template;
+                }
+            }
+        }
+
+        /// <summary>列の幅。境目のダブルクリックの直後は自動の幅（NaN）になるので、その間は配置の結果を使う。</summary>
+        private static double WidthOf(GridViewColumn column) => double.IsNaN(column.Width) ? column.ActualWidth : column.Width;
 
         public void Attach(ItemListColumns? columns)
         {
@@ -115,8 +222,14 @@ public static class ItemListColumnsView
             _syncing = true;
             try
             {
+                foreach (var old in _view.Columns)
+                {
+                    ((System.ComponentModel.INotifyPropertyChanged)old).PropertyChanged -= OnColumnPropertyChanged;
+                }
+
                 _view.Columns.Clear();
                 _keys.Clear();
+                _cells.Clear();
                 if (_columns is null)
                 {
                     return;
@@ -131,6 +244,13 @@ public static class ItemListColumnsView
                         _view.Columns.Add(column);
                     }
                 }
+
+                // 配置の前に型を絞る（セルは次の配置で作られるので、ここで替えれば見えない列の中身は一度も作らない）
+                UpdateRealized();
+                foreach (var column in _view.Columns)
+                {
+                    ((System.ComponentModel.INotifyPropertyChanged)column).PropertyChanged += OnColumnPropertyChanged;
+                }
             }
             finally
             {
@@ -140,13 +260,15 @@ public static class ItemListColumnsView
 
         private GridViewColumn CreateColumn(ItemListColumns columns, ItemListColumnDef definition)
         {
+            var real = definition.Cell == ItemListCell.Template
+                ? (DataTemplate)_list.FindResource(definition.Template!)
+                : TextTemplate(definition);
             var column = new GridViewColumn
             {
                 Header = columns.HeaderOf(definition.Key),
-                CellTemplate = definition.Cell == ItemListCell.Template
-                    ? (DataTemplate)_list.FindResource(definition.Template!)
-                    : TextTemplate(definition),
+                CellTemplate = real,
             };
+            _cells[column] = real;
             BindingOperations.SetBinding(column, GridViewColumn.WidthProperty, new Binding(nameof(ItemListColumnWidth.Width))
             {
                 Source = columns.WidthOf(definition.Key),
@@ -172,6 +294,9 @@ public static class ItemListColumnsView
                 if (ReferenceEquals(columns, _columns))
                 {
                     columns.Reorder(order);
+
+                    // 並びが変わると、同じ横の位置に見える列も変わる
+                    UpdateRealized();
                 }
             });
         }
