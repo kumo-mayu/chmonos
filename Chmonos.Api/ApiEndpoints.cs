@@ -326,7 +326,7 @@ internal static partial class ApiEndpoints
         // 検索
         app.MapPost("/v1/search", async (ApiState state, HttpRequest request) =>
             ApiHost.Json(SearchEngine.Search(state.Snapshot, await ReadAsync(request, json.SearchRequest), state.Clock()), json.SearchPage))
-            .Takes<SearchRequest>().Answers<SearchPage>("式で検索（and・or・not・text・condition）");
+            .Takes<SearchRequest>().Answers<SearchPage>("式で検索（and・or・not・text・condition。条件 savedSearch に書く名前は GET /v1/saved-searches の一覧から引ける）");
 
         app.MapGet("/v1/search/conditions", () => ApiHost.Json(Catalogs.ConditionKinds(), json.IReadOnlyListConditionKindRef))
             .Answers<IReadOnlyList<ConditionKindRef>>("条件の種類・値の形・選択肢・切り替えの既定");

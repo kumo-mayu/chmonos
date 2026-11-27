@@ -31,5 +31,9 @@ internal static partial class ApiEndpoints
         app.MapGet("/v1/conversion-pairs", (ApiState state, string? cursor, int? limit) =>
             ApiHost.Json(ConversionPairList.Page(state.Snapshot, cursor, limit), json.ConversionPairPage))
             .Answers<ConversionPairPage>("人が足した変換の組（元→先の1方向。端はアバターの avatarId か共通素体の baseName。ツールの名前・メモつき。足した順・cursor で続き。足す・外すのは画面で）");
+
+        app.MapGet("/v1/saved-searches", (ApiState state, string? cursor, int? limit) =>
+            ApiHost.Json(SavedSearchApiList.Page(state.Snapshot, cursor, limit, state.Clock()), json.SavedSearchPage))
+            .Answers<SavedSearchPage>("保存した検索（名前・フォルダ・要約・含める物。search は POST /v1/search の本文にそのまま入れられる式。書けなかった条件は unconverted。人が決めた並び・cursor で続き。保存・上書きは画面で）");
     }
 }

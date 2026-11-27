@@ -393,4 +393,54 @@ public sealed class ApiInternalListTests : IAsyncLifetime
         var foldersCursor = Uri.EscapeDataString((await JsonOf("/v1/folders?limit=1")).GetProperty("nextCursor").GetString()!);
         await AssertProblem($"/v1/conversion-pairs?cursor={foldersCursor}", "invalidCursor");
     }
+    /// <summary>
+    /// 保存した検索は人が決めた並びで、検索の中身を API の検索の式で返す。答えの search はそのまま POST /v1/search の本文になる。
+    /// 書いたら見張りの部分 savedSearches で知らせて読み直す（docs/spec/local-api-internal.md ⑤）
+    /// </summary>
+    [Fact]
+    public async Task 保存した検索は_並びのまま検索の式で返し_その式で探せて_書いたら読み直して知らせる()
+    {
+        Assert.Equal(0, (await JsonOf("/v1/saved-searches")).GetProperty("total").GetInt32());
+        var sequence = (await JsonOf("/v1/changes")).GetProperty("sequence").GetInt64();
+
+        await _store.SavedSearches.SaveAsync(new SavedSearchList
+        {
+            Entries =
+            [
+                new SearchHistoryEntry { Name = "上着", Text = "上着", Folder = "服", KeepSort = true },
+                new SearchHistoryEntry { Name = "靴を除く", Modules = [new SearchModuleState { Kind = "SavedSearch", Items = ["上着"], Exclude = true }] },
+            ],
+        });
+        _sync.Note(_store.Paths.SavedSearchesFile);
+        await _sync.ApplyPendingAsync();
+
+        var changes = await JsonOf($"/v1/changes?since={sequence}");
+        Assert.Contains(changes.GetProperty("changes").EnumerateArray(), change => change.GetProperty("parts").EnumerateArray().Any(part => part.GetString() == "savedSearches"));
+
+        var page = await JsonOf("/v1/saved-searches?limit=1");
+        Assert.Equal(2, page.GetProperty("total").GetInt32());
+        var first = page.GetProperty("items")[0];
+        Assert.Equal("上着", first.GetProperty("name").GetString());
+        Assert.Equal("服", first.GetProperty("folder").GetString());
+        Assert.True(first.GetProperty("keepSort").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, first.GetProperty("sort").ValueKind);
+        Assert.Equal("card", first.GetProperty("view").GetString());
+        Assert.Equal(0, first.GetProperty("unconverted").GetArrayLength());
+
+        // 外のツールの道：search をそのまま本文にして探す
+        var request = new HttpRequestMessage(HttpMethod.Post, "/v1/search") { Content = new StringContent(first.GetProperty("search").GetRawText(), System.Text.Encoding.UTF8, "application/json") };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ReaderToken);
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var found = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal(["9700001"], Ids(found, "id"));
+
+        var cursor = Uri.EscapeDataString(page.GetProperty("nextCursor").GetString()!);
+        var second = (await JsonOf($"/v1/saved-searches?cursor={cursor}")).GetProperty("items").EnumerateArray().Single();
+        var not = second.GetProperty("search").GetProperty("where").GetProperty("not").GetProperty("condition");
+        Assert.Equal("savedSearch", not.GetProperty("kind").GetString());
+
+        var foldersCursor = Uri.EscapeDataString((await JsonOf("/v1/folders?limit=1")).GetProperty("nextCursor").GetString()!);
+        await AssertProblem($"/v1/saved-searches?cursor={foldersCursor}", "invalidCursor");
+    }
 }

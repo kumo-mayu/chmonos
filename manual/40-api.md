@@ -149,6 +149,7 @@ if ($result.state -eq "approved") {
 | （次のバージョンから）`GET /v1/excluded` | 管理から外したファイル（ハッシュ・外したときの場所・日時・どの画面で外したか）。どの画面で外したかは `source` に `resolve`（未確定の画面で1つ）・`resolveArchive`（元の zip ごと）・`resolveBulk`（まとめて）・`folderView`（フォルダビュー）のどれかで入り、ほかは `other`、記録が無いときは `null` です。設定の「除外したファイル」と同じ新しい順です。元に戻すのは Chmonos の画面で行います。続きは `cursor` で取ります |
 | （次のバージョンから）`GET /v1/unresolved` | 商品が決まっていないファイル（ハッシュ・場所・大きさ・日時・手掛かりから出た候補の商品 ID・BOOTH に無かった記録）。zip の中のファイル名の一覧は含みません。商品を決めるのは Chmonos の画面で行います。続きは `cursor` で取ります |
 | （次のバージョンから）`GET /v1/conversion-pairs` | 「アバターの管理」の「変換」で追加した組（元 → 先・使うツール・メモ）。元と先はアバターの商品 ID（`avatarId`）か共通素体の名前（`baseName`）のどちらかです。追加した順に並びます。組を足す・外すのは Chmonos の画面で行います。続きは `cursor` で取ります |
+| （次のバージョンから）`GET /v1/saved-searches` | アプリで保存した検索。名前・フォルダ・要約と、保存した表示順・カードかリストかが入ります。`search` は、そのまま `POST /v1/search` の本文に入れて同じ条件で探せます。API の検索で書けない条件（別表記など）は `search` から外し、`unconverted` に書きます。外した分だけ、アプリより多くの商品に当たります。並びはアプリの一覧と同じです。保存や上書きは Chmonos の画面で行います。続きは `cursor` で取ります |
 
 対応アバター（`compatibleAvatars`）は検索の「対応アバター」と同じ数え方です。まだ確認していない推定の対応も入り、消した対応と説明文のリンクは入りません。
 
@@ -178,7 +179,7 @@ if ($result.state -eq "approved") {
 - （v1.2.0 から）Unity へ送れる unitypackage を持つ商品だけにするときは、`"hasUnityPackage": true` を送ります。`false` なら持たない商品だけです。
 - （v1.2.0 から）一覧の1件には並べ替えに使う値（`publishedAt`・`acquiredAt`・`wishCount`・`paid`）と BOOTH の値段（`priceText`）も入ります。`acquiredAt` は並べ替えと同じく、購入の日付のうち最も早い日です（購入の記録が無ければ商品の入手日）。商品の詳細の `acquiredAt` も同じ値で、入手日の欄に入れた値そのものは `acquiredAtEntered` にあります。
 - （v1.2.0 から）条件 `unityProject` の場所は、`/` 区切りでも、末尾に区切りがあっても当たります。
-- （次のバージョンから）条件 `savedSearch` は、アプリで保存した検索に当たる商品です。`values` に名前を1つ書きます（例：`{"kind": "savedSearch", "values": ["夏の衣装"]}`）。保存した検索の今の中身で当て、表示順は使いません。元の検索文字列を使わないときは `"useText": false` を送ります。名前が無いときは何にも当たりません。
+- （次のバージョンから）条件 `savedSearch` は、アプリで保存した検索に当たる商品です。`values` に名前を1つ書きます（例：`{"kind": "savedSearch", "values": ["夏の衣装"]}`）。名前は `GET /v1/saved-searches` で調べられます。保存した検索の今の中身で当て、表示順は使いません。元の検索文字列を使わないときは `"useText": false` を送ります。名前が無いときは何にも当たりません。
 
 ## 詳しい情報を足す
 

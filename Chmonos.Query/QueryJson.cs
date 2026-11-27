@@ -97,6 +97,7 @@ namespace Chmonos.Query;
 [JsonSerializable(typeof(FolderPage))]
 [JsonSerializable(typeof(ExcludedPage))]
 [JsonSerializable(typeof(ConversionPairPage))]
+[JsonSerializable(typeof(SavedSearchPage))]
 [JsonSerializable(typeof(UnresolvedPage))]
 public sealed partial class QueryJsonContext : JsonSerializerContext
 {

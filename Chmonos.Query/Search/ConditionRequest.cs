@@ -120,7 +120,7 @@ public sealed class ConditionRequest
     /// <summary>最近：何日前まで。送らなければそれより前もすべて。</summary>
     public int? ToDays { get; init; }
 
-    /// <summary>保存した検索：元の検索文字列も照らすか（既定 true。画面の「検索文字列も使う」）。名前は <see cref="Values"/> の1つ目</summary>
+    /// <summary>保存した検索：元の検索文字列も照らすか（既定 true。画面の「検索文字列も使う」）。名前は <see cref="Values"/> の1つ目（名前の一覧は <c>GET /v1/saved-searches</c>）</summary>
     public bool? UseText { get; init; }
 }
 
