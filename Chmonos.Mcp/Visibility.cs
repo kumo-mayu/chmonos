@@ -122,8 +122,12 @@ internal sealed class Visibility
     /// </summary>
     private static readonly string[] RowKeys = ["itemId", "avatarId"];
 
-    /// <summary>商品の ID を文字列で並べる欄（検索の要約と包みの <c>avatarIds</c>、共通素体の <c>members</c>）。隠す ID だけを抜く。</summary>
-    private static readonly HashSet<string> IdListKeys = new(StringComparer.Ordinal) { "avatarIds", "members" };
+    /// <summary>
+    /// 商品の ID を文字列で並べる欄（検索の要約と包みの <c>avatarIds</c>、共通素体の <c>members</c>、
+    /// 商品のバリエーションの向き先の <c>avatars</c>・<c>rejectedAvatars</c>）。隠す ID だけを抜く。
+    /// <c>avatarLinks.avatars</c> も同じ名前だが中は行（オブジェクト）なので、行の鍵（<see cref="RowKeys"/>）で落ちる
+    /// </summary>
+    private static readonly HashSet<string> IdListKeys = new(StringComparer.Ordinal) { "avatarIds", "members", "avatars", "rejectedAvatars" };
 
     /// <summary>
     /// 入れ子のどこにあっても、隠す商品への参照を落とす（2026-11-13 の点検 M1。欄の形ごとに当てる）：

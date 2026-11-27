@@ -219,27 +219,18 @@ public sealed class AvatarCompatibilityIndex
         => (includeDetected ? _unownedWithDetected : _unownedManualOnly)
             .GetValue(local, block => UnownedCore(block, includeDetected));
 
-    private IReadOnlySet<string> UnownedCore(LocalBlock local, bool includeDetected)
+    /// <summary>
+    /// バリエーションごとの向き先の、人が決めた行と検出した行を合わせた結果（<c>docs/spec/conversion.md</c>「人が決めた方を優先」）。
+    /// 持っていない分の見分け（<see cref="UnownedVariationAvatars"/>）と、外から使う API の商品の答え（<c>variationTargets</c>）が同じ答えを使うよう、ここ1か所で決める。
+    ///
+    /// - 同じバリエーションに両方あれば人が決めた行が勝つ。名前から見つけた物を全部外しただけの人の行（向き先は空）は、検出の行を消す
+    /// - 人が決めた空の行で外した物も無い物は、何も決めていない扱いで検出の行を残す
+    /// - 「バリエーションを選ばない購入」の行（<see cref="VariationTarget.VariationId"/> が null）は人だけが持つ。向き先のある最初の1行を最後に添える
+    /// - <paramref name="includeDetected"/> が偽なら人が決めた行だけ（設定 <see cref="Models.AppSettings.UseDetectedVariationTargets"/>）
+    /// 並びはバリエーションの ID の順（null の行は最後）。
+    /// </summary>
+    public static IReadOnlyList<VariationTarget> EffectiveVariationTargets(LocalBlock local, bool includeDetected)
     {
-        var none = (IReadOnlySet<string>)new HashSet<string>(StringComparer.Ordinal);
-
-        var owned = local.Purchases
-            .Where(purchase => purchase.Kind != PurchaseKind.Given && purchase.VariationId is not null)
-            .Select(purchase => purchase.VariationId!.Value)
-            .Concat(local.OwnedFiles.Where(file => file.VariationId is not null).Select(file => file.VariationId!.Value))
-            .ToHashSet();
-
-        // バリエーションを選ばない購入に人が向き先を付けていれば、それも持っている分に数える（ユーザ指摘 2026-11-07）。
-        // 付けていなければ前と同じく数えない（何のバリエーションか言えない購入で、持っている分を広げも狭めもしない）
-        var unselected = local.VariationTargets.FirstOrDefault(target => target.VariationId is null && !target.IsEmpty);
-        var unselectedOwned = unselected is not null
-            && local.Purchases.Any(purchase => purchase.Kind != PurchaseKind.Given && purchase.VariationId is null);
-        if (owned.Count == 0 && !unselectedOwned)
-        {
-            return none;
-        }
-
-        // 人が決めた行が、同じバリエーションの検出の行に勝つ
         var targets = new Dictionary<long, VariationTarget>();
         if (includeDetected)
         {
@@ -261,6 +252,39 @@ public sealed class AvatarCompatibilityIndex
                 targets.Remove(target.VariationId!.Value);
             }
         }
+
+        var result = targets.OrderBy(pair => pair.Key).Select(pair => pair.Value).ToList();
+        if (local.VariationTargets.FirstOrDefault(target => target.VariationId is null && !target.IsEmpty) is { } unselected)
+        {
+            result.Add(unselected);
+        }
+
+        return result;
+    }
+
+    private IReadOnlySet<string> UnownedCore(LocalBlock local, bool includeDetected)
+    {
+        var none = (IReadOnlySet<string>)new HashSet<string>(StringComparer.Ordinal);
+
+        var owned = local.Purchases
+            .Where(purchase => purchase.Kind != PurchaseKind.Given && purchase.VariationId is not null)
+            .Select(purchase => purchase.VariationId!.Value)
+            .Concat(local.OwnedFiles.Where(file => file.VariationId is not null).Select(file => file.VariationId!.Value))
+            .ToHashSet();
+
+        // バリエーションを選ばない購入に人が向き先を付けていれば、それも持っている分に数える（ユーザ指摘 2026-11-07）。
+        // 付けていなければ前と同じく数えない（何のバリエーションか言えない購入で、持っている分を広げも狭めもしない）
+        var unselected = local.VariationTargets.FirstOrDefault(target => target.VariationId is null && !target.IsEmpty);
+        var unselectedOwned = unselected is not null
+            && local.Purchases.Any(purchase => purchase.Kind != PurchaseKind.Given && purchase.VariationId is null);
+        if (owned.Count == 0 && !unselectedOwned)
+        {
+            return none;
+        }
+
+        var targets = EffectiveVariationTargets(local, includeDetected)
+            .Where(target => target.VariationId is not null)
+            .ToDictionary(target => target.VariationId!.Value);
 
         if ((targets.Count == 0 && !unselectedOwned) || owned.Any(id => !targets.ContainsKey(id)))
         {

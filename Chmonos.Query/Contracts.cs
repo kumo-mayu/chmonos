@@ -174,6 +174,9 @@ public sealed record ItemDetail
     /// <summary>未読の「商品の更新」の知らせがあるか（カードの札「更新あり」と同じ）。</summary>
     public required bool HasUpdate { get; init; }
 
+    /// <summary>BOOTH の商品の更新を知らせるか（商品ごとの設定。切っていれば更新の知らせを出さない）。</summary>
+    public required bool NotifyOnUpdate { get; init; }
+
     public required bool HasBrokenArchive { get; init; }
 
     public required bool HasMissingFiles { get; init; }
@@ -181,6 +184,16 @@ public sealed record ItemDetail
     public required IReadOnlyList<VariationRef> Variations { get; init; }
 
     public required IReadOnlyList<PurchaseRef> Purchases { get; init; }
+
+    /// <summary>
+    /// バリエーションごとの向き先（人が決めた行と検出した行を合わせた結果。同じバリエーションに両方あれば人が決めた行が勝つ）。
+    /// 合わせ方は画面の「持っていない分の見分け」と同じ所（<c>AvatarCompatibilityIndex.EffectiveVariationTargets</c>）で、
+    /// 設定「名前から見つけた向き先も使う」を切っていれば人が決めた行だけ。出どころ別は <c>include=variationTargets</c>。
+    /// </summary>
+    public required IReadOnlyList<VariationTargetRef> VariationTargets { get; init; }
+
+    /// <summary>変換ツールのプロファイルとしての扱い（人が決めた扱い・自動の判定・つなぎ先）。</summary>
+    public required ConversionRef Conversion { get; init; }
 
     /// <summary>
     /// 入手日（画面の並べ替えと同じ：購入1件の日付のうち最も早い物、購入記録が無ければ商品の入手日の欄）。一覧の要約の <c>acquiredAt</c> と同じ値。
@@ -229,7 +242,57 @@ public sealed record ItemDetail
     /// <summary>記録の古さ。<c>include=meta</c> のときだけ。</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ItemMetaRef? Meta { get; init; }
+
+    /// <summary>バリエーションごとの向き先を、人が決めた行と検出した行に分けてそのまま。<c>include=variationTargets</c> のときだけ。</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public VariationTargetSourcesRef? VariationTargetSources { get; init; }
+
+    /// <summary>
+    /// BOOTH で見つけた中身の更新の控え。<c>include=contentUpdate</c> のときだけ。
+    /// 見つけていない商品でも頼まれれば欄は返し、中の <c>foundAt</c> を null にする（<c>meta</c> の <c>fetchedAt</c> と同じ形。
+    /// 欄そのものを null にすると、頼まなかった時の「欄が無い」と書き分ける作りが直列化に要るため）。
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ContentUpdateRef? ContentUpdate { get; init; }
 }
+
+/// <summary>バリエーション1つの向き先。</summary>
+/// <param name="VariationId">どのバリエーションか。null は「バリエーションを選ばない購入」の行（人が決めた行だけが持つ）。</param>
+/// <param name="Avatars">向き先のアバター（商品 ID）。</param>
+/// <param name="Bases">向き先の共通素体（名前。その仲間全員に効く）。</param>
+/// <param name="All">商品の対応アバター全部向け（全部入りのセットの行など）。</param>
+/// <param name="RejectedAvatars">人が外した、名前から見つけたアバター。出どころ別（<c>include=variationTargets</c>）の行だけ。</param>
+/// <param name="RejectedBases">人が外した、名前から見つけた共通素体。出どころ別の行だけ。</param>
+public sealed record VariationTargetRef(
+    long? VariationId,
+    IReadOnlyList<string> Avatars,
+    IReadOnlyList<string> Bases,
+    bool All,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<string>? RejectedAvatars = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<string>? RejectedBases = null);
+
+/// <param name="Decided">人が決めた行（保存のまま。外しただけの行・バリエーションを選ばない購入の行も）。</param>
+/// <param name="Detected">バリエーションの名前から検出した行（設定に関わらず全部）。</param>
+public sealed record VariationTargetSourcesRef(IReadOnlyList<VariationTargetRef> Decided, IReadOnlyList<VariationTargetRef> Detected);
+
+/// <summary>変換扱い。</summary>
+/// <param name="Mode">人が決めた扱い：<c>auto</c>（自動の判定に任せる）・<c>profile</c>（扱う）・<c>notProfile</c>（扱わない）。</param>
+/// <param name="HasProfileFiles">自動の判定：手元のファイルの中にプロファイルのファイルがあるか（画面の「今の扱い：プロファイル（自動の判定）」と同じ答え）。</param>
+/// <param name="Targets">つなぎ先（外した物・確認待ちも状態つきで）。</param>
+public sealed record ConversionRef(string Mode, bool HasProfileFiles, IReadOnlyList<ConversionTargetRef> Targets);
+
+/// <summary>プロファイルのつなぎ先1つ。アバターか共通素体のどちらか。</summary>
+/// <param name="AvatarId">つなぎ先のアバター（商品 ID）。素体なら null。</param>
+/// <param name="BaseName">つなぎ先の共通素体の名前。アバターなら null。</param>
+/// <param name="Slug">中のプロファイルの名前（分からなければ null）。</param>
+/// <param name="Forward">順方向：ほかのアバターの衣装を、つなぎ先に合わせられる。</param>
+/// <param name="Reverse">逆方向：つなぎ先の衣装を、ほかのアバターに合わせられる。</param>
+/// <param name="State"><c>confirmed</c>（人が決めた）・<c>candidate</c>（自動で推して確認待ち）・<c>rejected</c>（人が外した）。</param>
+public sealed record ConversionTargetRef(string? AvatarId, string? BaseName, string? Slug, bool Forward, bool Reverse, string State);
+
+/// <param name="FoundAt">中身の更新を見つけた日時。見つけていなければ null。</param>
+/// <param name="HasNewerFiles">見つけた後に新しいファイルかフォルダを取り込んだか（<c>LocalBlock.HasFilesNewerThanUpdate</c>）。見つけていなければ false。</param>
+public sealed record ContentUpdateRef(DateTimeOffset? FoundAt, bool HasNewerFiles);
 
 /// <summary>対応アバターの紐付けの帳簿。消した紐付け・説明文のリンク（要確認）も、状態つきでそのまま返す。</summary>
 /// <param name="DetectedAt">対応アバターの検出を最後に走らせた日時。</param>

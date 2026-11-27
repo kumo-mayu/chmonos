@@ -487,6 +487,14 @@ public sealed class McpBridgeTests : IAsyncLifetime
                     new Core.Models.AvatarLink { AvatarItemId = "9700001", Confirmed = true },
                     new Core.Models.AvatarLink { AvatarItemId = "9700002", Confirmed = true },
                 ],
+
+                // バリエーションの向き先（ID の文字列の配列）と変換扱いのつなぎ先（avatarId の行）にも隠したアバターが入る
+                VariationTargets = [new Core.Models.VariationTarget { VariationId = 12, Avatars = ["9700001", "9700002"], RejectedAvatars = ["9700002"] }],
+                DetectedVariationTargets = [new Core.Models.VariationTarget { VariationId = 11, Avatars = ["9700002"] }],
+                Conversion = new Core.Models.ConversionSetting
+                {
+                    Targets = [new Core.Models.ConversionTarget { AvatarItemId = "9700002", Forward = true, Confirmed = true }],
+                },
             },
         }).GetAwaiter().GetResult();
         store.Modifications.SaveAsync(new Core.Models.ModificationRecord { Id = "mod-0001", AvatarItemId = "9700001", Name = "作り物の改変" }).GetAwaiter().GetResult();
@@ -524,7 +532,16 @@ public sealed class McpBridgeTests : IAsyncLifetime
         var detail = Parse(text);
         Assert.Equal(["9700001"], detail["compatibleAvatars"]!.AsArray().Select(avatar => avatar!["avatarId"]!.GetValue<string>()));
         Assert.Equal(["9700001"], detail["avatarLinks"]!["avatars"]!.AsArray().Select(avatar => avatar!["avatarId"]!.GetValue<string>()));
-        Assert.Equal(2, detail["omittedByDisplaySettings"]!.GetValue<int>());
+        Assert.Empty(detail["conversion"]!["targets"]!.AsArray());
+        Assert.Equal(new[] { Array.Empty<string>(), ["9700001"] }, detail["variationTargets"]!.AsArray().Select(target => target!["avatars"]!.AsArray().Select(id => id!.GetValue<string>()).ToArray()));
+
+        // 対応 1・紐付け 1・つなぎ先 1・合わせた向き先 2（11 の検出と 12 の人の行）
+        Assert.Equal(5, detail["omittedByDisplaySettings"]!.GetValue<int>());
+
+        // 出どころ別の向き先（外した物の一覧も）
+        (isError, text) = await McpHarness.CallAsync(client, "get_item", new { id = "9700004", include = new[] { "variationTargets" } });
+        Assert.False(isError, text);
+        AssertNoHidden(text);
 
         // 改変の avatarId・avatarName：一覧は行ごと、1件は断る
         (isError, text) = await McpHarness.CallAsync(client, "list_modifications");

@@ -89,6 +89,40 @@ public class VariationTargetTests
         Assert.Empty(Index().UnownedVariationAvatars(given, includeDetected: true));
     }
 
+    /// <summary>
+    /// 合わせた結果（外から使う API の既定の答えと、持っていない分の見分けが使う）：人が決めた行が勝ち、
+    /// 外しただけの行は検出の行を消し、空の人の行は検出を残し、選ばない購入の行は最後。設定を切れば人が決めた行だけ
+    /// </summary>
+    [Fact]
+    public void 合わせた向き先は_人が決めた行が勝ち_選ばない購入の行を最後に置く()
+    {
+        var local = new LocalBlock
+        {
+            VariationTargets =
+            [
+                new VariationTarget { VariationId = null, Avatars = ["kuuta"] },
+                new VariationTarget { VariationId = Mame, Bases = ["まめ"] },
+                new VariationTarget { VariationId = Body, RejectedAvatars = ["kuuta"] },
+                new VariationTarget { VariationId = 4 },
+            ],
+            DetectedVariationTargets =
+            [
+                new VariationTarget { VariationId = 4, Avatars = ["mamehinata"] },
+                new VariationTarget { VariationId = Body, Avatars = ["kuuta"] },
+                new VariationTarget { VariationId = Mame, Avatars = ["kipfel"] },
+                new VariationTarget { VariationId = Kuuta, Avatars = ["kuuta"] },
+            ],
+        };
+
+        var merged = AvatarCompatibilityIndex.EffectiveVariationTargets(local, includeDetected: true);
+        Assert.Equal([(long?)Kuuta, Mame, 4, null], merged.Select(target => target.VariationId));
+        Assert.Equal(["まめ"], merged[1].Bases);
+        Assert.Equal(["mamehinata"], merged[2].Avatars);
+
+        var manual = AvatarCompatibilityIndex.EffectiveVariationTargets(local, includeDetected: false);
+        Assert.Equal([(long?)Mame, null], manual.Select(target => target.VariationId));
+    }
+
     /// <summary>名前から見つけた物を全部外した行は人が決めた行なので、検出の行を使わない（向き先が無いので、持っていれば見分けない）</summary>
     [Fact]
     public void 名前から見つけた物を外しただけの行も_検出に勝つ()

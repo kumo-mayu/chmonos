@@ -46,14 +46,14 @@
 
 ## 出す物を決めた（2026-11-27・ユーザ判断「おすすめを採用します」）
 
-今 API が出していない内部の情報を1つずつ仕分けた。物差しは [local-api.md](local-api.md) の「出す範囲 B」（読む事は広く出す）・「既定は結果だけ、帳簿は `?include=`」・画面と段取りの内部の状態は出さない（出すと形を変えにくい）。まだ作っていない。
+今 API が出していない内部の情報を1つずつ仕分けた。物差しは [local-api.md](local-api.md) の「出す範囲 B」（読む事は広く出す）・「既定は結果だけ、帳簿は `?include=`」・画面と段取りの内部の状態は出さない（出すと形を変えにくい）。作ったかは表の「出し方・理由」の頭の［実装］で示す。
 
 | 物 | 決め | 出し方・理由 |
 |---|---|---|
-| 商品のバリエーションの向き先（`variationTargets`・`detectedVariationTargets`） | 出す | 既定は合わせた結果（人が決めた物が勝つ）。出どころ別は `include=variationTargets` |
-| 商品の変換扱い（`conversion`） | 出す | 変換扱いか・つなぎ先。自動の判定の結果も Core の同じ所から返す（外で計算させない） |
-| 商品の中身の更新の控え（`contentUpdate`） | 出す | 見つけた日時と、その後に新しいファイルを取り込んだか。`include=` で返す |
-| 商品の更新を知らせるか（`notifyOnUpdate`） | 出す | 既定の答えに1欄 |
+| 商品のバリエーションの向き先（`variationTargets`・`detectedVariationTargets`） | 出す | ［実装 2026-11-27］既定の `variationTargets` は合わせた結果（人が決めた物が勝つ。`AvatarCompatibilityIndex.EffectiveVariationTargets`・設定「名前から見つけた向き先も使う」に従う）。出どころ別は `include=variationTargets` で `variationTargetSources` |
+| 商品の変換扱い（`conversion`） | 出す | ［実装 2026-11-27］既定の `conversion`：人が決めた扱い `mode`（`auto`・`profile`・`notProfile`）・自動の判定 `hasProfileFiles`（画面と同じ `ConversionScan.ProfilesOf`）・つなぎ先 `targets`（状態 `confirmed`・`candidate`・`rejected`）。扱いと判定を合わせた「実質」は組まない |
+| 商品の中身の更新の控え（`contentUpdate`） | 出す | ［実装 2026-11-27］`include=contentUpdate` で `contentUpdate`：`foundAt`（見つけていなければ null）・`hasNewerFiles`（`LocalBlock.HasFilesNewerThanUpdate`） |
+| 商品の更新を知らせるか（`notifyOnUpdate`） | 出す | ［実装 2026-11-27］既定の `notifyOnUpdate` |
 | 商品の再取得の予定（次に取る時・続けて見つからなかった回数） | 出さない | 取り込みの内部の段取りで決まりが変わり得る。最後に取った日時は `include=meta` で出ている |
 | `/v1/folders`・`/v1/unresolved`・`/v1/excluded`・`/v1/recent` | 出す | 未確定・外した物は読むだけ（解決は画面に残す）。最近は書く口があるのに読めなかった |
 | `/v1/saved-searches` | 出す | 人が作った検索をソフトが使い回す。保存の形から API の条件へ戻す変換を作る |
@@ -65,7 +65,7 @@
 | バナー・動画の題・新しい版の確認 | 出さない | 機械の控え。動画の題は YouTube の情報の配り直しになる |
 | 控え（`format-backups`・`items/.prev`）・よけた記録・ログ・検索用の控え | 出さない | 中身の守り（ログ）と内部の物 |
 
-作る順（軽い物から）：① 商品の欄 ② excluded・recent・folders ③ unresolved・取り込みの進み具合 ④ 変換の組 ⑤ 保存した検索。どれも項目を足すだけで `/v1/` のまま。
+作る順（軽い物から）：① 済み：商品の欄（2026-11-27） ② excluded・recent・folders ③ unresolved・取り込みの進み具合 ④ 変換の組 ⑤ 保存した検索。どれも項目を足すだけで `/v1/` のまま。
 
 ## 商品の答え（`ItemDetail`・`ItemSummary`）
 
@@ -82,6 +82,8 @@
   | `contents` | ファイルごとの zip の中の一覧 |
   | `images` | `images`：画像の全部（既定は `thumbnail` だけ） |
   | `meta` | `meta`：BOOTH の情報を最後に取った日時 |
+  | `variationTargets` | `variationTargetSources`：バリエーションの向き先を、人が決めた行（`decided`。外した物 `rejectedAvatars`・`rejectedBases` つき）と検出した行（`detected`。設定に関わらず全部）に分けて保存のまま |
+  | `contentUpdate` | `contentUpdate`：BOOTH で見つけた中身の更新の日時 `foundAt` と、その後に新しいファイルを取り込んだか `hasNewerFiles`。見つけていなければ `foundAt` が null（欄は返す。`meta` の `fetchedAt` と同じ形） |
 
   商品以外：改変（`/v1/modifications`・`/v1/items/{id}/modifications`）の `include=detached` で外した商品を `detached` 付きで返し、
   共通素体の `include=rejected` で人が「素体ではない」とした物を `isRejected` 付きで返す。アバターの「手で持っているにしたか」・バリエーションの BOOTH の中の状態・購入の「BOOTH にまだあるか」は返さない。

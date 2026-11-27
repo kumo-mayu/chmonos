@@ -75,7 +75,7 @@
   - 商品1件・説明文・unitypackage の中身（item_id）・アバター1体：隠す物なら「非表示にしているので答えません」「R-18 で…表示しないことにしているので答えません」。
   - 商品への参照（2026-11-13 の点検 M1）：隠す商品の ID（非表示と、隠す R-18 を検索で引いた物）を指す物を、欄の形ごとに落とし、落とした行と参照の数を `omittedByDisplaySettings` に添える。どの道具の答えにも当てる（検索の要約・商品1件・アバター・ファイルの逆引き・unitypackage・GUID の逆引き・改変・Unity を調べた結果・通知・共通素体）。
     - 一覧の行の `itemId`・`avatarId`（通知・ファイル・包み・改変の使った物・対応アバター `compatibleAvatars`・`avatarLinks.avatars`・改変のアバター）：行ごと落とす（ID と名前の組なので、ID だけ消すと名前が残る）。
-    - ID の文字列の配列（`avatarIds`・共通素体の `members`）：その ID だけ抜く。
+    - ID の文字列の配列（`avatarIds`・共通素体の `members`・商品のバリエーションの向き先の `avatars`・`rejectedAvatars`）：その ID だけ抜く。変換扱いのつなぎ先は `avatarId` の行なので行ごと落ちる（2026-11-27）。
     - 改変1件のアバターが隠す物なら断る（改変の名前もアバターの名前を含むことが多い）。
     - 共通素体は名前でまとめた物なので、`members` と素体の商品 `itemId`（null にする）だけを消して行は残す。見せてよい仲間が残らなければ行ごと落とす（素体の名前は隠したアバターの名前と同じことが多い）。アバターの `baseName`・商品の `avatarLinks.bases` の素体の名前は残る。
   - 隠す商品の ID を集めきれなければ（200件×100頁で続きが残る・答えに `items` が無い・ID が読めない・`nextCursor` が変）、ID の一覧が要る道具は「集めきれなかったので答えません」と断る（fail-closed。点検 M2）。
@@ -91,7 +91,7 @@
 | `chmonos_status` | つないでいる保存先・ほかの札・名乗る名前（API に問い合わせない。許しを求めない） |
 | `search_items` | 探す（`POST /v1/search`。`query` は検索欄と同じ文字列、`where` は式、`sort`・`has_unity_package`・`limit` 1〜30 既定20。上限は要約が 8,000字に収まる件数。ユーザ判断 2026-11-13・`cursor`） |
 | `get_search_conditions` | 条件の種類（`/v1/search/conditions`）と式の書き方の短い説明 |
-| `get_item` | 商品1件（`include`：avatarLinks・allFiles・contents・meta） |
+| `get_item` | 商品1件（`include`：avatarLinks・allFiles・contents・meta・variationTargets・contentUpdate） |
 | `get_item_description` | 説明文を見出しごとの素の文で（`offset`・`max_chars` 500〜6000 既定3000。HTML は返さない） |
 | `list_avatars`・`get_avatar` | 登録簿（`query`・`owned_only`） |
 | `list_avatar_bases` | 共通素体 |

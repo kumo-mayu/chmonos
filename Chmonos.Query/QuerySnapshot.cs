@@ -32,6 +32,14 @@ public sealed class QuerySnapshot
     public AppPaths Paths { get; }
 
     /// <summary>
+    /// 変換扱いの自動の判定（中にプロファイルのファイルがあるか）を、画面と同じ所（<see cref="Core.Services.ConversionScan.ProfilesOf"/>）で答えるため。
+    /// 読むのは unitypackage の中身の控えだけで、書かない。
+    /// </summary>
+    internal Core.Services.ConversionScan ConversionScan => _conversionScan ??= new(_store, new Core.Storage.UnityPackagePathStore(Paths));
+
+    private Core.Services.ConversionScan? _conversionScan;
+
+    /// <summary>
     /// 読めた商品の全部（ID の順）。**説明文（本文と見出しごとの文）は落としてある**（2026-10-12・ユーザ判断。アプリと控えを共有するときは落とさない：<see cref="SharesItemCache"/>）：
     /// 一覧・検索の既定の対象・条件のどれも使わないのに、2,000 件で専用のメモリの約3割（143MB のうち 43MB）を占めていた。
     /// 本文を探すとき（<see cref="HaystackOf"/>）だけ、その商品の JSON をファイルから読む。動画のリンクは落とす前に拾っておく（<see cref="Videos"/>）

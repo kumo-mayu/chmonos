@@ -61,6 +61,7 @@ public static class ItemMapper
             IsAvatar = snapshot.Registry.Entries.Any(entry =>
                 string.Equals(entry.ItemId, item.Id, StringComparison.Ordinal) && AvatarService.IsAvatar(entry)),
             HasUpdate = snapshot.UnreadUpdates.ContainsKey(item.Id),
+            NotifyOnUpdate = local.NotifyOnUpdate,
             HasBrokenArchive = item.HasBrokenArchive,
             HasMissingFiles = item.HasMissingFile,
             Variations = booth.Variations.Select(variation => new VariationRef(variation.Id, variation.Name, variation.Price)).ToList(),
@@ -71,6 +72,11 @@ public static class ItemMapper
                 KindOf(purchase.Kind),
                 purchase.PurchasedAt,
                 purchase.Note)).ToList(),
+            VariationTargets = AvatarCompatibilityIndex
+                .EffectiveVariationTargets(local, snapshot.Settings.UseDetectedVariationTargets)
+                .Select(target => VariationTarget(target, withRejections: false))
+                .ToList(),
+            Conversion = Conversion(item, snapshot),
             AcquiredAt = Search.SortFields.AcquiredAt(item),
             AcquiredAtEntered = local.AcquiredAt,
             CompatibleAvatars = Compatible(item, snapshot),
@@ -93,7 +99,52 @@ public static class ItemMapper
             Images = includes.HasFlag(ItemIncludes.Images) ? Images(item, snapshot).All : null,
             AvatarLinks = includes.HasFlag(ItemIncludes.AvatarLinks) ? AvatarLinks(item, snapshot) : null,
             Meta = includes.HasFlag(ItemIncludes.Meta) ? new ItemMetaRef(booth.FetchedAt) : null,
+            VariationTargetSources = includes.HasFlag(ItemIncludes.VariationTargets)
+                ? new VariationTargetSourcesRef(
+                    local.VariationTargets.Select(target => VariationTarget(target, withRejections: true)).ToList(),
+                    local.DetectedVariationTargets.Select(target => VariationTarget(target, withRejections: true)).ToList())
+                : null,
+            ContentUpdate = includes.HasFlag(ItemIncludes.ContentUpdate)
+                ? new ContentUpdateRef(local.ContentUpdate?.FoundAt, local.HasFilesNewerThanUpdate)
+                : null,
         };
+    }
+
+    /// <summary>出どころ別の行だけが、人が外した物を返す（既定の答えは結果だけ）。欠けた配列は空で返す。</summary>
+    private static VariationTargetRef VariationTarget(VariationTarget target, bool withRejections)
+        => new(
+            target.VariationId,
+            target.Avatars,
+            target.Bases,
+            target.All,
+            withRejections ? target.RejectedAvatars ?? [] : null,
+            withRejections ? target.RejectedBases ?? [] : null);
+
+    /// <summary>
+    /// 変換扱い。人が決めた扱い（<c>mode</c>）と自動の判定（中にプロファイルのファイルがあるか）は分けて返し、合わせた「実質の扱い」は組まない
+    /// （組み合わせ方は画面の側にしか無いので、ここで書くとずれる）。自動の判定は画面と同じ <see cref="ConversionScan.ProfilesOf"/> で、
+    /// 入る先の一番上で先にふるう（画面の <c>AvatarsViewModel.ProfilesOf</c> と同じ。ふるいに落ちた商品は中身の控えを読まない）。
+    /// </summary>
+    private static ConversionRef Conversion(ItemRecord item, QuerySnapshot snapshot)
+    {
+        var setting = item.Local.Conversion;
+        return new ConversionRef(
+            (setting?.Mode ?? ConversionMode.Auto) switch
+            {
+                ConversionMode.Profile => "profile",
+                ConversionMode.NotProfile => "notProfile",
+                _ => "auto",
+            },
+            ConversionScan.MayHoldProfiles(item) && snapshot.ConversionScan.ProfilesOf(item).Count > 0,
+            (setting?.Targets ?? [])
+                .Select(target => new ConversionTargetRef(
+                    target.AvatarItemId,
+                    target.BaseName,
+                    target.Slug,
+                    target.Forward,
+                    target.Reverse,
+                    StateOf(target.Confirmed, target.Rejected)))
+                .ToList());
     }
 
     /// <summary>

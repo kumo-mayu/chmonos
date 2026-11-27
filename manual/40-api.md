@@ -185,8 +185,12 @@ if ($result.state -eq "approved") {
 | `contents` | zip の中のファイルの一覧 |
 | `images` | 画像の全部（既定はサムネイルだけ） |
 | `meta` | BOOTH の情報を最後に取った日時 |
+| `variationTargets` | （次のバージョンから）バリエーションごとの対応アバターを、自分で決めた物と名前から見つけた物に分けて（`variationTargetSources`） |
+| `contentUpdate` | （次のバージョンから）BOOTH で中身の更新を見つけた日時と、その後に新しいファイルを取り込んだか |
 
 例：`/v1/items/1234567?include=avatarLinks,images`
+
+（次のバージョンから）商品1件には、バリエーションごとの対応アバター（`variationTargets`。自分で決めた物が名前から見つけた物より優先）、変換ツールのプロファイルとしての扱い（`conversion`）、更新を通知するか（`notifyOnUpdate`）も入ります。
 
 （次のバージョンから）ファイルの1件には、Chmonos に最初に記録した日時（`registeredAt`）と、ダウンロード元の記録から読んだ BOOTH のダウンロード（`downloadSource` の `downloadableId`・`itemUrl`）も入ります。古いバージョンで記録したファイルの `registeredAt` は `null` です。`downloadSource` が `null` ならまだ読んでいません。中の2つが `null` なら、読んだけれど BOOTH から落とした物と分かりませんでした。フォルダの1件にも `registeredAt` が入ります。
 

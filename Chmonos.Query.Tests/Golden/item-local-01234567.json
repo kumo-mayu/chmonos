@@ -27,10 +27,17 @@
   "isOwned": false,
   "isAvatar": false,
   "hasUpdate": false,
+  "notifyOnUpdate": true,
   "hasBrokenArchive": false,
   "hasMissingFiles": false,
   "variations": [],
   "purchases": [],
+  "variationTargets": [],
+  "conversion": {
+    "mode": "auto",
+    "hasProfileFiles": false,
+    "targets": []
+  },
   "acquiredAt": null,
   "acquiredAtEntered": null,
   "compatibleAvatars": [],

@@ -88,6 +88,30 @@ public sealed class ItemAnswerGoldenTests : IDisposable
                     },
                 ],
                 IsFavorite = true,
+                NotifyOnUpdate = false,
+
+                // バリエーションの向き先：11 は検出だけ、12 は人が決めた行が検出の行に勝つ
+                VariationTargets = [new VariationTarget { VariationId = 12, Avatars = ["7000002"], RejectedBases = ["作り物の素体"] }],
+                DetectedVariationTargets =
+                [
+                    new VariationTarget { VariationId = 11, Avatars = ["7000001"] },
+                    new VariationTarget { VariationId = 12, Bases = ["作り物の素体"] },
+                ],
+
+                // 変換扱い：人が決めた・推して確認待ち・人が外した、の3つの状態
+                Conversion = new ConversionSetting
+                {
+                    Mode = ConversionMode.Profile,
+                    Targets =
+                    [
+                        new ConversionTarget { AvatarItemId = "7000001", Forward = true, Slug = "sample", Confirmed = true },
+                        new ConversionTarget { BaseName = "作り物の素体", Reverse = true, Slug = "sample2" },
+                        new ConversionTarget { AvatarItemId = "7000002", Forward = true, Confirmed = true, Rejected = true },
+                    ],
+                },
+
+                // 見つけた時は A だけを持っていた。B はその後に入った物（新しいファイルを取り込んだ）
+                ContentUpdate = new ContentUpdate { FoundAt = Jst(2026, 9, 10), FilesBefore = [new string('A', 64)] },
             },
         });
 
@@ -180,8 +204,8 @@ public sealed class ItemAnswerGoldenTests : IDisposable
             AssertGolden($"item-{id}.json", json);
         }
 
-        // 頼まれたときだけ返す物を全部頼んだ答え（帳簿・外したファイル・zip の中・画像の全部・記録の古さ）
-        var full = Includes.ParseItem("avatarLinks,allFiles,contents,images,meta");
+        // 頼まれたときだけ返す物を全部頼んだ答え（帳簿・外したファイル・zip の中・画像の全部・記録の古さ・出どころ別の向き先・中身の更新の控え）
+        var full = Includes.ParseItem("avatarLinks,allFiles,contents,images,meta,variationTargets,contentUpdate");
         AssertGolden("item-9800001-include.json", QueryJson.Serialize(ItemMapper.Detail(snapshot.ItemsById["9800001"], snapshot, full), indented: true));
     }
 

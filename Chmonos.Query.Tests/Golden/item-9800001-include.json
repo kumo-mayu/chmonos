@@ -34,6 +34,7 @@
   "isOwned": true,
   "isAvatar": false,
   "hasUpdate": false,
+  "notifyOnUpdate": false,
   "hasBrokenArchive": false,
   "hasMissingFiles": true,
   "variations": [
@@ -58,6 +59,54 @@
       "note": null
     }
   ],
+  "variationTargets": [
+    {
+      "variationId": 11,
+      "avatars": [
+        "7000001"
+      ],
+      "bases": [],
+      "all": false
+    },
+    {
+      "variationId": 12,
+      "avatars": [
+        "7000002"
+      ],
+      "bases": [],
+      "all": false
+    }
+  ],
+  "conversion": {
+    "mode": "profile",
+    "hasProfileFiles": false,
+    "targets": [
+      {
+        "avatarId": "7000001",
+        "baseName": null,
+        "slug": "sample",
+        "forward": true,
+        "reverse": false,
+        "state": "confirmed"
+      },
+      {
+        "avatarId": null,
+        "baseName": "作り物の素体",
+        "slug": "sample2",
+        "forward": false,
+        "reverse": true,
+        "state": "candidate"
+      },
+      {
+        "avatarId": "7000002",
+        "baseName": null,
+        "slug": null,
+        "forward": true,
+        "reverse": false,
+        "state": "rejected"
+      }
+    ]
+  },
   "acquiredAt": "2025-04-01",
   "acquiredAtEntered": null,
   "compatibleAvatars": [
@@ -227,5 +276,47 @@
   },
   "meta": {
     "fetchedAt": "2026-10-01T12:00:00+09:00"
+  },
+  "variationTargetSources": {
+    "decided": [
+      {
+        "variationId": 12,
+        "avatars": [
+          "7000002"
+        ],
+        "bases": [],
+        "all": false,
+        "rejectedAvatars": [],
+        "rejectedBases": [
+          "作り物の素体"
+        ]
+      }
+    ],
+    "detected": [
+      {
+        "variationId": 11,
+        "avatars": [
+          "7000001"
+        ],
+        "bases": [],
+        "all": false,
+        "rejectedAvatars": [],
+        "rejectedBases": []
+      },
+      {
+        "variationId": 12,
+        "avatars": [],
+        "bases": [
+          "作り物の素体"
+        ],
+        "all": false,
+        "rejectedAvatars": [],
+        "rejectedBases": []
+      }
+    ]
+  },
+  "contentUpdate": {
+    "foundAt": "2026-09-10T12:00:00+09:00",
+    "hasNewerFiles": true
   }
 }

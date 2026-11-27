@@ -23,6 +23,12 @@ public enum ItemIncludes
 
     /// <summary>記録の古さ（BOOTH の情報を最後に取った日時）。</summary>
     Meta = 16,
+
+    /// <summary>バリエーションごとの向き先を、人が決めた行と検出した行に分けて（既定の答えは合わせた結果だけ）。</summary>
+    VariationTargets = 32,
+
+    /// <summary>BOOTH で見つけた中身の更新の控え（見つけた日時と、その後に新しいファイルを取り込んだか）。</summary>
+    ContentUpdate = 64,
 }
 
 /// <summary><c>include</c> の名前を読む。名前は外との約束。知らない名前は黙って飛ばさず誤りで返す（綴りの間違いに気付けるように）。</summary>
@@ -35,6 +41,8 @@ public static class Includes
         ["contents"] = ItemIncludes.Contents,
         ["images"] = ItemIncludes.Images,
         ["meta"] = ItemIncludes.Meta,
+        ["variationTargets"] = ItemIncludes.VariationTargets,
+        ["contentUpdate"] = ItemIncludes.ContentUpdate,
     };
 
     public static ItemIncludes ParseItem(string? text)
