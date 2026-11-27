@@ -484,13 +484,17 @@ public static class UnityImportQueue
             // その窓を OK で閉じても Unity は1行も書かないので、ログだけでは Cancel と見分けられない（2026-09-19 に実機で確かめた）。
             // 入っているかは「Unityで選択」と同じ調べ方（<see cref="UnityProjectMatcher"/>。パスの一覧は控えがある）。
             // 利用者が移した物も GUID で見つけて「入っている」と数える（Unity も GUID で同じ物と見て取り込まない）
-            var alreadyThere = project is not null && assets.Count > 0
-                && await Task.Run(
-                    () => UnityProjectMatcher.Match(
-                        project,
-                        new Dictionary<string, IReadOnlyList<UnityPackageAsset>>(StringComparer.Ordinal) { [package.Name] = assets })
-                        .FirstOrDefault() is { Total: > 0 } match && match.Present == match.Total,
-                    cancellationToken);
+            var before = project is not null && assets.Count > 0
+                ? await Task.Run(() => MatchOf(project, package, assets), cancellationToken)
+                : null;
+            var alreadyThere = before is { Total: > 0 } match && match.Present == match.Total;
+
+            // 送る前に入っていたファイルの数。取り込み画面が閉じた後にログにも窓にも動きが無い時、ディスクで増えたかを見て
+            // 「取り消した」と取り違えないため（<see cref="Reconsider"/>）。照らし合わせは1件も無い物を結果に入れないので、無ければ0
+            var presentBefore = before?.Present ?? 0;
+            Func<int>? presentNow = project is not null && assets.Count > 0
+                ? () => MatchOf(project, package, assets)?.Present ?? 0
+                : null;
 
             // メニューの番号は毎回探し直す。スクリプトを含むパッケージを取り込むと Unity がメニューを作り直し、
             // 番号が1つずれた（古い番号を送ったら「Export Package」の画面が開いた §9-4b）
@@ -547,6 +551,16 @@ public static class UnityImportQueue
 
             var (state, closed) = await WatchUntilDoneAsync(
                 processId, baseline, importWindow, tail, expected, alreadyThere, index, packages.Count, package, progress, cancellationToken);
+            if (state == UnityImportState.Cancelled && !closed && presentNow is not null)
+            {
+                var presentAfter = await Task.Run(presentNow, cancellationToken);
+                state = Reconsider(state, presentBefore, presentAfter);
+                if (state != UnityImportState.Cancelled)
+                {
+                    UiTrace.Write("Unity", $"{index + 1}/{packages.Count} 「{package.Name}」ログにも窓にも動きが無かったが、入っているファイルが {presentBefore}→{presentAfter} に増えた");
+                }
+            }
+
             UiTrace.Write("Unity", $"{index + 1}/{packages.Count} 「{package.Name}」→ {state}{(closed ? "（Unity が閉じた）" : string.Empty)}");
             windowPending = false;
             if (closed)
@@ -811,6 +825,25 @@ public static class UnityImportQueue
 
         return IntPtr.Zero;
     }
+
+    /// <summary>送る物の中身が、プロジェクトに今いくつ入っているか（パスか GUID で。利用者が移した物も数える）。</summary>
+    private static UnityProjectMatch? MatchOf(string project, UnityPackageEntry package, IReadOnlyList<UnityPackageAsset> assets)
+        => UnityProjectMatcher.Match(
+                project,
+                new Dictionary<string, IReadOnlyList<UnityPackageAsset>>(StringComparer.Ordinal) { [package.Name] = assets })
+            .FirstOrDefault();
+
+    /// <summary>
+    /// 見張りが「取り消した」と決めた物を、ディスクで見直す。送る前より入っているファイルが増えていれば取り込んだ。
+    ///
+    /// **一度入れてから消した物を入れ直すと、Unity は Library の控えから取り込み、送った物の「Start importing」を1行も出さず、
+    /// 進捗の窓も出さない**（実機 2026-11-27・スクリプトの無い102件の物で4回）。見張りはログと窓しか見ないので、5秒後に取り消しと決め、
+    /// 入っているのに「取り消した」と言い、入ったフォルダも選ばなかった。Unity は取り込んだ物に必ずファイルと <c>.meta</c> を書き、
+    /// Cancel では何も書かないので、増えたかで見分けられる。
+    /// 増えないまま取り込む物（入っていた物を同じ物で上書きしただけ）は見分けられず、今まで通り取り消しになる。
+    /// </summary>
+    internal static UnityImportState Reconsider(UnityImportState state, int presentBefore, int presentAfter)
+        => state == UnityImportState.Cancelled && presentAfter > presentBefore ? UnityImportState.Imported : state;
 
     /// <summary>Unity が自分の作業（取り込み・コンパイル・ドメイン再読込）で塞がっているか。</summary>
     private static bool IsUnityBusy(int processId)

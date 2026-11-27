@@ -174,6 +174,22 @@ public sealed class ApiUnitySendsTests
     }
 
     [Fact]
+    public void 取り消したと決めた物は_入っているファイルが増えていれば取り込んだにする()
+    {
+        // 消してから入れ直すと、Unity は Library の控えから取り込み、ログにも窓にも何も出さない（実機 2026-11-27）
+        Assert.Equal(UnityImportState.Imported, UnityImportQueue.Reconsider(UnityImportState.Cancelled, 0, 102));
+        Assert.Equal(UnityImportState.Imported, UnityImportQueue.Reconsider(UnityImportState.Cancelled, 40, 41));
+
+        // 増えていない：本当に Cancel した（Unity は何も書かない）
+        Assert.Equal(UnityImportState.Cancelled, UnityImportQueue.Reconsider(UnityImportState.Cancelled, 0, 0));
+        Assert.Equal(UnityImportState.Cancelled, UnityImportQueue.Reconsider(UnityImportState.Cancelled, 40, 40));
+
+        // 取り消し以外は見直さない（減っても・増えても、見張りの決めた方のまま）
+        Assert.Equal(UnityImportState.Imported, UnityImportQueue.Reconsider(UnityImportState.Imported, 5, 0));
+        Assert.Equal(UnityImportState.AlreadyPresent, UnityImportQueue.Reconsider(UnityImportState.AlreadyPresent, 10, 12));
+    }
+
+    [Fact]
     public void 送る部品の結果を_状態の値にする()
     {
         var package = new UnityPackageEntry(@"C:\作り物\a.zip", "A.unitypackage", 0);
