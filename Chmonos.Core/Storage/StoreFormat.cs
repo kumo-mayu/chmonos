@@ -282,6 +282,17 @@ public static class StoreFormat
                 }
             }
         }
+
+        // 外のソフトの情報（extensions/<名前空間>/…）は使う人のデータで、名前空間・付け先ごとに入れ子のフォルダを持つので、下まで写す
+        // （docs/spec/local-api-extensions.md「置き場」：形式の控えに入れる）
+        var extensions = Path.Combine(root, "extensions");
+        if (Directory.Exists(extensions))
+        {
+            foreach (var file in StoreTree.Files(extensions, "*.json", recurse: true))
+            {
+                yield return file;
+            }
+        }
     }
 
     /// <summary>控えのファイル数と大きさ。設定の「データ」の行に出す（画像・商品の情報の行と同じ数え方）。</summary>
