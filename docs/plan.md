@@ -233,4 +233,4 @@
    - 済み：写しの裏の取得：`ui-check/sandboxes.md` は「friendtest 以外は切」だが、2026-11-26 に attrcheck・daily-ui・friend2-backup・prod-backup-20261118・prod-rehearsal・upd2check・updcheck が「入」だった。friendcheck も「入」で、測りの起動で BOOTH へ更新の確認が流れた（ゲートは通った）ので、friendcheck を「切」に戻し、ユーザ判断（「切にしてよいです」）でほかの7つも「切」にした。今「入」は friendtest だけ
 59. API の拡張性（2026-11-27 から。ユーザ「両方です。2から考えましょう」）：
    - 拡張データ（外のソフトが自分の情報を置く）の形を決めた（`docs/spec/local-api-extensions.md` [採用]）。次は「まだ決めていない事」（URL と答えの形・宣言を変えた時・上限・画面）を詰めてから作る
-   - その次：今 API が出していない内部の情報を読ませる（商品の `variationTargets`・`conversion`・`contentUpdate`・`notifyOnUpdate`・再取得の予定、まだの URL の folders・unresolved・excluded・volumes・recent・stats・saved-searches、変換の組 `conversion-pairs.json`）。どれを出すかを聞く
+   - 先にこちら（ユーザ「先に内部情報の方を決めてから続きを詰めます」）：今 API が出していない内部の情報で出す物を決めた（2026-11-27・`docs/spec/local-api-shapes.md`「出す物を決めた」）。作る順：① 商品の欄（バリエーションの向き先・変換扱い・中身の更新の控え・更新を知らせるか） ② excluded・recent・folders ③ unresolved・取り込みの進み具合 ④ 変換の組 ⑤ 保存した検索

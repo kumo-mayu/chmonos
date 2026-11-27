@@ -22,8 +22,8 @@
 | `POST /v1/search` | 式で検索（下）。答えは一覧（要約）と全体の数と続きの印 | 作った（`SearchEngine`） |
 | `GET /v1/search/conditions` | 条件の種類・値の形・選択肢・切り替えの既定 | 作った |
 | `POST /v1/search/facets` | 選択肢の件数（下） | 作った |
-| `GET /v1/search/explain?q=` | 検索欄の文字列をどう読んだか | まだ |
-| `GET /v1/saved-searches`・`/search-history` | 保存した検索・履歴（式に変換した物も添える） | まだ（保存の形から API の条件へ戻す変換が要る） |
+| `GET /v1/search/explain?q=` | 検索欄の文字列をどう読んだか | 後回し（2026-11-27・下の「出す物を決めた」） |
+| `GET /v1/saved-searches`・`/search-history` | 保存した検索・履歴（式に変換した物も添える） | 保存した検索は出す・履歴は後回し（2026-11-27）。保存の形から API の条件へ戻す変換が要る |
 | `GET /v1/avatars`・`/v1/avatars/{id}` | 登録簿（名前・素体・持っているか・対応する商品の数・絵の場所） | 作った |
 | `GET /v1/avatar-bases` | 共通素体（属するアバター・呼び方） | 作った |
 | `GET /v1/files/lookup?path=`・`?hash=` | ファイル・フォルダから商品を逆に引く | 作った |
@@ -32,17 +32,40 @@
 | `GET /v1/items/{id}/unitypackage-assets`・`POST /v1/unitypackages/lookup` | 包みの中身（GUID → パス）・GUID から包みと商品を逆に引く。形は [local-api-stored.md](local-api-stored.md) | 作った（2026-11-11） |
 | `POST /v1/zip-images/lookup` | 画像の CRC と大きさから、それが入っている zip と商品を引く。形は [local-api-stored.md](local-api-stored.md) | 作った（2026-11-11） |
 | `GET /v1/unity-scans` | Unity プロジェクトを調べた結果の控え（入っている商品と割合・手で置いた画像）。形は [local-api-stored.md](local-api-stored.md) | 作った（2026-11-11） |
-| `GET /v1/folders`・`/v1/unresolved`・`/v1/excluded`・`/v1/volumes` | 登録したフォルダ・商品が決まっていないファイル・外したファイル・ドライブ | まだ |
+| `GET /v1/folders`・`/v1/unresolved`・`/v1/excluded`・`/v1/volumes` | 登録したフォルダ・商品が決まっていないファイル・外したファイル・ドライブ | volumes 以外は出す（2026-11-27。まだ作っていない）。volumes は後回し |
 | `GET /v1/unresolved/candidates?hash=` | 未確定の自動検索の控え（対象ごとの候補）。形は [local-api-stored.md](local-api-stored.md) | 作った（2026-11-11） |
 | `GET /v1/user-tags`・`/v1/attributes`・`/v1/categories`・`/v1/booth-tags` | 分類と件数（マスタに無いのに付いている物も返す） | 作った |
 | `GET /v1/shops`・`/v1/shops/{key}` | ショップ（星・メモ・件数） | 作った |
 | `GET /v1/modifications`・`/{id}`・`/v1/unity-projects` | 改変・Unity プロジェクト | 作った |
 | `GET /v1/notifications` | 通知（既読・片付けた印つき） | 作った（変化の中身はまだ） |
 | `GET /v1/notifications/archive`・`/archive/{month}` | 保管した通知（月ごと・新しい順・商品名で絞る・続きの印）。形は [local-api-stored.md](local-api-stored.md) | 作った（2026-11-11） |
-| `GET /v1/recent`・`/v1/stats` | 最近の足跡・統計 | まだ |
+| `GET /v1/recent`・`/v1/stats` | 最近の足跡・統計 | recent は出す（2026-11-27。まだ作っていない）・stats は後回し |
 | `GET /v1/images/{itemId}/{name}`・`/v1/modifications/{id}/images/{name}` | 画像の本体（ブラウザの画面のため） | 作った |
 
 アバター・素体・ショップから商品を引く専用の URL は作らない（検索の式で書く。ユーザ判断 2026-10-12）。
+
+## 出す物を決めた（2026-11-27・ユーザ判断「おすすめを採用します」）
+
+今 API が出していない内部の情報を1つずつ仕分けた。物差しは [local-api.md](local-api.md) の「出す範囲 B」（読む事は広く出す）・「既定は結果だけ、帳簿は `?include=`」・画面と段取りの内部の状態は出さない（出すと形を変えにくい）。まだ作っていない。
+
+| 物 | 決め | 出し方・理由 |
+|---|---|---|
+| 商品のバリエーションの向き先（`variationTargets`・`detectedVariationTargets`） | 出す | 既定は合わせた結果（人が決めた物が勝つ）。出どころ別は `include=variationTargets` |
+| 商品の変換扱い（`conversion`） | 出す | 変換扱いか・つなぎ先。自動の判定の結果も Core の同じ所から返す（外で計算させない） |
+| 商品の中身の更新の控え（`contentUpdate`） | 出す | 見つけた日時と、その後に新しいファイルを取り込んだか。`include=` で返す |
+| 商品の更新を知らせるか（`notifyOnUpdate`） | 出す | 既定の答えに1欄 |
+| 商品の再取得の予定（次に取る時・続けて見つからなかった回数） | 出さない | 取り込みの内部の段取りで決まりが変わり得る。最後に取った日時は `include=meta` で出ている |
+| `/v1/folders`・`/v1/unresolved`・`/v1/excluded`・`/v1/recent` | 出す | 未確定・外した物は読むだけ（解決は画面に残す）。最近は書く口があるのに読めなかった |
+| `/v1/saved-searches` | 出す | 人が作った検索をソフトが使い回す。保存の形から API の条件へ戻す変換を作る |
+| `/v1/search-history`・`/v1/stats`・`/v1/volumes`・`/v1/search/explain` | 後回し | 履歴は使い道が薄い。統計は画面の計算を Core へ移す要がある。ドライブは生の組より、読み替えを済ませて今の場所を返す方が役に立つ（[local-api.md](local-api.md)「未決」）。記法を外から使う場面がまだ無い |
+| 人が足した変換の組（`conversion-pairs.json`） | 出す | 外の変換ツールに大事な情報。変換扱いと一緒に |
+| 取り込みの進み具合（`import-state.json`） | 一部を出す | 今の `busy` に「済んだ数／全体」だけを足す。続きに要る中身は出さない |
+| 設定（`settings.json`） | 出さない | 要る物を1つずつ足す（`/v1/display-settings` の形） |
+| 画面の状態・編集の位置・登録の待ち列・途中の操作 | 出さない | 画面と段取りの内部で、形が変わる |
+| バナー・動画の題・新しい版の確認 | 出さない | 機械の控え。動画の題は YouTube の情報の配り直しになる |
+| 控え（`format-backups`・`items/.prev`）・よけた記録・ログ・検索用の控え | 出さない | 中身の守り（ログ）と内部の物 |
+
+作る順（軽い物から）：① 商品の欄 ② excluded・recent・folders ③ unresolved・取り込みの進み具合 ④ 変換の組 ⑤ 保存した検索。どれも項目を足すだけで `/v1/` のまま。
 
 ## 商品の答え（`ItemDetail`・`ItemSummary`）
 
