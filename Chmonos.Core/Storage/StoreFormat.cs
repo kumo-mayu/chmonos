@@ -254,7 +254,7 @@ public static class StoreFormat
         => JsonStore.Write(Path.Combine(root, MarkerFileName), new Marker { WrittenBy = appVersion });
 
     /// <summary>
-    /// 形式を上げる前の控えを取る。保存先の直下と items・modifications・unitypackages・zipimages の JSON を、
+    /// 形式を上げる前の控えを取る。保存先の直下と items・modifications・unitypackages・zipimages・unityscans の JSON と、extensions の下の全部を、
     /// <c>format-backups/v{古い版}-{日時}/</c> の同じ相対の場所へ写す。写した先のフォルダを返す。
     /// 画像・.cache・logs・items/.prev は写さない（画像は形式を持たず、控えの控えは要らない）
     /// </summary>
