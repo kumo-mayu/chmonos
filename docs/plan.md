@@ -239,8 +239,9 @@
    1. 内部の情報
       - 済み：① 商品の欄（b33f0b8e。バリエーションの向き先・変換扱い・中身の更新の控え・更新を知らせるか）
       - 済み：作る中で見つけた、選ばない購入の向き先で商品の記録が読めなくなる不具合（b8160f76。11-07 以降の開発版で書いた記録も読める）
-      - 作っている：変換のつなぎ先を対応アバターの答えに揃える（外した物は include）・「変換扱いか」の結果を組む処理を Core へ移して答えに足す（ユーザ判断「3は揃えた方が良い」「4はCoreへ移しましょう」）
-      - ② excluded・recent・folders ③ unresolved・取り込みの進み具合 ④ 変換の組 ⑤ 保存した検索
+      - 済み：変換のつなぎ先を対応アバターの答えに揃えた（12ece092。外した物は `include=conversionTargets`）・「変換扱いか」の実質の扱いを Core へ移して答えに `effectiveMode` を足した（a6d69272・`ConversionTreatments`。ユーザ判断「3は揃えた方が良い」「4はCoreへ移しましょう」）
+      - 記録だけ：Core の `SearchModuleConditions.IsProfileItem`（検索の条件「プロファイル」・商品ページの欄を出すか）は一番上のフォルダだけを見る別の問いで、`ConversionTreatments` と揃えていない（担当の報告 2026-11-27）
+      - 作っている：② excluded・recent・folders ③ unresolved・取り込みの進み具合 ④ 変換の組 ⑤ 保存した検索
    2. 開いた画面に付いていく（`screenChanged`・`GET /v1/plugin/current`・`watch.screen`）
    3. 右クリックの5か所（file・unityPackage・modification・avatar・shop）
    4. 拡張データ：上限を測る（測る前に kumo-ime に聞く・VRChat 中は測らない）→ 宣言と値と include → 画面 → 検索の条件と目盛り → まとめて書く口
