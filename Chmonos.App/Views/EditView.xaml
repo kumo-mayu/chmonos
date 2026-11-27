@@ -420,13 +420,7 @@
             <Grid Grid.Column="0">
             <controls:InsetScrollViewer x:Name="LeftScroll" VerticalScrollBarVisibility="Auto" Padding="20">
                 <StackPanel>
-                    <!--
-                        左右で保存のしかたが違う（左は押した時点・右は「保存して次へ」）。
-                        今の形のままにすると決めた（ユーザ判断 2026-09-20・B7）ので、**画面に書く**。
-                        書いていないと、左で触った分も「保存して次へ」を押すまで残らないと読める
-                    -->
-                    <TextBlock Text="この列は押した時点で保存されます。右の欄は「保存して次へ」で保存します。"
-                               Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,10" />
+                    <!-- 左右で保存のしかたが違う事の案内の1行は、要らないので消した（ユーザ指示 2026-11-27。前は B7 で画面に書いていた）。マニュアルの 12-edit に書いてある -->
                     <!-- 商品の札（名前・ショップ・ID・「編集」で開く欄）は画像の上（ユーザ指示 2026-11-14・11-18：開いてすぐに商品名が分かるように） -->
                     <Border Style="{StaticResource Card}" Margin="0,0,0,14" Padding="18,16">
                         <StackPanel>
