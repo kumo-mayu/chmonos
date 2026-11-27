@@ -936,7 +936,7 @@ public sealed partial class SearchViewModel
         // 素体経由は推定なので含めるかを選べるようにする。既定で含めるのは「対応が確認できていないものを既定で隠さない」方針（メモ82 で確かめた）
         SearchModuleKind.Avatar => new ListModule(kind, allowsAnd: true, "名前、ID、素体で絞り込む",
             "アバターがまだ見つかっていません。アバターの管理から検出できます。", ListMatches(kind),
-            "素体経由の対応も含める", flagDefault: SearchModuleConditions.ListOf(kind)!.FlagDefault,
+            ListModule.ViaBaseLabel, flagDefault: SearchModuleConditions.ListOf(kind)!.FlagDefault,
             isUnspecified: SearchModuleConditions.ListOf(kind)!.IsUnspecified)
         {
             IconSelector = AvatarIconSelector,
@@ -944,6 +944,7 @@ public sealed partial class SearchViewModel
             InfoSelector = text => _avatarSuggestInfo.GetValueOrDefault(text),
             GroupHeadings = AvatarSuggestionText.Headings,
             OpenOf = AvatarChipOpen,
+            FlagHint = "同じ共通素体を通して対応する商品も含めます。",
         },
 
         // 変換ツールのプロファイル（ユーザ判断 2026-11-09・案B）。「変換元」（逆方向）と「変換先」（順方向）の2つの欄。
@@ -1049,7 +1050,7 @@ public sealed partial class SearchViewModel
 
     /// <summary>
     /// 人が足す変換の組を変えたことを知る。条件を組むたびに組を読むので、絞り直すだけでよい
-    /// （対応アバターの条件の「変換で使える物も含める」の結果が変わりうる）
+    /// （対応アバターの条件の「変換経由を含める」の結果が変わりうる）
     /// </summary>
     public void NoteConversionPairsChanged() => ApplyFilters();
 

@@ -33,13 +33,13 @@ public sealed class ConditionRequest
     /// <summary>選ぶ条件の補助の切り替え（名前は <c>/v1/search/conditions</c>）。</summary>
     public IReadOnlyDictionary<string, bool>? Options { get; init; }
 
-    /// <summary>対応アバター：素体経由の対応も含めるか（既定 true）。</summary>
+    /// <summary>対応アバター：素体経由も当てるか（既定 true。画面の「素体経由を含める」）。</summary>
     public bool? ViaBase { get; init; }
 
     /// <summary>対応アバター：持っているバリエーションの分だけで照らすか（既定 false。画面の「持っているバリエーションの分だけ」）。</summary>
     public bool? OwnedVariationsOnly { get; init; }
 
-    /// <summary>対応アバター：変換で使える物も含めるか（既定 false。画面の「変換で使える物も含める」）。</summary>
+    /// <summary>対応アバター：変換経由も当てるか（既定 false。画面の「変換経由を含める」）。</summary>
     public bool? ViaConversion { get; init; }
 
     /// <summary>プロファイル：自動で推して確認していないつなぎ先も当てるか（既定 true。画面の「確認待ちも含める」）。</summary>

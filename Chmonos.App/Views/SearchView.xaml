@@ -971,21 +971,13 @@
                                                   AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Flag'}"
                                                   AutomationProperties.Name="{Binding FlagLabel}"
                                                   ToolTip="{Binding FlagHint}"
-                                                  Visibility="{Binding HasFlag, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                                  Visibility="{Binding ShowsPlainFlag, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <TextBlock Text="{Binding FlagLabel}" FontSize="12" Foreground="{DynamicResource Text}" />
                                         </CheckBox>
                                         <!--
-                                            対応アバターだけ。持っているプロファイルで変換できる見込みの商品も当てる（docs/spec/conversion.md「検索」・ユーザ判断 2026-11-06：
-                                            「素体経由の対応も含める」の隣・既定は切。入にすると、更新しただけで今の絞り込みの結果が増える）
+                                            対応アバターだけ。アバターごとにバリエーションで売っている衣装で、持っていない分を当てない（ユーザ判断 2026-11-06・既定は切）。
+                                            AND／OR と並べていつも開いておく（ユーザ判断 2026-11-27）
                                         -->
-                                        <CheckBox IsChecked="{Binding ViaConversion, Mode=TwoWay}" Margin="0,4,0,0"
-                                                  AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.ViaConversion'}"
-                                                  AutomationProperties.Name="変換で使える物も含める"
-                                                  ToolTip="持っているプロファイルで変換できる見込みの商品も含めます。"
-                                                  Visibility="{Binding HasOwnedVariations, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                            <TextBlock Text="変換で使える物も含める" FontSize="12" Foreground="{DynamicResource Text}" />
-                                        </CheckBox>
-                                        <!-- 対応アバターだけ。アバターごとにバリエーションで売っている衣装で、持っていない分を当てない（ユーザ判断 2026-11-06・既定は切） -->
                                         <CheckBox IsChecked="{Binding OwnedVariationsOnly, Mode=TwoWay}" Margin="0,4,0,0"
                                                   AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.OwnedVariations'}"
                                                   AutomationProperties.Name="持っているバリエーションの分だけ"
@@ -993,6 +985,33 @@
                                                   Visibility="{Binding HasOwnedVariations, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
                                             <TextBlock Text="持っているバリエーションの分だけ" FontSize="12" Foreground="{DynamicResource Text}" />
                                         </CheckBox>
+                                        <!--
+                                            対応アバターの「範囲」（ユーザ判断 2026-11-27）。初めは畳み、見出しに今の値を書く（畳んだままでも効いている範囲が読める）。
+                                            変換経由は、持っているプロファイルで変換できる見込みの商品も当てる（docs/spec/conversion.md「検索」・既定は切。
+                                            入にすると、更新しただけで今の絞り込みの結果が増える）
+                                        -->
+                                        <Expander Style="{StaticResource TriangleExpander}" Margin="0,6,0,0" IsExpanded="{Binding IsRangeExpanded, Mode=TwoWay}"
+                                                  AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Range'}"
+                                                  AutomationProperties.Name="範囲"
+                                                  Visibility="{Binding HasRange, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                            <Expander.Header>
+                                                <TextBlock Text="{Binding RangeHeader}" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource Text}" />
+                                            </Expander.Header>
+                                            <StackPanel Margin="30,4,0,0">
+                                                <CheckBox IsChecked="{Binding Flag, Mode=TwoWay}"
+                                                          AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Flag'}"
+                                                          AutomationProperties.Name="{x:Static vm:ListModule.ViaBaseLabel}"
+                                                          ToolTip="{Binding FlagHint}">
+                                                    <TextBlock Text="{x:Static vm:ListModule.ViaBaseLabel}" FontSize="12" Foreground="{DynamicResource Text}" />
+                                                </CheckBox>
+                                                <CheckBox IsChecked="{Binding ViaConversion, Mode=TwoWay}" Margin="0,4,0,0"
+                                                          AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.ViaConversion'}"
+                                                          AutomationProperties.Name="{x:Static vm:ListModule.ViaConversionLabel}"
+                                                          ToolTip="持っているプロファイルで変換できる見込みの商品も含めます。">
+                                                    <TextBlock Text="{x:Static vm:ListModule.ViaConversionLabel}" FontSize="12" Foreground="{DynamicResource Text}" />
+                                                </CheckBox>
+                                            </StackPanel>
+                                        </Expander>
                                         <!-- 結果はアプリを閉じるまで覚えるので、入れ直した後に押す。文字だけではボタンに見えなかった（ユーザ指摘 2026-11-01） -->
                                         <Button Content="プロジェクトを読み直す" Command="{Binding ReloadCommand}" HorizontalAlignment="Left"
                                                 Style="{StaticResource SmallButton}" Margin="0,8,0,0"
@@ -1005,11 +1024,17 @@
                                       <!--
                                           出すもの（対応アバターだけ・ユーザ判断 2026-09-16・案C）。商品を「対応が書いてある」と「対応の指定が無い」に分け、
                                           どちらを出すかを印で選ぶ。BOOTH には対応アバターを書かずに「どのアバターでも使える」商品がある。
-                                          件数は他の条件を当てたうえでの数。最後の1つは外せない
+                                          件数は他の条件を当てたうえでの数。最後の1つは外せない。
+                                          初めは畳み、見出しに今の値を書く（ユーザ判断 2026-11-27。「範囲」と同じ形）
                                       -->
-                                      <StackPanel Margin="0,8,0,0"
-                                                  Visibility="{Binding HasGroups, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
-                                          <TextBlock Text="表示するもの" Style="{StaticResource Caption}" Margin="0,0,0,3" />
+                                      <Expander Style="{StaticResource TriangleExpander}" Margin="0,6,0,0" IsExpanded="{Binding IsShownExpanded, Mode=TwoWay}"
+                                                AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.Shown'}"
+                                                AutomationProperties.Name="表示するもの"
+                                                Visibility="{Binding HasGroups, Converter={x:Static vm:BoolToVisibilityConverter.Instance}}">
+                                      <Expander.Header>
+                                          <TextBlock Text="{Binding ShownHeader}" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource Text}" />
+                                      </Expander.Header>
+                                      <StackPanel Margin="30,4,0,0">
                                           <CheckBox IsChecked="{Binding ShowMatched, Mode=TwoWay}"
                                                     AutomationProperties.AutomationId="{Binding IdKey, StringFormat='SearchModule.{0}.ShowMatched'}"
                                                     AutomationProperties.Name="{Binding NameSuffix, StringFormat={}対応している商品を表示{0}}"
@@ -1024,6 +1049,7 @@
                                                          Foreground="{DynamicResource Text}" />
                                           </CheckBox>
                                       </StackPanel>
+                                      </Expander>
                                     </StackPanel>
                                 </DataTemplate>
 

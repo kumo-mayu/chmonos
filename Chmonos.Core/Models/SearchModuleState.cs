@@ -56,7 +56,7 @@ public sealed record SearchModuleState
     /// </summary>
     public bool IgnoreOutliers { get; init; } = true;
 
-    /// <summary>補助の切り替え（販売終了の「非公開も表示する」・対応アバターの「素体経由の対応も含める」）。</summary>
+    /// <summary>補助の切り替え（販売終了の「非公開も表示する」・対応アバターの「素体経由を含める」）。</summary>
     public bool Flag { get; init; }
 
     /// <summary>

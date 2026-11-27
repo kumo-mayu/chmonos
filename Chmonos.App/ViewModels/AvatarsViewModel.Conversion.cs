@@ -188,7 +188,7 @@ public sealed partial class AvatarsViewModel
 
     /// <summary>
     /// 「変換」の一覧の上の「追加した組」（人が足す変換の組・ユーザ判断 2026-11-20）。
-    /// 足した・外したら検索を絞り直し（対応アバターの条件の「変換で使える物も含める」が組を使う）、アバターの詳細の札も読み直す
+    /// 足した・外したら検索を絞り直し（対応アバターの条件の「変換経由を含める」が組を使う）、アバターの詳細の札も読み直す
     /// </summary>
     public ConversionPairEditor ConversionPairs => _conversionPairs ??= CreateConversionPairs();
 

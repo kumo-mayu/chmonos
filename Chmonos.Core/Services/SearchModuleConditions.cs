@@ -43,12 +43,12 @@ public static class SearchModuleConditions
 
     /// <summary>
     /// 対応アバターの「持っているバリエーションの分だけ」の切り替えの名前（<see cref="SearchModuleState.Toggles"/>。既定は切・ユーザ判断 2026-11-06）。
-    /// 使い回しの Flag は「素体経由の対応も含める」が持っているので、名前で分ける
+    /// 使い回しの Flag は「素体経由を含める」が持っているので、名前で分ける
     /// </summary>
     public const string OwnedVariationsToggle = "ownedVariationsOnly";
 
     /// <summary>
-    /// 対応アバターの「変換で使える物も含める」の切り替えの名前（docs/spec/conversion.md「検索」・既定は切・ユーザ判断 2026-11-06：入にすると、更新しただけで今の絞り込みの結果が増える）。
+    /// 対応アバターの「変換経由を含める」の切り替えの名前（docs/spec/conversion.md「検索」・既定は切・ユーザ判断 2026-11-06：入にすると、更新しただけで今の絞り込みの結果が増える）。
     /// </summary>
     public const string ViaConversionToggle = "viaConversion";
 
