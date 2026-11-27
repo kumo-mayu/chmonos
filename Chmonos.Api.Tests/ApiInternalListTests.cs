@@ -72,7 +72,7 @@ public sealed class ApiInternalListTests : IAsyncLifetime
             ],
         });
 
-        // 外したファイル：同じ日時が2件（記録の後ろが先）・場所が2つ・理由の無い物
+        // 外したファイル：同じ日時が2件（記録の後ろが先）・場所が2つ・出どころの文が無い物・知らない文の物
         await _store.Excluded.SaveAsync(
         [
             new ExcludedEntry { Hash = new string('1', 64), Paths = [@"D:\inbox\a.zip", @"E:\copy\a.zip"], ExcludedAt = Day1, Reason = "作り物の理由" },
@@ -232,14 +232,14 @@ public sealed class ApiInternalListTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task 外したファイルは_画面と同じ新しい順に場所の全部と理由を返し_外したら読み直す()
+    public async Task 外したファイルは_画面と同じ新しい順に場所の全部と出どころの値を返し_外したら読み直す()
     {
         var first = await JsonOf("/v1/excluded?limit=2");
         Assert.Equal(3, first.GetProperty("total").GetInt32());
 
         // 外した日時の新しい順・同じ日時は記録の後ろ（後から外した物）が先（設定の「除外したファイル」と同じ）
         Assert.Equal([new string('3', 64), new string('2', 64)], Ids(first, "hash"));
-        Assert.Equal(JsonValueKind.Null, first.GetProperty("items")[1].GetProperty("reason").ValueKind);
+        Assert.Equal(JsonValueKind.Null, first.GetProperty("items")[1].GetProperty("source").ValueKind);
 
         var cursor = Uri.EscapeDataString(first.GetProperty("nextCursor").GetString()!);
         var second = await JsonOf($"/v1/excluded?limit=2&cursor={cursor}");
@@ -247,15 +247,18 @@ public sealed class ApiInternalListTests : IAsyncLifetime
 
         // 場所は潰さず全部（画面は1つ目だけを見せる）
         Assert.Equal([@"D:\inbox\a.zip", @"E:\copy\a.zip"], oldest.GetProperty("paths").EnumerateArray().Select(path => path.GetString()));
-        Assert.Equal("作り物の理由", oldest.GetProperty("reason").GetString());
+        // 表に無い文は other（文そのものは返さない）
+        Assert.Equal(ExcludeSources.Other, oldest.GetProperty("source").GetString());
         Assert.Equal(Day1, oldest.GetProperty("excludedAt").GetDateTimeOffset());
         Assert.Equal(JsonValueKind.Null, second.GetProperty("nextCursor").ValueKind);
 
         // 画面が外した（見張りの知らせと同じ道：excluded.json の場所から部分を見分けて読み直す）
-        await _store.Excluded.SaveAsync([new ExcludedEntry { Hash = new string('4', 64), Paths = [@"D:\inbox\d.zip"], ExcludedAt = Day3 }]);
+        await _store.Excluded.SaveAsync([new ExcludedEntry { Hash = new string('4', 64), Paths = [@"D:\inbox\d.zip"], ExcludedAt = Day3, Reason = ExcludeSources.ResolveArchiveText }]);
         _sync.Note(_store.Paths.ExcludedFile);
         await _sync.ApplyPendingAsync();
-        Assert.Equal([new string('4', 64)], Ids(await JsonOf("/v1/excluded"), "hash"));
+        var after = await JsonOf("/v1/excluded");
+        Assert.Equal([new string('4', 64)], Ids(after, "hash"));
+        Assert.Equal("resolveArchive", after.GetProperty("items")[0].GetProperty("source").GetString());
 
         await AssertProblem("/v1/excluded?cursor=abc", "invalidCursor");
     }

@@ -271,7 +271,7 @@ public sealed partial class ResolveViewModel
         try
         {
             var excluded = await _services.Commands.ExecuteAsync(
-                new UiCommand.ExcludeFiles([.. targets.Select(row => row.File)], "未確定画面からまとめて除外"));
+                new UiCommand.ExcludeFiles([.. targets.Select(row => row.File)], ExcludeSources.ResolveBulkText));
 
             RemoveRows(targets);
             RememberExcluded(targets, excluded);

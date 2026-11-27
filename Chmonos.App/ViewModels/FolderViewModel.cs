@@ -1797,7 +1797,7 @@ public sealed class FolderViewModel : ViewModelBase, ISelectionScreen, IPendingW
         // 1回の命令で外す。1個ずつ呼ぶと記録を個数ぶん丸ごと読み書きし、5,000 個で2分半、その間この画面は何も出さなかった。
         // まとめれば 5,000 個で 0.06〜0.07 秒（未確定がほかに 8万件あっても 0.7 秒弱）で、読み書きは裏で走り画面は止まらない。
         // 押せない間の印や進み具合を出しても目に留まらないので付けない（2026-10-01 に測った）
-        await _services.Commands.ExecuteAsync(new UiCommand.ExcludeFiles(detail.Unresolved, "フォルダビューからフォルダごと除外"));
+        await _services.Commands.ExecuteAsync(new UiCommand.ExcludeFiles(detail.Unresolved, ExcludeSources.FolderViewText));
 
         Status = $"{detail.Unresolved.Count} 件を管理対象から除外しました。";
         _main.RefreshBadges();
